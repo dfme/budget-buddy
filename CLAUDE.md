@@ -50,7 +50,7 @@
 | Schicht | Technologie | Begründung |
 |---|---|---|
 | Frontend | Angular (TypeScript) | Component-basiert, Two-Way-Binding, gut für Forms |
-| Backend | Java 25 + Spring Boot 3.x / 4.x (je nach Verfügbarkeit) | Typsicher, breites Ökosystem, Industriestandard |
+| Backend | Java 25 + Spring Boot 3.x | Typsicher, breites Ökosystem, Industriestandard |
 | API-Dokumentation | OpenAPI 3 (Springdoc) | Automatisch generierte Doku, Contract-First möglich |
 | Datenbank | SQLite | Einfach, kein separater DB-Server nötig — ideal für MVP |
 | KI | Claude API (Anthropic Java SDK) | Kategorisierung + KI-Monatsbericht |
