@@ -109,19 +109,4 @@ Antwort (nur Kategoriename):
 | 13  | Als **Lara** möchte ich die Einzeltransaktionen einer Kategorie einsehen können, damit ich genau nachvollziehen kann, wofür ich Geld ausgegeben habe. | Should | **Given** ich die Kategorienübersicht öffne, **When** ich auf eine Kategorie klicke, **Then** sehe ich alle zugehörigen Transaktionen mit Datum, Betrag und Empfänger — sortiert nach Datum absteigend.<br>**Given** eine Kategorie mehr als 20 Transaktionen enthält, **When** die Liste geladen wird, **Then** werden initial 20 Einträge angezeigt mit einem "Weitere laden"-Button — kein ungepaginierter Vollload. |
 | 14  | Als **Marc** möchte ich mein Passwort und mein Einkommen in den Einstellungen anpassen können, damit ich mein Konto aktuell halten kann. | Should | **Given** ich eingeloggt bin, **When** ich unter "Einstellungen > Passwort ändern" das aktuelle und ein neues Passwort (gleiche Regeln wie Registrierung) eingebe und bestätige, **Then** wird das neue Passwort gespeichert und ich erhalte eine Bestätigungs-E-Mail.<br>**Given** das eingegebene aktuelle Passwort ist falsch, **When** ich speichere, **Then** wird die Änderung abgelehnt mit "Aktuelles Passwort falsch".<br>**Given** ich mein Monatseinkommen in den Einstellungen ändere, **When** ich speichere, **Then** wird der Safe-to-Spend-Betrag auf dem Dashboard sofort mit dem neuen Wert neu berechnet. |
 
----
 
-## Noch offen
-
-- [ ] Projekt-Canvas ausfüllen
-- [ ] Präsentation vorbereiten
-
----
-
-## Präsentation (nächste Session)
-
-- Projektname & Idee in einem Satz
-- 3 Must-have User Stories
-- Grösstes Risiko — und Plan B
-- Wo setzen wir AI konkret ein?
-- Was bleibt noch offen?
