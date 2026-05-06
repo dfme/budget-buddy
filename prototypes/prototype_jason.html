@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BudgetBuddy — Prototype</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f0f2f5;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 24px 16px;
+  }
+
+  /* Nav */
+  .screen-nav {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .screen-nav button {
+    padding: 8px 16px;
+    border: 2px solid #ddd;
+    border-radius: 20px;
+    background: white;
+    cursor: pointer;
+    font-size: 13px;
+    color: #555;
+    transition: all .15s;
+  }
+  .screen-nav button.active {
+    background: #1a6ef5;
+    border-color: #1a6ef5;
+    color: white;
+    font-weight: 600;
+  }
+
+  /* Phone frame */
+  .phone {
+    width: 390px;
+    min-height: 750px;
+    background: white;
+    border-radius: 40px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Status bar */
+  .status-bar {
+    background: white;
+    padding: 12px 24px 8px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    font-weight: 600;
+    color: #111;
+  }
+
+  /* Screens */
+  .screen { display: none; padding: 0 0 80px; }
+  .screen.active { display: block; }
+
+  /* ── REGISTRATION ── */
+  .reg-header {
+    background: linear-gradient(135deg, #1a6ef5 0%, #0d4fc4 100%);
+    padding: 32px 24px 28px;
+    color: white;
+  }
+  .reg-header .logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+  .reg-header .logo span { opacity: .7; }
+  .reg-header p { margin-top: 6px; font-size: 14px; opacity: .85; }
+
+  .form-body { padding: 24px; }
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 12px; font-weight: 600; color: #666; margin-bottom: 6px; text-transform: uppercase; letter-spacing: .5px; }
+  .form-group input, .form-group select {
+    width: 100%; padding: 13px 14px; border: 1.5px solid #e0e0e0;
+    border-radius: 12px; font-size: 15px; color: #111;
+    background: #fafafa; transition: border-color .15s;
+  }
+  .form-group input:focus, .form-group select:focus { outline: none; border-color: #1a6ef5; background: white; }
+  .form-row { display: flex; gap: 12px; }
+  .form-row .form-group { flex: 1; }
+
+  .plz-hint {
+    background: #fff3cd; border: 1px solid #ffc107; border-radius: 10px;
+    padding: 10px 12px; font-size: 12px; color: #856404; margin-top: -8px; margin-bottom: 16px;
+  }
+  .plz-hint.valid { background: #d1e7dd; border-color: #198754; color: #0f5132; }
+
+  .btn-primary {
+    width: 100%; padding: 15px; background: #1a6ef5; color: white;
+    border: none; border-radius: 14px; font-size: 16px; font-weight: 700;
+    cursor: pointer; transition: background .15s;
+  }
+  .btn-primary:hover { background: #0d4fc4; }
+  .btn-link { text-align: center; margin-top: 14px; font-size: 14px; color: #666; }
+  .btn-link a { color: #1a6ef5; font-weight: 600; cursor: pointer; }
+
+  /* ── DASHBOARD ── */
+  .dash-header {
+    background: linear-gradient(135deg, #1a6ef5 0%, #0d4fc4 100%);
+    padding: 20px 24px 28px;
+    color: white;
+  }
+  .dash-greeting { font-size: 14px; opacity: .8; }
+  .dash-name { font-size: 22px; font-weight: 800; margin-top: 2px; }
+
+  .safe-to-spend-card {
+    background: white;
+    border-radius: 20px;
+    margin: -16px 16px 0;
+    padding: 20px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.10);
+  }
+  .sts-label { font-size: 12px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: .5px; }
+  .sts-amount { font-size: 42px; font-weight: 800; color: #1a6ef5; margin: 4px 0; letter-spacing: -1px; }
+  .sts-sub { font-size: 13px; color: #666; }
+  .sts-bar-wrap { margin-top: 14px; background: #f0f2f5; border-radius: 100px; height: 8px; overflow: hidden; }
+  .sts-bar { height: 100%; background: linear-gradient(90deg, #1a6ef5, #38b2ff); border-radius: 100px; width: 58%; }
+
+  .section-title { font-size: 14px; font-weight: 700; color: #111; padding: 20px 24px 10px; }
+
+  .quick-stats { display: flex; gap: 12px; padding: 0 16px; }
+  .stat-card {
+    flex: 1; background: white; border-radius: 16px; padding: 14px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .stat-icon { font-size: 20px; margin-bottom: 6px; }
+  .stat-val { font-size: 18px; font-weight: 800; color: #111; }
+  .stat-lbl { font-size: 11px; color: #888; margin-top: 2px; }
+
+  .txn-list { padding: 0 16px; }
+  .txn-item {
+    display: flex; align-items: center; background: white;
+    border-radius: 14px; padding: 14px; margin-bottom: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  }
+  .txn-icon {
+    width: 42px; height: 42px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; margin-right: 12px; flex-shrink: 0;
+  }
+  .txn-info { flex: 1; }
+  .txn-name { font-size: 14px; font-weight: 600; color: #111; }
+  .txn-cat { font-size: 12px; color: #888; margin-top: 2px; }
+  .txn-amt { font-size: 15px; font-weight: 700; color: #e53e3e; }
+  .txn-amt.income { color: #38a169; }
+
+  /* ── CATEGORIES ── */
+  .cat-header {
+    background: linear-gradient(135deg, #1a6ef5 0%, #0d4fc4 100%);
+    padding: 20px 24px;
+    color: white;
+  }
+  .cat-header h2 { font-size: 20px; font-weight: 800; }
+  .cat-header p { font-size: 13px; opacity: .8; margin-top: 4px; }
+
+  .cat-total-card {
+    background: white; margin: 16px; border-radius: 16px;
+    padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .cat-total-label { font-size: 13px; color: #666; }
+  .cat-total-amt { font-size: 24px; font-weight: 800; color: #111; }
+
+  .cat-list { padding: 0 16px; }
+  .cat-item {
+    background: white; border-radius: 14px; padding: 14px;
+    margin-bottom: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  }
+  .cat-item-top { display: flex; align-items: center; margin-bottom: 8px; }
+  .cat-dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 10px; flex-shrink: 0; }
+  .cat-item-name { flex: 1; font-size: 14px; font-weight: 600; color: #111; }
+  .cat-item-count { font-size: 12px; color: #aaa; margin-right: 12px; }
+  .cat-item-amt { font-size: 15px; font-weight: 700; color: #111; }
+  .cat-item-bar-wrap { background: #f0f2f5; border-radius: 100px; height: 5px; overflow: hidden; }
+  .cat-item-bar { height: 100%; border-radius: 100px; }
+  .cat-item-pct { font-size: 11px; color: #aaa; margin-top: 5px; text-align: right; }
+
+  /* ── REPORT ── */
+  .report-header {
+    background: linear-gradient(135deg, #6c3fc5 0%, #4a2a9e 100%);
+    padding: 20px 24px;
+    color: white;
+  }
+  .report-header h2 { font-size: 20px; font-weight: 800; }
+  .report-header p { font-size: 13px; opacity: .8; margin-top: 4px; }
+  .report-badge {
+    display: inline-block; background: rgba(255,255,255,.2);
+    border-radius: 20px; padding: 4px 12px; font-size: 12px; margin-top: 8px;
+  }
+
+  .report-body { padding: 16px; }
+  .report-card {
+    background: white; border-radius: 16px; padding: 18px;
+    margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  }
+  .report-card h3 { font-size: 13px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 12px; }
+
+  .top-cat-item { display: flex; align-items: center; margin-bottom: 10px; }
+  .top-cat-rank { font-size: 18px; font-weight: 800; color: #ddd; width: 28px; }
+  .top-cat-name { flex: 1; font-size: 14px; font-weight: 600; color: #111; }
+  .top-cat-pct { font-size: 12px; color: #888; margin-right: 10px; }
+  .top-cat-amt { font-size: 14px; font-weight: 700; color: #111; }
+
+  .ai-tip {
+    background: linear-gradient(135deg, #f0e8ff, #e8f4ff);
+    border-radius: 14px; padding: 16px;
+    border-left: 3px solid #6c3fc5;
+  }
+  .ai-tip-label { font-size: 11px; font-weight: 700; color: #6c3fc5; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+  .ai-tip-text { font-size: 14px; color: #333; line-height: 1.5; }
+  .ai-tip-save { font-size: 16px; font-weight: 800; color: #6c3fc5; margin-top: 8px; }
+
+  .trend-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f5f5f5; }
+  .trend-row:last-child { border-bottom: none; }
+  .trend-cat { font-size: 14px; color: #333; }
+  .trend-val { font-size: 14px; font-weight: 600; }
+  .trend-up { color: #e53e3e; }
+  .trend-down { color: #38a169; }
+
+  /* ── BOTTOM NAV ── */
+  .bottom-nav {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: white; border-top: 1px solid #f0f0f0;
+    display: flex; padding: 10px 0 18px;
+  }
+  .nav-item {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    font-size: 10px; color: #aaa; font-weight: 600; cursor: pointer; gap: 4px;
+  }
+  .nav-item.active { color: #1a6ef5; }
+  .nav-icon { font-size: 22px; }
+
+  /* Warning banner */
+  .warning-banner {
+    background: #fff3f3; border: 1px solid #fca5a5;
+    border-radius: 12px; padding: 12px 14px; margin: 12px 16px 0;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .warning-banner .wi { font-size: 20px; }
+  .warning-banner p { font-size: 13px; color: #c53030; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="screen-nav">
+  <button class="active" onclick="show('register')">1 · Registrierung</button>
+  <button onclick="show('dashboard')">2 · Dashboard</button>
+  <button onclick="show('categories')">3 · Kategorien</button>
+  <button onclick="show('report')">4 · KI-Bericht</button>
+</div>
+
+<div class="phone">
+  <div class="status-bar">
+    <span>9:41</span>
+    <span>●●● 100%</span>
+  </div>
+
+  <!-- ── SCREEN 1: REGISTRATION ── -->
+  <div class="screen active" id="screen-register">
+    <div class="reg-header">
+      <div class="logo">Budget<span>Buddy</span></div>
+      <p>Finanzielle Kontrolle für die Schweiz</p>
+    </div>
+    <div class="form-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Vorname</label>
+          <input type="text" placeholder="Lara" value="Lara">
+        </div>
+        <div class="form-group">
+          <label>Nachname</label>
+          <input type="text" placeholder="Müller" value="Müller">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>E-Mail</label>
+        <input type="email" placeholder="lara@beispiel.ch" value="lara@beispiel.ch">
+      </div>
+      <div class="form-group">
+        <label>Passwort <span style="color:#aaa;font-weight:400">(min. 12 Zeichen)</span></label>
+        <input type="password" placeholder="••••••••••••" value="MeinPasswort1!">
+      </div>
+      <div class="form-group">
+        <label>Postleitzahl (PLZ)</label>
+        <input type="text" placeholder="3011" value="3011">
+      </div>
+      <div class="plz-hint valid">✓ Gültige Schweizer PLZ — Bern</div>
+      <div class="form-group">
+        <label>Monatliches Nettoeinkommen (CHF)</label>
+        <input type="text" placeholder="2 400" value="2 400">
+      </div>
+      <button class="btn-primary" onclick="show('dashboard')">Konto erstellen</button>
+      <div class="btn-link">Bereits registriert? <a onclick="show('dashboard')">Einloggen</a></div>
+    </div>
+  </div>
+
+  <!-- ── SCREEN 2: DASHBOARD ── -->
+  <div class="screen" id="screen-dashboard">
+    <div class="dash-header">
+      <div class="dash-greeting">Guten Morgen,</div>
+      <div class="dash-name">Lara 👋</div>
+    </div>
+
+    <div class="safe-to-spend-card">
+      <div class="sts-label">Safe-to-Spend diese Woche</div>
+      <div class="sts-amount">CHF 187</div>
+      <div class="sts-sub">von CHF 320 verbleiben noch 3 Wochen im Mai</div>
+      <div class="sts-bar-wrap"><div class="sts-bar"></div></div>
+    </div>
+
+    <div class="section-title">Übersicht Mai 2026</div>
+    <div class="quick-stats">
+      <div class="stat-card">
+        <div class="stat-icon">💰</div>
+        <div class="stat-val">2 400</div>
+        <div class="stat-lbl">Einkommen CHF</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">📤</div>
+        <div class="stat-val">1 213</div>
+        <div class="stat-lbl">Ausgaben CHF</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">🎯</div>
+        <div class="stat-val">32%</div>
+        <div class="stat-lbl">Sparziel</div>
+      </div>
+    </div>
+
+    <div class="section-title">Letzte Transaktionen</div>
+    <div class="txn-list">
+      <div class="txn-item">
+        <div class="txn-icon" style="background:#e8f5e9">🛒</div>
+        <div class="txn-info">
+          <div class="txn-name">Migros Bern</div>
+          <div class="txn-cat">Lebensmittel · heute</div>
+        </div>
+        <div class="txn-amt">−CHF 67.40</div>
+      </div>
+      <div class="txn-item">
+        <div class="txn-icon" style="background:#e3f2fd">🚂</div>
+        <div class="txn-info">
+          <div class="txn-name">SBB AG</div>
+          <div class="txn-cat">Transport · gestern</div>
+        </div>
+        <div class="txn-amt">−CHF 24.00</div>
+      </div>
+      <div class="txn-item">
+        <div class="txn-icon" style="background:#f3e5f5">🎵</div>
+        <div class="txn-info">
+          <div class="txn-name">Spotify AB</div>
+          <div class="txn-cat">Abonnement · 03.05.</div>
+        </div>
+        <div class="txn-amt">−CHF 12.90</div>
+      </div>
+      <div class="txn-item">
+        <div class="txn-icon" style="background:#e8f5e9">💼</div>
+        <div class="txn-info">
+          <div class="txn-name">Lohn Mai</div>
+          <div class="txn-cat">Einkommen · 01.05.</div>
+        </div>
+        <div class="txn-amt income">+CHF 2 400</div>
+      </div>
+    </div>
+
+    <div class="bottom-nav">
+      <div class="nav-item active"><span class="nav-icon">🏠</span>Home</div>
+      <div class="nav-item" onclick="show('categories')"><span class="nav-icon">📊</span>Ausgaben</div>
+      <div class="nav-item"><span class="nav-icon">🎯</span>Sparziel</div>
+      <div class="nav-item" onclick="show('report')"><span class="nav-icon">🤖</span>KI-Bericht</div>
+    </div>
+  </div>
+
+  <!-- ── SCREEN 3: CATEGORIES ── -->
+  <div class="screen" id="screen-categories">
+    <div class="cat-header">
+      <h2>Ausgaben Mai 2026</h2>
+      <p>Kategorienübersicht</p>
+    </div>
+
+    <div class="cat-total-card">
+      <div>
+        <div class="cat-total-label">Gesamtausgaben</div>
+        <div class="cat-total-amt">CHF 1 213.50</div>
+      </div>
+      <div style="text-align:right">
+        <div class="cat-total-label">Transaktionen</div>
+        <div class="cat-total-amt">34</div>
+      </div>
+    </div>
+
+    <div class="cat-list">
+      <div class="cat-item">
+        <div class="cat-item-top">
+          <div class="cat-dot" style="background:#1a6ef5"></div>
+          <div class="cat-item-name">Wohnen</div>
+          <div class="cat-item-count">2 Txn</div>
+          <div class="cat-item-amt">CHF 580.00</div>
+        </div>
+        <div class="cat-item-bar-wrap"><div class="cat-item-bar" style="background:#1a6ef5;width:48%"></div></div>
+        <div class="cat-item-pct">48%</div>
+      </div>
+      <div class="cat-item">
+        <div class="cat-item-top">
+          <div class="cat-dot" style="background:#38a169"></div>
+          <div class="cat-item-name">Lebensmittel</div>
+          <div class="cat-item-count">12 Txn</div>
+          <div class="cat-item-amt">CHF 248.90</div>
+        </div>
+        <div class="cat-item-bar-wrap"><div class="cat-item-bar" style="background:#38a169;width:20%"></div></div>
+        <div class="cat-item-pct">20%</div>
+      </div>
+      <div class="cat-item">
+        <div class="cat-item-top">
+          <div class="cat-dot" style="background:#e53e3e"></div>
+          <div class="cat-item-name">Restaurant</div>
+          <div class="cat-item-count">8 Txn</div>
+          <div class="cat-item-amt">CHF 187.60</div>
+        </div>
+        <div class="cat-item-bar-wrap"><div class="cat-item-bar" style="background:#e53e3e;width:15%"></div></div>
+        <div class="cat-item-pct">15%</div>
+      </div>
+      <div class="cat-item">
+        <div class="cat-item-top">
+          <div class="cat-dot" style="background:#ed8936"></div>
+          <div class="cat-item-name">Transport</div>
+          <div class="cat-item-count">6 Txn</div>
+          <div class="cat-item-amt">CHF 98.00</div>
+        </div>
+        <div class="cat-item-bar-wrap"><div class="cat-item-bar" style="background:#ed8936;width:8%"></div></div>
+        <div class="cat-item-pct">8%</div>
+      </div>
+      <div class="cat-item">
+        <div class="cat-item-top">
+          <div class="cat-dot" style="background:#9b59b6"></div>
+          <div class="cat-item-name">Abonnements</div>
+          <div class="cat-item-count">4 Txn</div>
+          <div class="cat-item-amt">CHF 62.80</div>
+        </div>
+        <div class="cat-item-bar-wrap"><div class="cat-item-bar" style="background:#9b59b6;width:5%"></div></div>
+        <div class="cat-item-pct">5%</div>
+      </div>
+      <div class="cat-item">
+        <div class="cat-item-top">
+          <div class="cat-dot" style="background:#aaa"></div>
+          <div class="cat-item-name">Sonstiges</div>
+          <div class="cat-item-count">2 Txn</div>
+          <div class="cat-item-amt">CHF 36.20</div>
+        </div>
+        <div class="cat-item-bar-wrap"><div class="cat-item-bar" style="background:#aaa;width:3%"></div></div>
+        <div class="cat-item-pct">3%</div>
+      </div>
+    </div>
+
+    <div class="bottom-nav">
+      <div class="nav-item" onclick="show('dashboard')"><span class="nav-icon">🏠</span>Home</div>
+      <div class="nav-item active"><span class="nav-icon">📊</span>Ausgaben</div>
+      <div class="nav-item"><span class="nav-icon">🎯</span>Sparziel</div>
+      <div class="nav-item" onclick="show('report')"><span class="nav-icon">🤖</span>KI-Bericht</div>
+    </div>
+  </div>
+
+  <!-- ── SCREEN 4: KI REPORT ── -->
+  <div class="screen" id="screen-report">
+    <div class="report-header">
+      <h2>KI-Monatsbericht</h2>
+      <p>April 2026 · Generiert von Claude</p>
+      <div class="report-badge">🤖 KI-generiert</div>
+    </div>
+
+    <div class="report-body">
+      <div class="report-card">
+        <h3>Top 3 Ausgabenkategorien</h3>
+        <div class="top-cat-item">
+          <div class="top-cat-rank">1</div>
+          <div class="top-cat-name">Wohnen</div>
+          <div class="top-cat-pct">46%</div>
+          <div class="top-cat-amt">CHF 552</div>
+        </div>
+        <div class="top-cat-item">
+          <div class="top-cat-rank">2</div>
+          <div class="top-cat-name">Restaurant</div>
+          <div class="top-cat-pct">19%</div>
+          <div class="top-cat-amt">CHF 228</div>
+        </div>
+        <div class="top-cat-item">
+          <div class="top-cat-rank">3</div>
+          <div class="top-cat-name">Lebensmittel</div>
+          <div class="top-cat-pct">17%</div>
+          <div class="top-cat-amt">CHF 204</div>
+        </div>
+      </div>
+
+      <div class="ai-tip">
+        <div class="ai-tip-label">💡 KI-Sparvorschlag</div>
+        <div class="ai-tip-text">
+          Du hast im April <strong>CHF 228</strong> in Restaurants ausgegeben — das sind 8 Besuche mehr als im März. Wenn du 3 davon durch Kochen ersetzt, sparst du:
+        </div>
+        <div class="ai-tip-save">≈ CHF 75 pro Monat</div>
+      </div>
+
+      <div class="report-card" style="margin-top:12px">
+        <h3>Vergleich März → April</h3>
+        <div class="trend-row">
+          <div class="trend-cat">🍽 Restaurant</div>
+          <div class="trend-val trend-up">+CHF 91 ↑ +66%</div>
+        </div>
+        <div class="trend-row">
+          <div class="trend-cat">🛒 Lebensmittel</div>
+          <div class="trend-val trend-down">−CHF 32 ↓ −14%</div>
+        </div>
+        <div class="trend-row">
+          <div class="trend-cat">🚂 Transport</div>
+          <div class="trend-val trend-up">+CHF 18 ↑ +22%</div>
+        </div>
+        <div class="trend-row">
+          <div class="trend-cat">🎵 Abonnements</div>
+          <div class="trend-val" style="color:#666">±CHF 0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bottom-nav">
+      <div class="nav-item" onclick="show('dashboard')"><span class="nav-icon">🏠</span>Home</div>
+      <div class="nav-item" onclick="show('categories')"><span class="nav-icon">📊</span>Ausgaben</div>
+      <div class="nav-item"><span class="nav-icon">🎯</span>Sparziel</div>
+      <div class="nav-item active"><span class="nav-icon">🤖</span>KI-Bericht</div>
+    </div>
+  </div>
+
+</div><!-- /phone -->
+
+<script>
+function show(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.screen-nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  const idx = ['register','dashboard','categories','report'].indexOf(name);
+  document.querySelectorAll('.screen-nav button')[idx].classList.add('active');
+}
+</script>
+</body>
+</html>
