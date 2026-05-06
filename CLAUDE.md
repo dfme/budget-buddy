@@ -91,3 +91,74 @@ Antwort (nur Kategoriename):
 | 9   | Als **Lara** möchte ich einmal im Monat einen KI-generierten Monatsbericht erhalten, damit ich automatisch einen Überblick über mein Finanzverhalten und gezielte Sparvorschläge bekomme.               | Should | **Given** Transaktionsdaten aus dem vergangenen Monat liegen vor, **When** ein neuer Monat beginnt, **Then** wird automatisch ein KI-generierter Bericht erstellt, der mindestens enthält: Gesamtausgaben des Monats in CHF, die 3 grössten Ausgabenkategorien mit je Betrag und Anteil in Prozent, sowie mindestens einen Sparvorschlag mit konkretem CHF-Betrag — alles bezogen auf die tatsächlichen Transaktionen des Nutzers. _(Qualitätsprüfung per manuellem Review durch PO vor Release.)_<br>**Given** der Bericht wurde generiert, **When** ich ihn öffne, **Then** enthält er keine Fachbegriffe ohne Erklärung und referenziert die tatsächlichen Transaktionsdaten des Nutzers (z.B. konkrete Kategorien und Beträge statt Platzhalter).<br>**Given** weniger als 28 Tage an Transaktionsdaten vorliegen oder der aktuelle Monat noch nicht abgeschlossen ist, **When** der Bericht generiert werden soll, **Then** erhalte ich einen Hinweis, dass noch zu wenig Daten vorhanden sind.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | 10  | Als **Lara** möchte ich meine Ausgaben des aktuellen Monats mit dem Vormonat vergleichen, damit ich Trends in meinem Verhalten erkenne.                                                                 | Could  | **Given** Daten aus mindestens zwei vollständigen Monaten, **When** ich die Vergleichsansicht öffne, **Then** sehe ich pro Kategorie die Werte `aktueller Monat`, `Vormonat`, `Differenz in CHF` und `Differenz in Prozent` — Summen exakt auf den Rappen (z.B. Restaurant: 320 CHF vs. 250 CHF → +70 CHF / +28%).<br>**Given** weniger als zwei vollständige Monate Daten, **When** ich die Ansicht öffne, **Then** wird stattdessen der Hinweis "Vergleich ab zwei vollständigen Monaten verfügbar" angezeigt.<br>**Given** eine Kategorie mit Steigerung > 20% UND aktuellem Betrag ≥ 50 CHF (Mindestschwelle gegen Rauschen), **When** der Vergleich geladen wird, **Then** wird diese Kategorie visuell hervorgehoben (z.B. roter Balken oder Warnsymbol).<br>**Given** eine Kategorie hatte im Vormonat 0 CHF, **When** der Vergleich gerechnet wird, **Then** wird die Differenz in Prozent als "Neu" gekennzeichnet (keine Division durch Null, kein "∞%").                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | 11  | Als **Lara** möchte ich mein Bankkonto über eine OpenBanking-Schnittstelle direkt verbinden, damit meine Transaktionen automatisch und ohne manuellen PDF-Upload aktuell gehalten werden.               | Could  | **Given** ich verbinde mein Konto via OpenBanking (z.B. Swiss Open Banking / SIX API), **When** die Verbindung erfolgreich ist, **Then** werden Transaktionen beim App-Start sowie alle 24 Stunden automatisch synchronisiert; das Datum und die Uhrzeit der letzten Synchronisation sind im Dashboard sichtbar.<br>**Given** die Verbindung fehlschlägt oder die Bank nicht unterstützt wird, **When** ich die Verbindung einrichten möchte, **Then** erhalte ich eine Fehlermeldung mit Angabe des Grundes (z.B. "Bank nicht unterstützt") und dem Hinweis, stattdessen einen PDF-Upload zu nutzen.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+
+---
+
+## Review der User Stories (Nutzerperspektive)
+
+**Stand:** 2026-05-06
+
+### Inhaltliche Fehler / Unklarheiten
+
+**US3 — Fixkosten (quartalsweise/jährlich)**
+Das Beispiel im AC rechnet nur mit monatlichen Fixkosten (Miete + Krankenkasse = 1.500 CHF/Monat). Der Wizard erlaubt aber auch `quartalsweise` und `jährlich`. Wie werden diese Intervalle in der Safe-to-Spend-Formel auf einen Monatsbetrag umgerechnet? Das AC schweigt dazu.
+
+**US6 — Wie wird "Einkommen" ermittelt?**
+Die Formel ist klar, aber woher weiss die App, was Einkommen ist? Wenn Laras Lohn noch nicht eingetroffen ist (er kommt am 25.) und sie am 10. das Dashboard öffnet — zeigt die App dann 0 CHF Einkommen? Dieser zentrale Edge Case fehlt.
+
+**US6 — "verbleibende Wochen" ist undefiniert**
+Wenn 3 Tage im Monat verbleiben, dividiert die App durch 0.43 Wochen und zeigt einen unrealistischen Wert. Es braucht eine Untergrenze (z.B. min. 1 Woche).
+
+**US7 — Was bedeutet "bisher gespart"?**
+Das AC zeigt "250 CHF / 1.000 CHF (25%)" — aber wie berechnet die App die 250 CHF? Summe der Kategorie "Sparen"? Einkommen minus Ausgaben? Das ist zentral und nicht definiert.
+
+**US7 — Letztes AC gehört in US9**
+Der Hinweis "Du hast diesen Monat 90 CHF für Takeaway ausgegeben..." ist ein KI-Sparvorschlag und bereits in US9 (Monatsbericht) definiert — in US7 ist er inhaltlich deplatziert.
+
+---
+
+### Fehlende Acceptance Criteria
+
+**US4 — Doppelter Upload nicht abgefangen**
+Wenn Lara denselben Kontoauszug zweimal hochlädt, werden Transaktionen doppelt erfasst und der Safe-to-Spend-Betrag ist falsch. Duplikaterkennung fehlt als AC komplett.
+
+**US1 — E-Mail-Verifizierung fehlt**
+Nach der Registrierung kann sich Lara sofort einloggen — ohne E-Mail-Bestätigung. Das öffnet die Tür für Accounts mit falschen E-Mail-Adressen, was beim Passwort-Reset zum Problem wird.
+
+**US1 — Logout fehlt**
+Es gibt kein AC für den Logout. Wie lange läuft eine Session? Wird man nach Inaktivität automatisch ausgeloggt?
+
+**US8 — Falsch erkannte Abos können nicht korrigiert werden**
+Marc sieht eine Transaktion als "wiederkehrend" markiert, die es gar nicht ist (z.B. zweimal zufällig gleicher Betrag). Er kann das nicht korrigieren — kein AC dafür vorhanden.
+
+**US9 — Zustellungskanal fehlt**
+Wie bekommt Lara den Monatsbericht? In-App-Benachrichtigung? E-Mail? Das ist nicht definiert.
+
+---
+
+### Fehlende User Stories
+
+**Navigation zwischen Monaten**
+Lara lädt PDFs für März, April und Mai hoch. Wie wechselt sie die Monatsansicht? Welcher Monat wird standardmässig angezeigt? Das ist der wahrscheinlich häufigste Workflow und hat keine eigene User Story.
+
+**Transaktionsliste / Drilldown**
+US5 zeigt Kategorie-Summen — aber kann Lara reinklicken und die Einzeltransaktionen einer Kategorie sehen? Diese Drilldown-Ansicht ist impliziert aber nicht definiert.
+
+**Kontoeinstellungen / Passwort ändern**
+Marc möchte nach 6 Monaten sein Passwort ändern (nicht wegen Vergessen). Das geht über US1 hinaus — es fehlt eine Story für laufendes Account-Management.
+
+---
+
+### Zusammenfassung nach Priorität
+
+| Priorität | Problem |
+|---|---|
+| Kritisch | Doppelter PDF-Upload → doppelte Transaktionen (US4) |
+| Kritisch | Einkommens-Ermittlung für Safe-to-Spend unklar (US6) |
+| Hoch | Monatswechsel / Navigation fehlt als User Story |
+| Hoch | "Bisher gespart" in US7 nicht definiert |
+| Hoch | Quarterly/jährliche Fixkosten: Umrechnung in Monatsbetrag fehlt (US3) |
+| Mittel | Logout / Session-Dauer fehlt (US1) |
+| Mittel | E-Mail-Verifizierung nach Registrierung fehlt (US1) |
+| Mittel | Zustellungskanal Monatsbericht nicht definiert (US9) |
+| Tief | Falsch erkanntes Abo manuell korrigieren (US8) |
