@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BudgetBuddy Mockup</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #F5F2EC; --card: #FFFFFF; --ink: #1A1612; --ink-soft: #6B6560;
+    --accent: #2D6A4F; --accent-light: #D8F3DC; --warn: #E76F51; --warn-light: #FDE8E2;
+    --gold: #D4A853; --border: #E8E4DC; --sidebar: #1A1612;
+  }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--ink); min-height: 100vh; display: flex; overflow: hidden; }
+  .sidebar { width: 220px; background: var(--sidebar); display: flex; flex-direction: column; padding: 28px 20px; flex-shrink: 0; height: 100vh; }
+  .logo { font-family: 'DM Serif Display', serif; font-size: 22px; color: #fff; margin-bottom: 8px; }
+  .logo span { color: var(--gold); }
+  .tagline { font-size: 11px; color: #888; margin-bottom: 36px; letter-spacing: 0.5px; text-transform: uppercase; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; color: #aaa; font-size: 13.5px; cursor: pointer; margin-bottom: 4px; transition: all 0.15s; }
+  .nav-item:hover { background: rgba(255,255,255,0.07); color: #fff; }
+  .nav-item.active { background: var(--accent); color: #fff; font-weight: 500; }
+  .nav-section { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #555; margin: 16px 12px 8px; }
+  .sidebar-bottom { margin-top: auto; }
+  .avatar-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; background: rgba(255,255,255,0.06); }
+  .avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--gold); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; color: var(--sidebar); }
+  .avatar-name { font-size: 13px; color: #ddd; font-weight: 500; }
+  .avatar-plan { font-size: 11px; color: #666; }
+  .main { flex: 1; overflow-y: auto; padding: 32px 36px; height: 100vh; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+  .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; }
+  .page-title { font-family: 'DM Serif Display', serif; font-size: 28px; letter-spacing: -0.5px; }
+  .page-subtitle { font-size: 13.5px; color: var(--ink-soft); margin-top: 4px; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; border-radius: 8px; font-size: 13.5px; font-weight: 500; cursor: pointer; border: none; font-family: 'DM Sans', sans-serif; transition: all 0.15s; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-outline { background: transparent; color: var(--ink); border: 1.5px solid var(--border); }
+  .card { background: var(--card); border-radius: 14px; padding: 22px 24px; border: 1px solid var(--border); }
+  .card-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-soft); margin-bottom: 8px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .safe-card { background: var(--accent); color: #fff; border-radius: 14px; padding: 28px; position: relative; overflow: hidden; margin-bottom: 20px; }
+  .safe-card::before { content: ''; position: absolute; width: 200px; height: 200px; border-radius: 50%; background: rgba(255,255,255,0.06); top: -60px; right: -40px; }
+  .safe-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.7; margin-bottom: 6px; }
+  .safe-amount { font-family: 'DM Serif Display', serif; font-size: 52px; letter-spacing: -2px; line-height: 1; }
+  .safe-amount span { font-size: 22px; opacity: 0.7; }
+  .safe-week { font-size: 13px; opacity: 0.65; margin-top: 6px; }
+  .safe-row { display: flex; align-items: flex-end; justify-content: space-between; }
+  .safe-bar-wrap { flex: 1; max-width: 180px; }
+  .safe-bar-label { font-size: 11px; opacity: 0.7; margin-bottom: 6px; }
+  .safe-bar { height: 6px; background: rgba(255,255,255,0.2); border-radius: 99px; overflow: hidden; }
+  .safe-bar-fill { height: 100%; background: #fff; border-radius: 99px; width: 62%; }
+  .safe-bar-pct { font-size: 12px; opacity: 0.8; margin-top: 4px; }
+  .stat-value { font-family: 'DM Serif Display', serif; font-size: 28px; letter-spacing: -0.5px; margin-bottom: 2px; }
+  .stat-change { font-size: 12px; }
+  .stat-change.up { color: var(--warn); }
+  .stat-change.down { color: var(--accent); }
+  .cat-list { display: flex; flex-direction: column; gap: 14px; }
+  .cat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .cat-name { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 500; }
+  .cat-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .cat-amount { font-size: 13.5px; font-weight: 600; }
+  .cat-bar { height: 5px; background: var(--border); border-radius: 99px; overflow: hidden; }
+  .cat-fill { height: 100%; border-radius: 99px; }
+  .tx-list { display: flex; flex-direction: column; gap: 1px; }
+  .tx-item { display: flex; align-items: center; gap: 14px; padding: 13px 0; border-bottom: 1px solid var(--border); }
+  .tx-item:last-child { border-bottom: none; }
+  .tx-icon { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
+  .tx-info { flex: 1; }
+  .tx-name { font-size: 14px; font-weight: 500; }
+  .tx-meta { font-size: 12px; color: var(--ink-soft); margin-top: 1px; }
+  .tx-amount { font-size: 14px; font-weight: 600; }
+  .tx-amount.neg { color: var(--warn); }
+  .tx-amount.pos { color: var(--accent); }
+  .tag { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 3px 9px; border-radius: 99px; font-weight: 500; }
+  .tag-green { background: var(--accent-light); color: var(--accent); }
+  .tag-red { background: var(--warn-light); color: var(--warn); }
+  .tag-gold { background: #FEF5E4; color: var(--gold); }
+  .goal-progress { height: 10px; background: var(--border); border-radius: 99px; overflow: hidden; margin: 16px 0 8px; }
+  .goal-fill { height: 100%; background: var(--gold); border-radius: 99px; }
+  .goal-labels { display: flex; justify-content: space-between; font-size: 12px; color: var(--ink-soft); }
+  .upload-zone { border: 2px dashed var(--border); border-radius: 14px; padding: 48px; text-align: center; cursor: pointer; background: var(--card); margin-bottom: 20px; }
+  .upload-icon { font-size: 40px; margin-bottom: 14px; }
+  .upload-title { font-family: 'DM Serif Display', serif; font-size: 20px; margin-bottom: 6px; }
+  .upload-sub { font-size: 13.5px; color: var(--ink-soft); }
+  .bank-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .bank-item { background: var(--card); border: 1.5px solid var(--border); border-radius: 12px; padding: 16px; text-align: center; cursor: pointer; transition: all 0.15s; }
+  .bank-item:hover { border-color: var(--accent); background: var(--accent-light); }
+  .bank-logo { font-size: 24px; margin-bottom: 6px; }
+  .bank-name { font-size: 12.5px; font-weight: 500; }
+  .sub-list { display: flex; flex-direction: column; gap: 1px; }
+  .sub-item { display: flex; align-items: center; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+  .sub-item:last-child { border-bottom: none; }
+  .sub-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+  .sub-info { flex: 1; }
+  .sub-name { font-size: 14px; font-weight: 500; }
+  .sub-cycle { font-size: 12px; color: var(--ink-soft); margin-top: 1px; }
+  .sub-amount { font-size: 14px; font-weight: 600; }
+  .section-title { font-family: 'DM Serif Display', serif; font-size: 18px; margin-bottom: 14px; }
+  .divider { display: flex; align-items: center; gap: 12px; margin: 20px 0; }
+  .warn-banner { background: var(--warn-light); border: 1px solid #f5c4b6; border-radius: 10px; padding: 12px 16px; font-size: 13px; color: var(--warn); display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
+</style>
+</head>
+<body>
+<div class="sidebar">
+  <div class="logo">Budget<span>Buddy</span></div>
+  <div class="tagline">Finanzüberblick</div>
+  <div class="nav-section">Übersicht</div>
+  <div class="nav-item active" onclick="showScreen('dashboard')"><span>◈</span> Dashboard</div>
+  <div class="nav-item" onclick="showScreen('transactions')"><span>↕</span> Transaktionen</div>
+  <div class="nav-item" onclick="showScreen('subscriptions')"><span>↻</span> Abonnements</div>
+  <div class="nav-section">Import</div>
+  <div class="nav-item" onclick="showScreen('upload')"><span>↑</span> Konto verbinden</div>
+  <div class="nav-section">Ziele</div>
+  <div class="nav-item" onclick="showScreen('goals')"><span>◎</span> Sparziele</div>
+  <div class="sidebar-bottom">
+    <div class="avatar-row">
+      <div class="avatar">L</div>
+      <div>
+        <div class="avatar-name">Lara M.</div>
+        <div class="avatar-plan">Free Plan</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+  <!-- DASHBOARD -->
+  <div class="screen active" id="screen-dashboard">
+    <div class="page-header">
+      <div><div class="page-title">Guten Morgen, Lara 👋</div><div class="page-subtitle">Mai 2026 · KW 19</div></div>
+      <button class="btn btn-primary" onclick="showScreen('upload')">+ Import</button>
+    </div>
+    <div class="safe-card">
+      <div class="safe-label">Safe-to-Spend diese Woche</div>
+      <div class="safe-row">
+        <div>
+          <div class="safe-amount"><span>CHF</span> 187.—</div>
+          <div class="safe-week">Verbleibende Tage: 4 · Monat läuft gut 🟢</div>
+        </div>
+        <div class="safe-bar-wrap">
+          <div class="safe-bar-label">Monatsbudget verbraucht</div>
+          <div class="safe-bar"><div class="safe-bar-fill"></div></div>
+          <div class="safe-bar-pct">62% von CHF 2'100.—</div>
+        </div>
+      </div>
+    </div>
+    <div class="grid-3">
+      <div class="card"><div class="card-label">Ausgaben Mai</div><div class="stat-value">1'304.—</div><div class="stat-change up">↑ +8% vs. April</div></div>
+      <div class="card"><div class="card-label">Fixkosten</div><div class="stat-value">890.—</div><div class="stat-change" style="color:var(--ink-soft)">Miete, KK, Handy</div></div>
+      <div class="card"><div class="card-label">Gespart</div><div class="stat-value">210.—</div><div class="stat-change down">↑ +CHF 60 vs. April</div></div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="section-title">Ausgaben nach Kategorie</div>
+        <div class="cat-list">
+          <div><div class="cat-header"><div class="cat-name"><div class="cat-dot" style="background:#2D6A4F"></div>Wohnen</div><div class="cat-amount">CHF 620.—</div></div><div class="cat-bar"><div class="cat-fill" style="width:72%;background:#2D6A4F"></div></div></div>
+          <div><div class="cat-header"><div class="cat-name"><div class="cat-dot" style="background:#D4A853"></div>Lebensmittel</div><div class="cat-amount">CHF 284.—</div></div><div class="cat-bar"><div class="cat-fill" style="width:33%;background:#D4A853"></div></div></div>
+          <div><div class="cat-header"><div class="cat-name"><div class="cat-dot" style="background:#E76F51"></div>Freizeit</div><div class="cat-amount">CHF 198.—</div></div><div class="cat-bar"><div class="cat-fill" style="width:23%;background:#E76F51"></div></div></div>
+          <div><div class="cat-header"><div class="cat-name"><div class="cat-dot" style="background:#74C69D"></div>Transport</div><div class="cat-amount">CHF 112.—</div></div><div class="cat-bar"><div class="cat-fill" style="width:13%;background:#74C69D"></div></div></div>
+          <div><div class="cat-header"><div class="cat-name"><div class="cat-dot" style="background:#ADB5BD"></div>Sonstiges</div><div class="cat-amount">CHF 90.—</div></div><div class="cat-bar"><div class="cat-fill" style="width:10%;background:#ADB5BD"></div></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <div class="section-title" style="margin:0">Letzte Transaktionen</div>
+          <span style="font-size:12.5px;color:var(--accent);cursor:pointer" onclick="showScreen('transactions')">Alle →</span>
+        </div>
+        <div class="tx-list">
+          <div class="tx-item"><div class="tx-icon" style="background:#FEF5E4">🛒</div><div class="tx-info"><div class="tx-name">Migros</div><div class="tx-meta">Heute · <span class="tag tag-green">Lebensmittel</span></div></div><div class="tx-amount neg">–38.40</div></div>
+          <div class="tx-item"><div class="tx-icon" style="background:#E8F4FD">🚌</div><div class="tx-info"><div class="tx-name">SBB Tageskarte</div><div class="tx-meta">Gestern · <span class="tag tag-green">Transport</span></div></div><div class="tx-amount neg">–22.—</div></div>
+          <div class="tx-item"><div class="tx-icon" style="background:#FDE8E2">🎉</div><div class="tx-info"><div class="tx-name">Restaurant Lido</div><div class="tx-meta">03.05 · <span class="tag tag-red">Freizeit</span></div></div><div class="tx-amount neg">–54.50</div></div>
+          <div class="tx-item"><div class="tx-icon" style="background:#D8F3DC">💼</div><div class="tx-info"><div class="tx-name">Lohn Bar Rosengarten</div><div class="tx-meta">01.05 · Einnahme</div></div><div class="tx-amount pos">+420.—</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TRANSACTIONS -->
+  <div class="screen" id="screen-transactions">
+    <div class="page-header">
+      <div><div class="page-title">Transaktionen</div><div class="page-subtitle">Mai 2026 · 24 Einträge</div></div>
+      <button class="btn btn-outline">Filter ▾</button>
+    </div>
+    <div class="card">
+      <div class="tx-list">
+        <div class="tx-item"><div class="tx-icon" style="background:#FEF5E4">🛒</div><div class="tx-info"><div class="tx-name">Migros</div><div class="tx-meta">06.05.2026 · <span class="tag tag-green">Lebensmittel</span></div></div><div class="tx-amount neg">–38.40</div></div>
+        <div class="tx-item"><div class="tx-icon" style="background:#E8F4FD">🚌</div><div class="tx-info"><div class="tx-name">SBB Tageskarte</div><div class="tx-meta">05.05.2026 · <span class="tag tag-green">Transport</span></div></div><div class="tx-amount neg">–22.—</div></div>
+        <div class="tx-item"><div class="tx-icon" style="background:#FDE8E2">🎉</div><div class="tx-info"><div class="tx-name">Restaurant Lido</div><div class="tx-meta">03.05.2026 · <span class="tag tag-red">Freizeit</span></div></div><div class="tx-amount neg">–54.50</div></div>
+        <div class="tx-item"><div class="tx-icon" style="background:#D8F3DC">💼</div><div class="tx-info"><div class="tx-name">Lohn Bar Rosengarten</div><div class="tx-meta">01.05.2026 · Einnahme</div></div><div class="tx-amount pos">+420.—</div></div>
+        <div class="tx-item"><div class="tx-icon" style="background:#FEF5E4">☕</div><div class="tx-info"><div class="tx-name">Starbucks</div><div class="tx-meta">30.04.2026 · <span class="tag tag-red">Freizeit</span> <span class="tag tag-gold" style="margin-left:4px">⚠ +20% vs. Vormonat</span></div></div><div class="tx-amount neg">–6.50</div></div>
+        <div class="tx-item"><div class="tx-icon" style="background:#F3E8FD">💊</div><div class="tx-info"><div class="tx-name">Apotheke Biel</div><div class="tx-meta">29.04.2026 · <span class="tag tag-green">Gesundheit</span></div></div><div class="tx-amount neg">–18.90</div></div>
+        <div class="tx-item"><div class="tx-icon" style="background:#E8F4FD">🏠</div><div class="tx-info"><div class="tx-name">Miete April</div><div class="tx-meta">28.04.2026 · <span class="tag tag-green">Wohnen</span></div></div><div class="tx-amount neg">–620.—</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUBSCRIPTIONS -->
+  <div class="screen" id="screen-subscriptions">
+    <div class="page-header">
+      <div><div class="page-title">Abonnements</div><div class="page-subtitle">CHF 87.85 / Monat · 5 aktive Abos</div></div>
+    </div>
+    <div class="warn-banner">⚠ Neues Abo erkannt: <strong style="margin-left:4px">Adobe Creative Cloud</strong> — CHF 29.90/Mt. seit 01.05.2026</div>
+    <div class="card">
+      <div class="sub-list">
+        <div class="sub-item"><div class="sub-icon" style="background:#1DB954;color:#fff">♫</div><div class="sub-info"><div class="sub-name">Spotify Premium</div><div class="sub-cycle">Monatlich · nächste Zahlung 12.05.</div></div><div class="sub-amount">CHF 12.95</div></div>
+        <div class="sub-item"><div class="sub-icon" style="background:#E50914;color:#fff">▶</div><div class="sub-info"><div class="sub-name">Netflix</div><div class="sub-cycle">Monatlich · nächste Zahlung 15.05.</div></div><div class="sub-amount">CHF 18.—</div></div>
+        <div class="sub-item"><div class="sub-icon" style="background:#0061FF;color:#fff">☁</div><div class="sub-info"><div class="sub-name">Adobe Creative Cloud</div><div class="sub-cycle">Monatlich · <span class="tag tag-gold">Neu erkannt</span></div></div><div class="sub-amount">CHF 29.90</div></div>
+        <div class="sub-item"><div class="sub-icon" style="background:#00B4D8;color:#fff">🏥</div><div class="sub-info"><div class="sub-name">Krankenkasse CSS</div><div class="sub-cycle">Monatlich · Fixkosten</div></div><div class="sub-amount">CHF 210.—</div></div>
+        <div class="sub-item"><div class="sub-icon" style="background:#F4F4F4">📱</div><div class="sub-info"><div class="sub-name">Swisscom Mobile</div><div class="sub-cycle">Monatlich · Fixkosten</div></div><div class="sub-amount">CHF 25.—</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- UPLOAD -->
+  <div class="screen" id="screen-upload">
+    <div class="page-header">
+      <div><div class="page-title">Konto verbinden</div><div class="page-subtitle">Wähle eine Importmethode</div></div>
+    </div>
+    <div class="upload-zone">
+      <div class="upload-icon">📄</div>
+      <div class="upload-title">PDF-Kontoauszug hochladen</div>
+      <div class="upload-sub">Ziehe eine Datei hierher oder klicke zum Auswählen<br><span style="font-size:12px;opacity:0.6">Unterstützte Formate: PDF · Max. 10 MB</span></div>
+    </div>
+    <div class="divider">
+      <div style="flex:1;height:1px;background:var(--border)"></div>
+      <span style="font-size:12px;color:var(--ink-soft)">oder direkt verbinden via OpenBanking</span>
+      <div style="flex:1;height:1px;background:var(--border)"></div>
+    </div>
+    <div style="margin-top:20px">
+      <div class="section-title">Deine Bank wählen</div>
+      <div class="bank-list">
+        <div class="bank-item"><div class="bank-logo">🔴</div><div class="bank-name">PostFinance</div></div>
+        <div class="bank-item"><div class="bank-logo">🔷</div><div class="bank-name">UBS</div></div>
+        <div class="bank-item"><div class="bank-logo">🟡</div><div class="bank-name">Raiffeisen</div></div>
+        <div class="bank-item"><div class="bank-logo">🔵</div><div class="bank-name">ZKB</div></div>
+        <div class="bank-item"><div class="bank-logo">🟠</div><div class="bank-name">Valiant</div></div>
+        <div class="bank-item"><div class="bank-logo">⚪</div><div class="bank-name">Andere …</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GOALS -->
+  <div class="screen" id="screen-goals">
+    <div class="page-header">
+      <div><div class="page-title">Sparziele</div><div class="page-subtitle">Bleib auf Kurs</div></div>
+      <button class="btn btn-primary">+ Neues Ziel</button>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-label">Notgroschen</div>
+        <div class="section-title" style="font-size:22px">CHF 430 / 1'000</div>
+        <div class="goal-progress"><div class="goal-fill" style="width:43%"></div></div>
+        <div class="goal-labels"><span>43% erreicht</span><span>~4 Monate</span></div>
+        <div style="margin-top:16px;padding:12px;background:var(--accent-light);border-radius:10px;font-size:13px;color:var(--accent)">
+          💡 Spare diesen Monat CHF 60.— mehr — reduziere Restaurantbesuche um 2×.
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-label">Ferienreise</div>
+        <div class="section-title" style="font-size:22px">CHF 150 / 800</div>
+        <div class="goal-progress"><div class="goal-fill" style="width:19%;background:var(--accent)"></div></div>
+        <div class="goal-labels"><span>19% erreicht</span><span>~11 Monate</span></div>
+        <div style="margin-top:16px;padding:12px;background:#FEF5E4;border-radius:10px;font-size:13px;color:var(--gold)">
+          💡 Erhöhe deine monatliche Sparrate auf CHF 65.— um 5 Monate früher zu reisen.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  const map = { dashboard: 0, transactions: 1, subscriptions: 2, upload: 3, goals: 4 };
+  document.querySelectorAll('.nav-item')[map[name]]?.classList.add('active');
+}
+</script>
+</body>
+</html>
