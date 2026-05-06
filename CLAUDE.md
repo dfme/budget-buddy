@@ -41,6 +41,30 @@
 
 ---
 
+## Technische Entscheide
+
+### Transaktions-Kategorisierung: Hybrid-Ansatz
+
+| Schritt | Methode | Begründung |
+|---|---|---|
+| 1. Bekannte Händler | Lookup-Tabelle (Händlername → Kategorie) | Schnell, kostenlos, deterministisch — deckt ~70–80% der Transaktionen ab |
+| 2. Unbekannte Transaktionen | Claude API (LLM) | Flexibel für unbekannte/mehrdeutige Einträge; reduziert API-Calls auf ~20–30% |
+| 3. Manuelle Korrekturen | Lookup-Tabelle wird erweitert | User-Korrekturen trainieren das System — Lerneffekt ohne Retraining |
+
+**Fallback-Kategorie:** `Sonstiges` (wenn LLM unsicher oder API nicht erreichbar)
+
+**Beispiel-Prompt an Claude API:**
+```
+Kategorisiere diese Transaktion in genau eine der folgenden Kategorien:
+[Wohnen, Lebensmittel, Transport, Versicherung, Telekom, Gesundheit,
+ Freizeit, Restaurant, Shopping, Bildung, Einkommen, Sparen, Sonstiges]
+
+Transaktion: "DIGITEC GALAXUS AG 044 913 2323"
+Antwort (nur Kategoriename):
+```
+
+---
+
 ## 3 Grösste Risiken
 
 1. **Churn-Falle** — manueller PDF-Import + Kategorisierung führt zu Nutzungsabbruch nach erstem Aha-Effekt
