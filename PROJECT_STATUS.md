@@ -1,0 +1,77 @@
+# BudgetBuddy — Projektstatus
+
+**Stand:** 2026-05-06  
+**Kurs:** CAS Application Development with AI (ADAI) 2026 · BFH Biel · Ilja Rasin
+
+---
+
+## Projektidee
+
+**BudgetBuddy** ist eine Web-App für Studenten und Berufseinsteiger, die ihnen durch das einfache Einlesen von Kontoauszügen einen klaren Überblick über ihre monatlichen Ausgaben gibt. Die App kategorisiert Transaktionen automatisch und zeigt einen wöchentlichen "Safe-to-Spend"-Betrag an — damit Nutzer jederzeit wissen, wie viel sie noch ausgeben können. Durch gezielte, lebensnahe Sparvorschläge hilft BudgetBuddy jungen Menschen, finanzielle Kontrolle zu gewinnen und erste Rücklagen aufzubauen.
+
+---
+
+## Zielgruppe (Personas)
+
+### Persona 1 — Lara (22), Studentin
+- Studium Soziale Arbeit, arbeitet 20% in einer Bar
+- **Problem:** Verliert Mitte des Monats den Überblick, ob das Geld noch für Miete und Lebensmittel reicht
+- **Frustration:** Mühsame Excel-Tabellen, die sie nie aktualisiert; scrollt panisch durch Banking-App
+- **Ziel:** "Safe-to-Spend"-Betrag pro Woche
+- **Hürde:** Aufschieberitis — wenn der erste PDF-Upload zu kompliziert ist, bricht sie sofort ab
+
+### Persona 2 — Marc (25), Junior-Verkäufer
+- Hat gerade Lehre abgeschlossen, arbeitet im Detailhandel
+- **Problem:** 0 CHF übrig am Monatsende trotz Vollzeitjob ("Kleinvieh" frisst Budget auf)
+- **Frustration:** Bank warnt ihn nicht proaktiv vor unnötigen Ausgaben
+- **Ziel:** Ersten Notgroschen von 1.000 CHF ansparen
+- **Hürde:** Datenschutz-Skepsis — warum private Daten einer Web-App anvertrauen?
+
+---
+
+## Key Decisions
+
+| Entscheid | Status |
+|---|---|
+| OpenBanking-Anbindung | Nice-to-Have (nicht MVP) |
+| Fokus | Zahlungskonten |
+| Kategorisierung | Automatisch + manuelle Korrektur als Feature |
+| Nutzer | Nur Kunden (kein B2B / Berater-Tool) |
+
+---
+
+## 3 Grösste Risiken
+
+1. **Churn-Falle** — manueller PDF-Import + Kategorisierung führt zu Nutzungsabbruch nach erstem Aha-Effekt
+2. **Liability & Compliance** — sensible Transaktionsdaten = Hacking-Ziel; ein Datenleck ist existenzbedrohend
+3. **Feature-Lücke der Banken** — UBS, Raiffeisen etc. bauen eigene PFM-Tools; Business Case kann über Nacht wegfallen
+
+---
+
+## User Stories
+
+| # | User Story | MoSCoW | Acceptance Criteria |
+|---|---|---|---|
+| 1 | Als **Lara** möchte ich einen Kontoauszug als PDF hochladen, damit meine Transaktionen automatisch eingelesen werden. | Must | **Given** ein gültiges PDF, **When** ich es hochlade, **Then** werden alle Transaktionen korrekt erkannt und angezeigt.<br>**Given** ein unlesbares/falsches Format, **When** ich es hochlade, **Then** erhalte ich eine verständliche Fehlermeldung. |
+| 2 | Als **Lara** möchte ich meine Transaktionen in Kategorien sehen, damit ich weiss, wofür ich wie viel ausgebe. | Must | **Given** importierte Transaktionen, **When** ich die Übersicht öffne, **Then** ist jede Transaktion einer Kategorie zugewiesen.<br>**Given** eine falsch kategorisierte Transaktion, **When** ich die Kategorie manuell ändere, **Then** wird die Änderung gespeichert und die Totals aktualisiert. |
+| 3 | Als **Lara** möchte ich einen wöchentlichen "Safe-to-Spend"-Betrag sehen, damit ich ohne schlechtes Gewissen Geld ausgeben kann. | Must | **Given** importierte Transaktionen und bekannte Fixkosten, **When** ich das Dashboard öffne, **Then** wird ein realistischer Safe-to-Spend-Betrag für die laufende Woche angezeigt.<br>**Given** der Betrag ist negativ, **When** ich das Dashboard öffne, **Then** erhalte ich eine deutliche Warnung. |
+| 4 | Als **Marc** möchte ich ein Sparziel definieren können, damit ich meinen Fortschritt in Richtung Notgroschen verfolgen kann. | Should | **Given** ich setze ein Sparziel (z.B. 1.000 CHF), **When** ich das Dashboard öffne, **Then** sehe ich den aktuellen Fortschritt in Prozent und CHF.<br>**Given** ich habe in einem Monat nichts gespart, **When** der Monat endet, **Then** erhalte ich einen Hinweis mit einem konkreten Sparvorschlag. |
+| 5 | Als **Marc** möchte ich wiederkehrende Ausgaben (Abos, Ratenzahlungen) auf einen Blick sehen, damit ich versteckte Kosten erkennen kann. | Should | **Given** importierte Transaktionen, **When** ich die Abo-Übersicht öffne, **Then** werden alle monatlich wiederkehrenden Beträge gruppiert angezeigt.<br>**Given** ein neues Abo wird erkannt, **When** es zum ersten Mal erscheint, **Then** werde ich darauf hingewiesen. |
+| 6 | Als **Lara** möchte ich meine Ausgaben des aktuellen Monats mit dem Vormonat vergleichen, damit ich Trends in meinem Verhalten erkenne. | Could | **Given** Daten aus mindestens zwei Monaten, **When** ich die Vergleichsansicht öffne, **Then** sehe ich die Differenz pro Kategorie in CHF und Prozent.<br>**Given** eine Kategorie hat sich um mehr als 20% erhöht, **When** der Vergleich geladen wird, **Then** wird diese Kategorie visuell hervorgehoben. |
+
+---
+
+## Noch offen
+
+- [ ] Projekt-Canvas ausfüllen
+- [ ] Präsentation vorbereiten
+
+---
+
+## Präsentation (nächste Session)
+
+- Projektname & Idee in einem Satz
+- 3 Must-have User Stories
+- Grösstes Risiko — und Plan B
+- Wo setzen wir AI konkret ein?
+- Was bleibt noch offen?
