@@ -45,6 +45,20 @@
 
 ## Technische Entscheide
 
+### Tech Stack
+
+| Schicht | Technologie | Begründung |
+|---|---|---|
+| Frontend | Angular (TypeScript) | Component-basiert, Two-Way-Binding, gut für Forms |
+| Backend | Java 21 + Spring Boot 3 | Typsicher, breites Ökosystem, Industriestandard |
+| API-Dokumentation | OpenAPI 3 (Springdoc) | Automatisch generierte Doku, Contract-First möglich |
+| Datenbank | SQLite | Einfach, kein separater DB-Server nötig — ideal für MVP |
+| KI | Claude API (Anthropic Java SDK) | Kategorisierung + KI-Monatsbericht |
+
+> **Hinweis SQLite:** Für das MVP ausreichend. Bei gleichzeitigen Schreibzugriffen mehrerer User kann SQLite zum Bottleneck werden — Migration zu PostgreSQL möglich, wenn nötig.
+
+---
+
 ### Transaktions-Kategorisierung: Hybrid-Ansatz
 
 | Schritt                     | Methode                                  | Begründung                                                                    |
