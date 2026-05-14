@@ -109,4 +109,132 @@ Antwort (nur Kategoriename):
 | 13  | Als **Lara** möchte ich die Einzeltransaktionen einer Kategorie einsehen können, damit ich genau nachvollziehen kann, wofür ich Geld ausgegeben habe. | Should | **Given** ich die Kategorienübersicht öffne, **When** ich auf eine Kategorie klicke, **Then** sehe ich alle zugehörigen Transaktionen mit Datum, Betrag und Empfänger — sortiert nach Datum absteigend.<br>**Given** eine Kategorie mehr als 20 Transaktionen enthält, **When** die Liste geladen wird, **Then** werden initial 20 Einträge angezeigt mit einem "Weitere laden"-Button — kein ungepaginierter Vollload. |
 | 14  | Als **Marc** möchte ich mein Passwort und mein Einkommen in den Einstellungen anpassen können, damit ich mein Konto aktuell halten kann. | Should | **Given** ich eingeloggt bin, **When** ich unter "Einstellungen > Passwort ändern" das aktuelle und ein neues Passwort (min. 8 Zeichen) eingebe und bestätige, **Then** wird das neue Passwort gespeichert und ich erhalte eine In-App-Bestätigung.<br>**Given** das eingegebene aktuelle Passwort ist falsch, **When** ich speichere, **Then** wird die Änderung abgelehnt mit "Aktuelles Passwort falsch".<br>**Given** ich mein Monatseinkommen in den Einstellungen ändere, **When** ich speichere, **Then** wird der Safe-to-Spend-Betrag auf dem Dashboard sofort mit dem neuen Wert neu berechnet. |
 
+<!-- GSD:project-start source:PROJECT.md -->
+## Project
 
+**BudgetBuddy**
+
+BudgetBuddy is a web app for students and young professionals living in Switzerland that ingests bank statement PDFs, automatically categorizes transactions, and displays a weekly "Safe-to-Spend" budget — so users always know how much they can spend without worry. Built with Angular (frontend), Spring Boot 3.x (backend), SQLite (database), and Claude API (AI categorization + monthly reports).
+
+**Core Value:** A weekly Safe-to-Spend number users can trust — calculated from real transaction data, not manual entry.
+
+### Constraints
+
+- **Tech Stack**: Angular (frontend), Java 25 + Spring Boot 3.x (backend), SQLite (MVP DB), Claude API via Anthropic Java SDK, OpenAPI 3 / Springdoc — locked in
+- **Database**: SQLite for MVP; migration path to PostgreSQL exists if concurrent writes become bottleneck
+- **Geography**: Switzerland only — CHF, Swiss banks (UBS, Raiffeisen, PostFinance), nDSG
+- **Privacy**: Sensitive financial data — security is existential; compliance with Swiss nDSG required (including right to deletion)
+- **Timeline**: No hard deadline; MVP-first mentality — validate core safe-to-spend concept, then iterate
+<!-- GSD:project-end -->
+
+<!-- GSD:stack-start source:research/STACK.md -->
+## Technology Stack
+
+## Confidence: HIGH on framework/library choices, MEDIUM on a few version patches
+## Recommended Stack
+### Backend
+| Layer | Technology | Version | Rationale |
+|-------|-----------|---------|-----------|
+| Runtime | Java | 25 (LTS) | Project-locked |
+| Framework | Spring Boot | 3.5.3 | Project-locked; latest 3.x stable |
+| Web layer | Spring Web MVC | (bundled) | Synchronous; correct for blocking SQLite JDBC |
+| Security | Spring Security | 6.5.x | Stateless JWT resource server pattern |
+| ORM | Spring Data JPA + Hibernate | (bundled) | Repository pattern; needs community dialect for SQLite |
+| DB | SQLite | 3.x | Project-locked for MVP |
+| JDBC driver | org.xerial:sqlite-jdbc | 3.49.x | Only production JDBC driver for SQLite |
+| Dialect | org.hibernate.orm:hibernate-community-dialects | (Hibernate version) | Provides `SQLiteDialect` |
+| Migrations | Flyway | 10.x | SQLite-confirmed; essential for team schema sync |
+| JWT | io.jsonwebtoken:jjwt-* | 0.12.x | HS256 signing, fluent builder API |
+| API docs | Springdoc OpenAPI | 2.8.17 | Spring Boot 3.5 compatible; zero-config Swagger UI |
+| AI | com.anthropic:anthropic-java | 2.31.0 | Official Anthropic SDK |
+| PDF parsing | org.apache.pdfbox:pdfbox | 3.0.x | Apache-licensed; correct for text-layer Swiss bank PDFs |
+### Frontend
+| Layer | Technology | Version | Rationale |
+|-------|-----------|---------|-----------|
+| Framework | Angular | 19.x | Project-locked; standalone components, Signals |
+| State | Angular Signals + Services | (bundled) | No NgRx needed for MVP scope |
+| Forms | Reactive Forms (FormGroup) | (bundled) | Stable; Signal Forms still experimental |
+| HTTP auth | Functional HTTP interceptor | (bundled) | Inject JWT Bearer token per request |
+| Charts | Chart.js + ng2-charts | 4.x / 6.x | Lightweight, Angular-native wrapper for pie/bar |
+| Change detection | OnPush everywhere | (bundled) | Required for Signals to work correctly |
+### AI/ML
+- **Categorization model**: `claude-haiku-3-5-20241022` — fast (~200ms), cheap, single-label output
+- **Monthly AI report model**: `claude-sonnet-4-20250514` (latest Sonnet) — richer language, called once/user/month
+- **Fallback**: catch `AnthropicException`, return `"Sonstiges"` — Claude unavailability must never block import flow
+## Swiss Bank PDF Specifics
+- Columns: Buchungsdatum | Valuta | Text | Belastungen CHF | Gutschriften CHF | Saldo CHF
+- Date format: `dd.MM.yyyy`
+- Amount format: `1'234.56` (apostrophe thousands separator — requires `replace("'", "")` before `BigDecimal` parse)
+- Text field can include multiline wrapping — use Saldo column as row anchor when splitting
+## Auth Decision: JWT (Stateless, HS256)
+| Factor | JWT (stateless) | Session (server-side) |
+|--------|----------------|----------------------|
+| SQLite write pressure | None — no session table | Every login/request writes to sessions table |
+| Angular SPA integration | Clean Bearer header | Requires cookie + CORS + SameSite config |
+| Spring Security support | First-class `oauth2ResourceServer().jwt()` | Also supported but adds Spring Session dep |
+| Logout invalidation | Client deletes token (MVP acceptable) | Instant server-side invalidation |
+| MVP scope fit | Excellent | Overengineered |
+## SQLite + Spring Boot Gotchas (Critical)
+## What NOT to Use
+| Technology | Why Not |
+|-----------|---------|
+| Spring Boot 4 | Explicit project risk decision — milestone releases only |
+| Spring WebFlux | SQLite JDBC is blocking; reactive wrapping adds complexity with no benefit |
+| iText 7 | AGPL license — requires open-sourcing or commercial license |
+| Tabula-java | Designed for scanned PDFs; Swiss bank PDFs have a text layer |
+| NgRx | Over-engineered for 2-3 person course project with simple state |
+| D3.js | Steep learning curve, no Angular integration, overkill for pie + bar |
+| Highcharts | Commercial license for non-personal projects |
+| Redis + Spring Session | Unnecessary infrastructure when using stateless JWT |
+| H2 in-memory (for testing) | Dialect mismatch vs SQLite; use `jdbc:sqlite::memory:` in tests instead |
+| PDFBox 2.x | Deprecated API (`PDDocument.load()`); use 3.x `Loader.loadPDF()` from the start |
+| `double`/`float` for money | Binary floating point cannot represent CHF amounts exactly |
+## Open Questions
+## Sources
+| Claim | Confidence |
+|-------|------------|
+| Anthropic Java SDK v2.31.0 | HIGH — GitHub releases |
+| Spring Boot 3.5 / Spring Security 6.5 | HIGH — official Spring docs |
+| Springdoc 2.8.17 Spring Boot 3.5 compat | HIGH — springdoc.org |
+| PDFBox text extraction + password detection | HIGH — Apache PDFBox repo |
+| JJWT 0.12.x API | MEDIUM — version patch unverified |
+| Raiffeisen PDF layout | HIGH — direct fixture inspection |
+<!-- GSD:stack-end -->
+
+<!-- GSD:conventions-start source:CONVENTIONS.md -->
+## Conventions
+
+Conventions not yet established. Will populate as patterns emerge during development.
+<!-- GSD:conventions-end -->
+
+<!-- GSD:architecture-start source:ARCHITECTURE.md -->
+## Architecture
+
+Architecture not yet mapped. Follow existing patterns found in the codebase.
+<!-- GSD:architecture-end -->
+
+<!-- GSD:skills-start source:skills/ -->
+## Project Skills
+
+No project skills found. Add skills to any of: `.claude/skills/`, `.agents/skills/`, `.cursor/skills/`, `.github/skills/`, or `.codex/skills/` with a `SKILL.md` index file.
+<!-- GSD:skills-end -->
+
+<!-- GSD:workflow-start source:GSD defaults -->
+## GSD Workflow Enforcement
+
+Before using Edit, Write, or other file-changing tools, start work through a GSD command so planning artifacts and execution context stay in sync.
+
+Use these entry points:
+- `/gsd-quick` for small fixes, doc updates, and ad-hoc tasks
+- `/gsd-debug` for investigation and bug fixing
+- `/gsd-execute-phase` for planned phase work
+
+Do not make direct repo edits outside a GSD workflow unless the user explicitly asks to bypass it.
+<!-- GSD:workflow-end -->
+
+<!-- GSD:profile-start -->
+## Developer Profile
+
+> Profile not yet configured. Run `/gsd-profile-user` to generate your developer profile.
+> This section is managed by `generate-claude-profile` -- do not edit manually.
+<!-- GSD:profile-end -->

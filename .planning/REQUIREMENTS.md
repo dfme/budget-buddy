@@ -113,16 +113,53 @@ Features deferred until v1 is stable and validated:
 
 ## Traceability
 
-_Filled by roadmap agent_
+_Updated by roadmap agent — 2026-05-14_
 
-| REQ-ID | Phase |
-|--------|-------|
-| AUTH-01–07 | — |
-| ONBD-01–06 | — |
-| IMPT-01–07 | — |
-| CATG-01–07 | — |
-| SAFE-01–05 | — |
-| GOAL-01–05 | — |
-| NAVG-01–04 | — |
-| TRAN-01–02 | — |
-| SETT-01–03 | — |
+| REQ-ID | Phase | Status |
+|--------|-------|--------|
+| AUTH-01 | Phase 1 — Project Skeleton + Authentication | Pending |
+| AUTH-02 | Phase 1 — Project Skeleton + Authentication | Pending |
+| AUTH-03 | Phase 1 — Project Skeleton + Authentication | Pending |
+| AUTH-04 | Phase 1 — Project Skeleton + Authentication | Pending |
+| AUTH-05 | Phase 1 — Project Skeleton + Authentication | Pending |
+| AUTH-06 | Phase 2 — Privacy Consent + Account Deletion (nDSG) | Pending |
+| AUTH-07 | Phase 2 — Privacy Consent + Account Deletion (nDSG) | Pending |
+| ONBD-01 | Phase 3 — Fixed Costs Onboarding | Pending |
+| ONBD-02 | Phase 3 — Fixed Costs Onboarding | Pending |
+| ONBD-03 | Phase 3 — Fixed Costs Onboarding | Pending |
+| ONBD-04 | Phase 3 — Fixed Costs Onboarding | Pending |
+| ONBD-05 | Phase 3 — Fixed Costs Onboarding | Pending |
+| ONBD-06 | Phase 3 — Fixed Costs Onboarding | Pending |
+| IMPT-01 | Phase 4 — PDF Import | Pending |
+| IMPT-02 | Phase 4 — PDF Import | Pending |
+| IMPT-03 | Phase 4 — PDF Import | Pending |
+| IMPT-04 | Phase 4 — PDF Import | Pending |
+| IMPT-05 | Phase 4 — PDF Import | Pending |
+| IMPT-06 | Phase 4 — PDF Import | Pending |
+| IMPT-07 | Phase 4 — PDF Import | Pending |
+| CATG-01 | Phase 5 — Categorization Engine | Pending |
+| CATG-02 | Phase 5 — Categorization Engine | Pending |
+| CATG-03 | Phase 5 — Categorization Engine | Pending |
+| CATG-04 | Phase 5 — Categorization Engine | Pending |
+| CATG-05 | Phase 5 — Categorization Engine | Pending |
+| CATG-06 | Phase 6 — Dashboard + Safe-to-Spend | Pending |
+| CATG-07 | Phase 6 — Dashboard + Safe-to-Spend | Pending |
+| SAFE-01 | Phase 6 — Dashboard + Safe-to-Spend | Pending |
+| SAFE-02 | Phase 6 — Dashboard + Safe-to-Spend | Pending |
+| SAFE-03 | Phase 6 — Dashboard + Safe-to-Spend | Pending |
+| SAFE-04 | Phase 6 — Dashboard + Safe-to-Spend | Pending |
+| SAFE-05 | Phase 6 — Dashboard + Safe-to-Spend | Pending |
+| GOAL-01 | Phase 7 — Savings Goal | Pending |
+| GOAL-02 | Phase 7 — Savings Goal | Pending |
+| GOAL-03 | Phase 7 — Savings Goal | Pending |
+| GOAL-04 | Phase 7 — Savings Goal | Pending |
+| GOAL-05 | Phase 7 — Savings Goal | Pending |
+| NAVG-01 | Phase 8 — Month Navigation | Pending |
+| NAVG-02 | Phase 8 — Month Navigation | Pending |
+| NAVG-03 | Phase 8 — Month Navigation | Pending |
+| NAVG-04 | Phase 8 — Month Navigation | Pending |
+| TRAN-01 | Phase 9 — Category Drill-Down | Pending |
+| TRAN-02 | Phase 9 — Category Drill-Down | Pending |
+| SETT-01 | Phase 10 — Settings | Pending |
+| SETT-02 | Phase 10 — Settings | Pending |
+| SETT-03 | Phase 10 — Settings | Pending |
