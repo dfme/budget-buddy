@@ -15,14 +15,83 @@ Hier sind unsere User Stories:
 13. Als Lara möchte ich die Einzeltransaktionen einer Kategorie einsehen können, damit ich genau nachvollziehen kann, wofür ich Geld ausgegeben habe.
 14. Als Marc möchte ich mein Passwort und mein Einkommen in den Einstellungen anpassen können, damit ich mein Konto aktuell halten kann.
 
-
-
 Priorisiere diese nach MoSCoW für ein MVP in 3 Monaten.
 Team: 2-3 Personen, gemischter Tech-Background.
 
 Für jede Story:
-1. Kategorie (Must / Should / Could / Won't)
+1. Kategorie (Must / Should / Could / Won't) dabei sollen maximum 4 in der Kategorie must sein
 2. Begründung in einem Satz
 3. Falls Won't: wann könnte es relevant werden?
 
 Identifiziere auch: Gibt es Stories die sich widersprechen?
+
+
+Resultat:
+Bei der Beschränkung auf 4 Must-Stories konzentriere ich mich kompromisslos auf die Core-Value-Pipeline: Rohdaten → Verständnis → Safe-to-Spend. Alles, was diese Kette nicht direkt schliesst, rutscht eine Stufe
+   tiefer.
+
+  Must (genau 4 — die Core-Value-Pipeline)
+
+  ┌─────┬─────────────────────────────┬──────────────────────────────────────────────────────────────────────────────────────┐
+  │  #  │            Story            │                                      Begründung                                      │
+  ├─────┼─────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
+  │ 3   │ Fixkosten erfassen          │ Pflicht-Input der Safe-to-Spend-Formel — ohne Fixkosten kein realistischer Kernwert. │
+  ├─────┼─────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
+  │ 4   │ PDF-Upload                  │ Einzige Datenquelle im MVP — ohne diese Story gibt es nichts zu rechnen.             │
+  ├─────┼─────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
+  │ 5   │ Transaktionen in Kategorien │ Macht aus Rohdaten Erkenntnis und ist Voraussetzung für jede sinnvolle Auswertung.   │
+  ├─────┼─────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────┤
+  │ 6   │ Safe-to-Spend               │ Die Kern-Value-Proposition — entfällt sie, gibt es kein BudgetBuddy.                 │
+  └─────┴─────────────────────────────┴──────────────────────────────────────────────────────────────────────────────────────┘
+
+  Should (wichtig, aber nicht im Wertschöpfungspfad)
+
+  ┌─────┬──────────────────────────────────┬─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │  #  │              Story               │                                                   Begründung                                                    │
+  ├─────┼──────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ 1   │ Konto / Login                    │ Für realen Einsatz unverzichtbar, in einer Demo-Phase aber mit einem hardcoded User überbrückbar.               │
+  ├─────┼──────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ 2   │ Datenschutz-Consent              │ nDSG-pflichtig sobald echte User-Daten verarbeitet werden — als statische Zustimmungsseite günstig nachrüstbar. │
+  ├─────┼──────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ 12  │ Monatswechsel                    │ Wird ab dem 2. importierten PDF nötig, um die Daten überhaupt navigieren zu können.                             │
+  ├─────┼──────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ 13  │ Einzeltransaktionen je Kategorie │ Drill-Down ist die Voraussetzung dafür, dass Nutzer der Auto-Kategorisierung vertrauen.                         │
+  ├─────┼──────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ 14  │ Passwort & Einkommen ändern      │ Einkommen-Änderung hängt direkt an US-6; ohne US-1 ist Passwort-Change irrelevant.                              │
+  └─────┴──────────────────────────────────┴─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  Could (Mehrwert, aber kein Blocker für MVP)
+
+  ┌─────┬─────────────────────────┬───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │  #  │          Story          │                                                      Begründung                                                       │
+  ├─────┼─────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ 7   │ Sparziel definieren     │ Adressiert Marc gezielt, aber der Kernwert (Safe-to-Spend) funktioniert komplett ohne.                                │
+  ├─────┼─────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ 8   │ Wiederkehrende Ausgaben │ Setzt mindestens 2 Monate Daten und zusätzliche Erkennungs-Logik voraus — Aufwand/Nutzen passt nicht ins MVP-Fenster. │
+  ├─────┼─────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ 9   │ KI-Monatsbericht        │ Schönes Differenzierungs-Feature, aber Sonnet-Integration + manueller Quality-Review sind teuer für 3 Monate.         │
+  ├─────┼─────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ 10  │ Monatsvergleich         │ Liefert frühestens am MVP-Ende Wert (braucht 2 vollständige Monate Daten).                                            │
+  └─────┴─────────────────────────┴───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  Won't
+
+  #: 11
+  Story: OpenBanking-Anbindung
+  Wann relevant?: Erst nach validiertem Product-Market-Fit. Voraussetzungen: FINMA-/Swiss-Open-Banking-Klärung, Vertrag mit SIX b.Link oder einer Einzelbank, OAuth2/FAPI-Implementierung — realistisch v2.0,
+    frühestens 6+ Monate nach MVP-Launch.
+
+  ---
+  Widersprüche & Lücken in den Stories
+
+  1. Einkommen-Erfassung ist nicht eindeutig zugeordnet — US-3 erfasst nur Fixkosten, US-6 verweist auf "Einstellungen", US-14 erlaubt nur das Ändern. Wo wird das Einkommen zuerst erfasst? Empfehlung: als
+  Pflichtfeld in den Wizard von US-3 integrieren.
+  2. US-5 ↔ US-13 überschneiden sich — "Transaktionen in Kategorien sehen" und "Einzeltransaktionen einer Kategorie einsehen" sind kaum trennbar. Risiko doppelter UI-Arbeit; entweder zusammenlegen oder klar als
+  Aggregat- vs. Drill-down-View abgrenzen.
+  3. US-7 mischt zwei Features — Acceptance Criterion 4 ("90 CHF für Takeaway → spar 45 CHF") ist ein KI-Sparvorschlag und gehört inhaltlich zu US-9. So wie geschrieben hängt US-7 von US-9 ab oder dupliziert
+  Logik.
+  4. US-6 "verbleibende Wochen" unterspezifiziert — Kalenderwoche, Rolling 7-Tage oder angebrochene Woche? Bei Monatsmitte ergibt jede Variante einen anderen Safe-to-Spend-Wert; Definition fehlt.
+  5. US-4 ↔ US-11 latenter Konflikt — Wenn OpenBanking später dazukommt, müssen Duplikat-Erkennung (US-4) und Sync-Logik (US-11) koexistieren. Für den MVP irrelevant, aber die Architektur sollte beide
+  Datenquellen vorsehen.
+  6. Must-Auswahl steht in Spannung zu US-2 — Strikt gelesen verlangt nDSG, dass Consent vor jeder Datenverarbeitung erfolgt. In meiner Must-Auswahl ist US-2 nur "Should". Konsequenz: solange US-2 nicht
+  implementiert ist, darf das Produkt nicht mit echten Nutzerdaten betrieben werden — Demo mit Testdaten ist ok, Pilot mit echten Personen nicht.
