@@ -1,0 +1,28 @@
+Hier sind unsere User Stories:
+
+1. Als Lara möchte ich ein Konto erstellen und mich einloggen können, damit meine Daten sicher gespeichert sind und ich von verschiedenen Geräten darauf zugreifen kann.
+2. Als Marc möchte ich einen Datenschutz-Consent-Schritt durchlaufen, bevor meine Daten verarbeitet werden, damit ich weiss, was mit meinen sensiblen Finanzdaten passiert und ihnen bewusst zustimme.
+3. Als Lara möchte ich beim ersten Einrichten meine monatlichen Fixkosten (z.B. Miete, Krankenkasse, Handy) erfassen können, damit der Safe-to-Spend-Betrag von Anfang an realistisch berechnet wird.
+4. Als Lara möchte ich einen Kontoauszug als PDF hochladen, damit meine Transaktionen automatisch eingelesen werden.
+5. Als Lara möchte ich meine Transaktionen in Kategorien sehen, damit ich weiss, wofür ich wie viel ausgebe.
+6. Als Lara möchte ich einen wöchentlichen "Safe-to-Spend"-Betrag sehen, damit ich ohne schlechtes Gewissen Geld ausgeben kann.
+7. Als Marc möchte ich ein Sparziel definieren können, damit ich meinen Fortschritt in Richtung Notgroschen verfolgen kann.
+8. Als Marc möchte ich wiederkehrende Ausgaben (Abos, Ratenzahlungen) auf einen Blick sehen, damit ich versteckte Kosten erkennen kann.
+9. Als Lara möchte ich einmal im Monat einen KI-generierten Monatsbericht erhalten, damit ich automatisch einen Überblick über mein Finanzverhalten und gezielte Sparvorschläge bekomme.
+10. Als Lara möchte ich meine Ausgaben des aktuellen Monats mit dem Vormonat vergleichen, damit ich Trends in meinem Verhalten erkenne.
+11. Als Lara möchte ich mein Bankkonto über eine OpenBanking-Schnittstelle direkt verbinden, damit meine Transaktionen automatisch und ohne manuellen PDF-Upload aktuell gehalten werden.
+12. Als Lara möchte ich zwischen verschiedenen Monaten wechseln können, damit ich meine historischen Ausgaben einsehen kann.
+13. Als Lara möchte ich die Einzeltransaktionen einer Kategorie einsehen können, damit ich genau nachvollziehen kann, wofür ich Geld ausgegeben habe.
+14. Als Marc möchte ich mein Passwort und mein Einkommen in den Einstellungen anpassen können, damit ich mein Konto aktuell halten kann.
+
+
+
+Priorisiere diese nach MoSCoW für ein MVP in 3 Monaten.
+Team: 2-3 Personen, gemischter Tech-Background.
+
+Für jede Story:
+1. Kategorie (Must / Should / Could / Won't)
+2. Begründung in einem Satz
+3. Falls Won't: wann könnte es relevant werden?
+
+Identifiziere auch: Gibt es Stories die sich widersprechen?
