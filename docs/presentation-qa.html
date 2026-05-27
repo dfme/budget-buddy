@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BudgetBuddy — Projektpräsentation</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green:   #22c55e;
+      --green-d: #16a34a;
+      --blue:    #3b82f6;
+      --amber:   #f59e0b;
+      --red:     #ef4444;
+      --bg:      #0f172a;
+      --surface: #1e293b;
+      --border:  #334155;
+      --text:    #f1f5f9;
+      --muted:   #94a3b8;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    /* ── Deck ─────────────────────────────────────── */
+    .deck {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    .slide {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 60px 80px;
+      opacity: 0;
+      transform: translateX(60px);
+      transition: opacity .45s ease, transform .45s ease;
+      pointer-events: none;
+    }
+    .slide.active {
+      opacity: 1;
+      transform: translateX(0);
+      pointer-events: all;
+    }
+    .slide.exit {
+      opacity: 0;
+      transform: translateX(-60px);
+    }
+
+    /* ── Nav arrows ───────────────────────────────── */
+    .nav-arrow {
+      position: fixed;
+      top: 50%;
+      transform: translateY(-50%);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      width: 48px; height: 48px;
+      border-radius: 50%;
+      font-size: 20px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .2s, color .2s;
+      z-index: 100;
+    }
+    .nav-arrow:hover { background: var(--border); color: var(--text); }
+    #prev { left: 20px; }
+    #next { right: 20px; }
+
+    /* ── Dot indicators ───────────────────────────── */
+    .dots {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 10px;
+      z-index: 100;
+    }
+    .dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--border);
+      cursor: pointer;
+      transition: background .2s, transform .2s;
+    }
+    .dot.active {
+      background: var(--green);
+      transform: scale(1.3);
+    }
+
+    /* ── Slide number ─────────────────────────────── */
+    .slide-counter {
+      position: fixed;
+      top: 24px; right: 32px;
+      font-size: 13px;
+      color: var(--muted);
+      z-index: 100;
+    }
+
+    /* ── Shared layout helpers ────────────────────── */
+    .slide-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+    h1 {
+      font-size: clamp(32px, 5vw, 56px);
+      font-weight: 800;
+      line-height: 1.1;
+      margin-bottom: 8px;
+    }
+    h2 {
+      font-size: clamp(22px, 3vw, 34px);
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .accent { color: var(--green); }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px 28px;
+    }
+
+    .tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      border-radius: 6px;
+      padding: 3px 10px;
+      margin-bottom: 10px;
+    }
+
+    /* ══════════════════════════════════════════════
+       SLIDE 1 — Projektidee
+    ══════════════════════════════════════════════ */
+    #slide-1 { gap: 0; }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(34,197,94,.12);
+      border: 1px solid rgba(34,197,94,.3);
+      border-radius: 999px;
+      padding: 6px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--green);
+      margin-bottom: 24px;
+    }
+    .hero-badge .dot-live {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 1.8s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: .3; }
+    }
+
+    .hero-sub {
+      font-size: clamp(15px, 2vw, 19px);
+      color: var(--muted);
+      max-width: 620px;
+      line-height: 1.6;
+      margin-bottom: 48px;
+    }
+
+    .flow {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin-bottom: 48px;
+    }
+    .flow-step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px 24px;
+      min-width: 140px;
+      text-align: center;
+    }
+    .flow-step .icon { font-size: 28px; }
+    .flow-step .label { font-size: 13px; font-weight: 600; }
+    .flow-step .sub   { font-size: 11px; color: var(--muted); }
+    .flow-arrow {
+      font-size: 20px;
+      color: var(--border);
+      padding: 0 12px;
+    }
+
+    .personas {
+      display: flex;
+      gap: 16px;
+    }
+    .persona-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px 22px;
+      flex: 1;
+    }
+    .persona-card .name { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+    .persona-card .desc { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+    .persona-card .goal {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--green);
+      background: rgba(34,197,94,.1);
+      border-radius: 6px;
+      padding: 4px 10px;
+      display: inline-block;
+    }
+
+    /* ══════════════════════════════════════════════
+       SLIDE 2 — Top 3 QAs
+    ══════════════════════════════════════════════ */
+    #slide-2 .qa-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      width: 100%;
+      max-width: 1100px;
+    }
+
+    .qa-card {
+      border-radius: 18px;
+      padding: 32px 28px;
+      border: 1px solid;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .qa-card.red   { background: rgba(239,68,68,.08);  border-color: rgba(239,68,68,.3);  }
+    .qa-card.blue  { background: rgba(59,130,246,.08); border-color: rgba(59,130,246,.3); }
+    .qa-card.amber { background: rgba(245,158,11,.08); border-color: rgba(245,158,11,.3); }
+
+    .qa-rank {
+      font-size: 11px; font-weight: 700; letter-spacing: .12em;
+      text-transform: uppercase;
+      opacity: .7;
+    }
+    .qa-card.red   .qa-rank { color: var(--red); }
+    .qa-card.blue  .qa-rank { color: var(--blue); }
+    .qa-card.amber .qa-rank { color: var(--amber); }
+
+    .qa-icon { font-size: 36px; }
+    .qa-title { font-size: 20px; font-weight: 800; }
+    .qa-why {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .qa-risk {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 8px 12px;
+      border-radius: 8px;
+      line-height: 1.5;
+    }
+    .qa-card.red   .qa-risk { background: rgba(239,68,68,.15);  color: #fca5a5; }
+    .qa-card.blue  .qa-risk { background: rgba(59,130,246,.15); color: #93c5fd; }
+    .qa-card.amber .qa-risk { background: rgba(245,158,11,.15); color: #fcd34d; }
+
+    /* ══════════════════════════════════════════════
+       SLIDE 3 — Massnahmen
+    ══════════════════════════════════════════════ */
+    #slide-3 .measure-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      width: 100%;
+      max-width: 1100px;
+    }
+
+    .measure-col {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .measure-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      margin-bottom: 4px;
+    }
+    .measure-header.red   { background: rgba(239,68,68,.12);  border: 1px solid rgba(239,68,68,.3); }
+    .measure-header.blue  { background: rgba(59,130,246,.12); border: 1px solid rgba(59,130,246,.3);}
+    .measure-header.amber { background: rgba(245,158,11,.12); border: 1px solid rgba(245,158,11,.3);}
+    .measure-header .icon { font-size: 20px; }
+    .measure-header .title { font-size: 14px; font-weight: 800; }
+
+    .measure-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 13px;
+      line-height: 1.5;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .measure-item .bullet {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      margin-top: 6px;
+      flex-shrink: 0;
+    }
+    .red-bullet   { background: var(--red); }
+    .blue-bullet  { background: var(--blue); }
+    .amber-bullet { background: var(--amber); }
+
+    .measure-item strong {
+      display: block;
+      font-weight: 700;
+      font-size: 12px;
+      margin-bottom: 2px;
+    }
+    .measure-item span { color: var(--muted); font-size: 12px; }
+  </style>
+</head>
+<body>
+
+<div class="deck">
+
+  <!-- ══ SLIDE 1 ══════════════════════════════════ -->
+  <div class="slide active" id="slide-1">
+    <div class="slide-label">CAS ADAI 2026 · BFH Biel</div>
+
+    <div class="hero-badge">
+      <span class="dot-live"></span>
+      MVP in Entwicklung
+    </div>
+
+    <h1><span class="accent">Budget</span>Buddy</h1>
+    <p class="hero-sub">
+      Eine Web-App für Schweizer Studierende und Berufseinsteiger — Kontoauszug hochladen,
+      Ausgaben verstehen, wöchentlichen <strong style="color:var(--text)">Safe-to-Spend</strong>-Betrag kennen.
+    </p>
+
+    <div class="flow">
+      <div class="flow-step">
+        <span class="icon">📄</span>
+        <span class="label">PDF Upload</span>
+        <span class="sub">UBS · Raiffeisen · PostFinance</span>
+      </div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-step">
+        <span class="icon">🏷️</span>
+        <span class="label">Kategorisierung</span>
+        <span class="sub">Lookup + Claude API</span>
+      </div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-step">
+        <span class="icon">💚</span>
+        <span class="label">Safe-to-Spend</span>
+        <span class="sub">CHF pro Woche</span>
+      </div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-step">
+        <span class="icon">📊</span>
+        <span class="label">KI-Bericht</span>
+        <span class="sub">Monatliche Sparvorschläge</span>
+      </div>
+    </div>
+
+    <div class="personas">
+      <div class="persona-card">
+        <div class="name">👩‍🎓 Lara, 22 — Studentin, Bern</div>
+        <div class="desc">Verliert Mitte Monat den Überblick. Excel-Tabellen führt sie nie nach.</div>
+        <span class="goal">„Weiss ich noch, ob Miete geht?"</span>
+      </div>
+      <div class="persona-card">
+        <div class="name">👨‍💼 Marc, 25 — Junior-Verkäufer, Zürich</div>
+        <div class="desc">0 CHF übrig trotz Vollzeitjob. Datenschutz-skeptisch gegenüber Web-Apps.</div>
+        <span class="goal">„Ersten Notgroschen von 1'000 CHF."</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SLIDE 2 ══════════════════════════════════ -->
+  <div class="slide" id="slide-2">
+    <div class="slide-label">Quality Attributes</div>
+    <h2 style="margin-bottom: 32px;">Top 3 kritische <span class="accent">Quality Attributes</span></h2>
+
+    <div class="qa-grid">
+
+      <div class="qa-card red">
+        <div class="qa-rank"># 1 · Kritisch</div>
+        <div class="qa-icon">🔐</div>
+        <div class="qa-title">Sicherheit &amp; Datenschutz</div>
+        <div class="qa-why">
+          Lara und Marc übergeben ihr vollständiges Finanzbild. Marc's Haupthürde ist
+          explizit <em>Datenschutz-Skepsis</em>. Das nDSG schreibt Recht auf Löschung vor.
+          Ein Datenleck ist laut eigenem Risikocatalog <strong style="color:#fca5a5">existenzbedrohend</strong>.
+        </div>
+        <div class="qa-risk">
+          ⚠️ Risiko ohne QA: Datenleck → Vertrauensverlust + nDSG-Busse → Projektende
+        </div>
+      </div>
+
+      <div class="qa-card blue">
+        <div class="qa-rank"># 2 · Hoch</div>
+        <div class="qa-icon">🖱️</div>
+        <div class="qa-title">Usability</div>
+        <div class="qa-why">
+          Laras Hürde: <em>„Wenn der erste PDF-Upload zu kompliziert ist, bricht sie sofort ab."</em>
+          Der Onboarding-Funnel ist der einzige Moment um sie zu gewinnen.
+          Risiko #1 im Projekt ist die <strong style="color:#93c5fd">Churn-Falle</strong>.
+        </div>
+        <div class="qa-risk">
+          ⚠️ Risiko ohne QA: User bricht nach erstem Upload ab → Conversion = 0%
+        </div>
+      </div>
+
+      <div class="qa-card amber">
+        <div class="qa-rank"># 3 · Hoch</div>
+        <div class="qa-icon">🎯</div>
+        <div class="qa-title">Korrektheit</div>
+        <div class="qa-why">
+          Core Value: <em>„A Safe-to-Spend number users can <strong style="color:#fcd34d">trust</strong>."</em>
+          User Stories fordern «auf den Rappen genau» an 5 Stellen.
+          Falsche Zahlen treffen Laras Mietentscheidung — das ist kein Bug, das ist Vertrauensbruch.
+        </div>
+        <div class="qa-risk">
+          ⚠️ Risiko ohne QA: Falsche Safe-to-Spend → Lara zahlt Miete nicht → Vertrauen weg
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══ SLIDE 3 ══════════════════════════════════ -->
+  <div class="slide" id="slide-3">
+    <div class="slide-label">Architektonische Massnahmen</div>
+    <h2 style="margin-bottom: 28px;">Massnahmen pro <span class="accent">Quality Attribute</span></h2>
+
+    <div class="measure-grid">
+
+      <!-- QA 1 -->
+      <div class="measure-col">
+        <div class="measure-header red">
+          <span class="icon">🔐</span>
+          <span class="title">Sicherheit &amp; Datenschutz</span>
+        </div>
+        <div class="measure-item">
+          <span class="bullet red-bullet"></span>
+          <div>
+            <strong>bcrypt (Work Factor ≥ 12)</strong>
+            <span>Passwörter nie im Klartext — US-1 AC fordert es explizit</span>
+          </div>
+        </div>
+        <div class="measure-item">
+          <span class="bullet red-bullet"></span>
+          <div>
+            <strong>PDF nur im RAM parsen</strong>
+            <span>Kein <code>transferTo()</code> — nach Extraktion sofort verwerfen (US-4)</span>
+          </div>
+        </div>
+        <div class="measure-item">
+          <span class="bullet red-bullet"></span>
+          <div>
+            <strong>User-ID-Filter auf ALLEN Queries</strong>
+            <span>JPA Repository: User A sieht nie Daten von User B</span>
+          </div>
+        </div>
+        <div class="measure-item">
+          <span class="bullet red-bullet"></span>
+          <div>
+            <strong>Kaskadierendes DELETE</strong>
+            <span>ON DELETE CASCADE in Flyway — nDSG Recht auf Löschung (US-2)</span>
+          </div>
+        </div>
+        <div class="measure-item">
+          <span class="bullet red-bullet"></span>
+          <div>
+            <strong>JWT-Secret als Env-Variable</strong>
+            <span><code>${JWT_SECRET}</code> in application.yml — nie im Git-Repository</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- QA 2 -->
+      <div class="measure-col">
+        <div class="measure-header blue">
+          <span class="icon">🖱️</span>
+          <span class="title">Usability</span>
+        </div>
+        <div class="measure-item">
+          <span class="bullet blue-bullet"></span>
+          <div>
+            <strong>Fortschrittsanzeige beim Upload</strong>
+            <span>Spinner + „42 Transaktionen erkannt" — US-4 fordert Erfolgsmeldung</span>
+          </div>
+        </div>
+        <div class="measure-item">
+          <span class="bullet blue-bullet"></span>
+          <div>
+            <strong>Inline-Fehlermeldungen mit Kontext</strong>
+            <span>Nicht „Fehler" — „PDF ist passwortgeschützt, bitte Schutz entfernen"</span>
+          </div>
+        </div>
+        <div class="measure-item">
+          <span class="bullet blue-bullet"></span>
+          <div>
+            <strong>Fixkosten-Wizard mit Escape</strong>
+            <span>Nicht überspringbar, aber „Keine Fixkosten"-Option vorhanden (US-3)</span>
+          </div>
+        </div>
+        <div class="measure-item">
+          <span class="bullet blue-bullet"></span>
+          <div>
+            <strong>30s Timeout mit klarer Meldung</strong>
+            <span>Lara wartet nie unbegrenzt auf einen hängenden Upload</span>
+          </div>
+        </div>
+        <div class="measure-item">
+          <span class="bullet blue-bullet"></span>
+          <div>
+            <strong>Automatische Einkommensschätzung</strong>
+            <span>Regelmässige Gutschrift ±5% erkannt → Vorschlag ohne manuelle Eingabe</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- QA 3 -->
+      <div class="measure-col">
+        <div class="measure-header amber">
+          <span class="icon">🎯</span>
+          <span class="title">Korrektheit</span>
+        </div>
+        <div class="measure-item">
+          <span class="bullet amber-bullet"></span>
+          <div>
+            <strong>BigDecimal überall — kein double/float</strong>
+            <span><code>0.1 + 0.2 ≠ 0.3</code> in double — DB als <code>NUMERIC(15,2)</code></span>
+          </div>
+        </div>
+        <div class="measure-item">
+          <span class="bullet amber-bullet"></span>
+          <div>
+            <strong>Apostrophe-Parsing für CHF-Format</strong>
+            <span><code>replace("'", "")</code> vor BigDecimal-Parse — <code>1'234.56</code> ist kein valides Java</span>
+          </div>
+        </div>
+        <div class="measure-item">
+          <span class="bullet amber-bullet"></span>
+          <div>
+            <strong>Saldo-Anker beim PDF-Parsing</strong>
+            <span>Mehrzeilige Textfelder korrekt trennen — Saldo-Spalte als Zeilenanker</span>
+          </div>
+        </div>
+        <div class="measure-item">
+          <span class="bullet amber-bullet"></span>
+          <div>
+            <strong>Divisor mindestens 1</strong>
+            <span>Safe-to-Spend am Monatsende: Division durch 0 explizit abgefangen (US-6)</span>
+          </div>
+        </div>
+        <div class="measure-item">
+          <span class="bullet amber-bullet"></span>
+          <div>
+            <strong>Quartals-/Jahres-Normalisierung</strong>
+            <span>300 CHF/Quartal → 100 CHF/Monat (÷3); Fehler hier bricht jede Berechnung</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- /deck -->
+
+<!-- Navigation -->
+<button class="nav-arrow" id="prev" aria-label="Vorherige Folie">&#8592;</button>
+<button class="nav-arrow" id="next" aria-label="Nächste Folie">&#8594;</button>
+
+<div class="dots">
+  <div class="dot active" data-index="0"></div>
+  <div class="dot" data-index="1"></div>
+  <div class="dot" data-index="2"></div>
+</div>
+
+<div class="slide-counter">
+  <span id="cur">1</span> / <span id="total">3</span>
+</div>
+
+<script>
+  const slides = Array.from(document.querySelectorAll('.slide'));
+  const dots   = Array.from(document.querySelectorAll('.dot'));
+  const cur    = document.getElementById('cur');
+  let current  = 0;
+
+  function goTo(index) {
+    if (index < 0 || index >= slides.length) return;
+    slides[current].classList.remove('active');
+    slides[current].classList.add('exit');
+    setTimeout(() => slides[current].classList.remove('exit'), 450);
+    current = index;
+    slides[current].classList.add('active');
+    dots.forEach((d, i) => d.classList.toggle('active', i === current));
+    cur.textContent = current + 1;
+  }
+
+  document.getElementById('prev').addEventListener('click', () => goTo(current - 1));
+  document.getElementById('next').addEventListener('click', () => goTo(current + 1));
+
+  dots.forEach(d => d.addEventListener('click', () => goTo(+d.dataset.index)));
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown')  goTo(current + 1);
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')    goTo(current - 1);
+  });
+</script>
+</body>
+</html>
