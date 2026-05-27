@@ -329,7 +329,7 @@ Target:
 
 - **ADR-1:** Java + Spring Boot (AnthropicClient integration)
 - **ADR-5:** SQLite (Lookup-Tabelle stored locally)
-- **ADR-10:** BigDecimal für Geldbeträge (Amount-Parameter)
+- **ADR-9:** BigDecimal für Geldbeträge (Amount-Parameter)
 
 ---
 

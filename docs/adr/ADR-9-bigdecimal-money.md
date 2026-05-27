@@ -507,7 +507,6 @@ Money amount = Money.of(CurrencyUnit.CHF, BigDecimal.valueOf(125.50));
 
 - **ADR-1:** Java + Spring Boot (BigDecimal native support)
 - **ADR-5:** SQLite with DECIMAL columns
-- **ADR-9:** All money calculations use BigDecimal
 
 ---
 

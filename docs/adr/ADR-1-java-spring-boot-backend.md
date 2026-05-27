@@ -148,7 +148,7 @@ BudgetBuddy benötigt ein Backend, das:
 - **ADR-0:** Frontend-Backend-Trennung (SPA + REST)
 - **ADR-5:** SQLite (MVP) + Spring Data JPA
 - **ADR-7:** JWT für Authentifizierung
-- **ADR-9:** Apache PDFBox für PDF-Verarbeitung
+- **ADR-8:** Apache PDFBox für PDF-Verarbeitung
 
 ---
 

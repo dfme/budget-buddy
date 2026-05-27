@@ -149,7 +149,6 @@ BudgetBuddy benötigt ein Frontend, das:
 
 - **ADR-0:** Frontend-Backend-Trennung (SPA)
 - **ADR-3:** REST API (nicht GraphQL)
-- **ADR-6:** State Management (Signals + Services, kein NgRx)
 
 ---
 
