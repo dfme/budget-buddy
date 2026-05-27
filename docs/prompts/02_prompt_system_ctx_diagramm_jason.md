@@ -13,105 +13,85 @@ Dann: Was haben wir vergessen?
 
 -----
 
-⏺ Ich lese das CLAUDE.md nochmal genau durch, um alle Elemente zu identifizieren.
+## C4 System Context Diagram — BudgetBuddy
 
-  Read 1 file (ctrl+o to expand)
+```
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  SYSTEM CONTEXT                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
 
-⏺ Hier ist das C4 System Context Diagram für BudgetBuddy:
+  [Person]                                              [Person]
+ ┌──────────────────────┐                          ┌──────────────────────┐
+ │  Lara                │                          │  Marc                │
+ │  Studentin, 22       │                          │  Berufseinsteiger,25 │
+ │  Bern                │                          │  Zürich              │
+ └──────────┬───────────┘                          └──────────┬───────────┘
+            │  lädt PDF hoch,                                 │  setzt Sparziel,
+            │  liest Safe-to-Spend                            │  prüft Abos
+            │                                                 │
+            └────────────────────┐   ┌────────────────────────┘
+                                 ▼   ▼
+                    ╔══════════════════════════════╗
+                    ║         BudgetBuddy          ║
+                    ║  ─────────────────────────── ║
+                    ║  Web-App für Schweizer        ║
+                    ║  Studenten & Berufseinsteiger ║
+                    ║                               ║
+                    ║  Liest Kontoauszüge (PDF),    ║
+                    ║  kategorisiert Transaktionen, ║
+                    ║  zeigt Safe-to-Spend          ║
+                    ╚═══════════╤══════════════════╝
+                                │
+              ┌─────────────────┼──────────────────┐
+              │                 │                  │
+              ▼                 ▼                  ▼
 
-  ---
-  C4 System Context Diagram — BudgetBuddy
+  [External System]    [External System]    [External System]
+ ┌──────────────────┐  ┌─────────────────┐  ┌──────────────────────┐
+ │  Anthropic       │  │  Schweizer      │  │  Swiss Bank          │
+ │  Claude API      │  │  Banken         │  │  (UBS / Raiffeisen / │
+ │  ─────────────── │  │  (PDF-Quelle)   │  │   PostFinance)       │
+ │  Kategorisierung │  │  ─────────────  │  │  ──────────────────  │
+ │  unbekannter Tx  │  │  Nutzer lädt    │  │  [Nice-to-Have]      │
+ │  + KI-Monats-    │  │  PDF manuell    │  │  OpenBanking API     │
+ │  bericht         │  │  herunter       │  │  (nicht MVP)         │
+ └──────────────────┘  └─────────────────┘  └──────────────────────┘
 
-  ╔══════════════════════════════════════════════════════════════════════════════╗
-  ║                        C4 System Context: BudgetBuddy                       ║
-  ╚══════════════════════════════════════════════════════════════════════════════╝
+       ▲                       ▲                      ▲
+       │ sendet Tx-Text,       │ PDF-Datei             │ [Zukunft]
+       │ empfängt Kategorie    │ (offline, via User)   │ direkter API-Zugriff
+       │ / Bericht             │                       │
+       └───────────────────────┴───────────────────────┘
+                    (alle Pfeile von BudgetBuddy aus)
+```
 
+**Datenfluss zusammengefasst:**
 
-    ┌─────────────────┐                                   ┌──────────────────────┐
-    │   [Person]      │                                   │  [External System]   │
-    │                 │                                   │                      │
-    │  Lara / Marc    │                                   │   Claude API         │
-    │  ─────────────  │                                   │   (Anthropic)        │
-    │  Student /      │                                   │   ────────────────   │
-    │  Berufsein-     │                                   │   Haiku: Tx-         │
-    │  steiger        │                                   │   Kategorisierung    │
-    │  (Schweiz)      │                                   │   Sonnet: Monats-    │
-    └────────┬────────┘                                   │   bericht            │
-             │                                            └──────────┬───────────┘
-             │ Lädt PDF hoch,                                        │
-             │ verwaltet Konto,       ╔══════════════════╗           │
-  Kategorisiert
-             │ liest Safe-to-Spend    ║                  ║           │
-  Transaktionen,
-             │ (HTTPS, Browser)       ║   BudgetBuddy    ║◄──────────┘ generiert
-  Bericht
-             └───────────────────────►║                  ║           (HTTPS/REST)
-                                      ║  Angular SPA +   ║
-             ┌───────────────────────►║  Spring Boot     ║
-             │ Exportiert PDF-        ║  REST API +      ║
-             │ Kontoauszug manuell    ║  SQLite DB       ║
-             │ aus E-Banking          ╚══════════════════╝
-             │ (kein direkter
-             │  API-Aufruf)
-    ┌────────┴────────┐
-    │ [External       │
-    │  System]        │
-    │                 │
-    │  Schweizer      │
-    │  Banken         │
-    │  ─────────────  │
-    │  UBS            │
-    │  Raiffeisen     │
-    │  PostFinance    │
-    └─────────────────┘
+```
+Nutzer ──[PDF upload]──► BudgetBuddy ──[Tx-Text (20-30%)]──► Claude API
+                                     ◄──[Kategorie / Bericht]──
 
-  Legende der Beziehungen
+Nutzer ──[lädt bei Bank herunter]──► PDF-Datei ──[Upload]──► BudgetBuddy
+```
 
-  ┌──────────────┬─────────────┬───────────────────────────────────────────────┐
-  │     Von      │     Zu      │                 Beschreibung                  │
-  ├──────────────┼─────────────┼───────────────────────────────────────────────┤
-  │ Lara / Marc  │ BudgetBuddy │ PDF-Upload, Konto-Login, Safe-to-Spend lesen, │
-  │              │             │  Kategorien korrigieren (HTTPS)               │
-  ├──────────────┼─────────────┼───────────────────────────────────────────────┤
-  │              │             │ Unbekannte Tx zur Kategorisierung senden      │
-  │ BudgetBuddy  │ Claude API  │ (~20–30%), Monatsbericht generieren           │
-  │              │             │ (HTTPS/REST)                                  │
-  ├──────────────┼─────────────┼───────────────────────────────────────────────┤
-  │ Claude API   │ BudgetBuddy │ Kategoriename zurück (Haiku),                 │
-  │              │             │ Markdown-Bericht zurück (Sonnet)              │
-  ├──────────────┼─────────────┼───────────────────────────────────────────────┤
-  │ Schweizer    │ Lara / Marc │ User lädt PDF manuell aus E-Banking herunter  │
-  │ Banken       │             │ (kein direkter System-zu-System-Aufruf)       │
-  └──────────────┴─────────────┴───────────────────────────────────────────────┘
+---
 
-  ---
-  Was haben wir vergessen?
-  
-  1. E-Mail-Service (fehlt komplett)
-  - Passwort-Reset (US-14) braucht einen SMTP/Transactional-Mail-Dienst (SendGrid,
-  Postmark, etc.)
-  - Konto-Bestätigungs-E-Mail bei Registrierung (US-01)
-  - Ohne diesen Baustein gibt es keine sichere Passwort-Wiederherstellung
-  
-  2. OpenBanking-API (bewusst ausgelassen, aber im Diagram fehlt der Hinweis)
-  - US-11 ist "Could" — SIX Open Banking / Blink by Six oder ähnliche CH-Anbieter
-  - Sollte zumindest als "planned external system" im Diagram erscheinen, damit der
-   Kontext sichtbar ist
+## Was haben wir vergessen?
 
-  3. Hosting-Infrastruktur / Deployment-Plattform
-  - Wo läuft der Spring Boot JAR? Lokal, VPS, Render, Railway, Hetzner?
-  - Für ein C4-Diagram auf Kurs-Niveau reicht "Web Server / Cloud Host" als Box
-  
-  4. Browser als Laufzeitkontext
-  - Die Angular SPA läuft im Browser des Users — das ist technisch ein eigener
-  "Container", fehlt aber im System Context
-  
-  5. Datenschutz-Behörde / nDSG
-  - US-02 verlangt Konto-Löschung (Right to Deletion nach nDSG). Der
-  Datenschutzkontext (Eidg. Datenschutzbeauftragter) ist kein System, aber ein
-  wichtiger Compliance-Kontext — fehlt in der Dokumentation als explizite
-  Abhängigkeit
-  
-  Kritischster fehlender Baustein: E-Mail-Service — ohne den ist US-01/US-14
-  (Passwort-Reset) nicht umsetzbar und das Diagram gibt ein falsches Bild des
-  Systems.
+**Wahrscheinlich relevant, aber nicht modelliert:**
+
+| # | Fehlendes Element | Warum es fehlt / Risiko |
+|---|---|---|
+| 1 | **E-Mail-Dienst** (z.B. SendGrid, SMTP) | Passwort-Reset und Registrierungsbestätigung brauchen E-Mail — sonst kein Recovery-Pfad |
+| 2 | **Hosting-Infrastruktur** (z.B. Render, Railway, eigener Server) | Wo läuft das Ding? Kein Deployment = kein System Context |
+| 3 | **Backup-System für SQLite** | SQLite ist eine Datei — kein automatisches Backup = existenzielles Risiko bei Ausfall |
+| 4 | **Browser / Web-Client** | Technisch kein externes System, aber für C4 L1 oft explizit als "User's Browser" modelliert |
+| 5 | **nDSG-Compliance / Datenlöschung** | Marc's Persona hat Datenschutz-Skepsis — "Konto löschen" (US-02) impliziert einen Löschprozess, der evtl. geloggt werden muss |
+| 6 | **Logging / Monitoring** | Kein Sentry, kein Prometheus — bei Fehlern im Prod hat man keine Sicht |
+
+**Bewusst ausgelassen (korrekt so):**
+
+- OpenBanking API: als "Nice-to-Have" richtig gestrichelt / ausgegraut
+- Interne Komponenten (Angular, Spring Boot, SQLite): gehören in C4 Level 2 (Container Diagram), nicht in Level 1
+
+Die grösste Lücke ist **E-Mail**: ohne Passwort-Reset ist US-01 (Login) für den MVP unvollständig.
