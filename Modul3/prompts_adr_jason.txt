@@ -1,0 +1,44 @@
+Kannst du 5 bis 7 ADR identifizieren? Kannst du die erstellen ADR im Format: Michael Nygard ADR erstellen?             
+
+
+Basierend auf den dokumentierten Entscheiden in CLAUDE.md sind das die 7
+  naheliegendsten ADRs:
+
+  ---
+  ADR-001 — SQLite als MVP-Datenbank
+  Kein separater DB-Server, einfaches Setup, akzeptiertes Bottleneck bei parallelen
+   Schreibzugriffen. Migrationspfad zu PostgreSQL explizit offen gehalten.
+
+  ADR-002 — Stateless JWT (HS256) statt Server-Session
+  Kein Session-Table → kein SQLite Write-Pressure bei jedem Request. Angular SPA
+  kommt mit Bearer-Header aus, kein Cookie/CORS-Overhead. Logout-Invalidierung ist
+  Client-seitig (MVP-Kompromiss).
+
+  ADR-003 — Hybrid-Kategorisierung: Lookup-Tabelle + Claude API
+  Bekannte Händler deterministisch per Lookup (~70–80%), nur unbekannte
+  Transaktionen an Claude Haiku (~20–30%). User-Korrekturen erweitern die
+  Lookup-Tabelle — Lerneffekt ohne Retraining.
+
+  ADR-004 — PDFs nicht persistieren
+  Nach der Extraktion werden ausschliesslich Transaktionsdaten gespeichert, das PDF
+   selbst wird verworfen. Begründung: Datenschutz (nDSG) und Angriffsfläche
+  minimieren.
+
+  ADR-005 — PDFBox 3.x statt Tabula oder iText
+  Tabula ist für gescannte PDFs ausgelegt — Schweizer Bank-PDFs haben eine
+  Textschicht. iText 7 hat AGPL-Lizenz. PDFBox 3.x ist Apache-lizenziert und
+  korrekt für text-layer PDFs.
+
+  ADR-006 — Angular Signals + Services statt NgRx
+  Für 2–3 Entwickler und MVP-Scope ist NgRx overengineered. Signals sind in Angular
+   19 first-class, OnPush Change Detection funktioniert direkt damit.
+
+  ADR-007 — OpenBanking als Nice-to-Have (kein MVP)
+  Direktanbindung via Swiss Open Banking / SIX API erhöht Komplexität und
+  Regulierungsaufwand erheblich. MVP validiert den Core Value (Safe-to-Spend)
+  zuerst über manuellen PDF-Upload.
+
+  ---
+  Soll ich diese als formelle ADR-Dateien im Markdown-Format ausschreiben?
+
+
