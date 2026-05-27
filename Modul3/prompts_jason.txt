@@ -1,4 +1,4 @@
-Hier sind unsere user stories: UserStories_working.md                            
+Hier sind unsere User Stories und Requirements: CLAUDE.md                        
   Analysiere welche Quality Attributes für unser Projekt                           
   am kritischsten sind.                                                            
                                                                                    
@@ -8,202 +8,116 @@ Hier sind unsere user stories: UserStories_working.md
   3. Was passiert wenn wir diesen QA ignorieren?                                   
                                                                                    
   Sei konkret — keine generischen Antworten.                                       
-  Beziehe dich auf unser spezifisches Projekt. 
+  Beziehe dich auf unser spezifisches Projekt.                                     
 
-
-Ich lese zuerst die User Stories Datei.
-
-  Read 2 files, listed 2 directories (ctrl+o to expand)
-
-⏺ Ich habe die User Stories und das CLAUDE.md vollständig analysiert. Hier sind die
-   Top 3 Quality Attributes für BudgetBuddy:
-
+⏺ Basierend auf den User Stories und Risiken in CLAUDE.md sind die drei
+  kritischsten Quality Attributes:
+     
   ---
-  Top 3 Quality Attributes für BudgetBuddy
-  
-  Ranking-Methode
-
-  Ich habe alle 14 User Stories gegen die ISO 25010 QA-Taxonomie gemappt und nach
-  Auswirkung auf: (a) Core Value Proposition, (b) Nutzungsabbruch-Risiko, (c)
-  regulatorische Pflicht gewichtet.
-  
-  ---
-  #1 — Sicherheit & Datenschutz (Security / Confidentiality)
-
-  Warum kritisch für BudgetBuddy?
-
-  Kontoauszüge sind die sensibelsten persönlichen Daten überhaupt — vollständiges
-  Bild von Einkommen, Ausgabemustern, Lebensort, sozialen Beziehungen. Marc
-  (Persona 2) nennt Datenschutz-Skepsis explizit als seine Adoptionsbarriere: er
-  wird die App nie ernsthaft nutzen, solange er nicht vertraut, dass seine Daten
-  sicher sind.
-
-  Zusätzlich: nDSG-Pflicht, kein Nice-to-Have. US-2 (Consent) und US-1
-  (Account-Löschung) sind rechtlich verpflichtend sobald echte Nutzerdaten
-  verarbeitet werden. Das eigene Risiko-Register listet es als Risiko #2: "ein 
-  Datenleck ist existenzbedrohend".
-
-  Konkrete architektonische Massnahmen
-
-  ┌──────────────────────┬─────────────────────────────────────────────────────┐
-  │      Massnahme       │                  Warum genau diese                  │
-  ├──────────────────────┼─────────────────────────────────────────────────────┤
-  │ PDFs nie auf dem     │ Ein kompromittierter Speicher gibt nie die          │
-  │ Server speichern     │ Rohdokumente preis — nur bereits extrahierte        │
-  │ (US-4 AC)            │ Transaktionen. SHA-256-Hash zur Duplikaterkennung   │
-  │                      │ reicht vollständig.                                 │
-  ├──────────────────────┼─────────────────────────────────────────────────────┤
-  │ Passwörter nur als   │ Kein Plaintext auffindbar, auch für einen DB-Admin  │
-  │ bcrypt-Hash in       │ nicht. Spring Security's BCryptPasswordEncoder mit  │
-  │ SQLite               │ Standardkosten-Faktor 12.                           │
-  ├──────────────────────┼─────────────────────────────────────────────────────┤
-  │ Stateless JWT — kein │ SQLite hat keine Session-Tabelle, die angegriffen   │
-  │  Session-Token in    │ werden kann. JWT-Secret in Environment Variable,    │
-  │ der DB               │ nie im Code.                                        │
-  ├──────────────────────┼─────────────────────────────────────────────────────┤
-  │ Harte Löschung bei   │ Kein is_deleted-Flag, sondern DELETE FROM users     │
-  │ Account-Delete (US-2 │ WHERE id = ? plus Cascade auf alle Fremdschlüssel.  │
-  │  AC)                 │ Der Admin-Check im Acceptance Criteria ist der      │
-  │                      │ Verifikationstest.                                  │
-  ├──────────────────────┼─────────────────────────────────────────────────────┤
-  │ Keine sensitiven     │ Transaktionsbeträge, Empfängernamen und JWT-Inhalte │
-  │ Daten in Logs        │  dürfen nie in Logfiles erscheinen. Spring          │
-  │                      │ AOP-Logging muss Finanzdaten maskieren.             │
-  └──────────────────────┴─────────────────────────────────────────────────────┘
-  
-  Was passiert wenn ignoriert?
-
-  Marc installiert die App gar nicht — die Conversion Rate kollabiert schon beim
-  Onboarding, weil er die Datenschutzerklärung nicht überzeugend findet.
-
-  Und im schlimmsten Fall: Ein Breach leakt Laras vollständige Kontoauszüge.
-  FDPIC-Meldepflicht tritt ein. nDSG-Busse. Die App wird sofort eingestellt, weil
-  kein Nutzer mehr Vertrauen hat — in einem Bereich (Persönliche Finanzen) in dem
-  Vertrauensverlust irreversibel ist.
-
-  ---
-  #2 — Korrektheit / Datenintegrität (Correctness / Data Integrity)
+  1. Security (Sicherheit & Datenschutz)
   
   Warum kritisch für BudgetBuddy?
+  Sensible Finanzdaten (Kontoauszüge, Transaktionen, Einkommensangaben) sind das
+  wertvollste Asset der App — und das grösste Angriffsziel. Marc vertraut der App
+  nur, wenn er weiss, dass seine Daten sicher sind (US-2). Das nDSG schreibt das
+  Recht auf vollständige Datenlöschung vor (US-2 AC). Ein Datenleck wäre nach
+  eigener Einschätzung im CLAUDE.md "existenzbedrohend".
 
-  Der Safe-to-Spend-Betrag ist der Kernwert — Lara trifft echte finanzielle
-  Entscheidungen auf dieser Basis. Wenn die App 200 CHF Safe-to-Spend anzeigt, aber
-   die richtige Antwort 50 CHF wäre (weil eine Transaktion fehlt oder falsch
-  geparst wurde), riskiert sie einen Kontoüberstand mit Bankgebühren.
-
-  Drei konkrete Korrektheitspflichten aus den Acceptance Criteria:
-  - 95% Extraktionsgenauigkeit aus PDFs (US-4)
-  - 80% Kategorisierungsgenauigkeit (US-5)
-  - Berechnungen auf den Rappen genau — "Summen pro Kategorie stimmen auf den
-  Rappen mit der Summe der zugeordneten Transaktionen überein" (US-5 AC)
-
-  Konkrete architektonische Massnahmen
-
-  Massnahme: BigDecimal überall, nie double/float
-  Konkret: double kann 0.1 + 0.2 nicht exakt darstellen. 1'234.56 CHF wird mit new 
-    BigDecimal(rawString.replace("'", "")) geparst. setScale(2, 
-    RoundingMode.HALF_UP) bei jeder Berechnung.
-  ────────────────────────────────────────
-  Massnahme: Safe-to-Spend Formel gegen alle Edge Cases absichern
-  Konkret: Divisor mindestens 1 (letzte Woche), Division nur wenn Einkommen    
-  bekannt,
-    negativer Betrag → Banner statt Ausnahme. Diese 4 Edge Cases sind in US-6 AC
-    explizit spezifiziert — je ein Unit Test pro Fall.
-  ────────────────────────────────────────
-  Massnahme: PDF Test-Fixture-Set mit UBS-, Raiffeisen-, PostFinance-Auszügen  
-  Konkret: Die 95%-Schwelle muss messbar sein. Ohne ein festes Fixture-Set kann sie
-
-    nicht verifiziert werden. Raiffeisen-Spezifika: dd.MM.yyyy,
-    Tausendertrennzeichen als Apostroph, Saldo-Spalte als Zeilenankerpunkt (laut
-    CLAUDE.md).
-  ────────────────────────────────────────
-  Massnahme: SHA-256 Duplikat-Erkennung (US-4 AC)
-  Konkret: Gleicher Kontoauszug zweimal importiert → Transaktionen doppelt gezählt
-  →
-    Safe-to-Spend falsch. Hash bei Upload prüfen, nicht nach Inhalt suchen.
-  ────────────────────────────────────────
-  Massnahme: Lookup-Tabelle vor Claude API (US-5 AC)
-  Konkret: Bekannte Händler (Migros, SBB) deterministisch zugewiesen — nie an API
-    geschickt. Reduziert Kategorisierungsfehler durch LLM-Varianz bei bekannten
-    Fällen.
+  Konkrete architektonische Massnahmen:
+  - PDF niemals persistieren (US-4 AC explizit): Nur extrahierte Transaktionsdaten
+  speichern — PDF nach Parsing sofort im Memory verwerfen, nie auf Disk schreiben
+  - Bcrypt für Passwörter (US-1 AC): Spring Security's BCryptPasswordEncoder mit
+  mindestens Cost 12
+  - JWT stateless (bereits entschieden): Kein Session-State in SQLite, Token nur
+  client-seitig
+  - Datenlöschung als transaktionale Cascade: DELETE FROM users WHERE id = ? muss
+  via Datenbank-Constraints automatisch alle verknüpften Transaktionen, Fixkosten,
+  Sparziele mitlöschen — kein manuelles Aufräumen
+  - Kein Logging von Transaktionsdaten: Spring-Logs dürfen niemals Betrag,
+  Empfänger oder IBAN ausgeben
 
   Was passiert wenn ignoriert?
+  Marc lädt die App nie hoch. Lara löscht den Account nach dem ersten Artikel über
+  einen Fintech-Datenleak. Ein einziger Breach mit echten Kontoauszügen ist ein
+  Compliance-Fall unter nDSG — Bussgelder, Reputationsverlust, Ende des Projekts.
 
-  Lara vertraut auf 300 CHF Safe-to-Spend, gibt das Geld aus, und entdeckt beim
-  Blick in ihre Banking-App, dass sie 80 CHF im Minus ist — weil BudgetBuddy eine
-  Transaktion doppelt geparst hat oder eine Gutschrift als Ausgabe klassifiziert
-  hat.
-
-  Ergebnis: Sie löscht die App sofort und erzählt drei Freunden davon. Die
-  Kategorie "Persönliche Finanz-App" ist extrem vertrauenssensitiv — ein einziger
-  falscher Betrag zerstört die Glaubwürdigkeit vollständig.
-  
   ---
-  #3 — Benutzbarkeit beim ersten Kontakt (Usability / First-Use Experience)
+  2. Usability (Gebrauchstauglichkeit)
 
   Warum kritisch für BudgetBuddy?
+  "Churn-Falle" ist Risiko #1 in CLAUDE.md. Laras Persona macht das konkret: Wenn
+  der erste PDF-Upload mehr als 30 Sekunden dauert oder drei Klicks zu viel
+  braucht, bricht sie ab — und kommt nie wieder. Die App muss beim ersten Use Case
+  (Upload → Kategorisierung → Safe-to-Spend sehen) funktionieren, bevor sie
+  irgendwelchen Mehrwert beweist.
 
-  Risiko #1 im eigenen Risikoregister: "Churn-Falle — manueller PDF-Import + 
-  Kategorisierung führt zu Nutzungsabbruch nach erstem Aha-Effekt".
-
-  Laras Persona beschreibt dies explizit: "wenn der erste PDF-Upload zu kompliziert
-   ist, bricht sie sofort ab". Der gesamte Wertschöpfungspfad (US-4 → US-5 → US-6)
-  ist sequenziell: Kein PDF-Upload = keine Kategorien = kein Safe-to-Spend. Wenn
-  Lara beim ersten Schritt abbricht, erreicht sie nie den Kern-Wert.
-
-  Das Paradox: Die technisch korrekteste, sicherste App bringt nichts, wenn niemand
-   den ersten Import abschliesst.
-
-  Konkrete architektonische Massnahmen
-
-  Massnahme: Upload-Feedback in Echtzeit (US-4 AC: "42 Transaktionen erkannt")
-  Warum genau diese: Lara braucht sofortiges Erfolgssignal — ohne Feedback wirkt
-    Upload wie eingestellt. Transaktionszahl anzeigen sobald Extraktion fertig,
-    nicht erst nach Kategorisierung.
-  ────────────────────────────────────────
-  Massnahme: Aktionsfähige Fehlermeldungen statt technischer Fehler
-  Warum genau diese: Nicht "HTTP 415" sondern "Das PDF ist passwortgeschützt — 
-  bitte
-    entferne den Schutz vor dem Upload". Jede Fehlermeldung (US-4) enthält den 
-    nächsten Schritt.
-  ────────────────────────────────────────
-  Massnahme: Claude API Unavailability darf Import nie blockieren              
-  Warum genau diese: Wenn Claude down ist: Fallback auf "Sonstiges", Import
-  trotzdem
-    abgeschlossen. Lara sieht ihre Transaktionen, auch wenn 30% falsch
-  kategorisiert
-     sind — sie kann manuell korrigieren. Ein blockierter Import wäre Churn.
-  ────────────────────────────────────────
-  Massnahme: Onboarding-Wizard mit explizitem "Keine Fixkosten"-Pfad (US-3 AC)
-  Warum genau diese: Der Wizard kann nicht übersprungen werden — aber er darf sich
-    nicht wie ein Formular anfühlen. "Keine Fixkosten"-Option ist gleichwertig,
-    nicht versteckt.
-  ────────────────────────────────────────
-  Massnahme: 30-Sekunden Timeout mit Retry-Option (US-4 AC)
-  Warum genau diese: Kein Spinner der ewig dreht. Konkrete Zeitangabe +
-    "Verarbeitung fehlgeschlagen — bitte versuche es erneut". Lara soll nicht
-  raten,
-     ob sie warten oder neu laden soll.
+  Konkrete architektonische Massnahmen:
+  - Optimistisches UI: Transaktionen sofort nach dem Upload im Frontend anzeigen
+  (mit "Wird kategorisiert..."-State), nicht erst wenn der Backend-Job fertig ist.
+  Polling oder SSE gegen /api/imports/{id}/status 
+  - Onboarding-Wizard als Pflichtschritt (US-3): Angular Route Guard auf /dashboard
+  - Onboarding-Wizard als Pflichtschritt (US-3): Angular Route Guard auf /dashboard
+   — Redirect auf /onboarding wenn onboardingCompleted === false. Kein Bypass.
+  - Fehlermeldungen auf Deutsch, kontextspezifisch (US-4 AC): Nicht "500 Internal
+  Server Error" sondern "Das PDF ist passwortgeschützt — bitte entferne den Schutz
+  vor dem Upload". Diese Texte direkt als Backend-Enums mit i18n-Keys modellieren.
+  - Progressive Disclosure: Sparziele (US-7) und Monatsvergleich (US-10) erst nach
+  erstem erfolgreichen Import anzeigen — nicht beim Onboarding überwältigen
+  - Ladezeiten sichtbar machen: PDF-Processing-Timeout bei 30s (US-4 AC) —
+  Progress-Indicator mit Schritten ("Lese PDF... Kategorisiere Transaktionen...
+  Fertig")
 
   Was passiert wenn ignoriert?
+  Der Safe-to-Spend-Wert ist technisch korrekt, aber niemand sieht ihn. Die App
+  wird einmal ausprobiert und vergessen — exakt die "Churn-Falle" aus dem
+  Risk-Register.
 
-  Lara lädt ein PDF hoch, sieht 45 Sekunden einen Spinner, dann einen generischen
-  Fehler ohne Erklärung. Sie versucht es ein zweites Mal. Beim dritten Mal
-  schliesst sie den Tab.
-  
-  Sie hat den Kern-Wert (Safe-to-Spend) nie gesehen. Die App hat genau das getan,
-  was Risiko #1 beschreibt: Nutzer abgebrochen nach dem Aha-Versuch, nicht nach dem
-   Aha-Effekt.
-  
   ---
-  Zusammenfassung
+  3. Reliability (Zuverlässigkeit gegenüber externen Abhängigkeiten)
 
-  #1 Sicherheit       — Existenzbedrohend bei Versagen, nDSG-Pflicht, Marc-Barriere
-  #2 Korrektheit      — Kern-Value-Proposition hängt an exakten CHF-Zahlen
-  #3 Benutzbarkeit    — Ohne ersten erfolgreichen Import erreicht kein Nutzer den
-  Wert
+  Warum kritisch für BudgetBuddy?
+  BudgetBuddy hat eine kritische externe Abhängigkeit: die Claude API. Sie liegt
+  auf dem kritischen Pfad der Kategorisierung (US-5) und des Monatsberichts (US-9).
+   Wenn die API down ist und der Import blockiert, verliert die App ihr
+  Kernversprechen. Zusätzlich ist die PDF-Extraktion von der Qualität der
+  Banken-PDFs abhängig — UBS, Raiffeisen und PostFinance liefern unterschiedliche
+  Layouts.
 
-  Alle drei sind voneinander abhängig: Korrektheit ohne Sicherheit =
-  vertrauenswürdige Zahlen in unsicherem Container. Sicherheit ohne Benutzbarkeit =
-   niemand nutzt die sichere App. Benutzbarkeit ohne Korrektheit = Lara trifft
-  falsche finanzielle Entscheidungen.
+  Konkrete architektonische Massnahmen:
+  - Lookup-Table-first, Claude-API-second (US-5 AC explizit): Bekannte Händler
+  (Migros, SBB, Digitec) werden nie an die API gesendet. Die Tabelle muss als
+  persistente DB-Tabelle modelliert sein, nicht als in-memory Map — damit
+  User-Korrekturen beim nächsten Import wirken (US-5 AC)
+  - Circuit Breaker für Claude API: Wenn 3 aufeinanderfolgende API-Calls
+  fehlschlagen → für 60 Sekunden alle Transaktionen direkt als Sonstiges einbuchen,
+   ohne auf Timeout zu warten. Resilience4j Circuit Breaker Pattern mit Spring Boot
+  - Monatsberichts-Retry (US-9 AC): Letzten erfolgreich generierten Bericht immer
+  persistieren. Bei API-Fehler: Datum des letzten Berichts anzeigen + "Erneut
+  versuchen"-Button — nie eine leere Seite
+  - PDF-Parsing-Isolation: PDF-Extraktion in separatem Service-Layer mit eigenem
+  Fehlerhandling. Wenn PDFBox eine Exception wirft, kommt eine strukturierte
+  Fehlermeldung zurück — nie ein Stack-Trace an den Client
+  - 95%-Extraktionsrate als messbare Anforderung (US-4 AC): Test-Fixtures mit
+  echten PDFs von UBS/Raiffeisen/PostFinance als Integrationstests — damit ein
+  Parsing-Regressionstest Regressions frühzeitig erkennt
+
+  Was passiert wenn ignoriert?
+  Anthropic hat einen Outage (es passiert). Importierte PDFs werden blockiert. Lara
+   sieht einen 503-Fehler statt ihres Safe-to-Spend. Sie denkt, die App ist kaputt
+  — und hat Recht. Das Vertrauen in die Berechnungsgrundlage ist weg.
+
+  ---
+  Zusammenfassung der Priorität:
+
+  ┌─────────────┬─────────────────────────────────┬────────────────────────────┐
+  │     QA      │       Trigger im Projekt        │      Schlimmster Fall      │
+  ├─────────────┼─────────────────────────────────┼────────────────────────────┤
+  │ Security    │ nDSG, Marc's Skepsis,           │ Datenleak = Projektende    │
+  │             │ Finanzdaten                     │                            │
+  ├─────────────┼─────────────────────────────────┼────────────────────────────┤
+  │ Usability   │ Churn-Risiko #1, Laras          │ Niemand nutzt die App      │
+  │             │ Abbruchverhalten                │                            │
+  ├─────────────┼─────────────────────────────────┼────────────────────────────┤
+  │ Reliability │ Claude API als Single Point of  │ Core Feature blockiert bei │
+  │             │ Failure                         │  Outage                    │
+  └─────────────┴─────────────────────────────────┴────────────────────────────┘
