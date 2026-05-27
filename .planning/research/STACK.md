@@ -10,7 +10,7 @@
 
 | Layer | Technology | Version | Rationale |
 |-------|-----------|---------|-----------|
-| Runtime | Java | 25 (LTS) | Project-locked |
+| Runtime | Java | 21 (LTS) | Project-locked |
 | Framework | Spring Boot | 3.5.3 | Project-locked; latest 3.x stable |
 | Web layer | Spring Web MVC | (bundled) | Synchronous; correct for blocking SQLite JDBC |
 | Security | Spring Security | 6.5.x | Stateless JWT resource server pattern |
