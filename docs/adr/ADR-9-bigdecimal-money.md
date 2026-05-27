@@ -8,6 +8,7 @@
 BudgetBuddy speichert und berechnet CHF-Beträge (Transaktionen, Einkommen, Safe-to-Spend, Fixkosten).
 
 **Problem mit Floating-Point:**
+
 ```java
 // ❌ double: Rounding Error!
 double amount1 = 0.1;
@@ -56,6 +57,7 @@ Wir nutzen **BigDecimal für alle Geldbeträge**:
 ### double (Native Floating-Point)
 
 **Rejected.** Fast, aber:
+
 - IEEE 754 Binary Floating-Point ist nicht exact
 - 0.1 + 0.2 ≠ 0.3 (Rounding Errors akkumulieren)
 - Finanz-Applikationen verlieren User-Vertrauen bei Cent-Fehlern
@@ -63,6 +65,7 @@ Wir nutzen **BigDecimal für alle Geldbeträge**:
 ### long (Store as Cents)
 
 **Rejected.** Exact (Integer), aber:
+
 - Mehr Code: `10050` statt `100.50`
 - Database Type Mismatch: SQLite INTEGER vs. Application Logic CHF
 - Nicht Spring JPA compatible ohne Custom Converter
@@ -70,6 +73,7 @@ Wir nutzen **BigDecimal für alle Geldbeträge**:
 ### Money Library (Moneta, Joda-Money)
 
 **Rejected.** Elegant, aber:
+
 - Extra Dependency für MVP
 - Nicht nötig (BigDecimal ist ausreichend)
 - Später hinzufügbar wenn needed

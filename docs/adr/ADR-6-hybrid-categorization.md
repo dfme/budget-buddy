@@ -8,6 +8,7 @@
 BudgetBuddy muss Transaktionen automatisch in 13 Kategorien klassifizieren (Wohnen, Lebensmittel, Transport, ..., Sonstiges).
 
 **Anforderungen:**
+
 - Automatisch (kein manuelles Labeling für 1.000+ Transaktionen)
 - Schnell (<500ms pro Batch)
 - Kostengünstig (Benutzer zahlen nichts, also LLM-Calls sparsam)
@@ -48,12 +49,14 @@ Wir nutzen einen **Hybrid-Ansatz: Lookup-Tabelle + Claude API**:
 ### LLM-Only (Claude für alle Transaktionen)
 
 **Rejected.** Flexible, aber:
+
 - Zu teuer: 1.000 User × 1.000 tx/Monat × $0.00075 = $750/Monat = $9.000/Jahr
 - Startup kann das nicht tragen
 
 ### ML Model (Fine-Tuned)
 
 **Rejected.** Für MVP zu komplex:
+
 - Braucht gelabelte Trainings-Daten (nicht verfügbar am Start)
 - Braucht ML-Expertise (nicht im Team)
 - Retraining bei User-Korrektionen aufwendig

@@ -53,6 +53,7 @@ Wir nutzen **Java 25 LTS + Spring Boot 3.5.3** mit folgenden Dependencies:
 ### Node.js + Express / Fastify
 
 **Rejected.** Gut für schnelle Prototypen, aber:
+
 - Keine Compile-time Typsicherheit (Runtime-Fehler möglich)
 - PDF-Verarbeitung weniger reif als PDFBox
 - JWT-Sicherheit weniger standardisiert als Spring Security
@@ -61,6 +62,7 @@ Wir nutzen **Java 25 LTS + Spring Boot 3.5.3** mit folgenden Dependencies:
 ### Python + FastAPI
 
 **Rejected.** Schnell zu prototypen, aber:
+
 - Keine Compile-time Typsicherheit
 - Global Interpreter Lock (GIL) limitiert Multicore-Nutzung
 - Security-Patterns weniger bewährt als Spring Security
@@ -69,6 +71,7 @@ Wir nutzen **Java 25 LTS + Spring Boot 3.5.3** mit folgenden Dependencies:
 ### Go
 
 **Rejected.** Sehr performant, aber:
+
 - Ökosystem weniger reif für Enterprise-Muster
 - PDF-Verarbeitung suboptimal
 - Kleine Standard Library für Web
@@ -77,6 +80,7 @@ Wir nutzen **Java 25 LTS + Spring Boot 3.5.3** mit folgenden Dependencies:
 ### .NET 8 / ASP.NET Core
 
 **Rejected.** Gute Technologie, aber:
+
 - Microsoft-Ökosystem schafft Licensing-Unsicherheit
 - Team hat keine C#-Erfahrung
 - Java bereits in der Zielgruppe bekannt
