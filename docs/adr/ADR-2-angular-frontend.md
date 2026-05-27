@@ -1,10 +1,7 @@
-# ADR-2: Angular 19.x Frontend
+# ADR-2: Angular 19.x als Frontend-Framework
 
-**Status:** Accepted (locked)  
-**Entscheidung vom:** 2026-05-27  
-**Betroffen:** Gesamte Frontend-Architektur
-
----
+**Status:** Accepted  
+**Date:** 2026-05-27
 
 ## Context
 
@@ -18,83 +15,68 @@ BudgetBuddy benötigt ein Frontend, das:
 - Charts/Visualisierungen (Kategorien-Pie, Vergleiche, Safe-to-Spend)
 - Performance: Schnelles Initial Load, kein Bloat
 
-### Optionen
-
-1. **Angular 19.x** — Full-featured framework, TypeScript, Component-based
-2. **React 18.x** — Library, flexibel, große Community
-3. **Vue 3.x** — Einfacher Einstieg, Two-Way Binding
-4. **Svelte 4.x** — Compiler-basiert, sehr schnell, kleiner Bundle
-5. **Astro / Static Site** — Zu lightweight für SPA
-
----
+Alternative Frontend Frameworks: React, Vue, Svelte
 
 ## Decision
 
-**Angular 19.x**
+Wir nutzen **Angular 19.x** mit folgender Konfiguration:
 
 - **Runtime:** TypeScript 5.x
-- **Rendering:** Standalone Components + Signals (Angular 19 modern)
+- **Components:** Standalone Components + Signals (Angular 19 Modern API)
 - **State:** Angular Signals + RxJS Services (kein NgRx für MVP)
 - **Forms:** Reactive Forms (FormGroup, FormBuilder)
-- **Change Detection:** OnPush everywhere (Signals-compatible)
+- **Change Detection:** OnPush überall (Signals-kompatibel)
 - **HTTP:** Functional HTTP Interceptors (JWT Bearer Token)
-- **Charts:** Chart.js + ng2-charts (lightweight)
-- **Styling:** CSS/SCSS (keine CSS-in-JS)
-- **Testing:** Jasmine + Karma
-- **Build Tool:** Angular CLI (esbuild-basiert, schnell)
-
----
-
-## Rationale
-
-| Kriterium | Angular | React | Vue | Svelte |
-|-----------|---------|-------|-----|--------|
-| **Learning Curve** | ⚠️ Steil | ✅ Sanft | ✅✅ Sanft | ⚠️ Compiler-Magie |
-| **TypeScript Support** | ✅✅ Built-in | ⚠️ Optional | ⚠️ Optional | ✅ Built-in |
-| **Forms** | ✅✅ Reactive Forms | ⚠️ Libs (Formik, RHF) | ✅ Two-way binding | ✅ Einfach |
-| **Dependency Injection** | ✅✅ Built-in | ❌ Nicht vorhanden | ❌ Nicht vorhanden | ❌ Nicht vorhanden |
-| **Component Structure** | ✅ Opinionated | ⚠️ Flexibel (zu flexibel) | ✅ Opinionated | ✅ Opinioniert |
-| **State Management** | ✅ Signals/RxJS | ⚠️ Viele Optionen (Redux, Recoil, Zustand) | ✅ Pinia/Vuex | ✅ Stores |
-| **Community Size** | ✅ Groß | ✅✅ Riesig | ✅ Mittel | ⚠️ Klein |
-| **Enterprise Adoption** | ✅✅ Sehr verbreitet | ✅✅ Sehr verbreitet | ⚠️ Wachsend | ❌ Nischig |
-| **Performance** | ✅ Gut | ✅ Gut | ✅ Gut | ✅✅ Sehr gut |
-| **Bundle Size** (gzip) | ⚠️ ~200 KB | ⚠️ ~150 KB (+ Redux/Router) | ⚠️ ~130 KB | ✅ ~50 KB |
-
-**Konkrete Vorteile für BudgetBuddy:**
-
-1. **TypeScript First:** Typsicherheit im Frontend (compile-time Fehler, nicht Laufzeit)
-2. **Reactive Forms:** Perfect für komplexe Forms (Fixkosten-Wizard, Validierung mit Custom Validators)
-3. **Signals (Angular 19):** Modern reactivity ohne NgRx-Overhead; automatic change detection
-4. **Dependency Injection:** Clean Architecture; Services + Interceptors einfach
-5. **Opinionated:** "Angular Way" vs. "React Flexibility" — für MVP weniger Entscheidungen
-6. **HTTP Interceptors:** JWT Token-Management zentral, nicht in jeder Component
-7. **Angular CLI:** Zero-config development, fast builds
-
----
+- **Charts:** Chart.js + ng2-charts (leichtgewichtig)
+- **Build:** Angular CLI (esbuild-basiert)
 
 ## Consequences
 
-### ✅ Positive
+### Positive
 
 - **Typsicherheit:** Compile-time Fehler im Frontend (wie Backend)
-- **Developer Experience:** Alles eingebaut (Forms, Routing, HTTP, Testing)
-- **Skalierbarkeit:** Für wachsende Codebase designed (großes Enterprise-Ökosystem)
-- **Testability:** Built-in TestBed, Dependency Injection ermöglicht Mock-Injection
-- **Long-term Maintenance:** Offizielle Updates, LTS-Releases, große Community
+- **Reactive Forms:** Ideal für komplexe Formulare (Fixkosten-Wizard, Validierung)
+- **Developer Experience:** Alles eingebaut (Forms, Routing, HTTP, Testing, DI)
+- **Testability:** Built-in TestBed mit Dependency Injection für einfaches Mocking
+- **Long-term Support:** Offizielle Updates, LTS-Releases, große Community
+- **Consistency:** Selbe Sprache und Type Safety wie Backend (Java → TypeScript)
 
-### ⚠️ Negative
+### Negative
 
-- **Bundle Size:** Initial ~200 KB gzip (vs. React ~150 KB)
-- **Learning Curve:** Mehr Konzepte (Decorators, DI, RxJS Observables, etc.)
-- **Boilerplate:** Manchmal mehr Code als React (z.B. TypeScript interfaces + Component)
-- **Startup-Zeit:** Große `vendor.js` braucht Parsing (aber mit Service Worker ok)
+- **Bundle Size:** ~200 KB gzip (vs. React ~150 KB)
+- **Learning Curve:** Steiler als React/Vue (Decorators, RxJS, DI)
+- **Boilerplate:** Manchmal mehr Code als React
+- **Startup:** Große `vendor.js` braucht mehr Parsing-Zeit
 
-### 🔄 Mitigations
+## Alternatives
 
-- Bundle-Size: Code Splitting + Lazy Loading per Route
-- Learning: Umfangreiche Angular Docs und CLI-Scaffolding
-- Boilerplate: Neuste Signals API reduziert RxJS-Boilerplate
-- Performance: Service Worker + Aggressive Caching
+### React 18.x
+
+**Rejected.** Technisch solid, aber:
+- Größere Community könnte zu zu vielen Tech-Choices führen (Redux, Formik, Router?)
+- Weniger TypeScript-native als Angular
+- Kein Built-in Dependency Injection
+- Team sollte sich auf Standard-Pattern konzentrieren, nicht Entscheidungen
+
+### Vue 3.x
+
+**Rejected.** Einfacher Einstieg, aber:
+- Kleinere Community als React/Angular
+- Two-Way Binding ist weniger skalierbar bei komplexen Forms
+- Weniger TypeScript-nativen als Angular
+
+### Svelte 4.x
+
+**Rejected.** Sehr schnell, aber:
+- Compiler-basiert mit zu viel "Magie" für MVP
+- Kleine Community; weniger Stack Overflow Antworten
+- Compiler-Fehler schwerer zu debuggen
+
+## Related Decisions
+
+- **ADR-0:** Frontend-Backend-Trennung (SPA + REST)
+- **ADR-3:** REST vs. GraphQL
+- **ADR-7:** JWT für Authentifizierung
 
 ---
 
