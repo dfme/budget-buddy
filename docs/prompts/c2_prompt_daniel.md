@@ -40,8 +40,8 @@
 
 | #  | Container             | Technologie                          | Verantwortung                                                            | Pflicht? |
 | -- | --------------------- | ------------------------------------ | ------------------------------------------------------------------------ | :------: |
-| C1 | **Web SPA**           | Angular 19 (TypeScript)              | UI im Browser: Onboarding, PDF-Upload, Dashboard, Safe-to-Spend, Korrekturen | Ja  |
-| C2 | **API Application**   | Spring Boot 3.5 (Java 25), Single-JAR| REST-API, Auth, PDF-Parsing, Kategorisierung, Safe-to-Spend-Berechnung, KI-Bericht | Ja |
+| C1 | **Web SPA**           | Angular 21 (TypeScript)              | UI im Browser: Onboarding, PDF-Upload, Dashboard, Safe-to-Spend, Korrekturen | Ja  |
+| C2 | **API Application**   | Spring Boot 3.5 (Java 21), Single-JAR| REST-API, Auth, PDF-Parsing, Kategorisierung, Safe-to-Spend-Berechnung, KI-Bericht | Ja |
 | C3 | **Database**          | SQLite 3.x (Datei) + Flyway          | Persistente Speicherung Users, Transaktionen, Fixkosten, Sparziele, Lookup-Tabelle | Ja |
 | —  | ~~Cache~~             | (nicht eigener Container)            | In-Process LRU/Caffeine im API-Container reicht — siehe „Was wir bewusst weglassen" | Nein |
 | —  | ~~Message Queue~~     | (nicht eigener Container)            | Keine Async-Workflows im MVP                                              | Nein |
@@ -59,7 +59,7 @@ Die Tech-Stack-Entscheidungen sind durch ADR-001/002/003 bereits getroffen. Hier
 | Container        | Technologie               | Security                                                                    | Usability                                                                  | Reliability                                                              |
 | ---------------- | ------------------------- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | Web SPA          | Angular 19 + Signals      | Functional HTTP-Interceptor hängt JWT zuverlässig an jeden Request          | Reactive Forms + Signals → schneller, formularstarker Onboarding-Wizard    | OnPush-Change-Detection → kein UI-Flackern, klares Verhalten unter Last  |
-| API Application  | Spring Boot 3.5 + Java 25 | Spring Security `oauth2ResourceServer().jwt()`, bcrypt — Industriestandard  | Springdoc OpenAPI → SPA-Team kann gegen klaren Contract bauen              | LTS-Plattform, breites Ökosystem, deterministisches Verhalten            |
+| API Application  | Spring Boot 3.5 + Java 21 | Spring Security `oauth2ResourceServer().jwt()`, bcrypt — Industriestandard  | Springdoc OpenAPI → SPA-Team kann gegen klaren Contract bauen              | LTS-Plattform, breites Ökosystem, deterministisches Verhalten            |
 | Database         | SQLite + Flyway           | Single-File-DB ist leicht zu löschen (nDSG); kein Netzwerk-Angriffsvektor   | Setup-Zeit Null → Devs bauen Features statt DB zu konfigurieren           | Flyway-Migrationen garantieren konsistentes Schema über alle Umgebungen  |
 
 **Innerhalb des API-Containers** (logische Module, kommen erst in C3 als Components zum Tragen):
@@ -89,7 +89,7 @@ Auth-Modul (JJWT + bcrypt) · PDF-Parser (Apache PDFBox 3.x) · Categorizer (Loo
    ┌─────────────────────────────────────────────┐             │
    │             API Application                 │─────────────┘
    │              [Container C2]                 │
-   │           Spring Boot 3.5 / Java 25         │
+   │           Spring Boot 3.5 / Java 21         │
    │           Single-JAR, synchron (MVC)        │
    │                                             │──────────►  Schweizer Banken
    │  Auth · PDF-Parser · Categorizer ·          │             (indirekt: PDF aus
@@ -172,6 +172,6 @@ Diese Liste ist genauso wichtig wie die Container-Liste, weil sie zeigt, dass wi
 | Frage aus dem Prompt                              | Antwort                                                                                                              |
 | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | Welche Container brauchen wir?                    | **3:** Web SPA, API Application (Monolith), SQLite-Datenbank. Kein Cache, keine Queue, keine Microservices im MVP.   |
-| Welche Technologien passen zu Team und QAs?       | Angular 19, Spring Boot 3.5 + Java 25, SQLite + Flyway — alle LTS/Standard, breite Doku-Basis für gemischtes Team.   |
+| Welche Technologien passen zu Team und QAs?       | Angular 19, Spring Boot 3.5 + Java 21, SQLite + Flyway — alle LTS/Standard, breite Doku-Basis für gemischtes Team.   |
 | Wie kommunizieren die Container?                  | SPA↔API via HTTPS REST + JWT Bearer · API↔DB via JDBC in-process · API↔Claude via HTTPS Anthropic SDK.               |
 | Pro Container 1 Satz Begründung                   | Siehe Abschnitt „Begründung pro Container — je ein Satz" oben.                                                       |

@@ -10,7 +10,7 @@
 | Layer | Choice | Key Rationale |
 |-------|--------|---------------|
 | Backend | Java 21 + Spring Boot 3.5.3 | Project-locked |
-| Frontend | Angular 19.x (standalone + Signals) | Project-locked; use OnPush everywhere |
+| Frontend | Angular 21.x (standalone + Signals) | Project-locked; use OnPush everywhere |
 | Database | SQLite (pool-size=1, WAL mode) | MVP-appropriate; **must set `maximum-pool-size=1` before any code** |
 | ORM | Spring Data JPA + `hibernate-community-dialects` (SQLiteDialect) | Requires explicit dialect configuration |
 | PDF Parsing | Apache PDFBox 3.0.x | Text-layer Swiss PDFs — NOT Tabula-java; use `Loader.loadPDF()`, not deprecated 2.x API |

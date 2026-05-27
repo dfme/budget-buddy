@@ -16,7 +16,7 @@ BudgetBuddy benötigt eine Systemarchitektur zur Verwaltung sensibler Finanzdate
 
 Wir implementieren eine **Single Page App (SPA) + REST API Architektur**:
 
-- **Frontend:** Angular 19.x (TypeScript), lädt im Browser
+- **Frontend:** Angular 21.x (TypeScript), lädt im Browser
 - **Backend:** Java 21 + Spring Boot 3.5.x; exponiert REST API via OpenAPI 3.0
 - **Kommunikation:** Stateless JWT Bearer Token in HTTP Headers
 - **CORS:** Explizit konfiguriert für Entwicklung (`http://localhost:4200`) und später Produktion

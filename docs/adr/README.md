@@ -16,7 +16,7 @@ Diese Dokumentation hält die **wichtigsten Architektur-Entscheidungen** für Bu
 |---|-------|--------|-----------|
 | **ADR-0** | [Frontend-Backend-Trennung (SPA + REST API)](ADR-0-frontend-backend-separation.md) | ✅ Accepted | Gesamte Systemarchitektur |
 | **ADR-1** | [Java 21 + Spring Boot 3.5.x Backend](ADR-1-java-spring-boot-backend.md) | ✅ Accepted | Backend Tech Stack |
-| **ADR-2** | [Angular 19.x Frontend](ADR-2-angular-frontend.md) | ✅ Accepted | Frontend Tech Stack |
+| **ADR-2** | [Angular 21.x Frontend](ADR-2-angular-frontend.md) | ✅ Accepted | Frontend Tech Stack |
 | **ADR-3** | [REST API vs. GraphQL](ADR-3-rest-vs-graphql.md) | ✅ Accepted | API-Design |
 | **ADR-4** | [Monolith vs. Microservices](ADR-4-monolith-vs-microservices.md) | ✅ Accepted | Backend-Deployment |
 | **ADR-5** | [SQLite für MVP-Datenbank](ADR-5-sqlite-mvp-database.md) | ✅ Accepted | Datenspeicherung |
@@ -35,7 +35,7 @@ Diese Dokumentation hält die **wichtigsten Architektur-Entscheidungen** für Bu
 
 ### Technology Stack
 - **ADR-1:** Java 21 + Spring Boot (Backend)
-- **ADR-2:** Angular 19 (Frontend)
+- **ADR-2:** Angular 21 (Frontend)
 - **ADR-5:** SQLite (Datenbank)
 - **ADR-7:** JWT (Authentication)
 - **ADR-8:** Apache PDFBox (PDF-Verarbeitung)
@@ -109,7 +109,7 @@ ADR-0: Frontend-Backend-Trennung
 │   ├── ADR-7: JWT (Authentication)
 │   ├── ADR-8: Apache PDFBox (PDF)
 │   └── ADR-9: BigDecimal (Money)
-├── ADR-2: Angular 19 (Frontend-Implementierung)
+├── ADR-2: Angular 21 (Frontend-Implementierung)
 │   └── ADR-7: JWT (Token Management)
 ├── ADR-3: REST API (Frontend ↔ Backend Kommunikation)
 │   └── ADR-1: Spring Boot REST-Framework
