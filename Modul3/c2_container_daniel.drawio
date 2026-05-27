@@ -33,7 +33,7 @@
         </mxCell>
 
         <!-- ===== C2: API APPLICATION ===== -->
-        <mxCell id="api" value="&lt;b style=&quot;font-size:14px&quot;&gt;API Application&lt;/b&gt;&lt;br&gt;&lt;i style=&quot;font-size:10px&quot;&gt;[Container: Spring Boot 3.5, Java 25]&lt;/i&gt;&lt;br&gt;&lt;br&gt;Single-JAR Monolith. Logische Module:&lt;br&gt;&lt;br&gt;• Auth (Spring Security · bcrypt · JJWT HS256)&lt;br&gt;• PDF-Parser (Apache PDFBox 3.x, in-memory)&lt;br&gt;• Categorizer (Lookup-Tabelle + Anthropic SDK)&lt;br&gt;• Safe-to-Spend Calculator&lt;br&gt;• Monthly-Report Generator&lt;br&gt;&lt;br&gt;Liefert auch die statischen SPA-Assets aus" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#438DD5;strokeColor=#3C7FC0;fontColor=#FFFFFF;align=center;arcSize=8;strokeWidth=2;fontSize=11;" vertex="1" parent="1">
+        <mxCell id="api" value="&lt;b style=&quot;font-size:14px&quot;&gt;API Application&lt;/b&gt;&lt;br&gt;&lt;i style=&quot;font-size:10px&quot;&gt;[Container: Spring Boot 3.5, Java 21]&lt;/i&gt;&lt;br&gt;&lt;br&gt;Single-JAR Monolith. Logische Module:&lt;br&gt;&lt;br&gt;• Auth (Spring Security · bcrypt · JJWT HS256)&lt;br&gt;• PDF-Parser (Apache PDFBox 3.x, in-memory)&lt;br&gt;• Categorizer (Lookup-Tabelle + Anthropic SDK)&lt;br&gt;• Safe-to-Spend Calculator&lt;br&gt;• Monthly-Report Generator&lt;br&gt;&lt;br&gt;Liefert auch die statischen SPA-Assets aus" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#438DD5;strokeColor=#3C7FC0;fontColor=#FFFFFF;align=center;arcSize=8;strokeWidth=2;fontSize=11;" vertex="1" parent="1">
           <mxGeometry x="700" y="370" width="320" height="280" as="geometry" />
         </mxCell>
 

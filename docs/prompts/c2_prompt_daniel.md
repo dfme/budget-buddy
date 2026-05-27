@@ -58,7 +58,7 @@ Die Tech-Stack-Entscheidungen sind durch ADR-001/002/003 bereits getroffen. Hier
 
 | Container        | Technologie               | Security                                                                    | Usability                                                                  | Reliability                                                              |
 | ---------------- | ------------------------- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| Web SPA          | Angular 19 + Signals      | Functional HTTP-Interceptor hängt JWT zuverlässig an jeden Request          | Reactive Forms + Signals → schneller, formularstarker Onboarding-Wizard    | OnPush-Change-Detection → kein UI-Flackern, klares Verhalten unter Last  |
+| Web SPA          | Angular 21 + Signals      | Functional HTTP-Interceptor hängt JWT zuverlässig an jeden Request          | Reactive Forms + Signals → schneller, formularstarker Onboarding-Wizard    | OnPush-Change-Detection → kein UI-Flackern, klares Verhalten unter Last  |
 | API Application  | Spring Boot 3.5 + Java 21 | Spring Security `oauth2ResourceServer().jwt()`, bcrypt — Industriestandard  | Springdoc OpenAPI → SPA-Team kann gegen klaren Contract bauen              | LTS-Plattform, breites Ökosystem, deterministisches Verhalten            |
 | Database         | SQLite + Flyway           | Single-File-DB ist leicht zu löschen (nDSG); kein Netzwerk-Angriffsvektor   | Setup-Zeit Null → Devs bauen Features statt DB zu konfigurieren           | Flyway-Migrationen garantieren konsistentes Schema über alle Umgebungen  |
 
