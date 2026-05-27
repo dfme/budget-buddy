@@ -1,0 +1,208 @@
+<mxfile host="app.diagrams.net" modified="2026-05-27T12:00:00.000Z" agent="Claude" version="24.0.0" type="device">
+  <diagram name="C4 System Context — BudgetBuddy" id="budgetbuddy-c4-l1">
+    <mxGraphModel dx="1422" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="C4 System Context — BudgetBuddy" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=24;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="500" y="20" width="650" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="Level 1 — System Context · Stand 2026-05-27" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=13;fontStyle=2;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="500" y="58" width="650" height="24" as="geometry" />
+        </mxCell>
+
+        <!-- ===== PERSONAS ===== -->
+        <mxCell id="lara" value="&lt;b style=&quot;font-size:14px&quot;&gt;Lara (22)&lt;/b&gt;&lt;br&gt;&lt;i style=&quot;font-size:10px&quot;&gt;[Person]&lt;/i&gt;&lt;br&gt;&lt;br&gt;Studentin Bern&lt;br&gt;Will: Safe-to-Spend&lt;br&gt;Hürde: PDF-Friction" style="html=1;fontSize=11;dashed=0;whitespace=wrap;fillColor=#083F75;strokeColor=#06315C;fontColor=#FFFFFF;shape=mxgraph.c4.person2;align=center;metaEdit=1;points=[[0.5,0,0],[1,0.5,0],[0.5,1,0],[0,0.5,0]];resizable=0;" vertex="1" parent="1">
+          <mxGeometry x="380" y="120" width="180" height="180" as="geometry" />
+        </mxCell>
+
+        <mxCell id="marc" value="&lt;b style=&quot;font-size:14px&quot;&gt;Marc (25)&lt;/b&gt;&lt;br&gt;&lt;i style=&quot;font-size:10px&quot;&gt;[Person]&lt;/i&gt;&lt;br&gt;&lt;br&gt;Junior-Verkäufer ZH&lt;br&gt;Will: 1.000 CHF sparen&lt;br&gt;Hürde: Datenschutz-Skepsis" style="html=1;fontSize=11;dashed=0;whitespace=wrap;fillColor=#083F75;strokeColor=#06315C;fontColor=#FFFFFF;shape=mxgraph.c4.person2;align=center;metaEdit=1;points=[[0.5,0,0],[1,0.5,0],[0.5,1,0],[0,0.5,0]];resizable=0;" vertex="1" parent="1">
+          <mxGeometry x="1090" y="120" width="180" height="180" as="geometry" />
+        </mxCell>
+
+        <!-- ===== OUR SYSTEM ===== -->
+        <mxCell id="budgetbuddy" value="&lt;b style=&quot;font-size:18px&quot;&gt;BudgetBuddy&lt;/b&gt;&lt;br&gt;&lt;i style=&quot;font-size:11px&quot;&gt;[Software System — wir]&lt;/i&gt;&lt;br&gt;&lt;br&gt;Web-App, die Schweizer Bank-PDFs einliest, Transaktionen&lt;br&gt;automatisch kategorisiert und einen wöchentlichen&lt;br&gt;Safe-to-Spend-Betrag berechnet.&lt;br&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px&quot;&gt;Angular SPA · Spring Boot 3.5 · SQLite · JWT (HS256)&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;labelBackgroundColor=none;fillColor=#1168BD;strokeColor=#0D5091;fontColor=#FFFFFF;align=center;arcSize=8;strokeWidth=2;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="540" y="380" width="570" height="200" as="geometry" />
+        </mxCell>
+
+        <!-- ===== SUPPORTING / EXTERNAL SYSTEMS ===== -->
+        <mxCell id="auth" value="&lt;b style=&quot;font-size:13px&quot;&gt;Auth / Identity&lt;/b&gt;&lt;br&gt;&lt;i style=&quot;font-size:10px&quot;&gt;[intern, eigener Service]&lt;/i&gt;&lt;br&gt;&lt;br&gt;Spring Security&lt;br&gt;bcrypt + JJWT&lt;br&gt;Stateless JWT (HS256)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#438DD5;strokeColor=#3C7FC0;fontColor=#FFFFFF;align=center;arcSize=8;strokeWidth=2;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="120" y="700" width="220" height="160" as="geometry" />
+        </mxCell>
+
+        <mxCell id="claude" value="&lt;b style=&quot;font-size:13px&quot;&gt;Anthropic Claude API&lt;/b&gt;&lt;br&gt;&lt;i style=&quot;font-size:10px&quot;&gt;[Ext. System]&lt;/i&gt;&lt;br&gt;&lt;br&gt;Haiku 3.5 → Kategorisierung&lt;br&gt;Sonnet 4 → Monatsbericht&lt;br&gt;Fallback: &quot;Sonstiges&quot;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#999999;strokeColor=#6E6E6E;fontColor=#FFFFFF;align=center;arcSize=8;strokeWidth=2;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="420" y="700" width="220" height="160" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pdfbox" value="&lt;b style=&quot;font-size:13px&quot;&gt;PDF-Engine (PDFBox 3.x)&lt;/b&gt;&lt;br&gt;&lt;i style=&quot;font-size:10px&quot;&gt;[Bibliothek, in-process]&lt;/i&gt;&lt;br&gt;&lt;br&gt;Extrahiert Datum,&lt;br&gt;Betrag, Empfänger&lt;br&gt;aus Schweizer Bank-PDFs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#85BBF0;strokeColor=#6BA4D3;fontColor=#FFFFFF;align=center;arcSize=8;strokeWidth=2;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="720" y="700" width="220" height="160" as="geometry" />
+        </mxCell>
+
+        <mxCell id="openbanking" value="&lt;b style=&quot;font-size:13px&quot;&gt;OpenBanking API&lt;/b&gt;&lt;br&gt;&lt;i style=&quot;font-size:10px&quot;&gt;[Ext. System]&lt;/i&gt;&lt;br&gt;&lt;br&gt;z. B. SIX b.Link / FinTech-S&lt;br&gt;&lt;br&gt;&lt;b style=&quot;color:#FFEB3B&quot;&gt;Status: Post-MVP&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#999999;strokeColor=#6E6E6E;fontColor=#FFFFFF;align=center;arcSize=8;strokeWidth=2;dashed=1;dashPattern=8 4;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1020" y="700" width="220" height="160" as="geometry" />
+        </mxCell>
+
+        <!-- ===== BANKS (off-system) ===== -->
+        <mxCell id="banken" value="&lt;b style=&quot;font-size:14px&quot;&gt;Schweizer Banken&lt;/b&gt;&lt;br&gt;&lt;i style=&quot;font-size:10px&quot;&gt;[Ext. System]&lt;/i&gt;&lt;br&gt;&lt;br&gt;UBS · Raiffeisen · PostFinance&lt;br&gt;&lt;br&gt;• PDF-Export via E-Banking (MVP, manuell)&lt;br&gt;• OpenBanking-Endpoints (Post-MVP)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#999999;strokeColor=#6E6E6E;fontColor=#FFFFFF;align=center;arcSize=8;strokeWidth=2;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="560" y="950" width="540" height="130" as="geometry" />
+        </mxCell>
+
+        <!-- ===== EDGES ===== -->
+
+        <!-- Lara → BudgetBuddy -->
+        <mxCell id="e_lara_bb" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeWidth=2;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="lara" target="budgetbuddy">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="470" y="350" />
+              <mxPoint x="700" y="350" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_lara_bb_lbl" value="Lädt PDF hoch, sieht&lt;br&gt;Safe-to-Spend, korrigiert&lt;br&gt;Kategorien (HTTPS)" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="e_lara_bb">
+          <mxGeometry x="-0.4" relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Marc → BudgetBuddy -->
+        <mxCell id="e_marc_bb" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeWidth=2;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="marc" target="budgetbuddy">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1180" y="350" />
+              <mxPoint x="950" y="350" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_marc_bb_lbl" value="Sparziel anlegen,&lt;br&gt;KI-Bericht lesen,&lt;br&gt;Konto verwalten (HTTPS)" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="e_marc_bb">
+          <mxGeometry x="0.4" relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- BudgetBuddy → Auth -->
+        <mxCell id="e_bb_auth" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeWidth=2;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="budgetbuddy" target="auth">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_bb_auth_lbl" value="Passwort hashen (bcrypt),&lt;br&gt;JWT signieren/validieren&lt;br&gt;(in-process)" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="e_bb_auth">
+          <mxGeometry x="-0.2" relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- BudgetBuddy → Claude -->
+        <mxCell id="e_bb_claude" style="endArrow=classic;startArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeWidth=2;fontSize=11;strokeColor=#D32F2F;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="budgetbuddy" target="claude">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_bb_claude_lbl" value="Sendet unbekannte Transaktionen&lt;br&gt;und Monatsdaten (HTTPS / API)&lt;br&gt;&lt;b style=&quot;color:#D32F2F&quot;&gt;[PII verlässt Vertrauenszone]&lt;/b&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="e_bb_claude">
+          <mxGeometry x="-0.1" relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- BudgetBuddy → PDFBox -->
+        <mxCell id="e_bb_pdfbox" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeWidth=2;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="budgetbuddy" target="pdfbox">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_bb_pdfbox_lbl" value="Liest PDF im Speicher,&lt;br&gt;persistiert kein PDF" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="e_bb_pdfbox">
+          <mxGeometry x="0.1" relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- BudgetBuddy → OpenBanking (dashed, Post-MVP) -->
+        <mxCell id="e_bb_ob" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeWidth=2;fontSize=11;dashed=1;dashPattern=8 4;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="budgetbuddy" target="openbanking">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_bb_ob_lbl" value="Ruft Kontobewegungen&lt;br&gt;direkt ab (mTLS / API)&lt;br&gt;&lt;i&gt;Post-MVP&lt;/i&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="e_bb_ob">
+          <mxGeometry x="0.2" relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- PDFBox → Banken (off-system) -->
+        <mxCell id="e_pdfbox_banken" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeWidth=2;fontSize=11;dashed=1;dashPattern=2 2;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="pdfbox" target="banken">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_pdfbox_banken_lbl" value="Konsumiert PDF, das der&lt;br&gt;User aus dem E-Banking&lt;br&gt;exportiert hat (manuell)" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="e_pdfbox_banken">
+          <mxGeometry x="-0.2" relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- OpenBanking → Banken -->
+        <mxCell id="e_ob_banken" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeWidth=2;fontSize=11;dashed=1;dashPattern=8 4;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="openbanking" target="banken">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_ob_banken_lbl" value="OAuth / Consent&lt;br&gt;zum Konto des Users&lt;br&gt;&lt;i&gt;Post-MVP&lt;/i&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="e_ob_banken">
+          <mxGeometry x="0.2" relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ===== LEGEND ===== -->
+        <mxCell id="legend_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#CCCCCC;strokeWidth=1;arcSize=4;" vertex="1" parent="1">
+          <mxGeometry x="40" y="120" width="280" height="380" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_title" value="Legende" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="60" y="130" width="240" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend_person" value="" style="html=1;fillColor=#083F75;strokeColor=#06315C;shape=mxgraph.c4.person2;resizable=0;" vertex="1" parent="1">
+          <mxGeometry x="60" y="165" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_person_lbl" value="[Person] — Nutzer" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="100" y="165" width="200" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend_inscope" value="" style="rounded=1;html=1;fillColor=#1168BD;strokeColor=#0D5091;strokeWidth=2;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="60" y="205" width="30" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_inscope_lbl" value="[Software System] — wir" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="100" y="200" width="200" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend_internal" value="" style="rounded=1;html=1;fillColor=#438DD5;strokeColor=#3C7FC0;strokeWidth=2;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="60" y="240" width="30" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_internal_lbl" value="Eigener interner Service" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="100" y="235" width="200" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend_lib" value="" style="rounded=1;html=1;fillColor=#85BBF0;strokeColor=#6BA4D3;strokeWidth=2;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="60" y="275" width="30" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_lib_lbl" value="[Bibliothek] — in-process" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="100" y="270" width="200" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend_ext" value="" style="rounded=1;html=1;fillColor=#999999;strokeColor=#6E6E6E;strokeWidth=2;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="60" y="310" width="30" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_ext_lbl" value="[Ext. System] — extern" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="100" y="305" width="200" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend_solid" value="" style="endArrow=classic;html=1;strokeWidth=2;" edge="1" parent="1">
+          <mxGeometry as="geometry">
+            <mxPoint x="60" y="355" as="sourcePoint" />
+            <mxPoint x="90" y="355" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legend_solid_lbl" value="MVP-Beziehung" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="100" y="343" width="200" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend_dash" value="" style="endArrow=classic;html=1;strokeWidth=2;dashed=1;dashPattern=8 4;" edge="1" parent="1">
+          <mxGeometry as="geometry">
+            <mxPoint x="60" y="390" as="sourcePoint" />
+            <mxPoint x="90" y="390" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legend_dash_lbl" value="Post-MVP" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="100" y="378" width="200" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend_red" value="" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#D32F2F;" edge="1" parent="1">
+          <mxGeometry as="geometry">
+            <mxPoint x="60" y="425" as="sourcePoint" />
+            <mxPoint x="90" y="425" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legend_red_lbl" value="PII verlässt Vertrauenszone" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="100" y="413" width="220" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend_note" value="&lt;i&gt;Auth und PDFBox sind streng genommen Container (Level 2). Hier bewusst sichtbar gemacht.&lt;/i&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="60" y="450" width="240" height="40" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

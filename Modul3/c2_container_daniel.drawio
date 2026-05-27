@@ -1,0 +1,222 @@
+<mxfile host="app.diagrams.net" modified="2026-05-27T12:00:00.000Z" agent="Claude" version="24.0.0" type="device">
+  <diagram name="C4 Container — BudgetBuddy" id="budgetbuddy-c4-l2">
+    <mxGraphModel dx="1422" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1300" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="C4 Container — BudgetBuddy" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=24;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="500" y="20" width="650" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="Level 2 — Container · 3 Container (Monolith) · Stand 2026-05-27" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=13;fontStyle=2;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="500" y="58" width="650" height="24" as="geometry" />
+        </mxCell>
+
+        <!-- ===== PERSONAS ===== -->
+        <mxCell id="lara" value="&lt;b style=&quot;font-size:14px&quot;&gt;Lara (22)&lt;/b&gt;&lt;br&gt;&lt;i style=&quot;font-size:10px&quot;&gt;[Person]&lt;/i&gt;&lt;br&gt;&lt;br&gt;Studentin Bern" style="html=1;fontSize=11;dashed=0;whitespace=wrap;fillColor=#083F75;strokeColor=#06315C;fontColor=#FFFFFF;shape=mxgraph.c4.person2;align=center;metaEdit=1;points=[[0.5,0,0],[1,0.5,0],[0.5,1,0],[0,0.5,0]];resizable=0;" vertex="1" parent="1">
+          <mxGeometry x="430" y="100" width="160" height="150" as="geometry" />
+        </mxCell>
+
+        <mxCell id="marc" value="&lt;b style=&quot;font-size:14px&quot;&gt;Marc (25)&lt;/b&gt;&lt;br&gt;&lt;i style=&quot;font-size:10px&quot;&gt;[Person]&lt;/i&gt;&lt;br&gt;&lt;br&gt;Junior-Verkäufer ZH" style="html=1;fontSize=11;dashed=0;whitespace=wrap;fillColor=#083F75;strokeColor=#06315C;fontColor=#FFFFFF;shape=mxgraph.c4.person2;align=center;metaEdit=1;points=[[0.5,0,0],[1,0.5,0],[0.5,1,0],[0,0.5,0]];resizable=0;" vertex="1" parent="1">
+          <mxGeometry x="1010" y="100" width="160" height="150" as="geometry" />
+        </mxCell>
+
+        <!-- ===== SYSTEM BOUNDARY ===== -->
+        <mxCell id="boundary" value="BudgetBuddy [Software System]" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;dashPattern=8 4;fillColor=none;strokeColor=#0D5091;strokeWidth=2;verticalAlign=top;fontSize=14;fontStyle=2;fontColor=#0D5091;align=left;spacingLeft=15;spacingTop=10;" vertex="1" parent="1">
+          <mxGeometry x="280" y="310" width="1040" height="660" as="geometry" />
+        </mxCell>
+
+        <!-- ===== C1: WEB SPA ===== -->
+        <mxCell id="spa" value="&lt;b style=&quot;font-size:14px&quot;&gt;Web SPA&lt;/b&gt;&lt;br&gt;&lt;i style=&quot;font-size:10px&quot;&gt;[Container: Angular 19, TypeScript]&lt;/i&gt;&lt;br&gt;&lt;br&gt;Onboarding-Wizard, PDF-Upload-Flow,&lt;br&gt;Dashboard mit Safe-to-Spend, Kategorien-&lt;br&gt;Übersicht und manuelle Korrektur.&lt;br&gt;&lt;br&gt;Signals · Reactive Forms · OnPush&lt;br&gt;Functional HTTP-Interceptor (JWT)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#438DD5;strokeColor=#3C7FC0;fontColor=#FFFFFF;align=center;arcSize=8;strokeWidth=2;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="340" y="370" width="260" height="200" as="geometry" />
+        </mxCell>
+
+        <!-- ===== C2: API APPLICATION ===== -->
+        <mxCell id="api" value="&lt;b style=&quot;font-size:14px&quot;&gt;API Application&lt;/b&gt;&lt;br&gt;&lt;i style=&quot;font-size:10px&quot;&gt;[Container: Spring Boot 3.5, Java 25]&lt;/i&gt;&lt;br&gt;&lt;br&gt;Single-JAR Monolith. Logische Module:&lt;br&gt;&lt;br&gt;• Auth (Spring Security · bcrypt · JJWT HS256)&lt;br&gt;• PDF-Parser (Apache PDFBox 3.x, in-memory)&lt;br&gt;• Categorizer (Lookup-Tabelle + Anthropic SDK)&lt;br&gt;• Safe-to-Spend Calculator&lt;br&gt;• Monthly-Report Generator&lt;br&gt;&lt;br&gt;Liefert auch die statischen SPA-Assets aus" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#438DD5;strokeColor=#3C7FC0;fontColor=#FFFFFF;align=center;arcSize=8;strokeWidth=2;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="700" y="370" width="320" height="280" as="geometry" />
+        </mxCell>
+
+        <!-- ===== C3: DATABASE ===== -->
+        <mxCell id="db" value="&lt;b style=&quot;font-size:14px&quot;&gt;Database&lt;/b&gt;&lt;br&gt;&lt;i style=&quot;font-size:10px&quot;&gt;[Container: SQLite 3.x + Flyway]&lt;/i&gt;&lt;br&gt;&lt;br&gt;Users, Transaktionen, Fixkosten,&lt;br&gt;Sparziele, Lookup-Tabelle (user-lokal),&lt;br&gt;PDF-Hashes für Duplikat-Erkennung.&lt;br&gt;&lt;br&gt;BigDecimal(19,2) für Geld&lt;br&gt;Flyway-Migrationen versioniert" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#438DD5;strokeColor=#3C7FC0;fontColor=#FFFFFF;align=center;strokeWidth=2;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="780" y="750" width="240" height="190" as="geometry" />
+        </mxCell>
+
+        <!-- ===== EXTERNAL: CLAUDE ===== -->
+        <mxCell id="claude" value="&lt;b style=&quot;font-size:13px&quot;&gt;Anthropic Claude API&lt;/b&gt;&lt;br&gt;&lt;i style=&quot;font-size:10px&quot;&gt;[Ext. System]&lt;/i&gt;&lt;br&gt;&lt;br&gt;Haiku 3.5 → Kategorisierung&lt;br&gt;Sonnet 4 → Monatsbericht&lt;br&gt;&lt;br&gt;Fallback bei Fehler: &quot;Sonstiges&quot;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#999999;strokeColor=#6E6E6E;fontColor=#FFFFFF;align=center;arcSize=8;strokeWidth=2;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1380" y="430" width="220" height="170" as="geometry" />
+        </mxCell>
+
+        <!-- ===== EXTERNAL: BANKS ===== -->
+        <mxCell id="banken" value="&lt;b style=&quot;font-size:13px&quot;&gt;Schweizer Banken&lt;/b&gt;&lt;br&gt;&lt;i style=&quot;font-size:10px&quot;&gt;[Ext. System]&lt;/i&gt;&lt;br&gt;&lt;br&gt;UBS · Raiffeisen · PostFinance&lt;br&gt;Stellen PDF-Auszüge via E-Banking bereit&lt;br&gt;(User exportiert manuell)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#999999;strokeColor=#6E6E6E;fontColor=#FFFFFF;align=center;arcSize=8;strokeWidth=2;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="60" y="430" width="200" height="170" as="geometry" />
+        </mxCell>
+
+        <!-- ===== EXTERNAL: OPENBANKING (Post-MVP) ===== -->
+        <mxCell id="openbanking" value="&lt;b style=&quot;font-size:13px&quot;&gt;OpenBanking API&lt;/b&gt;&lt;br&gt;&lt;i style=&quot;font-size:10px&quot;&gt;[Ext. System]&lt;/i&gt;&lt;br&gt;&lt;br&gt;z. B. SIX b.Link&lt;br&gt;&lt;br&gt;&lt;b style=&quot;color:#FFEB3B&quot;&gt;Post-MVP&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#999999;strokeColor=#6E6E6E;fontColor=#FFFFFF;align=center;arcSize=8;strokeWidth=2;dashed=1;dashPattern=8 4;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1380" y="680" width="220" height="150" as="geometry" />
+        </mxCell>
+
+        <!-- ===== EDGES ===== -->
+
+        <!-- Lara → Web SPA -->
+        <mxCell id="e_lara_spa" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeWidth=2;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="lara" target="spa">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_lara_spa_lbl" value="Nutzt&lt;br&gt;[HTTPS, Browser]" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="e_lara_spa">
+          <mxGeometry x="-0.2" relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Marc → Web SPA -->
+        <mxCell id="e_marc_spa" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeWidth=2;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="marc" target="spa">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1090" y="290" />
+              <mxPoint x="470" y="290" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_marc_spa_lbl" value="Nutzt&lt;br&gt;[HTTPS, Browser]" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="e_marc_spa">
+          <mxGeometry x="0.3" relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- SPA → API -->
+        <mxCell id="e_spa_api" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeWidth=2;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="spa" target="api">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_spa_api_lbl" value="REST-Calls&lt;br&gt;[HTTPS · JSON]&lt;br&gt;JWT im Authorization-Header" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="e_spa_api">
+          <mxGeometry x="0" relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- API → DB -->
+        <mxCell id="e_api_db" style="endArrow=classic;startArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeWidth=2;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="api" target="db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_api_db_lbl" value="Liest/Schreibt&lt;br&gt;[JDBC, in-process]&lt;br&gt;JPA · Hibernate · BigDecimal" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="e_api_db">
+          <mxGeometry x="0" relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- API → Claude (PII edge in red) -->
+        <mxCell id="e_api_claude" style="endArrow=classic;startArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeWidth=2;fontSize=11;strokeColor=#D32F2F;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="api" target="claude">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_api_claude_lbl" value="Kategorisiert Transaktionen,&lt;br&gt;generiert Monatsbericht&lt;br&gt;[HTTPS · Anthropic Java SDK]&lt;br&gt;&lt;b style=&quot;color:#D32F2F&quot;&gt;[PII verlässt Vertrauenszone]&lt;/b&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="e_api_claude">
+          <mxGeometry x="0" relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- API → OpenBanking (dashed Post-MVP) -->
+        <mxCell id="e_api_ob" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeWidth=2;fontSize=11;dashed=1;dashPattern=8 4;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="api" target="openbanking">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_api_ob_lbl" value="Holt Konto­bewegungen&lt;br&gt;[mTLS · API]&lt;br&gt;&lt;i&gt;Post-MVP&lt;/i&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="e_api_ob">
+          <mxGeometry x="0" relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Banks → SPA (off-system PDF) -->
+        <mxCell id="e_banken_spa" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeWidth=2;fontSize=11;dashed=1;dashPattern=2 2;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="banken" target="spa">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_banken_spa_lbl" value="PDF-Export via E-Banking&lt;br&gt;(User lädt manuell hoch)&lt;br&gt;&lt;i&gt;off-system, kein Push&lt;/i&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="e_banken_spa">
+          <mxGeometry x="0" relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ===== QA LEGEND (Quality Attributes) ===== -->
+        <mxCell id="qa_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#CCCCCC;strokeWidth=1;arcSize=4;" vertex="1" parent="1">
+          <mxGeometry x="60" y="1010" width="1540" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="qa_title" value="Quality Attributes — wie die Container darauf einzahlen" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="80" y="1020" width="600" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="qa_sec" value="&lt;b style=&quot;color:#C62828&quot;&gt;Security (Marc)&lt;/b&gt;&lt;br&gt;&lt;br&gt;• JWT HS256 + bcrypt (≥12) in API&lt;br&gt;• Single-File-DB → triviale nDSG-Löschung&lt;br&gt;• PDF nicht persistiert (in-memory)&lt;br&gt;• Nur 1 externe Außenkante (Claude)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFEBEE;strokeColor=#C62828;fontColor=#000000;align=left;verticalAlign=top;arcSize=4;strokeWidth=2;fontSize=11;spacingLeft=10;spacingTop=10;" vertex="1" parent="1">
+          <mxGeometry x="80" y="1055" width="490" height="115" as="geometry" />
+        </mxCell>
+
+        <mxCell id="qa_use" value="&lt;b style=&quot;color:#2E7D32&quot;&gt;Usability (Lara)&lt;/b&gt;&lt;br&gt;&lt;br&gt;• Angular Signals + Reactive Forms → schneller Onboarding-Flow&lt;br&gt;• OpenAPI-Contract (Springdoc) → klare API für SPA&lt;br&gt;• Hybride Kategorisierung → Aha-Moment beim 1. Upload&lt;br&gt;• Null-Setup-DB → Devs bauen Features, nicht Infra" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;fontColor=#000000;align=left;verticalAlign=top;arcSize=4;strokeWidth=2;fontSize=11;spacingLeft=10;spacingTop=10;" vertex="1" parent="1">
+          <mxGeometry x="585" y="1055" width="490" height="115" as="geometry" />
+        </mxCell>
+
+        <mxCell id="qa_rel" value="&lt;b style=&quot;color:#1565C0&quot;&gt;Reliability (beide)&lt;/b&gt;&lt;br&gt;&lt;br&gt;• Flyway-Migrationen → konsistentes Schema überall&lt;br&gt;• BigDecimal(19,2) → Beträge auf den Rappen genau&lt;br&gt;• Claude-Fallback auf &quot;Sonstiges&quot; → Import nie blockiert&lt;br&gt;• Spring Boot 3.5 LTS → planbare Lebensdauer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;fontColor=#000000;align=left;verticalAlign=top;arcSize=4;strokeWidth=2;fontSize=11;spacingLeft=10;spacingTop=10;" vertex="1" parent="1">
+          <mxGeometry x="1090" y="1055" width="490" height="115" as="geometry" />
+        </mxCell>
+
+        <!-- ===== STYLE LEGEND ===== -->
+        <mxCell id="legend_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#CCCCCC;strokeWidth=1;arcSize=4;" vertex="1" parent="1">
+          <mxGeometry x="60" y="100" width="200" height="280" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_title" value="Legende" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="80" y="110" width="160" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend_person" value="" style="html=1;fillColor=#083F75;strokeColor=#06315C;shape=mxgraph.c4.person2;resizable=0;" vertex="1" parent="1">
+          <mxGeometry x="80" y="140" width="22" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_person_lbl" value="Person" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="115" y="140" width="140" height="22" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend_container" value="" style="rounded=1;html=1;fillColor=#438DD5;strokeColor=#3C7FC0;strokeWidth=2;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="80" y="175" width="22" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_container_lbl" value="Container (eigen)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="115" y="172" width="140" height="22" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend_ext" value="" style="rounded=1;html=1;fillColor=#999999;strokeColor=#6E6E6E;strokeWidth=2;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="80" y="205" width="22" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_ext_lbl" value="Ext. System" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="115" y="202" width="140" height="22" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend_boundary" value="" style="rounded=0;html=1;fillColor=none;strokeColor=#0D5091;strokeWidth=2;dashed=1;dashPattern=8 4;" vertex="1" parent="1">
+          <mxGeometry x="80" y="235" width="22" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_boundary_lbl" value="System-Boundary" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="115" y="232" width="140" height="22" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend_solid" value="" style="endArrow=classic;html=1;strokeWidth=2;" edge="1" parent="1">
+          <mxGeometry as="geometry">
+            <mxPoint x="80" y="275" as="sourcePoint" />
+            <mxPoint x="105" y="275" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legend_solid_lbl" value="MVP-Beziehung" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="115" y="263" width="140" height="22" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend_dash" value="" style="endArrow=classic;html=1;strokeWidth=2;dashed=1;dashPattern=8 4;" edge="1" parent="1">
+          <mxGeometry as="geometry">
+            <mxPoint x="80" y="305" as="sourcePoint" />
+            <mxPoint x="105" y="305" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legend_dash_lbl" value="Post-MVP" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="115" y="293" width="140" height="22" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend_dotted" value="" style="endArrow=classic;html=1;strokeWidth=2;dashed=1;dashPattern=2 2;" edge="1" parent="1">
+          <mxGeometry as="geometry">
+            <mxPoint x="80" y="335" as="sourcePoint" />
+            <mxPoint x="105" y="335" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legend_dotted_lbl" value="Off-system (manuell)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="115" y="323" width="140" height="22" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend_red" value="" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#D32F2F;" edge="1" parent="1">
+          <mxGeometry as="geometry">
+            <mxPoint x="80" y="365" as="sourcePoint" />
+            <mxPoint x="105" y="365" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legend_red_lbl" value="PII-Außenkante" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="115" y="353" width="140" height="22" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
