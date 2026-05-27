@@ -153,11 +153,11 @@ BudgetBuddy is a web app for students and young professionals living in Switzerl
 ### Frontend
 | Layer | Technology | Version | Rationale |
 |-------|-----------|---------|-----------|
-| Framework | Angular | 19.x | Project-locked; standalone components, Signals |
+| Framework | Angular | 21.x | Project-locked; standalone components, Signals |
 | State | Angular Signals + Services | (bundled) | No NgRx needed for MVP scope |
 | Forms | Reactive Forms (FormGroup) | (bundled) | Stable; Signal Forms still experimental |
 | HTTP auth | Functional HTTP interceptor | (bundled) | Inject JWT Bearer token per request |
-| Charts | Chart.js + ng2-charts | 4.x / 6.x | Lightweight, Angular-native wrapper for pie/bar |
+| Charts | Chart.js + ng2-charts | 4.x / 8.x | Lightweight, Angular-native wrapper for pie/bar |
 | Change detection | OnPush everywhere | (bundled) | Required for Signals to work correctly |
 ### AI/ML
 - **Categorization model**: `claude-haiku-3-5-20241022` — fast (~200ms), cheap, single-label output
@@ -223,7 +223,7 @@ Vollständige ADRs: [docs/adr/README.md](docs/adr/README.md)
 |-----|-----------|------------------------|
 | [ADR-0](docs/adr/ADR-0-frontend-backend-separation.md) | SPA + REST API (Angular ↔ Spring Boot, JWT in Header) | SSR (Next.js/Thymeleaf), Monolith mit JSP |
 | [ADR-1](docs/adr/ADR-1-java-spring-boot-backend.md) | Java 21 + Spring Boot 3.5.x | Node.js/Express, Python/FastAPI, Go, .NET 8 |
-| [ADR-2](docs/adr/ADR-2-angular-frontend.md) | Angular 19.x (Standalone Components, Signals, Reactive Forms) | React, Vue 3, Svelte, Astro |
+| [ADR-2](docs/adr/ADR-2-angular-frontend.md) | Angular 21.x (Standalone Components, Signals, Reactive Forms) | React, Vue 3, Svelte, Astro |
 | [ADR-3](docs/adr/ADR-3-rest-vs-graphql.md) | REST API + OpenAPI 3 (Springdoc) | GraphQL (Overkill, kein nativer File-Upload), gRPC |
 | [ADR-4](docs/adr/ADR-4-monolith-vs-microservices.md) | Single Spring Boot JAR (Monolith) | Microservices/K8s (zu komplex), Serverless (JVM Cold-Start) |
 | [ADR-5](docs/adr/ADR-5-sqlite-mvp-database.md) | SQLite für MVP; Migration zu PostgreSQL möglich | PostgreSQL from Day One (Overkill), MongoDB (nicht relational) |

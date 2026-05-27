@@ -1,4 +1,4 @@
-# ADR-2: Angular 19.x als Frontend-Framework
+# ADR-2: Angular 21.x als Frontend-Framework
 
 **Status:** Accepted  
 **Date:** 2026-05-27
@@ -19,10 +19,10 @@ Alternative Frontend Frameworks: React, Vue, Svelte
 
 ## Decision
 
-Wir nutzen **Angular 19.x** mit folgender Konfiguration:
+Wir nutzen **Angular 21.x** mit folgender Konfiguration:
 
 - **Runtime:** TypeScript 5.x
-- **Components:** Standalone Components + Signals (Angular 19 Modern API)
+- **Components:** Standalone Components + Signals (Angular 21 Modern API)
 - **State:** Angular Signals + RxJS Services (kein NgRx für MVP)
 - **Forms:** Reactive Forms (FormGroup, FormBuilder)
 - **Change Detection:** OnPush überall (Signals-kompatibel)
@@ -136,15 +136,15 @@ Wir nutzen **Angular 19.x** mit folgender Konfiguration:
 
 ## Future Considerations
 
-- **Signals-basierte Forms (Angular 19+):** Signal-Form API wird stabiler, könnte RxJS ersetzen
-- **Zoneless Change Detection:** Angular plant Removal von Zone.js → noch schneller
+- **Signals-basierte Forms:** In Angular 21 stabil; Reactive Forms (FormGroup) bleibt vorerst Wahl für bewährtes Verhalten
+- **Zoneless Change Detection:** Ab Angular 18+ experimental, in Angular 21 reif genug für MVP — Zone.js kann weggelassen werden
 - **iOS/Android Native:** Später NativeScript oder Ionic für mobile (selbe Angular Skills)
 
 ---
 
 ## References
 
-- [Angular 19 Documentation](https://angular.io)
+- [Angular 21 Documentation](https://angular.io)
 - [Angular Signals Guide](https://angular.io/guide/signals)
 - [Angular Reactive Forms](https://angular.io/guide/reactive-forms)
 - [ng2-charts Documentation](https://valor-software.com/ng2-charts/)
