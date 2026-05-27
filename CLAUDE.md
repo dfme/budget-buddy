@@ -213,6 +213,23 @@ Conventions not yet established. Will populate as patterns emerge during develop
 Architecture not yet mapped. Follow existing patterns found in the codebase.
 <!-- GSD:architecture-end -->
 
+### Architecture Decision Records
+
+Vollständige ADRs: [docs/adr/README.md](docs/adr/README.md)
+
+| ADR | Entscheid | Abgelehnte Alternativen |
+|-----|-----------|------------------------|
+| [ADR-0](docs/adr/ADR-0-frontend-backend-separation.md) | SPA + REST API (Angular ↔ Spring Boot, JWT in Header) | SSR (Next.js/Thymeleaf), Monolith mit JSP |
+| [ADR-1](docs/adr/ADR-1-java-spring-boot-backend.md) | Java 25 + Spring Boot 3.5.x | Node.js/Express, Python/FastAPI, Go, .NET 8 |
+| [ADR-2](docs/adr/ADR-2-angular-frontend.md) | Angular 19.x (Standalone Components, Signals, Reactive Forms) | React, Vue 3, Svelte, Astro |
+| [ADR-3](docs/adr/ADR-3-rest-vs-graphql.md) | REST API + OpenAPI 3 (Springdoc) | GraphQL (Overkill, kein nativer File-Upload), gRPC |
+| [ADR-4](docs/adr/ADR-4-monolith-vs-microservices.md) | Single Spring Boot JAR (Monolith) | Microservices/K8s (zu komplex), Serverless (JVM Cold-Start) |
+| [ADR-5](docs/adr/ADR-5-sqlite-mvp-database.md) | SQLite für MVP; Migration zu PostgreSQL möglich | PostgreSQL from Day One (Overkill), MongoDB (nicht relational) |
+| [ADR-6](docs/adr/ADR-6-hybrid-categorization.md) | Hybrid: Lookup-Tabelle zuerst, Claude API nur für unbekannte Tx | LLM-Only ($750/Monat, zu teuer), Fine-tuned ML Model (kein Trainingsdata) |
+| [ADR-7](docs/adr/ADR-7-jwt-authentication.md) | JWT HS256, bcrypt-Passwörter, stateless; Logout = Client löscht Token | Server-Side Sessions (DB-Schreibdruck), OAuth 2.0 (Overkill für MVP) |
+| [ADR-8](docs/adr/ADR-8-apache-pdfbox.md) | Apache PDFBox 3.x (`Loader.loadPDF()`) | iText 7 (AGPL-Lizenz!), Tabula-java (langsam, kein Text-Layer), pdfplumber (Python) |
+| [ADR-9](docs/adr/ADR-9-bigdecimal-money.md) | `BigDecimal` für alle CHF-Beträge, `DECIMAL(10,2)` in DB | `double`/`float` (Rundungsfehler!), `long` (Cent-Speicherung), Joda-Money |
+
 <!-- GSD:skills-start source:skills/ -->
 ## Project Skills
 
