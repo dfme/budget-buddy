@@ -10,114 +10,184 @@ Hier sind unsere User Stories und Requirements: CLAUDE.md
   Sei konkret — keine generischen Antworten.                                       
   Beziehe dich auf unser spezifisches Projekt.                                     
 
-⏺ Basierend auf den User Stories und Risiken in CLAUDE.md sind die drei
-  kritischsten Quality Attributes:
-     
+⏺ 
+Ich lese das CLAUDE.md durch, um die Analyse auf konkreten Projektfakten
+  aufzubauen.
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ ---
+  Top 3 Quality Attributes für BudgetBuddy
+
   ---
-  1. Security (Sicherheit & Datenschutz)
+  QA 1 — Sicherheit & Datenschutz (Security / Privacy)
+
+  Warum besonders wichtig?
+
+  Das ist euer existenzielles Risiko, das ihr selbst in CLAUDE.md benannt habt:
+  "ein Datenleck ist existenzbedrohend." Lara gibt euch ihr vollständiges
+  Finanzbild — jeden Kaffee, jede Arztrechnung, jeden Lohn. Marc vertraut euch nur
+  überhaupt, wenn er Sicherheit spürt — seine Hürde ist explizit
+  Datenschutz-Skepsis. Dazu kommt nDSG (Schweizer Datenschutzgesetz) mit echtem
+  Recht auf Löschung. Ein Versagen hier ist kein Bug, sondern der Tod des Projekts.
+
+  Konkrete architektonische Massnahmen:
+
+  ┌──────────────────────┬─────────────────────────────┬──────────────────────┐
+  │      Massnahme       │             Wo              │    Warum konkret     │
+  ├──────────────────────┼─────────────────────────────┼──────────────────────┤
+  │ Passwörter nur als   │ Spring Security             │ US-1 AC verlangt es  │
+  │ bcrypt (Work Factor  │ PasswordEncoder             │ explizit             │
+  │ ≥ 12)                │                             │                      │
+  ├──────────────────────┼─────────────────────────────┼──────────────────────┤
+  │ PDF nie auf Disk     │                             │ US-4 AC:             │
+  │ speichern — nur im   │ PdfImportService, kein      │ "Datenbankadmin      │
+  │ RAM parsen           │ MultipartFile.transferTo()  │ findet keine         │
+  │                      │                             │ PDF-Dateien"         │
+  ├──────────────────────┼─────────────────────────────┼──────────────────────┤
+  │ User-ID als          │                             │ Verhindert, dass     │
+  │ Row-Level Filter auf │ JPA Repository-Layer        │ User A die           │
+  │  ALLEN               │                             │ Transaktionen von    │
+  │ Datenbankabfragen    │                             │ User B sieht         │
+  ├──────────────────────┼─────────────────────────────┼──────────────────────┤
+  │ Kaskadierendes       │ Flyway-Migration, ON DELETE │ US-2 AC: alle        │
+  │ DELETE bei           │  CASCADE                    │ personenbezogenen    │
+  │ Kontolöschung        │                             │ Daten weg, sofort    │
+  ├──────────────────────┼─────────────────────────────┼──────────────────────┤
+  │                      │                             │ Transaktionsdaten    │
+  │ HTTPS only (kein     │ Spring Security             │ dürfen nie im        │
+  │ HTTP Fallback)       │ requiresChannel()           │ Klartext übertragen  │
+  │                      │                             │ werden               │
+  ├──────────────────────┼─────────────────────────────┼──────────────────────┤
+  │ JWT-Secret als       │ application.yml mit         │ Kein Secret in       │
+  │ Umgebungsvariable,   │ ${JWT_SECRET}               │ Git-History          │
+  │ nie im Code          │                             │                      │
+  └──────────────────────┴─────────────────────────────┴──────────────────────┘
   
-  Warum kritisch für BudgetBuddy?
-  Sensible Finanzdaten (Kontoauszüge, Transaktionen, Einkommensangaben) sind das
-  wertvollste Asset der App — und das grösste Angriffsziel. Marc vertraut der App
-  nur, wenn er weiss, dass seine Daten sicher sind (US-2). Das nDSG schreibt das
-  Recht auf vollständige Datenlöschung vor (US-2 AC). Ein Datenleck wäre nach
-  eigener Einschätzung im CLAUDE.md "existenzbedrohend".
+  Was passiert wenn ihr das ignoriert?
 
-  Konkrete architektonische Massnahmen:
-  - PDF niemals persistieren (US-4 AC explizit): Nur extrahierte Transaktionsdaten
-  speichern — PDF nach Parsing sofort im Memory verwerfen, nie auf Disk schreiben
-  - Bcrypt für Passwörter (US-1 AC): Spring Security's BCryptPasswordEncoder mit
-  mindestens Cost 12
-  - JWT stateless (bereits entschieden): Kein Session-State in SQLite, Token nur
-  client-seitig
-  - Datenlöschung als transaktionale Cascade: DELETE FROM users WHERE id = ? muss
-  via Datenbank-Constraints automatisch alle verknüpften Transaktionen, Fixkosten,
-  Sparziele mitlöschen — kein manuelles Aufräumen
-  - Kein Logging von Transaktionsdaten: Spring-Logs dürfen niemals Betrag,
-  Empfänger oder IBAN ausgeben
-
-  Was passiert wenn ignoriert?
-  Marc lädt die App nie hoch. Lara löscht den Account nach dem ersten Artikel über
-  einen Fintech-Datenleak. Ein einziger Breach mit echten Kontoauszügen ist ein
-  Compliance-Fall unter nDSG — Bussgelder, Reputationsverlust, Ende des Projekts.
+  Ein einziger SQL-Injection-Bug oder eine falsche Repository-Query ohne
+  User-Filter legt die Finanzdaten aller User offen. Bei einem Kurs-Projekt mag das
+   abstrakt klingen — aber ihr verarbeitet echte Bankdaten echter Menschen. Das
+  nDSG sieht Bussen vor, und Marc ist sofort weg. Das Vertrauen, das ihr monatelang
+   aufbaut, ist in 5 Minuten zerstört.
 
   ---
-  2. Usability (Gebrauchstauglichkeit)
+  QA 2 — Usability (Gebrauchstauglichkeit / First-Run-Experience)
 
-  Warum kritisch für BudgetBuddy?
-  "Churn-Falle" ist Risiko #1 in CLAUDE.md. Laras Persona macht das konkret: Wenn
-  der erste PDF-Upload mehr als 30 Sekunden dauert oder drei Klicks zu viel
-  braucht, bricht sie ab — und kommt nie wieder. Die App muss beim ersten Use Case
-  (Upload → Kategorisierung → Safe-to-Spend sehen) funktionieren, bevor sie
-  irgendwelchen Mehrwert beweist.
+  Warum besonders wichtig?
 
-  Konkrete architektonische Massnahmen:
-  - Optimistisches UI: Transaktionen sofort nach dem Upload im Frontend anzeigen
-  (mit "Wird kategorisiert..."-State), nicht erst wenn der Backend-Job fertig ist.
-  Polling oder SSE gegen /api/imports/{id}/status 
-  - Onboarding-Wizard als Pflichtschritt (US-3): Angular Route Guard auf /dashboard
-  - Onboarding-Wizard als Pflichtschritt (US-3): Angular Route Guard auf /dashboard
-   — Redirect auf /onboarding wenn onboardingCompleted === false. Kein Bypass.
-  - Fehlermeldungen auf Deutsch, kontextspezifisch (US-4 AC): Nicht "500 Internal
-  Server Error" sondern "Das PDF ist passwortgeschützt — bitte entferne den Schutz
-  vor dem Upload". Diese Texte direkt als Backend-Enums mit i18n-Keys modellieren.
-  - Progressive Disclosure: Sparziele (US-7) und Monatsvergleich (US-10) erst nach
-  erstem erfolgreichen Import anzeigen — nicht beim Onboarding überwältigen
-  - Ladezeiten sichtbar machen: PDF-Processing-Timeout bei 30s (US-4 AC) —
-  Progress-Indicator mit Schritten ("Lese PDF... Kategorisiere Transaktionen...
-  Fertig")
-
-  Was passiert wenn ignoriert?
-  Der Safe-to-Spend-Wert ist technisch korrekt, aber niemand sieht ihn. Die App
-  wird einmal ausprobiert und vergessen — exakt die "Churn-Falle" aus dem
-  Risk-Register.
-
-  ---
-  3. Reliability (Zuverlässigkeit gegenüber externen Abhängigkeiten)
-
-  Warum kritisch für BudgetBuddy?
-  BudgetBuddy hat eine kritische externe Abhängigkeit: die Claude API. Sie liegt
-  auf dem kritischen Pfad der Kategorisierung (US-5) und des Monatsberichts (US-9).
-   Wenn die API down ist und der Import blockiert, verliert die App ihr
-  Kernversprechen. Zusätzlich ist die PDF-Extraktion von der Qualität der
-  Banken-PDFs abhängig — UBS, Raiffeisen und PostFinance liefern unterschiedliche
-  Layouts.
+  Euer grösstes Risiko Nr. 1 ist die Churn-Falle. Laras Persönlichkeit ist präzise
+  definiert: "wenn der erste PDF-Upload zu kompliziert ist, bricht sie sofort ab."
+  Das ist kein UX-Nice-to-Have — das ist der einzige Moment, in dem ihr sie
+  gewinnen oder verlieren könnt. Der Onboarding-Funnel ist: Registrierung → Consent
+   → Fixkosten-Wizard → PDF-Upload → Dashboard mit Safe-to-Spend. Jeder Schritt,
+  der Lara aufhält, kostet euch den User.
 
   Konkrete architektonische Massnahmen:
-  - Lookup-Table-first, Claude-API-second (US-5 AC explizit): Bekannte Händler
-  (Migros, SBB, Digitec) werden nie an die API gesendet. Die Tabelle muss als
-  persistente DB-Tabelle modelliert sein, nicht als in-memory Map — damit
-  User-Korrekturen beim nächsten Import wirken (US-5 AC)
-  - Circuit Breaker für Claude API: Wenn 3 aufeinanderfolgende API-Calls
-  fehlschlagen → für 60 Sekunden alle Transaktionen direkt als Sonstiges einbuchen,
-   ohne auf Timeout zu warten. Resilience4j Circuit Breaker Pattern mit Spring Boot
-  - Monatsberichts-Retry (US-9 AC): Letzten erfolgreich generierten Bericht immer
-  persistieren. Bei API-Fehler: Datum des letzten Berichts anzeigen + "Erneut
-  versuchen"-Button — nie eine leere Seite
-  - PDF-Parsing-Isolation: PDF-Extraktion in separatem Service-Layer mit eigenem
-  Fehlerhandling. Wenn PDFBox eine Exception wirft, kommt eine strukturierte
-  Fehlermeldung zurück — nie ein Stack-Trace an den Client
-  - 95%-Extraktionsrate als messbare Anforderung (US-4 AC): Test-Fixtures mit
-  echten PDFs von UBS/Raiffeisen/PostFinance als Integrationstests — damit ein
-  Parsing-Regressionstest Regressions frühzeitig erkennt
 
-  Was passiert wenn ignoriert?
-  Anthropic hat einen Outage (es passiert). Importierte PDFs werden blockiert. Lara
-   sieht einen 503-Fehler statt ihres Safe-to-Spend. Sie denkt, die App ist kaputt
-  — und hat Recht. Das Vertrauen in die Berechnungsgrundlage ist weg.
+  Massnahme: Progress-Indikator beim PDF-Upload (Spinner + "42 Transaktionen
+    erkannt") 
+  Wo: Angular Upload-Component
+  Warum konkret: US-4 AC fordert es explizit — Lara muss sehen, dass etwas passiert
+  ────────────────────────────────────────
+  Massnahme: Inline-Fehlermeldungen mit konkreten Hinweisen
+  Wo: Reactive Forms + Angular Validators              
+  Warum konkret: Nicht "Fehler" sondern "Das PDF ist passwortgeschützt — bitte
+    entferne den Schutz"
+  ────────────────────────────────────────
+  Massnahme: Fixkosten-Wizard mit "Keine Fixkosten"-Escape
+  Wo: Eigene Onboarding-Route, Guards
+  Warum konkret: US-3: Wizard blockiert, bis Entscheidung getroffen — aber Escape
+    verhindert Frustration
+  ────────────────────────────────────────
+  Massnahme: Safe-to-Spend sofort sichtbar nach Upload
+  Wo: Dashboard lädt reaktiv mit Signals
+  Warum konkret: Der Aha-Moment muss nach dem ersten PDF kommen, nicht nach dem
+    dritten
+  ────────────────────────────────────────
+  Massnahme: 30-Sekunden-Timeout mit klarer Meldung
+  Wo: Backend @Async + Frontend Polling
+  Warum konkret: US-4: Lara soll nicht unbegrenzt auf einen hängenden Upload warten
+  ────────────────────────────────────────
+  Massnahme: Automatische Einkommens-Schätzung
+  Wo: Backend erkennt regelmässige Gutschrift ±5%
+  Warum konkret: US-6: Lara muss nicht alles manuell erfassen — Magie erhöht die
+    Conversion
+
+  Was passiert wenn ihr das ignoriert?
+
+  Ein PDF-Upload ohne Fortschrittsanzeige fühlt sich nach Absturz an. Ein Wizard
+  ohne Escape erzeugt Frustration. Lara gibt auf, erzählt niemandem davon, und ihr
+  Conversion-Funnel ist 0%. Technisch korrekte Software, die niemand benutzt, ist
+  wertlos — gerade bei einer Zielgruppe, die bereits schlechte Erfahrungen mit
+  "mühsamen Excel-Tabellen" hat.
 
   ---
-  Zusammenfassung der Priorität:
+  QA 3 — Korrektheit (Correctness / Numerische Genauigkeit)
 
-  ┌─────────────┬─────────────────────────────────┬────────────────────────────┐
-  │     QA      │       Trigger im Projekt        │      Schlimmster Fall      │
-  ├─────────────┼─────────────────────────────────┼────────────────────────────┤
-  │ Security    │ nDSG, Marc's Skepsis,           │ Datenleak = Projektende    │
-  │             │ Finanzdaten                     │                            │
-  ├─────────────┼─────────────────────────────────┼────────────────────────────┤
-  │ Usability   │ Churn-Risiko #1, Laras          │ Niemand nutzt die App      │
-  │             │ Abbruchverhalten                │                            │
-  ├─────────────┼─────────────────────────────────┼────────────────────────────┤
-  │ Reliability │ Claude API als Single Point of  │ Core Feature blockiert bei │
-  │             │ Failure                         │  Outage                    │
-  └─────────────┴─────────────────────────────────┴────────────────────────────┘
+  Warum besonders wichtig?
+
+  BudgetBuddy's Core Value ist "A weekly Safe-to-Spend number users can trust." Das
+   Wort trust ist entscheidend. Wenn Lara dem System vertraut und 200 CHF ausgibt —
+   aber die Berechnung hatte einen Rundungsfehler von 50 CHF — dann hat sie Miete
+  riskiert. Das ist nicht ein Bug, das ist Vertrauensbruch. Eure User Stories
+  verlangen "auf den Rappen genau" an fünf verschiedenen Stellen. Das ist kein
+  Zufall.
+
+  Konkrete architektonische Massnahmen:
+
+  Massnahme: BigDecimal überall für CHF-Beträge, niemals double/float
+  Wo: Entities, DTOs, Berechnungen   
+  Warum konkret: 0.1 + 0.2 = 0.30000000000000004 in double — in der DB als
+    NUMERIC(15,2) speichern 
+  ────────────────────────────────────────
+  Massnahme: Apostrophe-Parsing für Schweizer Zahlenformat 
+  Wo: PdfParser: replace("'", "") vor BigDecimal 
+  Warum konkret: 1'234.56 ist kein gültiger Java-BigDecimal — muss bereinigt werden
+  ────────────────────────────────────────     
+  Massnahme: Saldo-Anker beim PDF-Parsing
+  Wo: PdfParser Zeilenlogik 
+  Warum konkret: Text-Felder können umbrechen — Saldo-Spalte als Anker verhindert
+    falsch gesplittete Transaktionen           
+  ────────────────────────────────────────     
+  Massnahme: Divisor mindestens 1 in Safe-to-Spend
+  Wo: SafeToSpendService    
+  Warum konkret: US-6 AC: Division durch 0 am Monatsende muss explizit abgefangen
+    werden
+  ────────────────────────────────────────
+  Massnahme: Quartals/Jahres-Normalisierung bei Fixkosten
+  Wo: FixedCostService: ÷ 3 bzw. ÷ 12
+  Warum konkret: US-3 AC: 300 CHF quartalsweise = 100 CHF/Monat — Fehler hier
+    verfälscht jede Berechnung
+  ────────────────────────────────────────
+  Massnahme: Kategorie-Summen als DB-Aggregation
+  Wo: JPA @Query SUM(amount)
+  Warum konkret: Client-seitige Summierung über gepaginierte Listen produziert
+    falsche Totals
+
+  Was passiert wenn ihr das ignoriert?
+
+  Laras Safe-to-Spend zeigt 180 CHF statt 200 CHF — wegen Gleitkomma-Akkumulation
+  über 40 Transaktionen. Oder der Apostrophe-Parser crasht bei 1'200.00 und
+  importiert 0 CHF. Oder der Divisor-Bug zeigt an Silvester 800 CHF/Woche statt 200
+   CHF. Jeder dieser Fehler zerstört das einzige Versprechen, das ihr Lara gemacht
+  habt: dass die Zahl stimmt. Einmal gebrochen, kommt das Vertrauen nicht zurück.
+
+  ---
+  Zusammenfassung:
+  
+  ┌───────────┬────────────────────────┬─────────────────┬─────────────────────┐
+  │ Priorität │           QA           │   Kernrisiko    │  Sofort-Massnahme   │
+  ├───────────┼────────────────────────┼─────────────────┼─────────────────────┤
+  │           │                        │ Datenleck =     │ Row-Level-Filter +  │
+  │ 1         │ Sicherheit/Datenschutz │ Projektende +   │ kein PDF-Storage    │
+  │           │                        │ nDSG            │                     │
+  ├───────────┼────────────────────────┼─────────────────┼─────────────────────┤
+  │ 2         │ Usability              │ Churn nach      │ Fortschrittsanzeige │
+  │           │                        │ erstem Upload   │  + Timeout-Handling │
+  ├───────────┼────────────────────────┼─────────────────┼─────────────────────┤
+  │           │                        │ Falsche Zahlen  │ BigDecimal +        │
+  │ 3         │ Korrektheit            │ =               │ Apostrophe-Parser + │
+  │           │                        │ Vertrauensbruch │  Divisor-Guard      │
+  └───────────┴────────────────────────┴─────────────────┴─────────────────────┘
