@@ -50,7 +50,7 @@
 | Schicht | Technologie | Begründung |
 |---|---|---|
 | Frontend | Angular (TypeScript) | Component-basiert, Two-Way-Binding, gut für Forms |
-| Backend | Java 25 + Spring Boot 3.x | Typsicher, breites Ökosystem, Industriestandard |
+| Backend | Java 21 + Spring Boot 3.x | Typsicher, breites Ökosystem, Industriestandard |
 | API-Dokumentation | OpenAPI 3 (Springdoc) | Automatisch generierte Doku, Contract-First möglich |
 | Datenbank | SQLite | Einfach, kein separater DB-Server nötig — ideal für MVP |
 | KI | Claude API (Anthropic Java SDK) | Kategorisierung + KI-Monatsbericht |
@@ -122,7 +122,7 @@ BudgetBuddy is a web app for students and young professionals living in Switzerl
 
 ### Constraints
 
-- **Tech Stack**: Angular (frontend), Java 25 + Spring Boot 3.x (backend), SQLite (MVP DB), Claude API via Anthropic Java SDK, OpenAPI 3 / Springdoc — locked in
+- **Tech Stack**: Angular (frontend), Java 21 + Spring Boot 3.x (backend), SQLite (MVP DB), Claude API via Anthropic Java SDK, OpenAPI 3 / Springdoc — locked in
 - **Database**: SQLite for MVP; migration path to PostgreSQL exists if concurrent writes become bottleneck
 - **Geography**: Switzerland only — CHF, Swiss banks (UBS, Raiffeisen, PostFinance), nDSG
 - **Privacy**: Sensitive financial data — security is existential; compliance with Swiss nDSG required (including right to deletion)
@@ -222,7 +222,7 @@ Vollständige ADRs: [docs/adr/README.md](docs/adr/README.md)
 | ADR | Entscheid | Abgelehnte Alternativen |
 |-----|-----------|------------------------|
 | [ADR-0](docs/adr/ADR-0-frontend-backend-separation.md) | SPA + REST API (Angular ↔ Spring Boot, JWT in Header) | SSR (Next.js/Thymeleaf), Monolith mit JSP |
-| [ADR-1](docs/adr/ADR-1-java-spring-boot-backend.md) | Java 25 + Spring Boot 3.5.x | Node.js/Express, Python/FastAPI, Go, .NET 8 |
+| [ADR-1](docs/adr/ADR-1-java-spring-boot-backend.md) | Java 21 + Spring Boot 3.5.x | Node.js/Express, Python/FastAPI, Go, .NET 8 |
 | [ADR-2](docs/adr/ADR-2-angular-frontend.md) | Angular 19.x (Standalone Components, Signals, Reactive Forms) | React, Vue 3, Svelte, Astro |
 | [ADR-3](docs/adr/ADR-3-rest-vs-graphql.md) | REST API + OpenAPI 3 (Springdoc) | GraphQL (Overkill, kein nativer File-Upload), gRPC |
 | [ADR-4](docs/adr/ADR-4-monolith-vs-microservices.md) | Single Spring Boot JAR (Monolith) | Microservices/K8s (zu komplex), Serverless (JVM Cold-Start) |

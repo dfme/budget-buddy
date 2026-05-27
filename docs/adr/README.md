@@ -15,7 +15,7 @@ Diese Dokumentation hält die **wichtigsten Architektur-Entscheidungen** für Bu
 | # | Titel | Status | Auswirkung |
 |---|-------|--------|-----------|
 | **ADR-0** | [Frontend-Backend-Trennung (SPA + REST API)](ADR-0-frontend-backend-separation.md) | ✅ Accepted | Gesamte Systemarchitektur |
-| **ADR-1** | [Java 25 + Spring Boot 3.5.x Backend](ADR-1-java-spring-boot-backend.md) | ✅ Accepted | Backend Tech Stack |
+| **ADR-1** | [Java 21 + Spring Boot 3.5.x Backend](ADR-1-java-spring-boot-backend.md) | ✅ Accepted | Backend Tech Stack |
 | **ADR-2** | [Angular 19.x Frontend](ADR-2-angular-frontend.md) | ✅ Accepted | Frontend Tech Stack |
 | **ADR-3** | [REST API vs. GraphQL](ADR-3-rest-vs-graphql.md) | ✅ Accepted | API-Design |
 | **ADR-4** | [Monolith vs. Microservices](ADR-4-monolith-vs-microservices.md) | ✅ Accepted | Backend-Deployment |
@@ -34,7 +34,7 @@ Diese Dokumentation hält die **wichtigsten Architektur-Entscheidungen** für Bu
 - **ADR-4:** Monolith statt Microservices (für MVP)
 
 ### Technology Stack
-- **ADR-1:** Java 25 + Spring Boot (Backend)
+- **ADR-1:** Java 21 + Spring Boot (Backend)
 - **ADR-2:** Angular 19 (Frontend)
 - **ADR-5:** SQLite (Datenbank)
 - **ADR-7:** JWT (Authentication)

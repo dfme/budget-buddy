@@ -1,4 +1,4 @@
-# ADR-1: Java 25 + Spring Boot 3.5.x als Backend-Framework
+# ADR-1: Java 21 + Spring Boot 3.5.x als Backend-Framework
 
 **Status:** Accepted  
 **Date:** 2026-05-27
@@ -18,7 +18,7 @@ Alternative Technologie-Stacks: Node.js + Express, Python + FastAPI, Go, .NET 8
 
 ## Decision
 
-Wir nutzen **Java 25 LTS + Spring Boot 3.5.3** mit folgenden Dependencies:
+Wir nutzen **Java 21 LTS + Spring Boot 3.5.3** mit folgenden Dependencies:
 
 - **Web Layer:** Spring Web MVC (synchron, korrekt für blocking JDBC)
 - **Security:** Spring Security 6.5.x (stateless JWT)
@@ -37,7 +37,7 @@ Wir nutzen **Java 25 LTS + Spring Boot 3.5.3** mit folgenden Dependencies:
 - **Spring Security:** Best-practice Authentication/Authorization out-of-the-box
 - **Spring Data JPA:** Repository-Pattern reduziert SQL-Boilerplate
 - **Ecosystem:** Großes, bewährtes Ökosystem mit guter Dokumentation
-- **Long-Term Support:** Java 25 hat LTS bis 2030+
+- **Long-Term Support:** Java 21 LTS bis 2028 (bewährt, breite Toolchain-Unterstützung)
 - **Single JAR:** `java -jar app.jar` — einfaches Deployment
 - **Testing:** Ausgereiftes JUnit 5 + Mockito + TestContainers Framework
 

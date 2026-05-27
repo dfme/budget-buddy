@@ -67,7 +67,7 @@ A weekly Safe-to-Spend number users can trust — calculated from real transacti
 
 ## Constraints
 
-- **Tech Stack**: Angular (frontend), Java 25 + Spring Boot 3.x (backend), SQLite (MVP DB), Claude API via Anthropic Java SDK, OpenAPI 3 / Springdoc — locked in
+- **Tech Stack**: Angular (frontend), Java 21 + Spring Boot 3.x (backend), SQLite (MVP DB), Claude API via Anthropic Java SDK, OpenAPI 3 / Springdoc — locked in
 - **Database**: SQLite for MVP; migration path to PostgreSQL exists if concurrent writes become bottleneck
 - **Geography**: Switzerland only — CHF, Swiss banks (UBS, Raiffeisen, PostFinance), nDSG
 - **Privacy**: Sensitive financial data — security is existential; compliance with Swiss nDSG required (including right to deletion)
