@@ -416,33 +416,90 @@
   <div class="slide" id="s2">
     <div class="section-label">Architektur-Überblick</div>
     <h2>Drei Container, ein Deploy-Artefakt</h2>
-    <pre>Browser
-  │  HTTPS + JWT Bearer
-  ▼
-┌─────────────────────────────────────────────────────┐
-│  Web SPA  [Angular 21, TypeScript]                  │
-│  Onboarding · PDF-Upload · Dashboard · Korrekturen  │
-└──────────────────┬──────────────────────────────────┘
-                   │ REST/JSON (gleicher Host → kein CORS im Prod)
-                   ▼
-┌─────────────────────────────────────────────────────┐
-│  API Application  [Spring Boot 3.5 / Java 21, JAR]  │
-│  Auth (JJWT/bcrypt) · PDF-Parser (PDFBox 3.x)       │
-│  Categorizer (Lookup → Claude Haiku fallback)        │
-│  Safe-to-Spend-Calc · Monthly-Report (Sonnet 4)     │
-└──────────────────┬──────────────────────────────────┘
-                   │ JDBC in-process
-                   ▼
-┌─────────────────────────────────────────────────────┐
-│  Database  [SQLite 3.x + Flyway]                    │
-│  Users · Transactions · FixedCosts ·                │
-│  SavingsGoals · CategoryLookup                      │
-└─────────────────────────────────────────────────────┘
-                   │ HTTPS / Anthropic SDK
-                   ▼
-       [ Anthropic Claude API ]  ← externer Call
-       Haiku 3.5: Kategorisierung
-       Sonnet 4:  Monatsbericht</pre>
+    <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:0">
+      <svg viewBox="0 0 780 440" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-height:380px;overflow:visible">
+        <defs>
+          <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#4f8ef7"/>
+          </marker>
+          <marker id="arr2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#f7a84f"/>
+          </marker>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="3" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+
+        <!-- ── Browser ── -->
+        <rect x="290" y="8" width="200" height="52" rx="10" fill="#1a1d27" stroke="#4f8ef7" stroke-width="1.5"/>
+        <text x="390" y="28" text-anchor="middle" fill="#8890b0" font-size="10" font-family="Segoe UI,sans-serif" letter-spacing="2">NUTZER</text>
+        <text x="390" y="47" text-anchor="middle" fill="#e8eaf0" font-size="13" font-weight="600" font-family="Segoe UI,sans-serif">🌐  Browser</text>
+
+        <!-- arrow Browser → SPA -->
+        <line x1="390" y1="60" x2="390" y2="88" stroke="#4f8ef7" stroke-width="1.5" marker-end="url(#arr)"/>
+        <rect x="305" y="65" width="170" height="18" rx="4" fill="#0f1117"/>
+        <text x="390" y="77" text-anchor="middle" fill="#4f8ef7" font-size="10" font-family="Segoe UI,sans-serif">HTTPS · JWT Bearer</text>
+
+        <!-- ── Web SPA ── -->
+        <rect x="120" y="92" width="540" height="88" rx="12" fill="#1a1d27" stroke="#4f8ef7" stroke-width="2"/>
+        <rect x="120" y="92" width="540" height="28" rx="12" fill="#1e2a4a"/>
+        <rect x="120" y="107" width="540" height="13" fill="#1e2a4a"/>
+        <text x="390" y="112" text-anchor="middle" fill="#4f8ef7" font-size="11" font-weight="700" font-family="Segoe UI,sans-serif" letter-spacing="1">WEB SPA</text>
+        <text x="390" y="128" text-anchor="middle" fill="#8890b0" font-size="10" font-family="Segoe UI,sans-serif">Angular 21 · TypeScript</text>
+        <g fill="#c8d0f0" font-size="11" font-family="Segoe UI,sans-serif">
+          <text x="175" y="152">📋 Onboarding</text>
+          <text x="310" y="152">📄 PDF-Upload</text>
+          <text x="445" y="152">📊 Dashboard</text>
+          <text x="565" y="152">✏️ Korrekturen</text>
+        </g>
+
+        <!-- arrow SPA → API -->
+        <line x1="390" y1="180" x2="390" y2="208" stroke="#4f8ef7" stroke-width="1.5" marker-end="url(#arr)"/>
+        <rect x="270" y="185" width="240" height="18" rx="4" fill="#0f1117"/>
+        <text x="390" y="197" text-anchor="middle" fill="#4f8ef7" font-size="10" font-family="Segoe UI,sans-serif">REST / JSON · gleicher Host</text>
+
+        <!-- ── API Application ── -->
+        <rect x="80" y="212" width="620" height="100" rx="12" fill="#1a1d27" stroke="#4caf82" stroke-width="2"/>
+        <rect x="80" y="212" width="620" height="28" rx="12" fill="#1a3a2a"/>
+        <rect x="80" y="227" width="620" height="13" fill="#1a3a2a"/>
+        <text x="390" y="232" text-anchor="middle" fill="#4caf82" font-size="11" font-weight="700" font-family="Segoe UI,sans-serif" letter-spacing="1">API APPLICATION</text>
+        <text x="390" y="248" text-anchor="middle" fill="#8890b0" font-size="10" font-family="Segoe UI,sans-serif">Spring Boot 3.5 · Java 21 · JAR</text>
+        <g fill="#c8d0f0" font-size="11" font-family="Segoe UI,sans-serif">
+          <text x="105" y="272">🔐 Auth (JJWT/bcrypt)</text>
+          <text x="310" y="272">📑 PDF-Parser (PDFBox 3.x)</text>
+          <text x="105" y="292">🏷️ Categorizer (Lookup → Haiku)</text>
+          <text x="370" y="292">💰 Safe-to-Spend · Report (Sonnet 4)</text>
+        </g>
+
+        <!-- arrow API → DB -->
+        <line x1="280" y1="312" x2="280" y2="340" stroke="#4caf82" stroke-width="1.5" marker-end="url(#arr2)"/>
+        <rect x="175" y="317" width="140" height="18" rx="4" fill="#0f1117"/>
+        <text x="248" y="329" text-anchor="middle" fill="#4caf82" font-size="10" font-family="Segoe UI,sans-serif">JDBC in-process</text>
+
+        <!-- arrow API → Claude -->
+        <line x1="580" y1="312" x2="640" y2="340" stroke="#f7a84f" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr2)"/>
+        <rect x="555" y="317" width="155" height="18" rx="4" fill="#0f1117"/>
+        <text x="634" y="329" text-anchor="middle" fill="#f7a84f" font-size="10" font-family="Segoe UI,sans-serif">HTTPS · Anthropic SDK</text>
+
+        <!-- ── Database ── -->
+        <rect x="80" y="344" width="340" height="80" rx="12" fill="#1a1d27" stroke="#4caf82" stroke-width="2"/>
+        <rect x="80" y="344" width="340" height="28" rx="12" fill="#1a3a2a"/>
+        <rect x="80" y="359" width="340" height="13" fill="#1a3a2a"/>
+        <text x="250" y="364" text-anchor="middle" fill="#4caf82" font-size="11" font-weight="700" font-family="Segoe UI,sans-serif" letter-spacing="1">DATABASE</text>
+        <text x="250" y="380" text-anchor="middle" fill="#8890b0" font-size="10" font-family="Segoe UI,sans-serif">SQLite 3.x · Flyway</text>
+        <text x="250" y="400" text-anchor="middle" fill="#c8d0f0" font-size="10.5" font-family="Segoe UI,sans-serif">Users · Transactions · FixedCosts · SavingsGoals</text>
+
+        <!-- ── Claude API ── -->
+        <rect x="480" y="344" width="260" height="80" rx="12" fill="#1a1d27" stroke="#f7a84f" stroke-width="2" stroke-dasharray="6,3"/>
+        <rect x="480" y="344" width="260" height="28" rx="12" fill="#3a2a10"/>
+        <rect x="480" y="359" width="260" height="13" fill="#3a2a10"/>
+        <text x="610" y="364" text-anchor="middle" fill="#f7a84f" font-size="11" font-weight="700" font-family="Segoe UI,sans-serif" letter-spacing="1">ANTHROPIC CLAUDE API</text>
+        <text x="610" y="380" text-anchor="middle" fill="#8890b0" font-size="10" font-family="Segoe UI,sans-serif">Externer Dienst</text>
+        <text x="610" y="397" text-anchor="middle" fill="#c8d0f0" font-size="10.5" font-family="Segoe UI,sans-serif">Haiku 3.5: Kategorisierung</text>
+        <text x="610" y="413" text-anchor="middle" fill="#c8d0f0" font-size="10.5" font-family="Segoe UI,sans-serif">Sonnet 4: Monatsbericht</text>
+      </svg>
+    </div>
   </div>
 
   <!-- ─────────────────────────────────────────── SLIDE 4: CONTRADICTIONS ── -->
