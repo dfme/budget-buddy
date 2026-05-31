@@ -6,8 +6,8 @@ Hier sind alle unsere heutigen Ergebnisse:
     - **Security** schützt davor, dass uns die Zielgruppe (Marc) vertraut.
     - **Usability** sorgt dafür, dass die Zielgruppe (Lara) überhaupt zum Vertrauenstest kommt.
     - **Reliability** sorgt dafür, dass das Vertrauen über die Zeit hält.
-- C1 System Context: @c1_prompt_system_context_daniel.md
-- C2 Container Diagram: @c2_prompt_daniel.md
+- C1 System Context: @03_01_prompt_c1_system_ctx_diagramm_jason.md
+- C2 Container Diagram: @03_01_prompt_c2_container_diagramm_daniel.md
 - ADRs: 
     - Technologie: ADR-1, ADR2 & ADR-5
     - Pattern: ADR-0
