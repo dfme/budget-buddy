@@ -86,27 +86,23 @@ Das C2-Mapping sagt gleichzeitig:
 Das sind zwei inkompatible Ansätze. Ein httpOnly Cookie ist kein Bearer-Header. ADR-7 sagt "Logout = Client löscht Token" — was wiederum client-seitigen Zugriff impliziert (localStorage/sessionStorage).
 
 
-**W-2: Angular-Version — C2 sagt Angular 19**
-
-Das C2-ASCII-Diagramm zeigt `Angular 19`, alle anderen Quellen (CLAUDE.md, ADR-2, STACK.md) sagen **Angular 21**. Einmalig korrigieren vor dem ersten Commit.
-
 ### Strukturell (beeinflusst Tag-2-Entscheide)
 
-**W-3: SPA-Hosting-Strategie — Dev vs. Prod divergieren still**
+**W-2: SPA-Hosting-Strategie — Dev vs. Prod divergieren still**
 
 - ADR-0: CORS konfiguriert für `localhost:4200` (Dev-Separation)
 - C2: SPA läuft vom gleichen Spring-Boot-Host (Prod-Bündelung, kein CORS)
 - Das ist technisch konsistent, aber nirgends explizit als zwei Phasen dokumentiert. Führt sonst zu Verwirrung beim Deployment.
 
-**W-4: Hosting-Plattform und nDSG-Konformität offen**
+**W-3: Hosting-Plattform und nDSG-Konformität offen**
 
 Git-History zeigt "Render" als Ziel-Plattform. Render hat keine CH-Region (nächste: Frankfurt/EU). Für Marcs Vertrauen ("warum meine Daten einer Web-App geben?") ist "läuft in der Schweiz" oder mindestens "DSGVO-konform in der EU" ein Trust-Signal — aber nirgends entschieden.
 
-**W-5: PII-Transfer zu Anthropic API**
+**W-4: PII-Transfer zu Anthropic API**
 
 Transaktionstext wie `"DIGITEC GALAXUS AG 044 913 2323"` verlässt beim Claude-Call unsere Vertrauenszone. Das C1-Dokument stellt die Frage ("werden Empfänger pseudonymisiert?") — aber keine Antwort existiert. Für die nDSG-Compliance (Auftragsverarbeitung) braucht es mindestens einen Data Processing Agreement (DPA) mit Anthropic.
 
-**W-6: Fehlende Akteure im C1 (noch nicht adressiert)**
+**W-5: Fehlende Akteure im C1 (noch nicht adressiert)**
 
 Aus dem C1-"Was haben wir vergessen?"-Abschnitt ist noch kein Folge-Diagramm entstanden: Admin/Operator, Backup-Ziel, Monitoring/Logging, E-Mail-Provider. Das sind echte System-Komponenten mit Sicherheitsrelevanz.
 

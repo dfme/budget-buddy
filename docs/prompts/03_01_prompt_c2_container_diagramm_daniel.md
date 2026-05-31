@@ -78,7 +78,7 @@ Auth-Modul (JJWT + bcrypt) · PDF-Parser (Apache PDFBox 3.x) · Categorizer (Loo
    ┌─────────────────────┐                          ┌────────────────────┐
    │     Web SPA         │                          │  Anthropic Claude  │
    │   [Container C1]    │                          │   [Ext. System]    │
-   │   Angular 19        │                          └─────────▲──────────┘
+   │   Angular 21        │                          └─────────▲──────────┘
    │   Browser-seitig    │                                    │
    └──────────┬──────────┘                                    │ HTTPS / API
               │                                                │ Anthropic Java SDK
@@ -172,6 +172,6 @@ Diese Liste ist genauso wichtig wie die Container-Liste, weil sie zeigt, dass wi
 | Frage aus dem Prompt                              | Antwort                                                                                                              |
 | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | Welche Container brauchen wir?                    | **3:** Web SPA, API Application (Monolith), SQLite-Datenbank. Kein Cache, keine Queue, keine Microservices im MVP.   |
-| Welche Technologien passen zu Team und QAs?       | Angular 19, Spring Boot 3.5 + Java 21, SQLite + Flyway — alle LTS/Standard, breite Doku-Basis für gemischtes Team.   |
+| Welche Technologien passen zu Team und QAs?       | Angular 21, Spring Boot 3.5 + Java 21, SQLite + Flyway — alle LTS/Standard, breite Doku-Basis für gemischtes Team.   |
 | Wie kommunizieren die Container?                  | SPA↔API via HTTPS REST + JWT Bearer · API↔DB via JDBC in-process · API↔Claude via HTTPS Anthropic SDK.               |
 | Pro Container 1 Satz Begründung                   | Siehe Abschnitt „Begründung pro Container — je ein Satz" oben.                                                       |
