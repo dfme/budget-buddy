@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BudgetBuddy — Architecture Draft</title>
+<style>
+  :root {
+    --accent: #4f8ef7;
+    --accent2: #f7a84f;
+    --danger: #e05555;
+    --success: #4caf82;
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #232638;
+    --border: #2e3250;
+    --text: #e8eaf0;
+    --muted: #8890b0;
+    --font: 'Segoe UI', system-ui, sans-serif;
+    --mono: 'Cascadia Code', 'Fira Code', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Slide container ── */
+  #deck {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    padding: 52px 72px;
+    gap: 20px;
+    overflow-y: auto;
+  }
+  .slide.active { display: flex; }
+
+  /* ── Title slide ── */
+  .slide-title {
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    background: radial-gradient(ellipse at 60% 40%, #1e2a4a 0%, var(--bg) 70%);
+  }
+  .slide-title .kicker {
+    font-size: 13px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 16px;
+  }
+  .slide-title h1 {
+    font-size: 52px;
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 12px;
+    background: linear-gradient(135deg, #fff 40%, var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .slide-title .subtitle {
+    font-size: 18px;
+    color: var(--muted);
+    margin-bottom: 32px;
+  }
+  .slide-title .meta {
+    font-size: 13px;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+    display: flex;
+    gap: 32px;
+    justify-content: center;
+  }
+  .slide-title .meta span { display: flex; align-items: center; gap: 6px; }
+
+  /* ── Section heading ── */
+  .section-label {
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  h2 {
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: #fff;
+  }
+
+  h3 {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+
+  p, li { font-size: 15px; line-height: 1.65; color: var(--text); }
+
+  /* ── Code / ASCII block ── */
+  pre {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.7;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    overflow-x: auto;
+    color: #c8d0f0;
+  }
+
+  /* ── Tables ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  th {
+    background: var(--surface2);
+    color: var(--accent);
+    font-weight: 600;
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 2px solid var(--border);
+  }
+  td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(79,142,247,.05); }
+
+  /* ── QA badge row ── */
+  .qa-row td:first-child { font-weight: 700; }
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .3px;
+  }
+  .badge-sec  { background: #1e3a5f; color: #64b5f6; }
+  .badge-usa  { background: #3a2a10; color: #ffb74d; }
+  .badge-rel  { background: #1a3a2a; color: #81c995; }
+
+  /* ── Warning cards ── */
+  .card-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    flex: 1;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px;
+  }
+  .card.critical { border-left: 4px solid var(--danger); }
+  .card.structural { border-left: 4px solid var(--accent2); }
+  .card .card-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .card.critical .card-label { color: var(--danger); }
+  .card.structural .card-label { color: var(--accent2); }
+  .card h4 {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: #fff;
+  }
+  .card p { font-size: 13px; color: var(--muted); line-height: 1.55; }
+
+  /* ── Question cards ── */
+  .q-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px 26px;
+    flex: 1;
+  }
+  .q-num {
+    font-size: 42px;
+    font-weight: 900;
+    color: var(--border);
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+  .q-card h3 { font-size: 16px; margin-bottom: 8px; }
+  .q-card p  { font-size: 13.5px; color: var(--muted); }
+
+  .q-stack { display: flex; flex-direction: column; gap: 14px; flex: 1; }
+
+  /* ── Option comparison ── */
+  .opt-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  .opt-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .opt-card.recommended { border-color: var(--success); }
+  .opt-card .opt-label {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .opt-card.recommended .opt-label { color: var(--success); }
+  .opt-card:not(.recommended) .opt-label { color: var(--muted); }
+  .opt-card p { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .opt-card .pro { color: var(--success); font-size: 13px; }
+  .opt-card .con { color: var(--danger); font-size: 13px; }
+
+  /* ── Agenda table ── */
+  .agenda-row td:first-child {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    white-space: nowrap;
+    width: 90px;
+  }
+
+  /* ── Confirmed list ── */
+  .confirmed-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 4px;
+  }
+  .confirmed-item {
+    background: rgba(76,175,130,.12);
+    border: 1px solid rgba(76,175,130,.3);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+    color: var(--success);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .confirmed-item::before { content: '✓'; font-weight: 700; }
+
+  /* ── Navigation ── */
+  nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 72px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+  .nav-left { display: flex; align-items: center; gap: 10px; }
+  .nav-brand { font-size: 13px; font-weight: 700; color: var(--accent); }
+  .slide-counter { font-size: 12px; color: var(--muted); }
+  .nav-progress {
+    flex: 1;
+    max-width: 200px;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    margin: 0 20px;
+    overflow: hidden;
+  }
+  .nav-progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width .3s ease;
+  }
+  .nav-buttons { display: flex; gap: 8px; }
+  .btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 7px 18px;
+    border-radius: 7px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+  }
+  .btn:hover { background: var(--border); border-color: var(--accent); }
+  .btn:disabled { opacity: .3; cursor: not-allowed; }
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    font-weight: 600;
+  }
+  .btn-primary:hover { background: #3a7ce8; }
+
+  /* ── Slide dots ── */
+  .slide-dots {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--border);
+    cursor: pointer;
+    transition: background .2s, transform .2s;
+  }
+  .dot.active {
+    background: var(--accent);
+    transform: scale(1.4);
+  }
+
+  /* scrollbar */
+  .slide::-webkit-scrollbar { width: 6px; }
+  .slide::-webkit-scrollbar-track { background: transparent; }
+  .slide::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div id="deck">
+
+  <!-- ─────────────────────────────────────────── SLIDE 1: TITLE ── -->
+  <div class="slide slide-title active" id="s1">
+    <div class="kicker">CAS ADAI 2026 · BFH Biel · Tag 1 Synthese</div>
+    <h1>BudgetBuddy<br>Architecture Draft</h1>
+    <div style="max-width:620px;background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:12px;padding:18px 22px;margin-top:8px;text-align:left">
+      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--accent);margin-bottom:8px">Projektbeschreibung</div>
+      <p style="font-size:14px;color:var(--muted);line-height:1.7">
+        Web-App für Studierende und Berufseinsteiger in der Schweiz — liest Kontoauszüge als PDF ein,
+        kategorisiert Transaktionen automatisch und zeigt einen wöchentlichen
+        <strong style="color:var(--text)">Safe-to-Spend</strong>-Betrag,
+        damit Nutzer jederzeit wissen, wie viel sie noch ausgeben können.
+      </p>
+    </div>
+    <div class="meta">
+      <span>📅 Stand: 2026-05-27</span>
+      <span>🏗 3-Container-Monolith</span>
+      <span>🎯 Security · Usability · Reliability</span>
+    </div>
+  </div>
+
+  <!-- ─────────────────────────────────────────── SLIDE 3: QA MAPPING ── -->
+  <div class="slide" id="s3">
+    <div class="section-label">QA-Architektur-Mapping</div>
+    <h2>Qualitätsattribute und ihre Verankerung</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>QA</th>
+          <th>Persona</th>
+          <th>Wo verankert</th>
+          <th>Konkrete Massnahme</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="qa-row">
+          <td><span class="badge badge-sec">Security</span></td>
+          <td>Marc vertraut</td>
+          <td>API Container</td>
+          <td>Spring Security 6.5, bcrypt ≥12, JWT HS256, Input-Validation, Rate-Limiting</td>
+        </tr>
+        <tr class="qa-row">
+          <td><span class="badge badge-usa">Usability</span></td>
+          <td>Lara kommt an</td>
+          <td>Web SPA</td>
+          <td>Angular Signals + Reactive Forms, OnPush, Single-Page ohne Reload-Friction</td>
+        </tr>
+        <tr class="qa-row">
+          <td><span class="badge badge-rel">Reliability</span></td>
+          <td>Vertrauen hält</td>
+          <td>DB + API</td>
+          <td>Flyway-Migrationen, ACID-Transaktionen, BigDecimal, Claude-Fallback = <code>Sonstiges</code></td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="margin-top:auto;padding-top:16px">
+      <h3>Top-3 QA-Begründung</h3>
+      <p>
+        <strong>Security</strong> schützt Marcs Vertrauen (Datenschutz-Skepsis) ·
+        <strong>Usability</strong> sorgt dafür, dass Lara den ersten PDF-Upload nicht abbricht ·
+        <strong>Reliability</strong> hält das Vertrauen über die Zeit aufrecht
+      </p>
+    </div>
+  </div>
+
+  <!-- ─────────────────────────────────────────── SLIDE 2: OVERVIEW ── -->
+  <div class="slide" id="s2">
+    <div class="section-label">Architektur-Überblick</div>
+    <h2>Drei Container, ein Deploy-Artefakt</h2>
+    <pre>Browser
+  │  HTTPS + JWT Bearer
+  ▼
+┌─────────────────────────────────────────────────────┐
+│  Web SPA  [Angular 21, TypeScript]                  │
+│  Onboarding · PDF-Upload · Dashboard · Korrekturen  │
+└──────────────────┬──────────────────────────────────┘
+                   │ REST/JSON (gleicher Host → kein CORS im Prod)
+                   ▼
+┌─────────────────────────────────────────────────────┐
+│  API Application  [Spring Boot 3.5 / Java 21, JAR]  │
+│  Auth (JJWT/bcrypt) · PDF-Parser (PDFBox 3.x)       │
+│  Categorizer (Lookup → Claude Haiku fallback)        │
+│  Safe-to-Spend-Calc · Monthly-Report (Sonnet 4)     │
+└──────────────────┬──────────────────────────────────┘
+                   │ JDBC in-process
+                   ▼
+┌─────────────────────────────────────────────────────┐
+│  Database  [SQLite 3.x + Flyway]                    │
+│  Users · Transactions · FixedCosts ·                │
+│  SavingsGoals · CategoryLookup                      │
+└─────────────────────────────────────────────────────┘
+                   │ HTTPS / Anthropic SDK
+                   ▼
+       [ Anthropic Claude API ]  ← externer Call
+       Haiku 3.5: Kategorisierung
+       Sonnet 4:  Monatsbericht</pre>
+  </div>
+
+  <!-- ─────────────────────────────────────────── SLIDE 4: CONTRADICTIONS ── -->
+  <div class="slide" id="s4">
+    <div class="section-label">Widersprüche &amp; Unklarheiten</div>
+    <h2>Was blockiert die Implementierung?</h2>
+    <div class="card-grid">
+      <div class="card critical">
+        <div class="card-label">W-1 · Kritisch</div>
+        <h4>JWT Token Storage — Widerspruch im C2</h4>
+        <p>C2 sagt gleichzeitig <em>"kein Token in localStorage (HttpOnly)"</em> und <em>"JWT Bearer (Authorization-Header)"</em>. Beides ist inkompatibel. ADR-7 ("Logout = Client löscht Token") impliziert JS-Zugriff.</p>
+      </div>
+      <div class="card structural">
+        <div class="card-label">W-2 · Strukturell</div>
+        <h4>SPA-Hosting — Dev vs. Prod divergieren still</h4>
+        <p>ADR-0: CORS für <code>localhost:4200</code>. C2: SPA vom gleichen Spring-Boot-Host. Technisch konsistent, aber nirgends als zwei Phasen dokumentiert.</p>
+      </div>
+      <div class="card structural">
+        <div class="card-label">W-3 · Strukturell</div>
+        <h4>Hosting-Plattform &amp; nDSG-Konformität offen</h4>
+        <p>Render hat keine CH-Region (nächste: Frankfurt/EU). Für Marcs Datenschutz-Skepsis fehlt ein konkretes Trust-Signal.</p>
+      </div>
+      <div class="card structural">
+        <div class="card-label">W-4 · Strukturell</div>
+        <h4>PII-Transfer zu Anthropic API</h4>
+        <p>Transaktionstext (<em>"DIGITEC GALAXUS AG 044 913 2323"</em>) verlässt die Vertrauenszone. Kein DPA mit Anthropic. nDSG Art. 16.</p>
+      </div>
+      <div class="card structural">
+        <div class="card-label">W-5 · Strukturell</div>
+        <h4>Fehlende Akteure im C1</h4>
+        <p>Noch kein Folge-Diagramm für Admin/Operator, Backup-Ziel, Monitoring/Logging, E-Mail-Provider — alle mit Sicherheitsrelevanz.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─────────────────────────────────────────── SLIDE 5: Q1 JWT ── -->
+  <div class="slide" id="s5">
+    <div class="section-label">Frage 1 für Tag 2</div>
+    <h2>Wo lebt der JWT-Token? — Security-Fundament</h2>
+    <p style="color:var(--muted);margin-bottom:16px">Diese Entscheidung prägt Auth-Flow, CORS-Config, Logout-Semantik und XSS-Risiko.<br>Sie muss vor dem ersten Code-Commit stehen.</p>
+    <div class="opt-grid">
+      <div class="opt-card recommended">
+        <div class="opt-label">A) httpOnly Cookie ★ Empfehlung</div>
+        <p><strong>Mechanismus:</strong> Browser hält Cookie; kein JS-Zugriff</p>
+        <p class="pro">✓ XSS-sicher; Anthropic Best Practice</p>
+        <p class="con">✗ SameSite + CORS komplexer; CSRF-Schutz nötig</p>
+      </div>
+      <div class="opt-card">
+        <div class="opt-label">B) sessionStorage</div>
+        <p><strong>Mechanismus:</strong> JS schreibt/liest; Tab-lokal</p>
+        <p class="pro">✓ Bearer-Header trivial; Tab-close = Logout</p>
+        <p class="con">✗ XSS exponiert Token; kurzlebiger als nötig</p>
+      </div>
+      <div class="opt-card">
+        <div class="opt-label">C) localStorage</div>
+        <p><strong>Mechanismus:</strong> JS schreibt/liest; persistent</p>
+        <p class="pro">✓ Bearer-Header trivial</p>
+        <p class="con">✗ XSS exponiert Token dauerhaft — für Finanzdaten <strong>inakzeptabel</strong></p>
+      </div>
+    </div>
+    <div style="margin-top:16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px">
+      <strong style="color:var(--success)">Empfehlung:</strong>
+      <span style="font-size:14px;color:var(--muted)"> Option A (httpOnly Cookie) ist für Finanzdaten die defensiv korrekte Wahl — auch wenn sie CSRF-Mitigation erfordert. Option B ist ein akzeptabler Kompromiss, wenn XSS durch strikte CSP mitigiert wird.</span>
+    </div>
+    <div style="margin-top:12px;font-size:13px;color:var(--accent)">→ Output: ADR-7 vervollständigen</div>
+  </div>
+
+  <!-- ─────────────────────────────────────────── SLIDE 6: Q2 HOSTING ── -->
+  <div class="slide" id="s6">
+    <div class="section-label">Frage 2 für Tag 2</div>
+    <h2>Wo läuft BudgetBuddy — gilt das für Marc als vertrauenswürdig?</h2>
+    <p style="color:var(--muted);margin-bottom:16px">Marcs Kernfriction ist Datenschutz-Skepsis. Ein konkretes Hosting-Trust-Signal ist Teil des Onboardings.</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Option</th>
+          <th>Region</th>
+          <th>Datenschutz</th>
+          <th>Aufwand</th>
+          <th>Trust-Signal</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Render (Frankfurt)</strong></td>
+          <td>EU / DE</td>
+          <td>DSGVO ✓, kein nDSG-spezifisch</td>
+          <td>Gering</td>
+          <td>Mittel</td>
+        </tr>
+        <tr>
+          <td><strong>Exoscale / Nine.ch</strong></td>
+          <td>CH</td>
+          <td>nDSG ✓✓</td>
+          <td>Höher</td>
+          <td>Stark</td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="margin-top:16px">
+      <h3>Weitere offene Punkte</h3>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:8px;padding-left:0">
+        <li style="display:flex;gap:10px;font-size:14px;color:var(--muted)"><span style="color:var(--accent2)">?</span> Backup-Strategie für SQLite beim Hosting-Provider</li>
+        <li style="display:flex;gap:10px;font-size:14px;color:var(--muted)"><span style="color:var(--accent2)">?</span> Wer ist "Admin/Operator" mit privilegiertem Datenzugriff?</li>
+        <li style="display:flex;gap:10px;font-size:14px;color:var(--muted)"><span style="color:var(--accent2)">?</span> Wie wird das nDSG-Löschrecht eingelöst?</li>
+      </ul>
+    </div>
+    <div style="margin-top:auto;font-size:13px;color:var(--accent)">→ Output: ADR-10 (neu) Hosting-Entscheid</div>
+  </div>
+
+  <!-- ─────────────────────────────────────────── SLIDE 7: Q3 PII ── -->
+  <div class="slide" id="s7">
+    <div class="section-label">Frage 3 für Tag 2</div>
+    <h2>Was geht an Anthropic — und unter welchem Rechtsrahmen?</h2>
+    <p style="color:var(--muted);margin-bottom:16px">Jeder Claude-Call mit Transaktionsdaten = Datenübermittlung an einen US-Dienstleister (nDSG Art. 16).</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div class="card structural">
+        <div class="card-label">Rechtlich</div>
+        <h4>DPA mit Anthropic</h4>
+        <p>Anthropic bietet ein "Data Processing Agreement" für Business-Kunden an. Ohne DPA ist die Übermittlung eine Compliance-Lücke.</p>
+      </div>
+      <div class="card structural">
+        <div class="card-label">Technisch</div>
+        <h4>Pseudonymisierung vor dem Call</h4>
+        <p>Schicken wir Roh-Text (<em>"DIGITEC GALAXUS AG …"</em>) oder reicht Betrag + normalisierter Händlertyp für Haiku 3.5?</p>
+      </div>
+      <div class="card structural">
+        <div class="card-label">Produktseitig</div>
+        <h4>Consent in den AGB</h4>
+        <p>Nutzer explizit darüber informieren, dass Transaktionsdaten zur Kategorisierung an Anthropic übermittelt werden.</p>
+      </div>
+      <div class="card structural">
+        <div class="card-label">Architektur</div>
+        <h4>Minimalprinzip prüfen</h4>
+        <p>Was braucht Haiku exakt? Möglicherweise reicht normalisierter Händlername ohne IBAN, Telefonnummer oder Betrag.</p>
+      </div>
+    </div>
+    <div style="margin-top:auto;font-size:13px;color:var(--accent)">→ Output: Eintrag in ADR-6 (Kategorisierung) ergänzen</div>
+  </div>
+
+  <!-- ─────────────────────────────────────────── SLIDE 8: AGENDA ── -->
+  <div class="slide" id="s8">
+    <div class="section-label">Empfehlung</div>
+    <h2>Tag-2-Agenda — 30 Minuten</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Zeit</th>
+          <th>Thema</th>
+          <th>Output</th>
+        </tr>
+      </thead>
+      <tbody class="agenda-row">
+        <tr>
+          <td>10 min</td>
+          <td><strong>JWT Token Storage</strong> — Entscheid A / B / C<br><span style="font-size:12px;color:var(--muted)">Frage 1: Wo lebt der Token?</span></td>
+          <td>ADR-7 vervollständigen</td>
+        </tr>
+        <tr>
+          <td>10 min</td>
+          <td><strong>Hosting-Plattform &amp; nDSG-Position</strong><br><span style="font-size:12px;color:var(--muted)">Render Frankfurt vs. Exoscale/Nine.ch</span></td>
+          <td>ADR-10 (neu) Hosting-Entscheid</td>
+        </tr>
+        <tr>
+          <td>10 min</td>
+          <td><strong>PII-Policy für Claude-Calls + DPA-Vorgehen</strong><br><span style="font-size:12px;color:var(--muted)">Pseudonymisierung + Anthropic DPA</span></td>
+          <td>Eintrag in ADR-6 ergänzen</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div style="margin-top:20px">
+      <h3>Was nicht nochmals diskutiert werden muss ✓</h3>
+      <div class="confirmed-list">
+        <div class="confirmed-item">3-Container-Monolith</div>
+        <div class="confirmed-item">SQLite für MVP</div>
+        <div class="confirmed-item">PDFBox 3.x</div>
+        <div class="confirmed-item">BigDecimal für Geld</div>
+        <div class="confirmed-item">Hybride Kategorisierung</div>
+        <div class="confirmed-item">Fallback: Sonstiges</div>
+        <div class="confirmed-item">Angular 21</div>
+        <div class="confirmed-item">Java 21 + Spring Boot 3.5</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /#deck -->
+
+<!-- ── Navigation ── -->
+<nav>
+  <div class="nav-left">
+    <div class="nav-brand">BudgetBuddy</div>
+    <div class="slide-counter" id="counter">1 / 8</div>
+  </div>
+
+  <div class="slide-dots" id="dots"></div>
+
+  <div style="display:flex;align-items:center;gap:12px">
+    <div class="nav-progress">
+      <div class="nav-progress-fill" id="progress"></div>
+    </div>
+    <div class="nav-buttons">
+      <button class="btn" id="prev" onclick="go(-1)">← Zurück</button>
+      <button class="btn btn-primary" id="next" onclick="go(+1)">Weiter →</button>
+    </div>
+  </div>
+</nav>
+
+<script>
+  const TOTAL = 8;
+  let current = 1;
+
+  const dots = document.getElementById('dots');
+  for (let i = 1; i <= TOTAL; i++) {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i === 1 ? ' active' : '');
+    d.onclick = () => goTo(i);
+    dots.appendChild(d);
+  }
+
+  function goTo(n) {
+    document.getElementById('s' + current).classList.remove('active');
+    document.querySelectorAll('.dot')[current - 1].classList.remove('active');
+    current = Math.max(1, Math.min(TOTAL, n));
+    document.getElementById('s' + current).classList.add('active');
+    document.querySelectorAll('.dot')[current - 1].classList.add('active');
+    document.getElementById('counter').textContent = current + ' / ' + TOTAL;
+    document.getElementById('progress').style.width = ((current / TOTAL) * 100) + '%';
+    document.getElementById('prev').disabled = current === 1;
+    document.getElementById('next').textContent = current === TOTAL ? '← Neustart' : 'Weiter →';
+  }
+
+  function go(dir) {
+    if (dir > 0 && current === TOTAL) goTo(1);
+    else goTo(current + dir);
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') go(+1);
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')                     go(-1);
+  });
+
+  goTo(1);
+</script>
+</body>
+</html>
