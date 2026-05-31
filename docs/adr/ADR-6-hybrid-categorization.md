@@ -61,6 +61,25 @@ Wir nutzen einen **Hybrid-Ansatz: Lookup-Tabelle + Claude API**:
 - Braucht ML-Expertise (nicht im Team)
 - Retraining bei User-Korrektionen aufwendig
 
+### Lokales LLM via Ollama (z.B. Llama 3.2 3B, Phi-3 Mini)
+
+**Nicht gewählt für MVP — offen für spätere Evaluation.**
+
+Idee: Ollama-Server läuft neben Spring Boot; LangChain4j oder direkter HTTP-Client ersetzt den Claude-Haiku-Fallback. Nur die Kategorisierung (Step 2) wäre betroffen — der KI-Monatsbericht (Sonnet 4) bleibt weiterhin über die Anthropic API.
+
+**Vorteile:**
+- PII verlässt das System nie → löst W-4 (nDSG Art. 16) vollständig
+- Kein DPA mit Anthropic für die Kategorisierung nötig
+- Keine variablen API-Kosten pro Kategorisierungs-Call
+
+**Nachteile / Risiken:**
+- Deployment-Komplexität: Ollama-Server + Modell (~2 GB) muss neben Spring Boot betrieben werden
+- Ressourcenbedarf auf dem Hosting-Provider (RAM, evtl. kein Support auf Render Free Tier)
+- Klassifikationsqualität kleiner Modelle ungetestet für Schweizer Transaktionstext (CHF-Beträge, Händlernamen)
+- Erhöht MVP-Komplexität signifikant
+
+**Fazit:** Technisch valide für die Kategorisierungsaufgabe (13 Labels, kurzer Text). Lohnt sich zu evaluieren, wenn nDSG-Compliance ein K.O.-Kriterium wird oder API-Kosten bei Wachstum steigen.
+
 ## Related Decisions
 
 - **ADR-1:** Java + Spring Boot (AnthropicClient Integration)
