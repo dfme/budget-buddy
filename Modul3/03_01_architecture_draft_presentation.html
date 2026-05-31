@@ -516,6 +516,7 @@
         <div class="card-label">W-2 · Strukturell</div>
         <h4>SPA-Hosting — Dev vs. Prod divergieren still</h4>
         <p>ADR-0: CORS für <code>localhost:4200</code>. C2: SPA vom gleichen Spring-Boot-Host. Technisch konsistent, aber nirgends als zwei Phasen dokumentiert.</p>
+        <p style="margin-top:8px"><strong style="color:#e8eaf0">Kosten:</strong> Prod-Bündelung = 1 Render-Service → günstigster Pfad. Separation (CDN + API) = 2 Services, höherer Aufwand — lohnt sich erst bei eigenem CDN-Caching-Bedarf.</p>
       </div>
       <div class="card structural">
         <div class="card-label">W-3 · Strukturell</div>
@@ -578,23 +579,42 @@
           <th>Option</th>
           <th>Region</th>
           <th>Datenschutz</th>
+          <th>Kosten/Monat</th>
           <th>Aufwand</th>
           <th>Trust-Signal</th>
         </tr>
       </thead>
       <tbody>
         <tr>
-          <td><strong>Render (Frankfurt)</strong></td>
+          <td><strong>Render Free</strong></td>
           <td>EU / DE</td>
-          <td>DSGVO ✓, kein nDSG-spezifisch</td>
+          <td>DSGVO ✓</td>
+          <td><span style="color:#4caf82">$0</span> <span style="font-size:11px;color:var(--muted)">(ephemeral FS — SQLite geht verloren)</span></td>
+          <td>Sehr gering</td>
+          <td>Tief</td>
+        </tr>
+        <tr>
+          <td><strong>Render Starter</strong></td>
+          <td>EU / DE</td>
+          <td>DSGVO ✓, kein nDSG-CH</td>
+          <td><span style="color:#4caf82">~$7–10</span> <span style="font-size:11px;color:var(--muted)">(+ $0.25/GB Disk)</span></td>
           <td>Gering</td>
           <td>Mittel</td>
         </tr>
         <tr>
-          <td><strong>Exoscale / Nine.ch</strong></td>
-          <td>CH</td>
+          <td><strong>Exoscale (CH-ZRH)</strong></td>
+          <td>🇨🇭 CH</td>
           <td>nDSG ✓✓</td>
-          <td>Höher</td>
+          <td><span style="color:#f7a84f">~€15–20</span> <span style="font-size:11px;color:var(--muted)">(Small VM, 2 GB RAM)</span></td>
+          <td>Mittel</td>
+          <td>Stark</td>
+        </tr>
+        <tr>
+          <td><strong>Nine.ch</strong></td>
+          <td>🇨🇭 CH</td>
+          <td>nDSG ✓✓</td>
+          <td><span style="color:#e05555">ab CHF 30–50</span></td>
+          <td>Hoch</td>
           <td>Stark</td>
         </tr>
       </tbody>

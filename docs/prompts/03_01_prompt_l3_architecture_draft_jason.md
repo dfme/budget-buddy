@@ -94,6 +94,14 @@ Das sind zwei inkompatible Ansätze. Ein httpOnly Cookie ist kein Bearer-Header.
 - C2: SPA läuft vom gleichen Spring-Boot-Host (Prod-Bündelung, kein CORS)
 - Das ist technisch konsistent, aber nirgends explizit als zwei Phasen dokumentiert. Führt sonst zu Verwirrung beim Deployment.
 
+**Kostenfaktor als Entscheidungskriterium:**
+| Strategie | Hosting-Kosten | Betriebsaufwand |
+|---|---|---|
+| Prod-Bündelung (SPA in Spring Boot JAR) | 1 Service = 1 Instanz, günstigster Pfad | Minimal — ein Deploy-Artefakt |
+| Prod-Separation (SPA auf CDN/Netlify) | 2 Services → ggf. doppelte Kosten; CDN-Tier oft gratis | CORS-Config, zwei Deployment-Pipelines |
+
+Für das MVP ist Prod-Bündelung nicht nur technisch einfacher, sondern auch **kostengünstiger** — ein einziger Render-Service deckt beides ab. Separation lohnt sich erst bei unabhängigen Deployment-Zyklen oder eigenem CDN-Caching-Bedarf.
+
 **W-3: Hosting-Plattform und nDSG-Konformität offen**
 
 Git-History zeigt "Render" als Ziel-Plattform. Render hat keine CH-Region (nächste: Frankfurt/EU). Für Marcs Vertrauen ("warum meine Daten einer Web-App geben?") ist "läuft in der Schweiz" oder mindestens "DSGVO-konform in der EU" ein Trust-Signal — aber nirgends entschieden.
