@@ -111,7 +111,7 @@ Vollständige Acceptance Criteria: [docs/requirements/](docs/requirements/)
 | [US-13](docs/requirements/US-13-transaktionen-pro-kategorie.md) | Einzeltransaktionen pro Kategorie einsehen | Lara | Should |
 | [US-14](docs/requirements/US-14-einstellungen.md) | Passwort und Einkommen in Einstellungen ändern | Marc | Should |
 
-<!-- GSD:project-start source:PROJECT.md -->
+
 ## Project
 
 **BudgetBuddy**
@@ -127,9 +127,7 @@ BudgetBuddy is a web app for students and young professionals living in Switzerl
 - **Geography**: Switzerland only — CHF, Swiss banks (UBS, Raiffeisen, PostFinance), nDSG
 - **Privacy**: Sensitive financial data — security is existential; compliance with Swiss nDSG required (including right to deletion)
 - **Timeline**: No hard deadline; MVP-first mentality — validate core safe-to-spend concept, then iterate
-<!-- GSD:project-end -->
 
-<!-- GSD:stack-start source:research/STACK.md -->
 ## Technology Stack
 
 ## Confidence: HIGH on framework/library choices, MEDIUM on a few version patches
@@ -201,19 +199,14 @@ BudgetBuddy is a web app for students and young professionals living in Switzerl
 | PDFBox text extraction + password detection | HIGH — Apache PDFBox repo |
 | JJWT 0.12.x API | MEDIUM — version patch unverified |
 | Raiffeisen PDF layout | HIGH — direct fixture inspection |
-<!-- GSD:stack-end -->
 
-<!-- GSD:conventions-start source:CONVENTIONS.md -->
 ## Conventions
 
 Conventions not yet established. Will populate as patterns emerge during development.
-<!-- GSD:conventions-end -->
 
-<!-- GSD:architecture-start source:ARCHITECTURE.md -->
 ## Architecture
 
 Architecture not yet mapped. Follow existing patterns found in the codebase.
-<!-- GSD:architecture-end -->
 
 ### Architecture Decision Records
 
@@ -232,28 +225,6 @@ Vollständige ADRs: [docs/adr/README.md](docs/adr/README.md)
 | [ADR-8](docs/adr/ADR-8-apache-pdfbox.md) | Apache PDFBox 3.x (`Loader.loadPDF()`) | iText 7 (AGPL-Lizenz!), Tabula-java (langsam, kein Text-Layer), pdfplumber (Python) |
 | [ADR-9](docs/adr/ADR-9-bigdecimal-money.md) | `BigDecimal` für alle CHF-Beträge, `DECIMAL(10,2)` in DB | `double`/`float` (Rundungsfehler!), `long` (Cent-Speicherung), Joda-Money |
 
-<!-- GSD:skills-start source:skills/ -->
 ## Project Skills
 
 No project skills found. Add skills to any of: `.claude/skills/`, `.agents/skills/`, `.cursor/skills/`, `.github/skills/`, or `.codex/skills/` with a `SKILL.md` index file.
-<!-- GSD:skills-end -->
-
-<!-- GSD:workflow-start source:GSD defaults -->
-## GSD Workflow Enforcement
-
-Before using Edit, Write, or other file-changing tools, start work through a GSD command so planning artifacts and execution context stay in sync.
-
-Use these entry points:
-- `/gsd-quick` for small fixes, doc updates, and ad-hoc tasks
-- `/gsd-debug` for investigation and bug fixing
-- `/gsd-execute-phase` for planned phase work
-
-Do not make direct repo edits outside a GSD workflow unless the user explicitly asks to bypass it.
-<!-- GSD:workflow-end -->
-
-<!-- GSD:profile-start -->
-## Developer Profile
-
-> Profile not yet configured. Run `/gsd-profile-user` to generate your developer profile.
-> This section is managed by `generate-claude-profile` -- do not edit manually.
-<!-- GSD:profile-end -->
