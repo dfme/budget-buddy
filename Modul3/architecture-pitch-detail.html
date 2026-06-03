@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BudgetBuddy — Architecture Pitch</title>
+  <style>
+    :root {
+      --green:    #22c55e;
+      --green-d:  #16a34a;
+      --green-bg: #052e16;
+      --dark:     #0d1117;
+      --card:     #161b22;
+      --border:   #30363d;
+      --text:     #e6edf3;
+      --muted:    #8b949e;
+      --amber:    #f59e0b;
+      --red:      #ef4444;
+      --blue:     #3b82f6;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--dark);
+      color: var(--text);
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── SLIDE ENGINE ─────────────────────────────── */
+    .slides { width: 100%; height: 100vh; position: relative; }
+    .slide  {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      padding: 48px 64px;
+      opacity: 0; pointer-events: none;
+      transition: opacity .35s ease, transform .35s ease;
+      transform: translateX(40px);
+    }
+    .slide.active {
+      opacity: 1; pointer-events: all; transform: translateX(0);
+    }
+    .slide.prev { transform: translateX(-40px); }
+
+    /* ── PROGRESS / NAV ───────────────────────────── */
+    #progress {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      height: 3px; background: var(--border);
+    }
+    #progress-bar {
+      height: 100%; background: var(--green);
+      transition: width .3s ease;
+    }
+    #nav {
+      position: fixed; bottom: 18px; right: 24px;
+      display: flex; gap: 8px; align-items: center;
+    }
+    #nav button {
+      background: var(--card); border: 1px solid var(--border);
+      color: var(--text); padding: 6px 14px; border-radius: 6px;
+      cursor: pointer; font-size: 14px; transition: background .2s;
+    }
+    #nav button:hover { background: var(--border); }
+    #slide-num {
+      font-size: 13px; color: var(--muted); min-width: 52px; text-align: center;
+    }
+    #slide-dots {
+      position: fixed; bottom: 20px; left: 50%;
+      transform: translateX(-50%);
+      display: flex; gap: 6px;
+    }
+    .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--border); cursor: pointer;
+      transition: background .2s;
+    }
+    .dot.active { background: var(--green); }
+
+    /* ── SHARED TYPOGRAPHY ────────────────────────── */
+    .slide-label {
+      font-size: 11px; font-weight: 700; letter-spacing: .12em;
+      text-transform: uppercase; color: var(--green);
+      margin-bottom: 8px;
+    }
+    h1 { font-size: clamp(2rem, 4vw, 3rem); font-weight: 800; line-height: 1.15; }
+    h2 { font-size: clamp(1.4rem, 2.5vw, 2rem); font-weight: 700; line-height: 1.2; }
+    h3 { font-size: 1rem; font-weight: 600; margin-bottom: 8px; }
+    p, li { font-size: .95rem; line-height: 1.6; color: var(--muted); }
+    strong { color: var(--text); }
+
+    /* ── CARDS ────────────────────────────────────── */
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 20px 24px;
+    }
+    .card-green  { border-color: var(--green);   background: rgba(34,197,94,.07); }
+    .card-amber  { border-color: var(--amber);   background: rgba(245,158,11,.07); }
+    .card-red    { border-color: var(--red);      background: rgba(239,68,68,.07); }
+    .card-blue   { border-color: var(--blue);     background: rgba(59,130,246,.07); }
+
+    /* ── GRID HELPERS ─────────────────────────────── */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+    .col    { display: flex; flex-direction: column; gap: 10px; }
+
+    /* ── BADGE ────────────────────────────────────── */
+    .badge {
+      display: inline-block; padding: 2px 9px; border-radius: 20px;
+      font-size: 11px; font-weight: 600; letter-spacing: .04em;
+    }
+    .badge-green { background: rgba(34,197,94,.15); color: var(--green); }
+    .badge-amber { background: rgba(245,158,11,.15); color: var(--amber); }
+    .badge-red   { background: rgba(239,68,68,.15);  color: var(--red); }
+
+    /* ── CODE BLOCK ───────────────────────────────── */
+    pre {
+      font-family: "JetBrains Mono", "Fira Code", monospace;
+      font-size: .78rem; line-height: 1.55;
+      background: #0d1117; border: 1px solid var(--border);
+      border-radius: 8px; padding: 16px 18px;
+      overflow-x: auto; color: #d2a8ff;
+    }
+    pre .kw  { color: #ff7b72; }
+    pre .cm  { color: #8b949e; }
+    pre .st  { color: #a5f3fc; }
+    pre .num { color: #f59e0b; }
+
+    /* ── ARCH DIAGRAM ─────────────────────────────── */
+    .arch {
+      font-family: "JetBrains Mono", monospace;
+      font-size: .75rem; line-height: 1.7;
+      background: #0d1117; border: 1px solid var(--border);
+      border-radius: 8px; padding: 16px 20px;
+      color: #c9d1d9; white-space: pre;
+    }
+
+    /* ── DIVIDER ──────────────────────────────────── */
+    .divider {
+      width: 48px; height: 3px; border-radius: 2px;
+      background: var(--green); margin: 12px 0 20px;
+    }
+
+    /* ── PILL ROW ─────────────────────────────────── */
+    .pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+    .pill {
+      padding: 4px 12px; border-radius: 20px;
+      font-size: .8rem; font-weight: 600;
+      border: 1px solid var(--border); color: var(--muted);
+    }
+
+    /* ── TABLE ────────────────────────────────────── */
+    table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    th {
+      text-align: left; padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      color: var(--muted); font-weight: 600;
+    }
+    td { padding: 8px 12px; border-bottom: 1px solid rgba(48,54,61,.5); }
+
+    /* ── TIMELINE ─────────────────────────────────── */
+    .timeline { display: flex; flex-direction: column; gap: 0; }
+    .tl-item { display: flex; gap: 16px; position: relative; }
+    .tl-item:not(:last-child)::before {
+      content: ""; position: absolute;
+      left: 11px; top: 28px; bottom: -10px;
+      width: 2px; background: var(--border);
+    }
+    .tl-dot {
+      width: 24px; height: 24px; border-radius: 50%;
+      background: var(--green); flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; color: #000;
+      margin-top: 2px;
+    }
+    .tl-dot.amber { background: var(--amber); }
+    .tl-dot.red   { background: var(--red);   }
+    .tl-body { flex: 1; padding-bottom: 20px; }
+
+    /* ── TITLE SLIDE ──────────────────────────────── */
+    #slide-0 {
+      background: radial-gradient(ellipse 80% 60% at 50% -20%, rgba(34,197,94,.18) 0%, transparent 70%),
+                  var(--dark);
+      align-items: center; justify-content: center; text-align: center;
+    }
+    .logo-ring {
+      width: 72px; height: 72px; border-radius: 20px;
+      background: linear-gradient(135deg, var(--green), var(--green-d));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 32px; margin: 0 auto 24px;
+      box-shadow: 0 0 40px rgba(34,197,94,.35);
+    }
+    .subtitle { font-size: 1.05rem; color: var(--muted); margin-top: 12px; }
+    .meta { margin-top: 32px; display: flex; gap: 32px; justify-content: center; }
+    .meta-item { text-align: center; }
+    .meta-item .val { font-size: 1.1rem; font-weight: 700; color: var(--text); }
+    .meta-item .lbl { font-size: .75rem; color: var(--muted); margin-top: 2px; }
+
+    /* ── SPOF SLIDE ───────────────────────────────── */
+    .spof-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 14px; margin-top: 4px;
+    }
+    .spof-item {
+      padding: 16px 18px; border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+    .spof-header {
+      display: flex; justify-content: space-between;
+      align-items: center; margin-bottom: 8px;
+    }
+    .spof-title { font-weight: 700; font-size: .95rem; }
+
+    /* ── WHY TECH ─────────────────────────────────── */
+    .tech-row {
+      display: flex; align-items: flex-start; gap: 16px;
+      padding: 14px 0; border-bottom: 1px solid rgba(48,54,61,.5);
+    }
+    .tech-row:last-child { border-bottom: none; }
+    .tech-icon {
+      width: 36px; height: 36px; border-radius: 8px;
+      background: var(--card); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; flex-shrink: 0;
+    }
+
+    /* ── FOOTER ───────────────────────────────────── */
+    .slide-footer {
+      margin-top: auto; padding-top: 16px;
+      font-size: .75rem; color: var(--border);
+      border-top: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+
+<div class="slides" id="slides">
+
+  <!-- ═══════════════════════════════════════════════════
+       SLIDE 0 — TITLE
+       ══════════════════════════════════════════════════ -->
+  <div class="slide" id="slide-0">
+    <div class="logo-ring">💰</div>
+    <p class="slide-label">CAS ADAI 2026 · BFH Biel · Architecture Pitch</p>
+    <h1>BudgetBuddy</h1>
+    <p class="subtitle">Von PDF zu Safe-to-Spend — in drei Schritten</p>
+    <div class="divider" style="margin: 16px auto;"></div>
+    <p style="max-width:560px; color:var(--muted); font-size:.95rem; line-height:1.7;">
+      BudgetBuddy liest einen Schweizer Kontoauszug-PDF ein, kategorisiert Transaktionen
+      hybrid mit Lookup-Tabelle&nbsp;+ Claude API, und gibt Studenten in unter 30 Sekunden
+      ihren wöchentlichen Safe-to-Spend — deployt als Single JAR, kein Kubernetes, kein Overhead.
+    </p>
+    <div class="meta">
+      <div class="meta-item"><div class="val">Angular 21</div><div class="lbl">Frontend</div></div>
+      <div class="meta-item"><div class="val">Spring Boot 3.5</div><div class="lbl">Backend</div></div>
+      <div class="meta-item"><div class="val">SQLite + Flyway</div><div class="lbl">Database</div></div>
+      <div class="meta-item"><div class="val">Claude API</div><div class="lbl">AI / Haiku</div></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       SLIDE 1 — ARCHITEKTUR ÜBERSICHT
+       ══════════════════════════════════════════════════ -->
+  <div class="slide" id="slide-1">
+    <p class="slide-label">System-Überblick</p>
+    <h2>C2 Container — Wie aus einem PDF eine Wochenzahl wird</h2>
+    <div class="divider"></div>
+    <div class="grid-2" style="gap:20px; flex:1;">
+      <div class="arch" style="font-size:.72rem; line-height:1.65;">Browser (Lara, Marc)
+     │
+     │ HTTPS · httpOnly Cookie (SameSite=Strict)
+     ▼
+┌──────────────────────────────────────┐
+│  Angular SPA  [Angular 21, TS]       │
+│  Onboarding · Upload · Dashboard     │
+│  withCredentials:true (kein Bearer)  │
+└──────────────┬───────────────────────┘
+               │ REST/JSON · HTTPS
+               ▼
+┌──────────────────────────────────────┐    ┌───────────────┐
+│  Spring Boot 3.5  [Java 21, JAR]     │    │ Anthropic      │
+│  ├─ auth/      JWT HS256, bcrypt     │    │ Claude API     │
+│  ├─ transaction/ PDFBox 3 Import     │────►  Haiku: Kateg. │
+│  ├─ categorization/                  │    │  Sonnet: Report│
+│  │   Lookup 70–80% → Claude 20–30%  │    └───────────────┘
+│  ├─ budget/    Safe-to-Spend Engine  │
+│  └─ report/    KI-Monatsbericht      │
+└──────────────┬───────────────────────┘
+               │ JDBC in-process · JPA/Hibernate
+               ▼
+┌──────────────────────────────────────┐
+│  SQLite 3.x + Flyway                 │
+│  users · transactions · fixed_costs  │
+│  savings_goals · category_lookup     │
+└──────────────────────────────────────┘</div>
+      <div class="col">
+        <div class="card card-green">
+          <h3 style="color:var(--green);">🎯 Core Value</h3>
+          <p>Ein wöchentlicher <strong>Safe-to-Spend</strong>-Betrag den Lara und Marc vertrauen können —
+          berechnet aus echten Transaktionsdaten, nicht aus manueller Eingabe.</p>
+        </div>
+        <div class="card">
+          <h3>📐 Pattern-Entscheid</h3>
+          <p><strong>Modularer Monolith</strong> mit expliziten Domänengrenzen. Kein Microservices-Overhead
+          für 3 Devs / 3 Monate / MVP-Scope.</p>
+          <div class="pills" style="margin-top:10px;">
+            <span class="pill">ADR-0 · SPA+REST</span>
+            <span class="pill">ADR-4 · Monolith</span>
+            <span class="pill">ADR-6 · Hybrid-KI</span>
+          </div>
+        </div>
+        <div class="card">
+          <h3>🚀 Deployment</h3>
+          <p>Single JAR auf <strong>Render Frankfurt/EU</strong> — Angular-Build als statische Assets in
+          <code style="color:var(--green);">BOOT-INF/static/</code>. Eine Pipeline, ein Artefakt.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       SLIDE 2 — SINGLE POINT OF FAILURE
+       ══════════════════════════════════════════════════ -->
+  <div class="slide" id="slide-2">
+    <p class="slide-label">Frage 1</p>
+    <h2>Single Point of Failure?</h2>
+    <div class="divider"></div>
+    <p style="margin-bottom:16px;">Ja — wir haben drei. Wir haben sie bewusst akzeptiert und für jeden eine Mitigation.</p>
+    <div class="spof-grid" style="flex:1;">
+      <div class="spof-item card-red">
+        <div class="spof-header">
+          <span class="spof-title">🗄️ SQLite (DB-Layer)</span>
+          <span class="badge badge-red">SPOF</span>
+        </div>
+        <p>Shared SQLite ist ein Single Writer. Bei gleichzeitigen Schreibzugriffen entsteht ein Bottleneck.</p>
+        <hr style="border-color:var(--border); margin: 10px 0;" />
+        <p><strong>Mitigation:</strong> WAL-Modus + HikariCP max 1 Writer. Bei Wachstum: <strong>1 Sprint</strong> für Migration
+        zu PostgreSQL (ADR-5 dokumentiert den Pfad).</p>
+      </div>
+      <div class="spof-item card-amber">
+        <div class="spof-header">
+          <span class="spof-title">🤖 Claude API (extern)</span>
+          <span class="badge badge-amber">Fallback OK</span>
+        </div>
+        <p>Claude API down = Kategorisierung nicht möglich für ~20–30 % der Transaktionen.</p>
+        <hr style="border-color:var(--border); margin: 10px 0;" />
+        <p><strong>Mitigation:</strong> <code style="color:var(--green);">catch AnthropicException → "Sonstiges"</code>.
+        Import-Flow blockiert <strong>nie</strong>. Timeout gesetzt. (ADR-6)</p>
+      </div>
+      <div class="spof-item card-amber">
+        <div class="spof-header">
+          <span class="spof-title">🏗️ Monolith (ganzer JAR)</span>
+          <span class="badge badge-amber">Akzeptiert</span>
+        </div>
+        <p>Bug in <code>report/</code> = gesamte App offline. Kein Fault Isolation zwischen Modulen.</p>
+        <hr style="border-color:var(--border); margin: 10px 0;" />
+        <p><strong>Mitigation:</strong> Klare Modulgrenzen + Integration Tests mit SQLite in-memory.
+        Für MVP: vertretbar. Upgrade-Pfad zu <code>@Async</code>-Workers ist dokumentiert. (ADR-4)</p>
+      </div>
+      <div class="spof-item card-green">
+        <div class="spof-header">
+          <span class="spof-title">🔐 Auth / JWT (kein SPOF)</span>
+          <span class="badge badge-green">Stateless ✓</span>
+        </div>
+        <p>JWT ist <strong>stateless</strong> — kein Session-Store, keine Session-Tabelle, kein Redis nötig.</p>
+        <hr style="border-color:var(--border); margin: 10px 0;" />
+        <p><strong>Bewusste Stärke:</strong> SQLite hat keinen Schreibdruck durch Sessions. httpOnly Cookie
+        macht Token für JavaScript unsichtbar (XSS-sicher). (ADR-7)</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       SLIDE 3 — WARUM DIESE TECHNOLOGIE
+       ══════════════════════════════════════════════════ -->
+  <div class="slide" id="slide-3">
+    <p class="slide-label">Frage 2</p>
+    <h2>Warum diese Technologie?</h2>
+    <div class="divider"></div>
+    <div class="grid-2" style="flex:1; gap:16px;">
+      <div class="card" style="overflow-y:auto;">
+        <h3 style="color:var(--green); margin-bottom:14px;">Stack-Entscheide mit Begründung</h3>
+        <div class="tech-row">
+          <div class="tech-icon">🅰️</div>
+          <div>
+            <strong>Angular 21 (TypeScript)</strong>
+            <p>Component-basiert, Two-Way-Binding, Reactive Forms ideal für den Onboarding-Wizard (US-03).
+            Signals + OnPush für performante Change Detection. Team-familiar.</p>
+          </div>
+        </div>
+        <div class="tech-row">
+          <div class="tech-icon">☕</div>
+          <div>
+            <strong>Java 21 + Spring Boot 3.5</strong>
+            <p>Typsicher, breites Ökosystem, Industriestandard. Spring Security hat nativen JWT/Cookie-Support.
+            Kein <code>double</code> für Geld — BigDecimal ist in der JVM first-class.</p>
+          </div>
+        </div>
+        <div class="tech-row">
+          <div class="tech-icon">🗃️</div>
+          <div>
+            <strong>SQLite + Flyway</strong>
+            <p>Kein separater DB-Server nötig. Flyway-Migrationen sichern Schema-Sync im Team.
+            Kein Concurrent-Write-Bottleneck im MVP erwartet. ADR-5 dokumentiert den PostgreSQL-Migrationsweg.</p>
+          </div>
+        </div>
+        <div class="tech-row">
+          <div class="tech-icon">📄</div>
+          <div>
+            <strong>PDFBox 3.x</strong>
+            <p>Apache-lizenziert (kein AGPL-Problem wie iText 7). Schweizer Bank-PDFs haben einen Text-Layer —
+            Tabula wäre falsch gewählt (Tabula ist für OCR). Apostroph-Tausender <code>1'234.56</code>
+            wird vor dem BigDecimal-Parse normalisiert.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card card-green">
+          <h3>🧠 Claude API — unser Tech-USP (ADR-6)</h3>
+          <table>
+            <tr><th>Ansatz</th><th>Kosten/Monat</th><th>Entscheid</th></tr>
+            <tr><td>LLM-Only</td><td style="color:var(--red);">~$750</td><td><span class="badge badge-red">❌ abgelehnt</span></td></tr>
+            <tr><td>Lookup-Only</td><td style="color:var(--amber);">~$0</td><td><span class="badge badge-amber">⚠️ ungenau</span></td></tr>
+            <tr><td><strong>Hybrid</strong></td><td style="color:var(--green);"><strong>~$0.75</strong></td><td><span class="badge badge-green">✅ gewählt</span></td></tr>
+          </table>
+          <p style="margin-top:10px; font-size:.82rem;">
+            <strong>Haiku</strong> für Kategorisierung (schnell, günstig) ·
+            <strong>Sonnet 4</strong> für KI-Monatsbericht (1×/Monat) ·
+            Fallback zu <em>"Sonstiges"</em> wenn API nicht erreichbar
+          </p>
+        </div>
+        <div class="card card-blue">
+          <h3>❌ Bewusst NICHT gewählt</h3>
+          <table>
+            <tr><th>Tech</th><th>Grund</th></tr>
+            <tr><td>WebFlux</td><td>SQLite JDBC ist blockierend</td></tr>
+            <tr><td>NgRx</td><td>Overengineered für 2–3 Dev MVP</td></tr>
+            <tr><td>iText 7</td><td>AGPL-Lizenzproblem</td></tr>
+            <tr><td>double für CHF</td><td>Rundungsfehler</td></tr>
+            <tr><td>H2 in Tests</td><td>Dialect-Mismatch vs SQLite</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       SLIDE 4 — PASST DAS PATTERN WIRKLICH?
+       ══════════════════════════════════════════════════ -->
+  <div class="slide" id="slide-4">
+    <p class="slide-label">Frage 3</p>
+    <h2>Passt das Pattern wirklich? — Modularer Monolith</h2>
+    <div class="divider"></div>
+    <div class="grid-2" style="flex:1; gap:16px;">
+      <div class="col">
+        <div class="card">
+          <h3>📦 Warum Modularer Monolith passt</h3>
+          <p style="margin-bottom:10px;">
+            <strong>3 Entwickler · 3 Monate · MVP-Scope</strong><br />
+            Microservices verdreifachen den operativen Overhead ohne messbaren Benefit bei Nutzerzahlen im zweistelligen Bereich.
+          </p>
+          <table>
+            <tr><th>Anforderung</th><th>Passt?</th></tr>
+            <tr><td>ACID über alle Module</td><td style="color:var(--green);">✅ Shared SQLite</td></tr>
+            <tr><td>Einfaches Deployment</td><td style="color:var(--green);">✅ <code>java -jar app.jar</code></td></tr>
+            <tr><td>Integration Tests</td><td style="color:var(--green);">✅ SQLite in-memory</td></tr>
+            <tr><td>Cross-Modul-Calls</td><td style="color:var(--green);">✅ Direkter Methodenaufruf</td></tr>
+            <tr><td>Team-Onboarding</td><td style="color:var(--green);">✅ Eine Codebase</td></tr>
+            <tr><td>Horizontal Scaling</td><td style="color:var(--amber);">⚠️ Erst bei >10k User nötig</td></tr>
+          </table>
+        </div>
+        <div class="card card-amber">
+          <h3>⚠️ Risiko: "Big Ball of Mud"</h3>
+          <p>Ohne konsequente Modulgrenzen kann ein Monolith zur unstrukturierten Codebasis degenerieren.</p>
+          <p style="margin-top:8px;"><strong>Mitigation:</strong> Kein direkter Zugriff auf Repositories anderer Module.
+          Cross-Modul-Kommunikation nur über Interfaces (z.B. <code>CategorizationPort</code>). Wird im Code-Review aktiv geprüft.</p>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card">
+          <h3>🏗️ Modulstruktur — Separation of Concerns</h3>
+          <pre><span class="cm">// com.budgetbuddy</span>
+├── <span class="kw">auth/</span>
+│   <span class="cm">// AuthController, JWT-Config, User-Entity</span>
+├── <span class="kw">transaction/</span>
+│   <span class="cm">// PdfImportService, TransactionController</span>
+├── <span class="kw">categorization/</span>
+│   <span class="cm">// CategorizationPort (Interface!)</span>
+│   <span class="cm">// LookupTable, ClaudeCategorizationAdapter</span>
+├── <span class="kw">budget/</span>
+│   <span class="cm">// SafeToSpendService, SavingsGoalService</span>
+└── <span class="kw">report/</span>
+    <span class="cm">// AiReportService (Sonnet 4, 1×/Monat)</span></pre>
+        </div>
+        <div class="card card-green">
+          <h3>🔄 Upgrade-Pfad ohne Rewrite</h3>
+          <div class="timeline" style="margin-top:8px;">
+            <div class="tl-item">
+              <div class="tl-dot">1</div>
+              <div class="tl-body"><strong>Heute:</strong> Synchroner Monolith, alles in einer JAR</div>
+            </div>
+            <div class="tl-item">
+              <div class="tl-dot amber">2</div>
+              <div class="tl-body"><strong>Bei Churn:</strong> <code>@Async</code> + <code>ImportJob</code>-Entity + Status-Polling</div>
+            </div>
+            <div class="tl-item">
+              <div class="tl-dot amber">3</div>
+              <div class="tl-body"><strong>Bei Wachstum:</strong> SQLite → PostgreSQL (1 Sprint)</div>
+            </div>
+            <div class="tl-item">
+              <div class="tl-dot red">4</div>
+              <div class="tl-body"><strong>Bei >10k Users:</strong> Module als Services extrahieren</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       SLIDE 5 — MVP CRITICAL PATH
+       ══════════════════════════════════════════════════ -->
+  <div class="slide" id="slide-5">
+    <p class="slide-label">Frage 4</p>
+    <h2>MVP-Critical Path</h2>
+    <div class="divider"></div>
+    <p style="margin-bottom:20px;">Der kritische Pfad ist die <strong>minimale Funktionskette</strong>, die Lara ihren Safe-to-Spend zeigt. Alles andere ist Optional.</p>
+    <div style="display:flex; gap:0; align-items:stretch; flex:1; max-height:340px;">
+      <div style="display:flex; flex-direction:column; gap:0; flex:1;">
+        <!-- Step boxes -->
+        <div style="display:flex; flex:1; gap:10px; align-items:center;">
+          <div class="card card-green" style="flex:1; text-align:center; padding:16px 10px;">
+            <div style="font-size:1.8rem; margin-bottom:6px;">📋</div>
+            <strong style="font-size:.85rem;">US-01</strong><br />
+            <p style="font-size:.78rem; margin-top:4px;">Konto erstellen &amp; einloggen</p>
+            <p style="font-size:.7rem; color:var(--green); margin-top:4px;">JWT httpOnly Cookie</p>
+          </div>
+          <div style="color:var(--green); font-size:1.2rem;">→</div>
+          <div class="card card-green" style="flex:1; text-align:center; padding:16px 10px;">
+            <div style="font-size:1.8rem; margin-bottom:6px;">⚙️</div>
+            <strong style="font-size:.85rem;">US-03</strong><br />
+            <p style="font-size:.78rem; margin-top:4px;">Fixkosten-Wizard</p>
+            <p style="font-size:.7rem; color:var(--green); margin-top:4px;">Miete, Abo, Versicherung</p>
+          </div>
+          <div style="color:var(--green); font-size:1.2rem;">→</div>
+          <div class="card card-green" style="flex:1; text-align:center; padding:16px 10px;">
+            <div style="font-size:1.8rem; margin-bottom:6px;">📄</div>
+            <strong style="font-size:.85rem;">US-04</strong><br />
+            <p style="font-size:.78rem; margin-top:4px;">PDF Upload</p>
+            <p style="font-size:.7rem; color:var(--green); margin-top:4px;">PDFBox 3 · Swiss Format</p>
+          </div>
+          <div style="color:var(--green); font-size:1.2rem;">→</div>
+          <div class="card card-green" style="flex:1; text-align:center; padding:16px 10px;">
+            <div style="font-size:1.8rem; margin-bottom:6px;">🏷️</div>
+            <strong style="font-size:.85rem;">US-05</strong><br />
+            <p style="font-size:.78rem; margin-top:4px;">Kategorisierung</p>
+            <p style="font-size:.7rem; color:var(--green); margin-top:4px;">Lookup → Claude Haiku</p>
+          </div>
+          <div style="color:var(--green); font-size:1.2rem;">→</div>
+          <div class="card" style="flex:1; text-align:center; padding:16px 10px; border-color:var(--green); background:rgba(34,197,94,.12);">
+            <div style="font-size:1.8rem; margin-bottom:6px;">💚</div>
+            <strong style="font-size:.85rem; color:var(--green);">US-06</strong><br />
+            <p style="font-size:.78rem; margin-top:4px; color:var(--green);">Safe-to-Spend</p>
+            <p style="font-size:.7rem; color:var(--green); margin-top:4px; font-weight:700;">← ZIEL</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:16px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
+      <div class="card card-amber">
+        <h3>⏱️ Zeitkritisch: PDF-Parsing</h3>
+        <p>Apostroph-Tausender <code>1'234.56</code> + Mehrzeiligkeit im Text-Feld.
+        Schweizer Banken: UBS, Raiffeisen, PostFinance.
+        Fehler hier = 0 Transaktionen = kein Safe-to-Spend.</p>
+      </div>
+      <div class="card card-amber">
+        <h3>⚡ Churn-Falle: Kategorisierung</h3>
+        <p>Wenn Claude API &gt;3s braucht oder schlechte Kategorien liefert,
+        bricht Lara den Flow ab und kommt nie wieder.
+        Mitigation: Timeout + Fallback + manuelle Korrektur als Feature.</p>
+      </div>
+      <div class="card">
+        <h3>📊 Formel: Safe-to-Spend</h3>
+        <p style="font-family:monospace; font-size:.85rem; margin-top:6px; color:var(--text);">
+          (Einkommen − Fixkosten − Ist-Ausgaben)<br />
+          ÷ verbleibende Wochen im Monat
+        </p>
+        <p style="margin-top:6px;">Alles als <strong>BigDecimal</strong>. Kein <code>double</code> — CHF-Beträge
+        können nicht als Binärzahl exakt dargestellt werden.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       SLIDE 6 — WIE TESTET IHR DAS
+       ══════════════════════════════════════════════════ -->
+  <div class="slide" id="slide-6">
+    <p class="slide-label">Frage 5</p>
+    <h2>Wie testet ihr das?</h2>
+    <div class="divider"></div>
+    <div class="grid-3" style="flex:1;">
+      <div class="col">
+        <div class="card card-green">
+          <h3>🔬 Unit Tests</h3>
+          <p><strong>Was:</strong> SafeToSpendService, CategorizationService, PDF-Parser-Utils</p>
+          <p style="margin-top:8px;"><strong>Werkzeug:</strong> JUnit 5 + Mockito</p>
+          <p style="margin-top:8px;">Claude API wird über <code>CategorizationPort</code> gemockt — kein echter API-Call in Unit Tests.</p>
+          <pre style="margin-top:10px; font-size:.72rem;"><span class="cm">// Beispiel</span>
+<span class="kw">@Mock</span>
+CategorizationPort port;
+
+<span class="kw">@Test</span>
+<span class="kw">void</span> <span class="st">safeToSpend_returnsCorrect</span>() {
+  <span class="cm">// BigDecimal-Arithmetik, kein double</span>
+  assertThat(result)
+    .isEqualByComparingTo(<span class="st">"342.50"</span>);
+}</pre>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card card-blue">
+          <h3>🔗 Integration Tests</h3>
+          <p><strong>Was:</strong> REST-Endpoints, PDF-Import-Flow, DB-Interaktionen</p>
+          <p style="margin-top:8px;"><strong>Werkzeug:</strong> Spring Boot Test + <code>@SpringBootTest</code></p>
+          <p style="margin-top:8px;"><strong>Datenbank:</strong> <code>jdbc:sqlite::memory:</code> — kein TestContainers, kein H2 (Dialect-Mismatch!).</p>
+          <pre style="margin-top:10px; font-size:.72rem;"><span class="cm">// application-test.properties</span>
+spring.datasource.url=
+  jdbc:sqlite::memory:
+<span class="cm">// Flyway-Migrationen laufen auch</span>
+<span class="cm">// in-memory → Schema = Prod-Schema</span></pre>
+        </div>
+        <div class="card">
+          <h3>📋 Test-Fixtures: Echte Bank-PDFs</h3>
+          <p>Raiffeisen-PDF-Fixture im Repo. Testet Apostroph-Parsing, Multiline-Text, Datum <code>dd.MM.yyyy</code>.</p>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card card-amber">
+          <h3>🌐 E2E / Smoke Tests</h3>
+          <p><strong>Was:</strong> Kritischer Pfad: Login → Upload → Dashboard</p>
+          <p style="margin-top:8px;"><strong>Werkzeug:</strong> Cypress (geplant) oder manueller Smoke Test</p>
+          <p style="margin-top:8px;">Wichtigster Test: PDF mit korruptem Encoding darf <strong>nie</strong> den Server zum Absturz bringen.</p>
+        </div>
+        <div class="card">
+          <h3>🔐 Security-kritische Tests</h3>
+          <table>
+            <tr><td>JWT ohne Sig.</td><td style="color:var(--red);">→ 401</td></tr>
+            <tr><td>Fremde User-ID</td><td style="color:var(--red);">→ 403</td></tr>
+            <tr><td>Logout = Cookie leer</td><td style="color:var(--green);">✓</td></tr>
+            <tr><td>nDSG Delete = 0 Rows</td><td style="color:var(--green);">✓</td></tr>
+          </table>
+        </div>
+        <div class="card">
+          <h3>🤖 Claude API: kein echtes Geld in CI</h3>
+          <p>In CI läuft immer der Mock. Echte Claude-Calls nur in dev/staging
+          mit echten Raiffeisen-Fixtures — manuell ausgelöst.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       SLIDE 7 — WAS WÜRDET IHR HEUTE ANDERS MACHEN
+       ══════════════════════════════════════════════════ -->
+  <div class="slide" id="slide-7">
+    <p class="slide-label">Frage 6</p>
+    <h2>Was würdet ihr heute anders machen?</h2>
+    <div class="divider"></div>
+    <div class="grid-2" style="flex:1; gap:16px;">
+      <div class="col">
+        <div class="card card-amber">
+          <h3>⚠️ Lokales LLM für Kategorisierung (statt Claude API)</h3>
+          <p>Roher Transaktionstext verlässt heute die eigene Vertrauenszone — das ist ein <strong>nDSG Art. 16</strong>-Compliance-Gap.</p>
+          <hr style="border-color:var(--border); margin:10px 0;" />
+          <p><strong>Was wir ändern würden:</strong> Ollama + Llama 3.2 3B lokal für die Kategorisierung (13 Labels, kurzer Text).
+          Claude Sonnet bleibt für den KI-Monatsbericht (komplexe Sprache).</p>
+          <p style="margin-top:8px;">Kosten: einmaliger Infrastruktur-Aufwand. Benefit: PII verlässt das System nie. (ADR-6 dokumentiert diesen Pfad bereits.)</p>
+        </div>
+        <div class="card card-amber">
+          <h3>⚠️ Asynchroner Import-Flow von Anfang an</h3>
+          <p>Synchroner Upload-Endpoint blockiert bis zur Kategorisierung. Wenn Haiku 3s braucht bei 50 Transaktionen = Churn-Falle für Lara.</p>
+          <hr style="border-color:var(--border); margin:10px 0;" />
+          <p><strong>Was wir ändern würden:</strong> <code>@Async</code> + <code>ImportJob</code>-Entity von Beginn an.
+          Frontend pollt <code>GET /import/{jobId}/status</code>. Lara sieht eine Progress-Bar statt einer hängenden UI.</p>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card card-red">
+          <h3>❌ OpenBanking statt PDF-Import</h3>
+          <p>Der manuelle PDF-Upload ist Churn-Falle #1. Lara bricht ab, wenn der erste Import zu umständlich ist.</p>
+          <hr style="border-color:var(--border); margin:10px 0;" />
+          <p><strong>Was wir anders machen würden:</strong> Früher mit Schweizer Open Banking-Anbietern (Blink, Klarna Open Banking)
+          sprechen. CSV-Export als Zwischenlösung — einfacher als PDF-Parsing.</p>
+          <p style="margin-top:8px;">Realität: Schweizer Banken sind keine Early Adopter. PDF-Import bleibt MVP-Realität.</p>
+        </div>
+        <div class="card">
+          <h3>✅ Was gut war — beibehalten</h3>
+          <div class="timeline" style="margin-top:8px;">
+            <div class="tl-item">
+              <div class="tl-dot">✓</div>
+              <div class="tl-body"><strong>BigDecimal from Day 1</strong> — kein nachträgliches Refactoring von <code>double</code></div>
+            </div>
+            <div class="tl-item">
+              <div class="tl-dot">✓</div>
+              <div class="tl-body"><strong>Flyway von Beginn an</strong> — Datenbankschema-Sync im Team ohne manuelle Skripte</div>
+            </div>
+            <div class="tl-item">
+              <div class="tl-dot">✓</div>
+              <div class="tl-body"><strong>CategorizationPort Interface</strong> — Claude API hinter Abstraction, Austausch ohne Refactoring</div>
+            </div>
+            <div class="tl-item">
+              <div class="tl-dot">✓</div>
+              <div class="tl-body"><strong>ADRs dokumentiert</strong> — jede Entscheidung begründet, Team spricht eine Sprache</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       SLIDE 8 — ZUSAMMENFASSUNG / Q&A
+       ══════════════════════════════════════════════════ -->
+  <div class="slide" id="slide-8">
+    <p class="slide-label">Zusammenfassung</p>
+    <h2>TL;DR — 6 Fragen, 6 Antworten</h2>
+    <div class="divider"></div>
+    <div class="grid-2" style="flex:1; gap:14px;">
+      <div class="col">
+        <div class="card">
+          <table>
+            <tr>
+              <th>Frage</th>
+              <th>Kurz-Antwort</th>
+            </tr>
+            <tr>
+              <td><strong>1 · Single Point of Failure?</strong></td>
+              <td>SQLite (WAL), Claude API (Fallback "Sonstiges"), Monolith (Tests)</td>
+            </tr>
+            <tr>
+              <td><strong>2 · Warum diese Tech?</strong></td>
+              <td>Team-familiar, MVP-optimiert, keine Lizenzfallen, Hybrid-KI $0.75/Mo</td>
+            </tr>
+            <tr>
+              <td><strong>3 · Pattern passt?</strong></td>
+              <td>Ja — 3 Dev / 3 Mo / MVP. Upgrade-Pfad ohne Rewrite dokumentiert</td>
+            </tr>
+            <tr>
+              <td><strong>4 · MVP-Critical Path?</strong></td>
+              <td>Login → Fixkosten → PDF Upload → Kategorisierung → Safe-to-Spend</td>
+            </tr>
+            <tr>
+              <td><strong>5 · Wie testen?</strong></td>
+              <td>Unit (Mock), Integration (SQLite memory), Fixtures mit echten Bank-PDFs</td>
+            </tr>
+            <tr>
+              <td><strong>6 · Heute anders?</strong></td>
+              <td>Lokales LLM für PII, Async Import von Beginn, CSV als PDF-Alternative</td>
+            </tr>
+          </table>
+        </div>
+        <div class="card card-green">
+          <h3 style="color:var(--green);">💬 Der eine Satz</h3>
+          <p style="font-size:1rem; line-height:1.7; color:var(--text);">
+            "BudgetBuddy liest einen Schweizer Kontoauszug-PDF ein, kategorisiert Transaktionen
+            hybrid mit Lookup-Tabelle&nbsp;+ Claude API, und gibt Studenten in unter 30 Sekunden
+            ihren wöchentlichen Safe-to-Spend — deployt als Single JAR, kein Kubernetes, kein Overhead."
+          </p>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card">
+          <h3>❓ Erwartete Nachfragen</h3>
+          <div style="margin-top:10px; display:flex; flex-direction:column; gap:10px;">
+            <div style="padding:10px; border-left:3px solid var(--amber); padding-left:14px;">
+              <strong>"Warum kein PostgreSQL?"</strong>
+              <p>MVP-Scope, kein Concurrent-Write-Bottleneck erwartet. Migration ist 1-Sprint-Aufwand und dokumentiert (ADR-5).</p>
+            </div>
+            <div style="padding:10px; border-left:3px solid var(--amber); padding-left:14px;">
+              <strong>"Warum kein WebFlux?"</strong>
+              <p>SQLite-JDBC ist blockierend. Reactive-Wrapping würde Komplexität ohne Nutzen bringen.</p>
+            </div>
+            <div style="padding:10px; border-left:3px solid var(--amber); padding-left:14px;">
+              <strong>"Was passiert wenn Claude API down ist?"</strong>
+              <p>Fallback zu "Sonstiges" — kein API-Fehler blockiert den Import-Flow. Timeout gesetzt. (ADR-6)</p>
+            </div>
+            <div style="padding:10px; border-left:3px solid var(--red); padding-left:14px;">
+              <strong>"Ihr speichert Finanzdaten — wie sichert ihr das?"</strong>
+              <p>JWT als httpOnly Cookie (XSS-sicher), bcrypt-Passwörter, nDSG Right-to-Deletion implementiert, Hosting Frankfurt/EU. (ADR-7, ADR-10)</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="slide-footer">
+      BudgetBuddy · CAS ADAI 2026 · BFH Biel · Ilja Rasin · 2026-06-03 &nbsp;|&nbsp;
+      ADRs: <code>docs/adr/</code> &nbsp;|&nbsp; User Stories: <code>docs/requirements/</code>
+    </div>
+  </div>
+
+</div><!-- /slides -->
+
+<!-- ── PROGRESS & NAV ──────────────────────────────── -->
+<div id="progress"><div id="progress-bar"></div></div>
+<div id="slide-dots"></div>
+<div id="nav">
+  <button onclick="prevSlide()">← Zurück</button>
+  <span id="slide-num"></span>
+  <button onclick="nextSlide()">Weiter →</button>
+</div>
+
+<script>
+  const TOTAL = document.querySelectorAll('.slide').length;
+  let cur = 0;
+
+  /* build dots */
+  const dotsEl = document.getElementById('slide-dots');
+  for (let i = 0; i < TOTAL; i++) {
+    const d = document.createElement('div');
+    d.className = 'dot';
+    d.onclick = () => goTo(i);
+    dotsEl.appendChild(d);
+  }
+
+  function goTo(n) {
+    const slides = document.querySelectorAll('.slide');
+    slides[cur].classList.remove('active');
+    slides[cur].classList.add('prev');
+    setTimeout(() => slides[Math.max(0, cur - 1 === n ? cur - 1 : cur)].classList.remove('prev'), 360);
+    cur = Math.max(0, Math.min(TOTAL - 1, n));
+    slides[cur].classList.add('active');
+    slides[cur].classList.remove('prev');
+    document.querySelectorAll('.dot').forEach((d, i) =>
+      d.classList.toggle('active', i === cur));
+    document.getElementById('progress-bar').style.width =
+      ((cur + 1) / TOTAL * 100) + '%';
+    document.getElementById('slide-num').textContent = `${cur + 1} / ${TOTAL}`;
+  }
+
+  function nextSlide() { goTo(cur + 1); }
+  function prevSlide() { goTo(cur - 1); }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+      e.preventDefault(); nextSlide();
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault(); prevSlide();
+    }
+  });
+
+  // touch support
+  let tx = 0;
+  document.addEventListener('touchstart', e => { tx = e.touches[0].clientX; });
+  document.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - tx;
+    if (Math.abs(dx) > 50) dx < 0 ? nextSlide() : prevSlide();
+  });
+
+  goTo(0);
+</script>
+</body>
+</html>
