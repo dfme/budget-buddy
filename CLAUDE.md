@@ -257,7 +257,7 @@ Vollständige ADRs: [docs/adr/README.md](docs/adr/README.md)
 | [ADR-4](docs/adr/ADR-4-monolith-vs-microservices.md) | Single Spring Boot JAR (Monolith) | Microservices/K8s (zu komplex), Serverless (JVM Cold-Start) |
 | [ADR-5](docs/adr/ADR-5-sqlite-mvp-database.md) | SQLite für MVP; Migration zu PostgreSQL möglich | PostgreSQL from Day One (Overkill), MongoDB (nicht relational) |
 | [ADR-6](docs/adr/ADR-6-hybrid-categorization.md) | Hybrid: Lookup-Tabelle zuerst, Claude API nur für unbekannte Tx | LLM-Only ($750/Monat, zu teuer), Fine-tuned ML Model (kein Trainingsdata) |
-| [ADR-7](docs/adr/ADR-7-jwt-authentication.md) | JWT HS256, bcrypt-Passwörter, stateless; Logout = Client löscht Token | Server-Side Sessions (DB-Schreibdruck), OAuth 2.0 (Overkill für MVP) |
+| [ADR-7](docs/adr/ADR-7-jwt-authentication.md) | JWT HS256, bcrypt-Passwörter, httpOnly Cookie (XSS-sicher), CSRF via SameSite=Strict | Server-Side Sessions (DB-Schreibdruck), OAuth 2.0 (Overkill für MVP) |
 | [ADR-8](docs/adr/ADR-8-apache-pdfbox.md) | Apache PDFBox 3.x (`Loader.loadPDF()`) | iText 7 (AGPL-Lizenz!), Tabula-java (langsam, kein Text-Layer), pdfplumber (Python) |
 | [ADR-9](docs/adr/ADR-9-bigdecimal-money.md) | `BigDecimal` für alle CHF-Beträge, `DECIMAL(10,2)` in DB | `double`/`float` (Rundungsfehler!), `long` (Cent-Speicherung), Joda-Money |
 
