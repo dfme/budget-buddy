@@ -202,7 +202,43 @@ BudgetBuddy is a web app for students and young professionals living in Switzerl
 
 ## Conventions
 
-Conventions not yet established. Will populate as patterns emerge during development.
+### Backend: Package-Struktur (Modular Monolith)
+
+Packages nach Domäne, nicht nach Schicht:
+
+```
+com.budgetbuddy
+  ├── auth/           (AuthController, AuthService, User-Entity, JWT-Config)
+  ├── transaction/    (TransactionController, PdfImportService, Transaction-Entity)
+  ├── categorization/ (CategorizationService, LookupTable, CategorizationPort)
+  ├── budget/         (BudgetController, SafeToSpendService, SavingsGoalService)
+  └── report/         (ReportController, AiReportService)
+```
+
+Regel: Kein direkter Zugriff auf Repositories oder Services eines anderen Moduls. Cross-Modul-Kommunikation nur über definierte Interfaces.
+
+### Backend: Claude API hinter Interface
+
+Die Claude-API immer hinter einem `CategorizationPort`-Interface kapseln:
+
+```java
+public interface CategorizationPort {
+    Category categorize(String transactionText);
+}
+```
+
+Das erlaubt Mock in Tests und Austausch des Modells ohne Refactoring im Rest der Codebase.
+
+### Backend: Timeouts + Fallback für externe Calls
+
+Alle Calls zu Claude API und PDFBox müssen einen Timeout haben und bei Fehler auf `"Sonstiges"` fallen:
+
+```java
+// Claude API: Timeout setzen, bei AnthropicException → "Sonstiges"
+// PDFBox: bei ParseException → ImportJob mit Status FAILED markieren
+```
+
+Ein fehlgeschlagener Claude-Call darf nie den gesamten Import-Flow blockieren (Churn-Risiko #1).
 
 ## Architecture
 

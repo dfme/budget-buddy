@@ -17,20 +17,24 @@ BudgetBuddy Backend muss folgende Funktionen bereitstellen:
 
 ## Decision
 
-Wir bauen einen **Single Monolith (Spring Boot JAR)** mit folgender Struktur:
+Wir bauen einen **Modular Monolith (Spring Boot JAR)** — ein einzelnes Deployment, aber mit expliziten Modulgrenzen nach Domänen:
 
 ```
-budget-buddy-backend.jar
-├── api.controllers (AuthController, TransactionController, ...)
-├── service (AuthService, PdfImportService, CategorizationService, ...)
-├── repository (Spring Data JPA)
-├── model (JPA Entities)
-└── config (Security, Database, API Docs)
+com.budgetbuddy
+  ├── auth/           (AuthController, AuthService, User-Entity, JWT-Config)
+  ├── transaction/    (TransactionController, PdfImportService, Transaction-Entity)
+  ├── categorization/ (CategorizationService, LookupTable, CategorizationPort-Interface)
+  ├── budget/         (BudgetController, SafeToSpendService, SavingsGoalService)
+  └── report/         (ReportController, AiReportService)
 ```
 
-- **Database:** Shared SQLite (`budget-buddy.db`)
+**Regel:** Kein direkter Zugriff auf Repositories oder Services eines anderen Moduls. Cross-Modul-Kommunikation nur über definierte Interfaces (z.B. `CategorizationPort`).
+
+**Async Import Flow:** PDF-Uploads laufen asynchron. Der Endpoint gibt sofort eine Job-ID zurück; der eigentliche Import (PDFBox + Claude API Calls) läuft im Hintergrund via Spring `@Async`. Status-Polling über `GET /import/{jobId}/status`.
+
+- **Database:** Shared SQLite (`budget-buddy.db`), WAL-Modus, HikariCP max 1 Writer
 - **Deployment:** Single JAR → Docker → Cloud Run / VPS
-- **Scaling:** Vertikal initiaal; später Horizontal mit Read Replicas
+- **Scaling:** Vertikal initial; später Horizontal mit Read Replicas
 
 ## Consequences
 
@@ -49,6 +53,7 @@ budget-buddy-backend.jar
 - **Deployment Risk:** Bug in Feature X = ganze App offline (mitigiert durch Tests)
 - **Large Dependency Graphs:** Größere Spring Boot Boot-Zeit
 - **Database Bottleneck:** Shared SQLite ist Single Point of Failure (ok für MVP)
+- **Moduldisziplin:** Ohne konsequente Durchsetzung der Modulgrenzen entsteht ein Big Ball of Mud — muss im Code-Review aktiv geprüft werden
 
 ## Alternatives
 
