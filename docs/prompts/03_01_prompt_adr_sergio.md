@@ -1,8 +1,14 @@
-Prompt 1:
+##########
+# Prompt #
+##########
+
 Identifiziere die wichtigsten ADRs
 
 
-Antwort 1:
+###########
+# Antwort #
+###########
+
 Basierend auf der CLAUDE.md sind hier die wichtigsten Architecture Decision Records (ADRs) für BudgetBuddy:
 
   🎯 Kritische ADRs

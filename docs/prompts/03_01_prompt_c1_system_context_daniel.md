@@ -1,12 +1,6 @@
-# C4 System Context Diagram — BudgetBuddy (Iteration 2)
-
-**Projekt:** BudgetBuddy
-**Level:** C4 Level 1 — System Context
-**Stand:** 2026-05-27
-
----
-
-## Prompt
+##########
+# Prompt #
+##########
 
 > Erstelle ein C4 System Context Diagram für unser Projekt.
 >
@@ -23,9 +17,9 @@
 > Beschreibe das Diagram als Text mit klaren Boxes und Pfeilen.
 > Dann: Was haben wir vergessen?
 
----
-
-## Resultat
+###########
+# Antwort #
+###########
 
 Diese Iteration zieht die externen Systeme, die im Prompt explizit genannt sind (**Auth, APIs, PDF einlesen, Bankverbindung**), klar als eigene Boxen heraus.
 

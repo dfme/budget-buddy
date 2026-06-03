@@ -1,3 +1,7 @@
+##########
+# Prompt #
+##########
+
 Erstelle ein C4 Container Diagram für unser Projekt.
 
 Basierend auf unseren Quality Attributes aus Modul3/prompts_qa_jason.txt
@@ -11,7 +15,9 @@ Fragen:
 
 Unser Team: 2-3 Devs, 3 Monate, gemischter Background.
 
------
+###########
+# Antwort #
+###########
 
 ## C4 Container Diagram — BudgetBuddy
 
