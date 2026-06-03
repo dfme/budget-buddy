@@ -37,7 +37,9 @@ Hier sind die 5 Antworten, direkt aus dem bestehenden Architektur-Kontext:
 4. "Was ist euer grösstes Risiko?"
 Nennt Risiko #1 zuerst (zeigt Selbstreflexion), dann die Mitigation:
 
-"Churn nach dem ersten Upload. Wenn Kategorisierung schlecht ist oder der Import 20 Sekunden hängt, kommt Lara nie wieder. Mitigation: synchroner Import-Endpoint mit Timeout + Fallback, plus manuelle Korrektur als Feature — jede Korrektur erweitert die Lookup-Tabelle und verbessert das System für alle. Risiko #2 ist ein Datenleck: existenzbedrohend bei Finanzdaten. Deshalb httpOnly Cookies, kein JS-Zugriff auf Tokens, SameSite=Strict."
+"Churn nach dem ersten Upload. Wenn Kategorisierung schlecht ist oder der Import 20 Sekunden hängt, kommt Lara nie wieder. Mitigation: synchroner Import-Endpoint mit Timeout + Fallback, plus manuelle Korrektur als Feature — jede Korrektur erweitert die Lookup-Tabelle und verbessert das System für alle. 
+
+Risiko #2 ist ein Datenleck: existenzbedrohend bei Finanzdaten. Deshalb httpOnly Cookies, kein JS-Zugriff auf Tokens, SameSite=Strict."
 
 5. Das wichtigste ADR für den Pitch
 ADR-6 (Hybrid-Kategorisierung) — das ist euer technischer USP.
