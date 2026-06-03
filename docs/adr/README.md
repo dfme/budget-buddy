@@ -24,6 +24,7 @@ Diese Dokumentation hält die **wichtigsten Architektur-Entscheidungen** für Bu
 | **ADR-7** | [JWT (Stateless) Authentication](ADR-7-jwt-authentication.md) | ✅ Accepted | User Auth & Session Mgmt |
 | **ADR-8** | [Apache PDFBox 3.x für PDF-Verarbeitung](ADR-8-apache-pdfbox.md) | ✅ Accepted | PDF-Import |
 | **ADR-9** | [BigDecimal für Geldbeträge](ADR-9-bigdecimal-money.md) | ✅ Accepted | Money Calculations |
+| **ADR-10** | [Hosting-Plattform und Deployment-Strategie](ADR-10-hosting-plattform.md) | ✅ Accepted | Deployment & Hosting |
 
 ---
 
@@ -32,6 +33,7 @@ Diese Dokumentation hält die **wichtigsten Architektur-Entscheidungen** für Bu
 ### Fundamentale Architektur-Entscheidungen
 - **ADR-0:** Frontend-Backend-Trennung → SPA + REST API
 - **ADR-4:** Monolith statt Microservices (für MVP)
+- **ADR-10:** Hosting auf Render (Frankfurt/EU), SPA gebündelt im Spring Boot JAR
 
 ### Technology Stack
 - **ADR-1:** Java 21 + Spring Boot (Backend)

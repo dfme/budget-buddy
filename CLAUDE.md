@@ -260,6 +260,7 @@ Vollständige ADRs: [docs/adr/README.md](docs/adr/README.md)
 | [ADR-7](docs/adr/ADR-7-jwt-authentication.md) | JWT HS256, bcrypt-Passwörter, httpOnly Cookie (XSS-sicher), CSRF via SameSite=Strict | Server-Side Sessions (DB-Schreibdruck), OAuth 2.0 (Overkill für MVP) |
 | [ADR-8](docs/adr/ADR-8-apache-pdfbox.md) | Apache PDFBox 3.x (`Loader.loadPDF()`) | iText 7 (AGPL-Lizenz!), Tabula-java (langsam, kein Text-Layer), pdfplumber (Python) |
 | [ADR-9](docs/adr/ADR-9-bigdecimal-money.md) | `BigDecimal` für alle CHF-Beträge, `DECIMAL(10,2)` in DB | `double`/`float` (Rundungsfehler!), `long` (Cent-Speicherung), Joda-Money |
+| [ADR-10](docs/adr/ADR-10-hosting-plattform.md) | Render (Frankfurt/EU), SPA gebündelt im JAR, nDSG-Risiko akzeptiert | Exoscale/Nine.ch (CH, teurer), SPA auf CDN (zwei Pipelines) |
 
 ## Project Skills
 
