@@ -26,6 +26,10 @@ Wir nutzen einen **Hybrid-Ansatz: Lookup-Tabelle + Claude API**:
 3. **Step 3: Fallback** — Bei Claude-Fehler → "Sonstiges"
 4. **Step 4: User Feedback Loop** — User-Korrektionen → Lookup-Eintrag
 
+**PII-Policy für MVP:** Der rohe Transaktionstext (z.B. `"DIGITEC GALAXUS AG 044 913 2323"`) wird ohne Pseudonymisierung an die Anthropic API gesendet. Das ist eine Datenübermittlung an einen US-Dienstleister und fällt unter nDSG Art. 16 (Bekanntgabe ins Ausland).
+
+**Dieser Compliance-Gap wird für das MVP bewusst akzeptiert.** Begründung: Es handelt sich um ein Kurs-Projekt ohne echte Produktionsdaten; ein Data Processing Agreement (DPA) mit Anthropic sowie eine explizite Erwähnung in den Nutzungsbedingungen sind für den Produktionsbetrieb nachzuholen.
+
 ## Consequences
 
 ### Positive
@@ -43,6 +47,9 @@ Wir nutzen einen **Hybrid-Ansatz: Lookup-Tabelle + Claude API**:
 - **Initial Setup:** Lookup-Tabelle muss mit ~200-300 Schweizer Händlern initialisiert werden
 - **Fragmented Lookups:** User-spezifische Overrides erschweren globale Optimierung
 - **Not Perfect:** 85-90% Genauigkeit = 10-15% Fehler (User muss korrigieren können)
+- **PII-Transfer zu Anthropic (akzeptiertes Risiko):** Roher Transaktionstext verlässt die eigene Vertrauenszone; nDSG Art. 16 formal nicht vollständig erfüllt
+  - Mitigation MVP: Kein Produktionsbetrieb mit echten Nutzerdaten ohne DPA + AGB-Anpassung
+  - Mitigation langfristig: Lokales LLM via Ollama ersetzt Claude für die Kategorisierung (siehe Alternatives)
 
 ## Alternatives
 
