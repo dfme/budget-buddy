@@ -304,7 +304,7 @@ Vollständige ADRs: [docs/adr/README.md](docs/adr/README.md)
 
 | ADR | Entscheid | Abgelehnte Alternativen |
 |-----|-----------|------------------------|
-| [ADR-0](docs/adr/ADR-0-frontend-backend-separation.md) | SPA + REST API (Angular ↔ Spring Boot, JWT in Header) | SSR (Next.js/Thymeleaf), Monolith mit JSP |
+| [ADR-0](docs/adr/ADR-0-frontend-backend-separation.md) | SPA + REST API (Angular ↔ Spring Boot, JWT als httpOnly Cookie) | SSR (Next.js/Thymeleaf), Monolith mit JSP |
 | [ADR-1](docs/adr/ADR-1-java-spring-boot-backend.md) | Java 21 + Spring Boot 3.5.x | Node.js/Express, Python/FastAPI, Go, .NET 8 |
 | [ADR-2](docs/adr/ADR-2-angular-frontend.md) | Angular 21.x (Standalone Components, Signals, Reactive Forms) | React, Vue 3, Svelte, Astro |
 | [ADR-3](docs/adr/ADR-3-rest-vs-graphql.md) | REST API + OpenAPI 3 (Springdoc) | GraphQL (Overkill, kein nativer File-Upload), gRPC |
