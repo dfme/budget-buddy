@@ -42,7 +42,7 @@ com.budgetbuddy
 
 - **Development Speed:** Eine Codebase, ein Deployment, ein Database-Schema
 - **Simple Transactions:** ACID-Transaktionen über Schichten (Auth → PDF → Kategorization → DB)
-- **Testing:** Integration Tests sind einfach (Spring TestContainers + SQLite)
+- **Testing:** Integration Tests sind einfach — SQLite in-memory (`jdbc:sqlite::memory:`) ohne TestContainers oder DB-Server
 - **Debugging:** Single Process → Stack Traces enthalten ganzen Call Stack
 - **Deployment:** `java -jar app.jar` — fertig
 - **Team:** 2-3 Entwickler können alles deployen (kein separates Ops-Team)
@@ -90,5 +90,6 @@ com.budgetbuddy
 
 - **ADR-0:** Frontend-Backend-Trennung
 - **ADR-1:** Java + Spring Boot
-- **ADR-5:** SQLite (Shared Database)
 - **ADR-3:** REST API (Monolith-freundlich)
+- **ADR-5:** SQLite (Shared Database)
+- **ADR-10:** Hosting auf Render — Single JAR als Deploy-Artefakt

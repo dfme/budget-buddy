@@ -154,7 +154,7 @@ BudgetBuddy is a web app for students and young professionals living in Switzerl
 | Framework | Angular | 21.x | Project-locked; standalone components, Signals |
 | State | Angular Signals + Services | (bundled) | No NgRx needed for MVP scope |
 | Forms | Reactive Forms (FormGroup) | (bundled) | Stable; Signal Forms still experimental |
-| HTTP auth | Functional HTTP interceptor | (bundled) | Inject JWT Bearer token per request |
+| HTTP auth | `withCredentials: true` auf HttpClient | (bundled) | Cookie automatisch mitgesendet; kein manueller HttpInterceptor nötig (ADR-7) |
 | Charts | Chart.js + ng2-charts | 4.x / 8.x | Lightweight, Angular-native wrapper for pie/bar |
 | Change detection | OnPush everywhere | (bundled) | Required for Signals to work correctly |
 ### AI/ML
@@ -170,9 +170,9 @@ BudgetBuddy is a web app for students and young professionals living in Switzerl
 | Factor | JWT (stateless) | Session (server-side) |
 |--------|----------------|----------------------|
 | SQLite write pressure | None — no session table | Every login/request writes to sessions table |
-| Angular SPA integration | Clean Bearer header | Requires cookie + CORS + SameSite config |
-| Spring Security support | First-class `oauth2ResourceServer().jwt()` | Also supported but adds Spring Session dep |
-| Logout invalidation | Client deletes token (MVP acceptable) | Instant server-side invalidation |
+| Angular SPA integration | httpOnly Cookie + `withCredentials: true`; kein HttpInterceptor | Requires cookie + CORS + SameSite config |
+| Spring Security support | JWT in Cookie; Spring Security liest Token aus Cookie | Also supported but adds Spring Session dep |
+| Logout invalidation | Backend setzt `Max-Age=0` → sofort invalidiert | Instant server-side invalidation |
 | MVP scope fit | Excellent | Overengineered |
 ## SQLite + Spring Boot Gotchas (Critical)
 ## What NOT to Use

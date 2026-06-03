@@ -49,6 +49,14 @@ Wir nutzen **SQLite 3.x** mit folgende Konfiguration:
 - **Skalierungslimit:** Max ~1-2 Million Rows bevor Performance problematisch wird
 - **Kein Built-in Replication:** Keine automatische Redundanz
 
+## Deployment-Voraussetzung
+
+SQLite speichert alle Daten in einer einzigen Datei (`budget-buddy.db`). Hosting-Plattformen mit **ephemerem Filesystem** (z.B. Render Free Tier) löschen diese Datei bei jedem Redeploy.
+
+**Pflicht vor Produktionsbetrieb:** Render Persistent Disk einbinden oder SQLite-Datei in einen persistenten Mount (`/data/budget-buddy.db`) legen. Ohne diese Massnahme gehen alle Produktionsdaten bei jedem Deploy verloren.
+
+Siehe ADR-10 für Hosting-Entscheid und konkrete Mitigation.
+
 ## Migration Path to PostgreSQL
 
 **Wenn concurrent writes > 100/s oder >2M Rows:**

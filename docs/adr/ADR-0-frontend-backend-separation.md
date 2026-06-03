@@ -18,8 +18,9 @@ Wir implementieren eine **Single Page App (SPA) + REST API Architektur**:
 
 - **Frontend:** Angular 21.x (TypeScript), lädt im Browser
 - **Backend:** Java 21 + Spring Boot 3.5.x; exponiert REST API via OpenAPI 3.0
-- **Kommunikation:** Stateless JWT Bearer Token in HTTP Headers
-- **CORS:** Explizit konfiguriert für Entwicklung (`http://localhost:4200`) und später Produktion
+- **Kommunikation:** Stateless JWT, Token als `httpOnly; Secure; SameSite=Strict` Cookie (kein Bearer-Header, kein localStorage)
+- **Angular:** Requests mit `withCredentials: true`; Browser sendet Cookie automatisch — kein manueller `HttpInterceptor` nötig
+- **CORS:** Explizit konfiguriert für Entwicklung (`http://localhost:4200`); in Produktion entfällt CORS (SPA gebündelt im JAR, gleicher Origin)
 
 ## Consequences
 
@@ -33,10 +34,11 @@ Wir implementieren eine **Single Page App (SPA) + REST API Architektur**:
 
 ### Negative
 
-- **CORS-Komplexität:** Browser-seitige Same-Origin-Policy erfordert explizite CORS-Konfiguration
+- **CORS-Komplexität (Dev):** `localhost:4200 → localhost:8080` erfordert explizite CORS-Konfiguration; in Produktion entfällt das durch gebündeltes JAR
 - **HTTP-Overhead:** Jede Operation erfordert mindestens einen HTTP-Request
 - **Initial Load:** JavaScript wird zuerst geladen, dann API-Calls ausgeführt (vs. SSR: HTML direkt sichtbar)
 - **API-Sichtbarkeit:** REST-Endpoints sind im Browser sichtbar (mitigiert durch JWT + AuthN/AuthZ)
+- **CSRF-Risiko:** httpOnly Cookie wird automatisch mitgesendet → Cross-Site-Request-Forgery möglich; mitigiert durch `SameSite=Strict` (siehe ADR-7)
 
 ## Alternatives
 
