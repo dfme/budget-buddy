@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BudgetBuddy — Architecture Pitch</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Progress bar */
+    #progress {
+      height: 3px;
+      background: #1e293b;
+    }
+    #progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #6366f1, #06b6d4);
+      transition: width 0.3s ease;
+    }
+
+    /* Slide container */
+    #slides {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+    }
+
+    .slide {
+      display: none;
+      max-width: 900px;
+      width: 100%;
+      animation: fadeIn 0.3s ease;
+    }
+    .slide.active { display: block; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Typography */
+    .label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #6366f1;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      font-size: clamp(28px, 4vw, 52px);
+      font-weight: 800;
+      line-height: 1.15;
+      color: #f8fafc;
+      margin-bottom: 24px;
+    }
+
+    h2 {
+      font-size: clamp(22px, 3vw, 38px);
+      font-weight: 700;
+      color: #f8fafc;
+      margin-bottom: 28px;
+    }
+
+    .subtitle {
+      font-size: clamp(14px, 2vw, 20px);
+      color: #94a3b8;
+      line-height: 1.6;
+      max-width: 680px;
+    }
+
+    .highlight {
+      color: #06b6d4;
+      font-weight: 600;
+    }
+
+    /* Cards */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin-top: 8px;
+    }
+
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 20px 24px;
+    }
+
+    .card-num {
+      font-size: 32px;
+      font-weight: 800;
+      color: #6366f1;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin-bottom: 6px;
+    }
+
+    .card-body {
+      font-size: 13px;
+      color: #94a3b8;
+      line-height: 1.6;
+    }
+
+    /* Q&A style */
+    .qa {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .qa-item {
+      background: #1e293b;
+      border-left: 3px solid #6366f1;
+      border-radius: 0 10px 10px 0;
+      padding: 16px 20px;
+    }
+
+    .qa-q {
+      font-size: 14px;
+      font-weight: 700;
+      color: #6366f1;
+      margin-bottom: 8px;
+    }
+
+    .qa-a {
+      font-size: 14px;
+      color: #cbd5e1;
+      line-height: 1.7;
+    }
+
+    /* C2 Diagram */
+    .c2 {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+      width: 100%;
+    }
+
+    .c2-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      width: 100%;
+    }
+
+    .c2-box {
+      border-radius: 10px;
+      padding: 10px 16px;
+      text-align: center;
+      min-width: 140px;
+    }
+
+    .c2-box-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #f1f5f9;
+    }
+
+    .c2-box-sub {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 2px;
+    }
+
+    .c2-box.blue  { background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.4); }
+    .c2-box.cyan  { background: rgba(6,182,212,0.15);  border: 1px solid rgba(6,182,212,0.4); }
+    .c2-box.amber { background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.4); }
+    .c2-box.slate { background: rgba(100,116,139,0.15); border: 1px solid rgba(100,116,139,0.4); }
+
+    .c2-arrow-v {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+    }
+
+    .c2-arrow-v .line {
+      width: 2px;
+      height: 20px;
+      background: #334155;
+    }
+
+    .c2-arrow-v .tip {
+      width: 0; height: 0;
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-top: 8px solid #475569;
+    }
+
+    .c2-arrow-v .label {
+      font-size: 10px;
+      color: #64748b;
+      font-family: 'SF Mono', monospace;
+      margin-bottom: 2px;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .c2-arrow-h {
+      display: flex;
+      align-items: center;
+      gap: 0;
+    }
+
+    .c2-arrow-h .line {
+      height: 2px;
+      width: 32px;
+      background: #334155;
+    }
+
+    .c2-arrow-h .tip {
+      width: 0; height: 0;
+      border-top: 6px solid transparent;
+      border-bottom: 6px solid transparent;
+      border-left: 8px solid #475569;
+    }
+
+    .c2-split {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .c2-split-lines {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      align-items: flex-start;
+    }
+
+    /* Risk slide */
+    .risks { display: flex; flex-direction: column; gap: 16px; }
+
+    .risk {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      background: #1e293b;
+      border-radius: 10px;
+      padding: 16px 20px;
+    }
+
+    .risk-icon {
+      font-size: 22px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .risk-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin-bottom: 4px;
+    }
+
+    .risk-body {
+      font-size: 13px;
+      color: #94a3b8;
+      line-height: 1.6;
+    }
+
+    .risk-mit {
+      display: inline-block;
+      margin-top: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #4ade80;
+      background: rgba(74, 222, 128, 0.1);
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    /* Don't say slide */
+    .donts { display: flex; flex-direction: column; gap: 12px; }
+
+    .dont {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      padding: 12px 16px;
+      background: #1e293b;
+      border-radius: 8px;
+    }
+
+    .dont-x {
+      font-size: 16px;
+      color: #f87171;
+      flex-shrink: 0;
+    }
+
+    .dont-text {
+      font-size: 14px;
+      color: #cbd5e1;
+    }
+
+    .dont-reason {
+      font-size: 12px;
+      color: #64748b;
+      margin-top: 2px;
+    }
+
+    /* Navigation */
+    #nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 40px;
+      border-top: 1px solid #1e293b;
+    }
+
+    .nav-btn {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #94a3b8;
+      padding: 8px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .nav-btn:hover { background: #334155; color: #f1f5f9; }
+    .nav-btn:disabled { opacity: 0.3; cursor: default; }
+
+    #slide-counter {
+      font-size: 13px;
+      color: #475569;
+    }
+
+    /* Title slide special */
+    .slide-title { text-align: center; }
+    .slide-title h1 { font-size: clamp(36px, 6vw, 72px); }
+    .slide-title .subtitle { margin: 0 auto; text-align: center; }
+
+    .tag {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin: 4px;
+    }
+    .tag-blue  { background: rgba(99,102,241,0.15); color: #818cf8; }
+    .tag-cyan  { background: rgba(6,182,212,0.15);  color: #22d3ee; }
+    .tag-green { background: rgba(74,222,128,0.15); color: #4ade80; }
+
+    .pitch-quote {
+      background: linear-gradient(135deg, #1e293b, #0f172a);
+      border: 1px solid #334155;
+      border-left: 4px solid #6366f1;
+      border-radius: 0 12px 12px 0;
+      padding: 24px 28px;
+      font-size: clamp(16px, 2.2vw, 22px);
+      font-style: italic;
+      color: #e2e8f0;
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="progress"><div id="progress-bar"></div></div>
+
+<div id="slides">
+
+  <!-- Slide 1: Title -->
+  <div class="slide slide-title active">
+    <div class="label">CAS ADAI 2026 · BFH Biel · Architecture Pitch</div>
+    <h1>Budget<span class="highlight">Buddy</span></h1>
+    <p class="subtitle">
+      Ein Spring Boot Monolith, der Bankauszüge parsed,<br>
+      Transaktionen KI-gestützt kategorisiert,<br>
+      und dir wöchentlich sagt: <span class="highlight">Du kannst noch X CHF ausgeben.</span>
+    </p>
+    <div style="margin-top: 32px;">
+      <span class="tag tag-blue">Angular 21</span>
+      <span class="tag tag-blue">Spring Boot 3.5</span>
+      <span class="tag tag-cyan">SQLite</span>
+      <span class="tag tag-cyan">Claude API</span>
+      <span class="tag tag-green">Render · Frankfurt/EU</span>
+    </div>
+  </div>
+
+  <!-- Slide 2: System Overview (C2) -->
+  <div class="slide">
+    <div class="label">System-Übersicht</div>
+    <h2>C2 Container Diagram</h2>
+
+    <div class="c2">
+      <!-- Row 1: Browser + Angular SPA -->
+      <div class="c2-row">
+        <div class="c2-box slate">
+          <div class="c2-box-title">🌐 Browser</div>
+          <div class="c2-box-sub">Lara · Marc</div>
+        </div>
+        <div class="c2-arrow-h">
+          <div class="line" style="width:48px"></div>
+          <div style="font-size:10px;color:#64748b;font-family:monospace;margin: 0 6px;white-space:nowrap">HTTPS · httpOnly Cookie</div>
+          <div class="line" style="width:48px"></div>
+          <div class="tip"></div>
+        </div>
+        <div class="c2-box blue">
+          <div class="c2-box-title">Angular SPA</div>
+          <div class="c2-box-sub">Angular 21 · TypeScript</div>
+          <div class="c2-box-sub">Onboarding · Dashboard · Upload</div>
+        </div>
+      </div>
+
+      <!-- Arrow down: REST/JSON -->
+      <div class="c2-arrow-v">
+        <div class="line" style="height:14px"></div>
+        <div class="label">REST/JSON · withCredentials: true</div>
+        <div class="line" style="height:14px"></div>
+        <div class="tip"></div>
+      </div>
+
+      <!-- Row 2: Spring Boot (centre) -->
+      <div class="c2-row">
+        <div class="c2-box blue" style="min-width:320px; padding: 14px 24px;">
+          <div class="c2-box-title" style="font-size:15px">⚙️ API Application</div>
+          <div class="c2-box-sub" style="margin-top:6px">Spring Boot 3.5 · Java 21 · Single JAR</div>
+          <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:8px">
+            <span style="font-size:10px;background:rgba(99,102,241,0.2);color:#a5b4fc;padding:2px 7px;border-radius:4px">auth/</span>
+            <span style="font-size:10px;background:rgba(99,102,241,0.2);color:#a5b4fc;padding:2px 7px;border-radius:4px">transaction/</span>
+            <span style="font-size:10px;background:rgba(99,102,241,0.2);color:#a5b4fc;padding:2px 7px;border-radius:4px">categorization/</span>
+            <span style="font-size:10px;background:rgba(99,102,241,0.2);color:#a5b4fc;padding:2px 7px;border-radius:4px">budget/</span>
+            <span style="font-size:10px;background:rgba(99,102,241,0.2);color:#a5b4fc;padding:2px 7px;border-radius:4px">report/</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 3: Two arrows down to SQLite + Claude -->
+      <div class="c2-row" style="gap:80px; align-items:flex-start; margin-top:0">
+        <div class="c2-arrow-v">
+          <div class="line" style="height:14px"></div>
+          <div class="label">JDBC · JPA/Hibernate</div>
+          <div class="line" style="height:14px"></div>
+          <div class="tip"></div>
+        </div>
+        <div class="c2-arrow-v">
+          <div class="line" style="height:14px"></div>
+          <div class="label">HTTPS · Anthropic Java SDK</div>
+          <div class="line" style="height:14px"></div>
+          <div class="tip"></div>
+        </div>
+      </div>
+
+      <!-- Row 4: SQLite + Claude -->
+      <div class="c2-row" style="gap:80px">
+        <div class="c2-box cyan">
+          <div class="c2-box-title">🗄️ SQLite 3.x</div>
+          <div class="c2-box-sub">+ Flyway Migrations</div>
+          <div class="c2-box-sub">BigDecimal · CHF</div>
+        </div>
+        <div class="c2-box amber">
+          <div class="c2-box-title">🤖 Anthropic Claude</div>
+          <div class="c2-box-sub">Haiku → Kategorisierung</div>
+          <div class="c2-box-sub">Sonnet → Monatsbericht</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top: 16px;" class="cards">
+      <div class="card">
+        <div class="card-title">Single JAR Deploy</div>
+        <div class="card-body">Angular-Build als statische Assets in <code style="color:#06b6d4">BOOT-INF/static/</code> — eine Pipeline, ein Artefakt.</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Modularer Monolith</div>
+        <div class="card-body">5 Packages, keine cross-module Direktzugriffe — Extraktion jederzeit möglich.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 3: 3 Bold Decisions -->
+  <div class="slide">
+    <div class="label">Architektur-Entscheide</div>
+    <h2>3 bewusste Entscheidungen</h2>
+    <div class="cards">
+      <div class="card">
+        <div class="card-num">01</div>
+        <div class="card-title">SQLite statt PostgreSQL</div>
+        <div class="card-body">Kein separater DB-Server für MVP. Migration-Pfad in ADR-5 definiert — 1–2 Sprints, kein Rewrite.</div>
+      </div>
+      <div class="card">
+        <div class="card-num">02</div>
+        <div class="card-title">Monolith statt Microservices</div>
+        <div class="card-body">3 Devs, 3 Monate, unvalidiertes Produkt. Warnsignale für Extraktion in ADR-4 definiert.</div>
+      </div>
+      <div class="card">
+        <div class="card-num">03</div>
+        <div class="card-title">httpOnly Cookie statt Bearer</div>
+        <div class="card-body">JWT nie im JS-Zugriff → XSS-sicher. SameSite=Strict eliminiert CSRF. Kein HttpInterceptor nötig.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 4: Hybrid Categorization -->
+  <div class="slide">
+    <div class="label">KI-Integration · ADR-6</div>
+    <h2>Hybrid-Kategorisierung</h2>
+    <div class="cards">
+      <div class="card">
+        <div class="card-num" style="color:#4ade80">70%</div>
+        <div class="card-title">Lookup-Tabelle</div>
+        <div class="card-body">Bekannte Händler → deterministisch, kostenlos, &lt;1ms. User-Korrekturen erweitern die Tabelle automatisch.</div>
+      </div>
+      <div class="card">
+        <div class="card-num" style="color:#06b6d4">30%</div>
+        <div class="card-title">Claude Haiku API</div>
+        <div class="card-body">Unbekannte / mehrdeutige Transaktionen. ~200ms, günstig. Reduziert API-Calls auf ~20–30% aller Tx.</div>
+      </div>
+      <div class="card">
+        <div class="card-num" style="color:#f59e0b">0%</div>
+        <div class="card-title">Blockierender Fehler</div>
+        <div class="card-body">Bei <code style="color:#f59e0b">AnthropicException</code> → Fallback auf <code>"Sonstiges"</code>. Import läuft immer durch.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 5: CTO Questions -->
+  <div class="slide">
+    <div class="label">Kritische Fragen</div>
+    <h2>Was ein CTO sofort fragt</h2>
+    <div class="qa">
+      <div class="qa-item">
+        <div class="qa-q">Wie schützt ihr die Finanzdaten?</div>
+        <div class="qa-a">JWT als httpOnly Cookie (kein JS-Zugriff), SameSite=Strict, bcrypt-Passwörter, Server Frankfurt/EU (nDSG). SQLite speichert nur Transaktionstext + Betrag — keine Kontodaten.</div>
+      </div>
+      <div class="qa-item">
+        <div class="qa-q">Was passiert wenn Claude API down ist?</div>
+        <div class="qa-a">Lookup-Tabelle deckt ~70–80% ab ohne API. Bei Fehler: catch <code>AnthropicException</code> → Fallback "Sonstiges". Import blockiert nie.</div>
+      </div>
+      <div class="qa-item">
+        <div class="qa-q">Wie skaliert das bei 10'000 Usern?</div>
+        <div class="qa-a">SQLite wird Bottleneck bei concurrent writes. Upgrade-Pfad: PostgreSQL in 1–2 Sprints (ADR-5). Für MVP bewusste Entscheidung.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 6: Why not Microservices -->
+  <div class="slide">
+    <div class="label">ADR-4 · Monolith vs. Microservices</div>
+    <h2>Warum nicht Microservices?</h2>
+    <div class="pitch-quote">
+      "Microservices hätten uns 2 Sprints für Infra gekostet, bevor wir eine einzige User Story ausliefern."
+    </div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title" style="color:#f87171">Microservices würden kosten</div>
+        <div class="card-body" style="line-height: 2;">
+          K8s Setup<br>
+          Service Discovery<br>
+          Distributed Tracing<br>
+          Network-Overhead<br>
+          2–3 Sprints Infra-Arbeit
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title" style="color:#4ade80">Monolith gibt uns</div>
+        <div class="card-body" style="line-height: 2;">
+          Single JAR Deploy<br>
+          In-Process Module<br>
+          Einfache Logs<br>
+          3 Devs, kein DevOps<br>
+          Extraktion jederzeit möglich
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 7: Risks -->
+  <div class="slide">
+    <div class="label">Risiken</div>
+    <h2>Unsere 3 grössten Risiken</h2>
+    <div class="risks">
+      <div class="risk">
+        <div class="risk-icon">⏱</div>
+        <div>
+          <div class="risk-title">Churn beim ersten Upload</div>
+          <div class="risk-body">Wenn PDF-Import zu langsam oder fehlerhaft ist, kommen User nie wieder.</div>
+          <span class="risk-mit">Mitigation: Sync Import + Timeout + immer Fallback</span>
+        </div>
+      </div>
+      <div class="risk">
+        <div class="risk-icon">🔒</div>
+        <div>
+          <div class="risk-title">Datenleck mit Finanzdaten</div>
+          <div class="risk-body">Sensible Transaktionsdaten — ein Breach wäre existenzbedrohend.</div>
+          <span class="risk-mit">Mitigation: httpOnly Cookie, bcrypt, Frankfurt/EU, nDSG</span>
+        </div>
+      </div>
+      <div class="risk">
+        <div class="risk-icon">🏦</div>
+        <div>
+          <div class="risk-title">Banken bauen eigene PFM-Tools</div>
+          <div class="risk-body">UBS, Raiffeisen etc. könnten den Business Case über Nacht eliminieren.</div>
+          <span class="risk-mit">Mitigation: Einfachheit des PDF-Uploads ohne Open-Banking-Onboarding</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+</div>
+
+<!-- Navigation -->
+<div id="nav">
+  <button class="nav-btn" id="prev" onclick="navigate(-1)" disabled>← Zurück</button>
+  <span id="slide-counter">1 / 7</span>
+  <button class="nav-btn" id="next" onclick="navigate(1)">Weiter →</button>
+</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  let current = 0;
+
+  function navigate(dir) {
+    slides[current].classList.remove('active');
+    current = Math.max(0, Math.min(slides.length - 1, current + dir));
+    slides[current].classList.add('active');
+    document.getElementById('prev').disabled = current === 0;
+    document.getElementById('next').disabled = current === slides.length - 1;
+    document.getElementById('slide-counter').textContent = `${current + 1} / ${slides.length}`;
+    document.getElementById('progress-bar').style.width = `${((current + 1) / slides.length) * 100}%`;
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') navigate(1);
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   navigate(-1);
+  });
+
+  navigate(0);
+</script>
+</body>
+</html>
