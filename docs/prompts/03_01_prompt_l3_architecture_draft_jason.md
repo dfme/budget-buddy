@@ -1,3 +1,6 @@
+##########
+# Prompt #
+##########
 Du bist ein erfahrener Software-Architekt.
 
 Hier sind alle unsere heutigen Ergebnisse:
@@ -16,9 +19,10 @@ Erstelle daraus einen strukturierten Architecture Draft.
 Identifiziere: Was ist noch unklar oder widersprüchlich?
 Was sind die 3 wichtigsten Fragen die wir in Tag 2 klären müssen?
 
------
 
-## Resultat
+###########
+# Antwort #
+###########
 
 # BudgetBuddy — Architecture Draft (Tag 1 Synthese)
 

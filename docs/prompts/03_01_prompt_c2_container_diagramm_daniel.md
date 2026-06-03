@@ -1,13 +1,6 @@
-# C4 Container Diagram — BudgetBuddy (Level 2)
-
-**Projekt:** BudgetBuddy
-**Level:** C4 Level 2 — Container
-**Stand:** 2026-05-27
-**Team:** 2–3 Entwickler · 3 Monate · gemischter Background
-
----
-
-## Prompt
+##########
+# Prompt #
+##########
 
 > Erstelle jetzt ein C4 Container Diagram für unser Projekt.
 >
@@ -26,9 +19,9 @@
 >
 > Unser Team: 2–3 Devs, 3 Monate, gemischter Background.
 
----
-
-## Resultat
+###########
+# Antwort #
+###########
 
 ### Leitprinzip für ein 2–3-Dev-Team über 3 Monate
 

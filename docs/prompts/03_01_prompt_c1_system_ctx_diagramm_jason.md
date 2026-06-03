@@ -1,3 +1,7 @@
+##########
+# Prompt #
+##########
+
 Erstelle ein C4 System Context Diagram für unser Projekt beschrieben im CLAUDE.md
 
 Zeige:
@@ -11,7 +15,9 @@ Dann: Was haben wir vergessen?
 
 
 
------
+###########
+# Antwort #
+###########
 
 ## C4 System Context Diagram — BudgetBuddy
 

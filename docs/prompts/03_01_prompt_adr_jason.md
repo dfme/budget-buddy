@@ -1,4 +1,12 @@
+##########
+# Prompt #
+##########
+
 Kannst du 5 bis 7 ADR identifizieren?
+
+###########
+# Antwort #
+###########
 
 
 Basierend auf den dokumentierten Entscheiden in CLAUDE.md sind das die 7
