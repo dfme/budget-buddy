@@ -30,7 +30,7 @@ com.budgetbuddy
 
 **Regel:** Kein direkter Zugriff auf Repositories oder Services eines anderen Moduls. Cross-Modul-Kommunikation nur über definierte Interfaces (z.B. `CategorizationPort`).
 
-**Async Import Flow:** PDF-Uploads laufen asynchron. Der Endpoint gibt sofort eine Job-ID zurück; der eigentliche Import (PDFBox + Claude API Calls) läuft im Hintergrund via Spring `@Async`. Status-Polling über `GET /import/{jobId}/status`.
+**Import Flow (MVP):** PDF-Uploads laufen synchron — der Endpoint blockiert bis Import und Kategorisierung abgeschlossen sind. Timeout + Fallback zu `"Sonstiges"` verhindern, dass ein hängender Claude-Call den Import blockiert.
 
 - **Database:** Shared SQLite (`budget-buddy.db`), WAL-Modus, HikariCP max 1 Writer
 - **Deployment:** Single JAR → Docker → Cloud Run / VPS
@@ -81,9 +81,10 @@ com.budgetbuddy
 ### Hybrid (Monolith + Async Workers)
 
 **Accepted as Future Optimization:**
-- Phase 1: Monolith (alles in einer JAR)
-- Phase 2: + Async Workers (Quartz/Kafka für Long-Running Tasks)
-- Phase 3: Microservices (nur wenn nötig)
+- Phase 1: Monolith (alles in einer JAR) — **aktueller Stand MVP**
+- Phase 2: + Async Import Flow (Spring `@Async` + `ImportJob`-Entity + Status-Polling) — wenn Nutzer über lange Upload-Wartezeiten klagen oder Churn messbar steigt
+- Phase 3: Async Workers für weitere Long-Running Tasks (z.B. Monatsbericht-Generierung)
+- Phase 4: Microservices (nur wenn nötig)
 
 ## Related Decisions
 

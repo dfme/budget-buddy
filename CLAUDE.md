@@ -229,20 +229,74 @@ public interface CategorizationPort {
 
 Das erlaubt Mock in Tests und Austausch des Modells ohne Refactoring im Rest der Codebase.
 
+### Backend: Import Flow
+
+MVP: synchron — der Upload-Endpoint blockiert bis Import und Kategorisierung abgeschlossen sind.
+
+Upgrade-Pfad (wenn Wartezeiten zu Churn führen): Spring `@Async` + `ImportJob`-Entity in SQLite + Status-Polling `GET /import/{jobId}/status`. Kein Kafka, kein Redis nötig.
+
 ### Backend: Timeouts + Fallback für externe Calls
 
 Alle Calls zu Claude API und PDFBox müssen einen Timeout haben und bei Fehler auf `"Sonstiges"` fallen:
 
 ```java
 // Claude API: Timeout setzen, bei AnthropicException → "Sonstiges"
-// PDFBox: bei ParseException → ImportJob mit Status FAILED markieren
+// PDFBox: bei ParseException → Fehler an den Caller zurückgeben
 ```
 
 Ein fehlgeschlagener Claude-Call darf nie den gesamten Import-Flow blockieren (Churn-Risiko #1).
 
 ## Architecture
 
-Architecture not yet mapped. Follow existing patterns found in the codebase.
+### C2 Container Diagram
+
+```
+Browser (Lara, Marc)
+     │
+     │ HTTPS · statische Assets (HTML/JS/CSS)
+     │ Auth: httpOnly Cookie (SameSite=Strict, kein JS-Zugriff)
+     ▼
+┌─────────────────────────────────────────────────────┐
+│  Web SPA  [Angular 21, TypeScript]                  │
+│  Onboarding · PDF-Upload · Dashboard · Korrekturen  │
+│  HTTP mit withCredentials:true (kein Bearer-Header) │
+└──────────────────┬──────────────────────────────────┘
+                   │ REST/JSON · HTTPS · Cookie automatisch mitgesendet
+                   │ (gleicher Host in Prod → kein CORS)
+                   ▼
+┌─────────────────────────────────────────────────────┐     ┌────────────────────┐
+│  API Application  [Spring Boot 3.5 / Java 21, JAR]  │     │  Anthropic Claude  │
+│                                                     │     │   [Ext. System]    │
+│  auth/         JWT HS256, bcrypt, httpOnly Cookie   │     └────────▲───────────┘
+│  transaction/  PDF-Upload → sync, Timeout+Fallback  │             │
+│  categorization/ Lookup → CategorizationPort        │─────────────┘
+│  budget/       Safe-to-Spend, Sparziele             │  HTTPS / Anthropic Java SDK
+│  report/       KI-Monatsbericht (Sonnet 4, 1×/Monat)│  Haiku: Kategorisierung
+│                                                     │  Sonnet: Monatsbericht
+│  ImportJob-Status: GET /import/{jobId}/status       │
+└──────────────────┬──────────────────────────────────┘
+                   │ JDBC in-process · JPA/Hibernate
+                   │ BigDecimal für alle CHF-Beträge
+                   ▼
+┌─────────────────────────────────────────────────────┐
+│  Database  [SQLite 3.x + Flyway]                    │
+│  users · transactions · fixed_costs ·               │
+│  savings_goals · category_lookup · import_jobs      │
+└─────────────────────────────────────────────────────┘
+```
+
+**Deployment:** Single JAR auf Render (Frankfurt/EU) — Angular-Build als statische Assets in `BOOT-INF/static/`.  
+**Dev:** Angular Dev-Server `localhost:4200` + Spring Boot `localhost:8080`, CORS für `localhost:4200` konfiguriert.
+
+### Container-Verantwortlichkeiten
+
+| Container | Technologie | Kernaufgabe |
+|-----------|-------------|-------------|
+| Web SPA | Angular 21, Signals, Reactive Forms | UI: Onboarding, PDF-Upload, Dashboard, Korrekturen |
+| API Application | Spring Boot 3.5, Java 21, Single JAR | Auth, PDF-Parsing, Kategorisierung, Berechnungen, KI-Bericht |
+| Database | SQLite 3.x + Flyway | Persistenz: User, Transaktionen, Fixkosten, Lookup-Tabelle, Import-Jobs |
+
+**Bewusst weggelassen:** Redis/Cache, Message Queue, CDN, Microservices, eigener KI-Worker — alles Overengineering für 3 Devs / 3 Monate.
 
 ### Architecture Decision Records
 
