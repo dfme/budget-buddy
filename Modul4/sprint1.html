@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BudgetBuddy — Sprint 1</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:      #0f1117;
+    --surface: #1a1d27;
+    --border:  #2a2d3e;
+    --accent:  #4ade80;
+    --accent2: #60a5fa;
+    --warn:    #f87171;
+    --text:    #e2e8f0;
+    --muted:   #64748b;
+  }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* Progress bar */
+  #progress-bar {
+    position: fixed;
+    top: 0; left: 0;
+    height: 3px;
+    background: var(--accent);
+    transition: width 1s linear;
+    z-index: 100;
+  }
+
+  /* Slide counter */
+  #counter {
+    position: fixed;
+    bottom: 20px; right: 24px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  /* Nav hint */
+  #hint {
+    position: fixed;
+    bottom: 20px; left: 24px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  /* Slides */
+  .slides { width: 100vw; height: 100vh; position: relative; }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 60px 80px;
+    opacity: 0;
+    transform: translateX(40px);
+    transition: opacity .35s ease, transform .35s ease;
+    pointer-events: none;
+  }
+  .slide.active {
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: all;
+  }
+  .slide.exit {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+
+  /* Typography */
+  .label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 16px;
+  }
+  h1 { font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 700; line-height: 1.1; text-align: center; }
+  h2 { font-size: clamp(1.4rem, 3vw, 2rem); font-weight: 600; line-height: 1.2; margin-bottom: 32px; text-align: center; }
+  .subtitle { color: var(--muted); font-size: 1.1rem; margin-top: 16px; text-align: center; }
+
+  /* Goal box */
+  .goal-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: 12px;
+    padding: 28px 36px;
+    max-width: 780px;
+    font-size: 1.25rem;
+    line-height: 1.7;
+    text-align: center;
+  }
+  .goal-box code {
+    background: rgba(74,222,128,.12);
+    color: var(--accent);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: .95em;
+  }
+
+  /* Stat cards */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    width: 100%;
+    max-width: 860px;
+  }
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 16px;
+    text-align: center;
+  }
+  .stat .num {
+    font-size: 2.8rem;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+  .stat .num.green { color: var(--accent); }
+  .stat .num.blue  { color: var(--accent2); }
+  .stat .desc { font-size: .8rem; color: var(--muted); line-height: 1.4; }
+
+  /* Task table */
+  .task-table {
+    width: 100%;
+    max-width: 860px;
+    border-collapse: collapse;
+    font-size: .88rem;
+  }
+  .task-table th {
+    text-align: left;
+    padding: 10px 14px;
+    color: var(--muted);
+    font-weight: 500;
+    font-size: .78rem;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+  .task-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(42,45,62,.6);
+    vertical-align: middle;
+  }
+  .task-table tr:last-child td { border-bottom: none; }
+  .tag {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 99px;
+    font-size: .72rem;
+    font-weight: 600;
+  }
+  .tag.be  { background: rgba(96,165,250,.15); color: var(--accent2); }
+  .tag.fe  { background: rgba(167,139,250,.15); color: #a78bfa; }
+  .tag.db  { background: rgba(251,191,36,.15);  color: #fbbf24; }
+  .tag.ops { background: rgba(74,222,128,.15);  color: var(--accent); }
+  .sp-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    background: var(--border);
+    font-weight: 700;
+    font-size: .82rem;
+  }
+
+  /* Risk card */
+  .risk-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--warn);
+    border-radius: 12px;
+    padding: 28px 36px;
+    max-width: 800px;
+    width: 100%;
+  }
+  .risk-title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--warn);
+    margin-bottom: 8px;
+  }
+  .risk-why {
+    color: var(--muted);
+    font-size: .9rem;
+    margin-bottom: 20px;
+    line-height: 1.6;
+  }
+  .plan-items {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .plan-item {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    background: rgba(255,255,255,.03);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: .85rem;
+    line-height: 1.5;
+  }
+  .plan-item .icon { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+
+  /* Exclusion list */
+  .excl-list {
+    max-width: 800px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .excl-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 20px;
+    font-size: .88rem;
+  }
+  .excl-name {
+    font-weight: 600;
+    min-width: 200px;
+    font-size: .82rem;
+  }
+  .excl-reason { color: var(--muted); line-height: 1.5; }
+
+  /* Principle box */
+  .principle {
+    margin-top: 20px;
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+    font-size: .9rem;
+    color: var(--muted);
+    text-align: center;
+    max-width: 800px;
+  }
+  .principle strong { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div id="progress-bar"></div>
+<div id="counter">1 / 6</div>
+<div id="hint">← → oder Leertaste</div>
+
+<div class="slides">
+
+  <!-- Slide 1: Title -->
+  <div class="slide active" id="s1">
+    <div class="label">CAS ADAI 2026 · BFH Biel</div>
+    <h1>BudgetBuddy<br><span style="color:var(--accent)">Sprint 1</span></h1>
+    <p class="subtitle">3 Entwickler · 2 Wochen · 16 Story Points</p>
+    <p class="subtitle" style="margin-top:8px;font-size:.9rem">Angular 21 · Spring Boot 3.5 · SQLite · Claude API</p>
+  </div>
+
+  <!-- Slide 2: Sprint-Ziel -->
+  <div class="slide" id="s2">
+    <div class="label">Sprint-Ziel</div>
+    <h2>Was liefern wir?</h2>
+    <div class="goal-box">
+      CI-Pipeline grün, Datenbankschema deployed,<br>
+      authentifizierter API-Call gegen <code>GET /users/me</code><br>
+      liefert valide JWT-Response —<br>
+      <span style="color:var(--accent);font-weight:600">Sprint 2 kann sofort Features bauen.</span>
+    </div>
+  </div>
+
+  <!-- Slide 3: Board -->
+  <div class="slide" id="s3">
+    <div class="label">Das Board</div>
+    <h2>Backlog-Übersicht</h2>
+    <div class="stats">
+      <div class="stat">
+        <div class="num">35</div>
+        <div class="desc">Tasks total<br>im Backlog</div>
+      </div>
+      <div class="stat">
+        <div class="num" style="color:var(--muted)">94</div>
+        <div class="desc">Story Points<br>gesamt</div>
+      </div>
+      <div class="stat">
+        <div class="num green">8</div>
+        <div class="desc">Tasks<br>in Sprint 1</div>
+      </div>
+      <div class="stat">
+        <div class="num blue">16</div>
+        <div class="desc">Story Points<br>Sprint 1</div>
+      </div>
+    </div>
+    <p style="margin-top:24px;color:var(--muted);font-size:.85rem">
+      Priorisiert nach: <strong style="color:var(--text)">Was blockiert am meisten andere Tasks?</strong>
+    </p>
+    <p style="margin-top:12px;font-size:.8rem">
+      <a href="https://github.com/users/dfme/projects/4/views/1" target="_blank"
+         style="color:var(--accent2);text-decoration:none;opacity:.8">
+        ↗ github.com/users/dfme/projects/4/views/1
+      </a>
+    </p>
+  </div>
+
+  <!-- Slide 4: Tasks -->
+  <div class="slide" id="s4">
+    <div class="label">Sprint 1 — 8 Tasks</div>
+    <table class="task-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Task</th>
+          <th>Area</th>
+          <th>SP</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td style="color:var(--muted)">#1</td><td>Spring Boot Skeleton</td><td><span class="tag ops">DevOps</span></td><td><span class="sp-badge">3</span></td></tr>
+        <tr><td style="color:var(--muted)">#2</td><td>Angular Skeleton</td><td><span class="tag fe">Frontend</span></td><td><span class="sp-badge">2</span></td></tr>
+        <tr><td style="color:var(--muted)">#3</td><td>GitHub Actions CI</td><td><span class="tag ops">DevOps</span></td><td><span class="sp-badge">2</span></td></tr>
+        <tr><td style="color:var(--muted)">#4</td><td>Flyway V1 — users</td><td><span class="tag db">DB</span></td><td><span class="sp-badge">1</span></td></tr>
+        <tr><td style="color:var(--muted)">#5</td><td>Flyway V2 — transactions</td><td><span class="tag db">DB</span></td><td><span class="sp-badge">2</span></td></tr>
+        <tr><td style="color:var(--muted)">#6</td><td>Flyway V3 — fixed_costs</td><td><span class="tag db">DB</span></td><td><span class="sp-badge">1</span></td></tr>
+        <tr><td style="color:var(--muted)">#8</td><td>JWT HS256 Filter</td><td><span class="tag be">Backend</span></td><td><span class="sp-badge">3</span></td></tr>
+        <tr><td style="color:var(--muted)">#9</td><td>GET/PUT /users/me</td><td><span class="tag be">Backend</span></td><td><span class="sp-badge">2</span></td></tr>
+      </tbody>
+    </table>
+    <p style="margin-top:18px;font-size:.8rem">
+      <a href="https://github.com/users/dfme/projects/4/views/2" target="_blank"
+         style="color:var(--accent2);text-decoration:none;opacity:.8">
+        ↗ github.com/users/dfme/projects/4/views/2
+      </a>
+    </p>
+  </div>
+
+  <!-- Slide 5: Risk -->
+  <div class="slide" id="s5">
+    <div class="label">Risikomanagement</div>
+    <h2>Riskantester Task</h2>
+    <div class="risk-card">
+      <div class="risk-title">⚠ BE-PDF-01 — PDFBox-Parser · 8 SP</div>
+      <div class="risk-why">
+        Jede Schweizer Bank hat ein anderes PDF-Layout · Sonderzeichen <code style="background:rgba(248,113,113,.1);color:var(--warn);padding:1px 6px;border-radius:3px">1'234.56</code> brechen naive Parser · mehrzeilige Transaktions-Texte
+      </div>
+      <div class="plan-items">
+        <div class="plan-item"><span class="icon">🎯</span><span><strong>Fixture-First</strong><br>Echtes Raiffeisen-PDF als Testdatei von Tag&nbsp;1</span></div>
+        <div class="plan-item"><span class="icon">⏱</span><span><strong>Timebox 6h</strong><br>Danach MVP auf eine Bank beschränken</span></div>
+        <div class="plan-item"><span class="icon">🔀</span><span><strong>Sprint 2 — sofort</strong><br>Erster Task, nicht warten bis Woche&nbsp;3</span></div>
+        <div class="plan-item"><span class="icon">🛡</span><span><strong>Fallback</strong><br>Parser-Fehler blockieren nie den Import-Flow</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 6: Exclusions -->
+  <div class="slide" id="s6">
+    <div class="label">Bewusste Entscheidungen</div>
+    <h2>Was wir rausgelassen haben</h2>
+    <div class="excl-list">
+      <div class="excl-item">
+        <div class="excl-name">BE-PDF-01<br><span style="color:var(--warn);font-weight:700">8 SP</span></div>
+        <div class="excl-reason">Risikoreichster Task — braucht stabiles DB-Schema und Auth als Voraussetzung</div>
+      </div>
+      <div class="excl-item">
+        <div class="excl-name">Claude API<br><span style="color:var(--muted);font-weight:400">5 SP</span></div>
+        <div class="excl-reason">Externe Abhängigkeit — API-Key und Prompt erst sinnvoll wenn Parser steht</div>
+      </div>
+      <div class="excl-item">
+        <div class="excl-name">Alle FE-Features<br><span style="color:var(--muted);font-weight:400">30 SP</span></div>
+        <div class="excl-reason">Angular-Skeleton reicht — vollständige UI braucht fertige REST-Endpoints</div>
+      </div>
+      <div class="excl-item">
+        <div class="excl-name">Safe-to-Spend<br><span style="color:var(--muted);font-weight:400">10 SP</span></div>
+        <div class="excl-reason">Core-Feature, aber abhängig von Transaktionen + Fixkosten — frühestens Sprint 3</div>
+      </div>
+    </div>
+    <div class="principle">
+      <strong>Leitprinzip:</strong> Ein roter CI-Build in Woche 1 lähmt das gesamte Team für den Rest des Projekts.
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const slides = Array.from(document.querySelectorAll('.slide'));
+  let current = 0;
+
+  const progressBar = document.getElementById('progress-bar');
+  const counterEl   = document.getElementById('counter');
+
+  function showSlide(n) {
+    slides[current].classList.remove('active');
+    slides[current].classList.add('exit');
+    setTimeout(() => slides[current >= 0 ? current : 0].classList.remove('exit'), 350);
+    current = Math.max(0, Math.min(n, slides.length - 1));
+    slides.forEach(s => s.classList.remove('active', 'exit'));
+    slides[current].classList.add('active');
+    counterEl.textContent = `${current + 1} / ${slides.length}`;
+    progressBar.style.width = `${((current + 1) / slides.length) * 100}%`;
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); showSlide(current + 1); }
+    if (e.key === 'ArrowLeft')                    { e.preventDefault(); showSlide(current - 1); }
+  });
+
+  // Swipe support
+  let touchX = null;
+  document.addEventListener('touchstart', e => { touchX = e.touches[0].clientX; });
+  document.addEventListener('touchend',   e => {
+    if (touchX === null) return;
+    const dx = e.changedTouches[0].clientX - touchX;
+    if (Math.abs(dx) > 40) showSlide(current + (dx < 0 ? 1 : -1));
+    touchX = null;
+  });
+
+  // Init progress bar
+  progressBar.style.width = `${(1 / slides.length) * 100}%`;
+</script>
+</body>
+</html>
