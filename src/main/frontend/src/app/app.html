@@ -1,0 +1,23 @@
+<main class="container">
+  <h1>{{ title() }}</h1>
+  <p class="subtitle">
+    Angular 21 frontend served by a Spring Boot backend &mdash; packaged as a single JAR.
+  </p>
+
+  <section class="demo">
+    <label for="name">Name</label>
+    <div class="row">
+      <input id="name" type="text" [(ngModel)]="name" name="name" />
+      <button type="button" (click)="callBackend()">Call backend</button>
+    </div>
+
+    @if (greeting(); as g) {
+      <p class="result">{{ g.message }} <small>({{ g.timestamp }})</small></p>
+    }
+    @if (error(); as e) {
+      <p class="error">{{ e }}</p>
+    }
+  </section>
+</main>
+
+<router-outlet />

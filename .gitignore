@@ -29,3 +29,12 @@ replay_pid*
 # Temporary files (Word, Excel, PowerPoint, LibreOffice, OpenOffice)
 .~lock.*
 .~$*
+
+# Maven
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# Angular
+src/main/frontend/node_modules/
+src/main/frontend/dist/
+src/main/frontend/.angular/

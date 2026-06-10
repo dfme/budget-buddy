@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: spring-boot-with-angular-template
+
+server:
+  port: 8080
+
+# In production the JAR serves both the API and the compiled Angular app on the
+# same origin (http://localhost:8080), so no CORS configuration is required.
