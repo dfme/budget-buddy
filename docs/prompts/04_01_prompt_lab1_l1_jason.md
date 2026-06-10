@@ -140,7 +140,7 @@ SP = Story Points | **Dep** = hängt von Task-IDs ab
 |---------|-------|-------------|
 | DevOps/Infra | 3 | 7 |
 | DB | 4 | 6 |
-| Backend | 15 | 51 |
+| Backend | 16 | 51 |
 | Frontend | 12 | 30 |
 | **Total** | **34** | **94 SP** |
 
