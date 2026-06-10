@@ -271,7 +271,7 @@
   <div class="slide active" id="s1">
     <div class="label">CAS ADAI 2026 · BFH Biel</div>
     <h1>BudgetBuddy<br><span style="color:var(--accent)">Sprint 1</span></h1>
-    <p class="subtitle">3 Entwickler · 2 Wochen · 16 Story Points</p>
+    <p class="subtitle">3 Entwickler · 2 Wochen · 18 Story Points</p>
     <p class="subtitle" style="margin-top:8px;font-size:.9rem">Angular 21 · Spring Boot 3.5 · SQLite · Claude API</p>
   </div>
 
@@ -282,7 +282,8 @@
     <div class="goal-box">
       CI-Pipeline grün, Datenbankschema deployed,<br>
       authentifizierter API-Call gegen <code>GET /users/me</code><br>
-      liefert valide JWT-Response —<br>
+      liefert valide JWT-Response,<br>
+      Deployment-Pfad auf Render konfiguriert —<br>
       <span style="color:var(--accent);font-weight:600">Sprint 2 kann sofort Features bauen.</span>
     </div>
   </div>
@@ -293,19 +294,19 @@
     <h2>Backlog-Übersicht</h2>
     <div class="stats">
       <div class="stat">
-        <div class="num">35</div>
+        <div class="num">37</div>
         <div class="desc">Tasks total<br>im Backlog</div>
       </div>
       <div class="stat">
-        <div class="num" style="color:var(--muted)">94</div>
+        <div class="num" style="color:var(--muted)">100</div>
         <div class="desc">Story Points<br>gesamt</div>
       </div>
       <div class="stat">
-        <div class="num green">8</div>
+        <div class="num green">9</div>
         <div class="desc">Tasks<br>in Sprint 1</div>
       </div>
       <div class="stat">
-        <div class="num blue">16</div>
+        <div class="num blue">18</div>
         <div class="desc">Story Points<br>Sprint 1</div>
       </div>
     </div>
@@ -322,7 +323,7 @@
 
   <!-- Slide 4: Tasks -->
   <div class="slide" id="s4">
-    <div class="label">Sprint 1 — 8 Tasks</div>
+    <div class="label">Sprint 1 — 9 Tasks</div>
     <table class="task-table">
       <thead>
         <tr>
@@ -336,9 +337,10 @@
         <tr><td style="color:var(--muted)">#1</td><td>Spring Boot Skeleton</td><td><span class="tag ops">DevOps</span></td><td><span class="sp-badge">3</span></td></tr>
         <tr><td style="color:var(--muted)">#2</td><td>Angular Skeleton</td><td><span class="tag fe">Frontend</span></td><td><span class="sp-badge">2</span></td></tr>
         <tr><td style="color:var(--muted)">#3</td><td>GitHub Actions CI</td><td><span class="tag ops">DevOps</span></td><td><span class="sp-badge">2</span></td></tr>
-        <tr><td style="color:var(--muted)">#4</td><td>Flyway V1 — users</td><td><span class="tag db">DB</span></td><td><span class="sp-badge">1</span></td></tr>
-        <tr><td style="color:var(--muted)">#5</td><td>Flyway V2 — transactions</td><td><span class="tag db">DB</span></td><td><span class="sp-badge">2</span></td></tr>
-        <tr><td style="color:var(--muted)">#6</td><td>Flyway V3 — fixed_costs</td><td><span class="tag db">DB</span></td><td><span class="sp-badge">1</span></td></tr>
+        <tr><td style="color:var(--muted)">#4</td><td>render.yaml + application-prod.properties</td><td><span class="tag ops">DevOps</span></td><td><span class="sp-badge">2</span></td></tr>
+        <tr><td style="color:var(--muted)">#5</td><td>Flyway V1 — users</td><td><span class="tag db">DB</span></td><td><span class="sp-badge">1</span></td></tr>
+        <tr><td style="color:var(--muted)">#6</td><td>Flyway V2 — transactions</td><td><span class="tag db">DB</span></td><td><span class="sp-badge">2</span></td></tr>
+        <tr><td style="color:var(--muted)">#7</td><td>Flyway V3 — fixed_costs</td><td><span class="tag db">DB</span></td><td><span class="sp-badge">1</span></td></tr>
         <tr><td style="color:var(--muted)">#8</td><td>JWT HS256 Filter</td><td><span class="tag be">Backend</span></td><td><span class="sp-badge">3</span></td></tr>
         <tr><td style="color:var(--muted)">#9</td><td>GET/PUT /users/me</td><td><span class="tag be">Backend</span></td><td><span class="sp-badge">2</span></td></tr>
       </tbody>
@@ -389,6 +391,10 @@
       <div class="excl-item">
         <div class="excl-name">Safe-to-Spend<br><span style="color:var(--muted);font-weight:400">10 SP</span></div>
         <div class="excl-reason">Core-Feature, aber abhängig von Transaktionen + Fixkosten — frühestens Sprint 3</div>
+      </div>
+      <div class="excl-item">
+        <div class="excl-name">INFRA-05/06<br><span style="color:var(--muted);font-weight:400">4 SP</span></div>
+        <div class="excl-reason">Angular in JAR bundeln + CD-Pipeline — erst sinnvoll wenn CI grün und Angular-Build stabil → Sprint 2</div>
       </div>
     </div>
     <div class="principle">
