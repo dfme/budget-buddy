@@ -14,18 +14,18 @@ Wir sollen unser Sprint 1 präsentieren. Dazu gehört:
 
 ### Sprint-Ziel
 
-> **"Am Ende von Sprint 1 läuft die CI-Pipeline grün, das Datenbankschema ist deployed, und ein authentifizierter API-Call gegen `GET /users/me` liefert eine valide JWT-Response — Sprint 2 kann sofort Features bauen, ohne Infrastruktur-Schulden."**
+> **"Am Ende von Sprint 1 läuft die CI-Pipeline grün, das Datenbankschema ist deployed, ein authentifizierter API-Call gegen `GET /users/me` liefert eine valide JWT-Response, und der Deployment-Pfad auf Render ist konfiguriert — Sprint 2 kann sofort Features bauen, ohne Infrastruktur-Schulden."**
 
 ---
 
 ### Board-Übersicht
 
-**Gesamtes Backlog:** 35 Tasks · 94 Story Points
+**Gesamtes Backlog:** 37 Tasks · 100 Story Points
 
 | Status | Tasks | Story Points |
 |--------|-------|-------------|
-| **Todo (Sprint 1)** | 8 | 16 SP |
-| Backlog (Sprint 2+) | 27 | 78 SP |
+| **Todo (Sprint 1)** | 9 | 18 SP |
+| Backlog (Sprint 2+) | 28 | 82 SP |
 
 **Sprint-1-Tasks im Detail:**
 
@@ -34,9 +34,10 @@ Wir sollen unser Sprint 1 präsentieren. Dazu gehört:
 | #1 | INFRA-01: Spring Boot Skeleton | 3 | DevOps | Fundament für alle Backend-Tasks |
 | #2 | INFRA-02: Angular Skeleton | 2 | Frontend | Fundament für alle Frontend-Tasks |
 | #3 | INFRA-03: GitHub Actions CI | 2 | DevOps | Gebrochene Builds blockieren das ganze Team |
-| #4 | DB-01: Flyway V1 users | 1 | DB | Voraussetzung für Auth und alle anderen Tabellen |
-| #5 | DB-02: Flyway V2 transactions | 2 | DB | Kerntabelle für Import, Kategorisierung, Safe-to-Spend |
-| #6 | DB-03: Flyway V3 fixed_costs | 1 | DB | Voraussetzung für Fixkosten-Feature (Sprint 2) |
+| #4 | INFRA-04: `render.yaml` + `application-prod.properties` | 2 | DevOps | Reine Konfiguration — zusammen mit INFRA-01 erledigt; verhindert Deployment-Überraschungen kurz vor Demo |
+| #5 | DB-01: Flyway V1 users | 1 | DB | Voraussetzung für Auth und alle anderen Tabellen |
+| #6 | DB-02: Flyway V2 transactions | 2 | DB | Kerntabelle für Import, Kategorisierung, Safe-to-Spend |
+| #7 | DB-03: Flyway V3 fixed_costs | 1 | DB | Voraussetzung für Fixkosten-Feature (Sprint 2) |
 | #8 | BE-AUTH-01: JWT HS256 Filter | 3 | Backend | Alle Endpoints brauchen Auth — muss zuerst stehen |
 | #9 | BE-AUTH-02: GET/PUT /users/me | 2 | Backend | Onboarding-Status und Einkommen — Basis für US-03/06 |
 
@@ -66,6 +67,8 @@ Das ist der grösste und unberechenbarste Task im gesamten Backlog. Warum riskan
 
 | Task | Warum rausgelassen |
 |------|--------------------|
+| **INFRA-05: Angular in JAR bundeln (3 SP)** | Abhängig von stabilem Angular-Build und CI — erst sinnvoll wenn INFRA-03 grün läuft → Sprint 2 |
+| **INFRA-06: GitHub Actions CD (1 SP)** | Setzt INFRA-05 voraus; CD ohne lauffähiges Bundle ist sinnlos → Sprint 2 |
 | **DB-04: category_lookup Seed-Daten (2 SP)** | Wird erst in Sprint 2/3 bei Kategorisierung gebraucht — zu früh geschriebene Seed-Daten veralten |
 | **BE-PDF-01: PDFBox-Parser (8 SP)** | Risikoreichster Task — braucht stabiles DB-Schema und Auth als Voraussetzung |
 | **BE-CAT-02: Claude API (5 SP)** | Externe Abhängigkeit; API-Key und Prompt-Design erst sinnvoll wenn Parser steht |

@@ -31,8 +31,11 @@ SP = Story Points | **Dep** = hängt von Task-IDs ab
 | INFRA-01 | Spring Boot Skeleton: pom.xml mit allen Dependencies (sqlite-jdbc, PDFBox 3.x, Anthropic SDK, JJWT, Springdoc, Flyway), Application.properties, Package-Struktur anlegen | 3 | Backend/DevOps | — |
 | INFRA-02 | Angular Skeleton: Angular 21 CLI, ng2-charts, HttpClient mit `withCredentials:true`, OnPush global, Routing-Grundstruktur | 2 | Frontend | — |
 | INFRA-03 | GitHub Actions CI: `mvn test` + `ng build` bei jedem PR | 2 | DevOps | INFRA-01, INFRA-02 |
+| INFRA-04 | `render.yaml` + `application-prod.properties`: Render Web Service konfigurieren (Build-Command `mvn package -DskipTests`, Start-Command `java -jar target/*.jar`), SQLite-Pfad auf persistentem Render Disk, Env-Var-Liste dokumentieren (`ANTHROPIC_API_KEY`, `JWT_SECRET`) | 2 | DevOps | INFRA-01 |
+| INFRA-05 | Angular-Build in Spring Boot JAR bundeln: `frontend-maven-plugin` in `pom.xml` einbinden, `ng build --output-path=src/main/resources/static` — Angular-Assets werden beim `mvn package` automatisch eingebettet | 3 | DevOps/Frontend | INFRA-01, INFRA-02 |
+| INFRA-06 | GitHub Actions CD: Render Deploy Hook nach erfolgreichem Build auf `main` auslösen; Smoke-Test gegen `/actuator/health` nach Deploy | 1 | DevOps | INFRA-03, INFRA-04 |
 
-**Wave-0-Total: 7 SP**
+**Wave-0-Total: 13 SP**
 
 ---
 
@@ -138,11 +141,11 @@ SP = Story Points | **Dep** = hängt von Task-IDs ab
 
 | Bereich | Tasks | Story Points |
 |---------|-------|-------------|
-| DevOps/Infra | 3 | 7 |
+| DevOps/Infra | 6 | 13 |
 | DB | 4 | 6 |
 | Backend | 16 | 51 |
 | Frontend | 12 | 30 |
-| **Total** | **34** | **94 SP** |
+| **Total** | **37** | **100 SP** |
 
 ---
 
@@ -150,9 +153,11 @@ SP = Story Points | **Dep** = hängt von Task-IDs ab
 
 ```
 [Wave 0] INFRA-01, INFRA-02 (parallel)
+    │       + INFRA-04 (render.yaml)
+    │       + INFRA-05 (Angular in JAR)
     │
 [Wave 1] DB-01 → DB-02, DB-03, DB-04 (parallel)
-    │                           + INFRA-03 (CI)
+    │                           + INFRA-03 (CI) → INFRA-06 (CD)
 [Wave 2A] BE-AUTH-01 → BE-AUTH-02
 [Wave 2B] BE-FC-01 → BE-FC-02 → BE-FC-03         ← US-03 Backend ready
 [Wave 2C] BE-CAT-01 → BE-CAT-02 → BE-CAT-03      ← muss vor PDF-Import fertig sein
