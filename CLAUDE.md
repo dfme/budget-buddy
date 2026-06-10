@@ -235,6 +235,16 @@ MVP: synchron — der Upload-Endpoint blockiert bis Import und Kategorisierung a
 
 Upgrade-Pfad (wenn Wartezeiten zu Churn führen): Spring `@Async` + `ImportJob`-Entity in SQLite + Status-Polling `GET /import/{jobId}/status`. Kein Kafka, kein Redis nötig.
 
+### Sicherheit: Keine Secrets im Git
+
+Credentials, API-Keys und Passwörter dürfen nie ins Git-Repository gelangen. `.env`-Dateien müssen in `.gitignore` stehen. Der `ANTHROPIC_API_KEY` und der JWT-Secret werden ausschliesslich als Umgebungsvariablen übergeben — nie hardcodiert im Code oder in `application.properties`. Bei versehentlichem Commit: sofortiger Key-Rotation + Incident-Assessment nach nDSG.
+
+### Backend: Geldbeträge immer als `BigDecimal`
+
+Alle CHF-Beträge — in Entities, Services, DTOs und Berechnungen — müssen `BigDecimal` verwenden. `double` und `float` sind verboten (ADR-9: Binäre Gleitkomma-Arithmetik kann CHF-Beträge nicht exakt darstellen und erzeugt Rundungsfehler in der Safe-to-Spend-Berechnung).
+
+In der Datenbank: `DECIMAL(10,2)`. Beim Parsen von PDF-Beträgen: `replace("'", "")` vor `new BigDecimal(...)`.
+
 ### Backend: Timeouts + Fallback für externe Calls
 
 Alle Calls zu Claude API und PDFBox müssen einen Timeout haben und bei Fehler auf `"Sonstiges"` fallen:
