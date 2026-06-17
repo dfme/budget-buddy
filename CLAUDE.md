@@ -113,6 +113,7 @@ BudgetBuddy is a web app for students and young professionals living in Switzerl
 | ----------- | ---------------------------------------------- | ------------------- | ------------------------------------------------------- |
 | Runtime     | Java                                           | 25 (LTS)            | Project-locked                                          |
 | Framework   | Spring Boot                                    | 3.5.3               | Project-locked; latest 3.x stable                       |
+| Build Tool  | Maven                                          | 3.9.x                | Project-locked; via Maven Wrapper (`mvnw`)              |
 | Web layer   | Spring Web MVC                                 | (bundled)           | Synchronous; correct for blocking SQLite JDBC           |
 | Security    | Spring Security                                | 6.5.x               | Stateless JWT resource server pattern                   |
 | ORM         | Spring Data JPA + Hibernate                    | (bundled)           | Repository pattern; needs community dialect for SQLite  |
@@ -130,6 +131,8 @@ BudgetBuddy is a web app for students and young professionals living in Switzerl
 | Layer            | Technology                             | Version   | Rationale                                                                    |
 | ---------------- | -------------------------------------- | --------- | ---------------------------------------------------------------------------- |
 | Framework        | Angular                                | 21.x      | Project-locked; standalone components, Signals                               |
+| Build Tool       | Angular CLI (`@angular/cli`)           | 21.x      | Standard; esbuild-basiert seit Angular 17+                                  |
+| Package Manager  | npm                                    | (bundled) | Bundled mit Node.js; kein Mehraufwand gegenüber pnpm/yarn für MVP-Scope    |
 | State            | Angular Signals + Services             | (bundled) | No NgRx needed for MVP scope                                                 |
 | Forms            | Reactive Forms (FormGroup)             | (bundled) | Stable; Signal Forms still experimental                                      |
 | HTTP auth        | `withCredentials: true` auf HttpClient | (bundled) | Cookie automatisch mitgesendet; kein manueller HttpInterceptor nötig (ADR-7) |
@@ -166,6 +169,7 @@ BudgetBuddy is a web app for students and young professionals living in Switzerl
 | Technology                 | Why Not                                                                         |
 | -------------------------- | ------------------------------------------------------------------------------- |
 | Spring Boot 4              | Explicit project risk decision — milestone releases only                        |
+| Gradle                     | Maven ist Build-Tool-Entscheid; Team-Konsistenz mit Standard-Spring-Boot-Setup  |
 | Spring WebFlux             | SQLite JDBC is blocking; reactive wrapping adds complexity with no benefit      |
 | iText 7                    | AGPL license — requires open-sourcing or commercial license                     |
 | Tabula-java                | Designed for scanned PDFs; Swiss bank PDFs have a text layer                    |
