@@ -17,7 +17,7 @@ BudgetBuddy benötigt eine Systemarchitektur zur Verwaltung sensibler Finanzdate
 Wir implementieren eine **Single Page App (SPA) + REST API Architektur**:
 
 - **Frontend:** Angular 21.x (TypeScript), lädt im Browser
-- **Backend:** Java 21 + Spring Boot 3.5.x; exponiert REST API via OpenAPI 3.0
+- **Backend:** Java 25 + Spring Boot 3.5.x; exponiert REST API via OpenAPI 3.0
 - **Kommunikation:** Stateless JWT, Token als `httpOnly; Secure; SameSite=Strict` Cookie (kein Bearer-Header, kein localStorage)
 - **Angular:** Requests mit `withCredentials: true`; Browser sendet Cookie automatisch — kein manueller `HttpInterceptor` nötig
 - **CORS:** Explizit konfiguriert für Entwicklung (`http://localhost:4200`); in Produktion entfällt CORS (SPA gebündelt im JAR, gleicher Origin)
@@ -45,6 +45,7 @@ Wir implementieren eine **Single Page App (SPA) + REST API Architektur**:
 ### Server-Side Rendering (Next.js / Thymeleaf)
 
 **Rejected.** SSR würde den Initial Pageload schneller machen, aber:
+
 - Jede Benutzerinteraktion = neuer HTTP-Request
 - Erschwert zukünftige mobile App-Entwicklung (separate APIs nötig)
 - Für MVP-Tempo ist SPA-Setup schneller
@@ -52,6 +53,7 @@ Wir implementieren eine **Single Page App (SPA) + REST API Architektur**:
 ### Monolith mit integriertem Frontend (JSP/Thymeleaf)
 
 **Rejected.** Frontend und Backend wären an denselben Release-Zyklus gebunden:
+
 - Gemischte Toolchains (JavaScript + Java in einer Codebase)
 - Skalierung erzwingt gemeinsame Skalierung von UI und API
 - Nicht zukunftssicher für mobile Apps

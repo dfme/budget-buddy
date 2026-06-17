@@ -12,31 +12,33 @@ Diese Dokumentation hält die **wichtigsten Architektur-Entscheidungen** für Bu
 
 ## ADR Index
 
-| # | Titel | Status | Auswirkung |
-|---|-------|--------|-----------|
-| **ADR-0** | [Frontend-Backend-Trennung (SPA + REST API)](ADR-0-frontend-backend-separation.md) | ✅ Accepted | Gesamte Systemarchitektur |
-| **ADR-1** | [Java 21 + Spring Boot 3.5.x Backend](ADR-1-java-spring-boot-backend.md) | ✅ Accepted | Backend Tech Stack |
-| **ADR-2** | [Angular 21.x Frontend](ADR-2-angular-frontend.md) | ✅ Accepted | Frontend Tech Stack |
-| **ADR-3** | [REST API vs. GraphQL](ADR-3-rest-vs-graphql.md) | ✅ Accepted | API-Design |
-| **ADR-4** | [Monolith vs. Microservices](ADR-4-monolith-vs-microservices.md) | ✅ Accepted | Backend-Deployment |
-| **ADR-5** | [SQLite für MVP-Datenbank](ADR-5-sqlite-mvp-database.md) | ✅ Accepted | Datenspeicherung |
-| **ADR-6** | [Hybrid-Kategorisierung (Lookup + Claude API)](ADR-6-hybrid-categorization.md) | ✅ Accepted | Transaction Categorization |
-| **ADR-7** | [JWT (Stateless) Authentication](ADR-7-jwt-authentication.md) | ✅ Accepted | User Auth & Session Mgmt |
-| **ADR-8** | [Apache PDFBox 3.x für PDF-Verarbeitung](ADR-8-apache-pdfbox.md) | ✅ Accepted | PDF-Import |
-| **ADR-9** | [BigDecimal für Geldbeträge](ADR-9-bigdecimal-money.md) | ✅ Accepted | Money Calculations |
-| **ADR-10** | [Hosting-Plattform und Deployment-Strategie](ADR-10-hosting-plattform.md) | ✅ Accepted | Deployment & Hosting |
+| #          | Titel                                                                              | Status      | Auswirkung                 |
+| ---------- | ---------------------------------------------------------------------------------- | ----------- | -------------------------- |
+| **ADR-0**  | [Frontend-Backend-Trennung (SPA + REST API)](ADR-0-frontend-backend-separation.md) | ✅ Accepted | Gesamte Systemarchitektur  |
+| **ADR-1**  | [Java 25 + Spring Boot 3.5.x Backend](ADR-1-java-spring-boot-backend.md)           | ✅ Accepted | Backend Tech Stack         |
+| **ADR-2**  | [Angular 21.x Frontend](ADR-2-angular-frontend.md)                                 | ✅ Accepted | Frontend Tech Stack        |
+| **ADR-3**  | [REST API vs. GraphQL](ADR-3-rest-vs-graphql.md)                                   | ✅ Accepted | API-Design                 |
+| **ADR-4**  | [Monolith vs. Microservices](ADR-4-monolith-vs-microservices.md)                   | ✅ Accepted | Backend-Deployment         |
+| **ADR-5**  | [SQLite für MVP-Datenbank](ADR-5-sqlite-mvp-database.md)                           | ✅ Accepted | Datenspeicherung           |
+| **ADR-6**  | [Hybrid-Kategorisierung (Lookup + Claude API)](ADR-6-hybrid-categorization.md)     | ✅ Accepted | Transaction Categorization |
+| **ADR-7**  | [JWT (Stateless) Authentication](ADR-7-jwt-authentication.md)                      | ✅ Accepted | User Auth & Session Mgmt   |
+| **ADR-8**  | [Apache PDFBox 3.x für PDF-Verarbeitung](ADR-8-apache-pdfbox.md)                   | ✅ Accepted | PDF-Import                 |
+| **ADR-9**  | [BigDecimal für Geldbeträge](ADR-9-bigdecimal-money.md)                            | ✅ Accepted | Money Calculations         |
+| **ADR-10** | [Hosting-Plattform und Deployment-Strategie](ADR-10-hosting-plattform.md)          | ✅ Accepted | Deployment & Hosting       |
 
 ---
 
 ## Übersicht nach Kategorie
 
 ### Fundamentale Architektur-Entscheidungen
+
 - **ADR-0:** Frontend-Backend-Trennung → SPA + REST API
 - **ADR-4:** Monolith statt Microservices (für MVP)
 - **ADR-10:** Hosting auf Render (Frankfurt/EU), SPA gebündelt im Spring Boot JAR
 
 ### Technology Stack
-- **ADR-1:** Java 21 + Spring Boot (Backend)
+
+- **ADR-1:** Java 25 + Spring Boot (Backend)
 - **ADR-2:** Angular 21 (Frontend)
 - **ADR-5:** SQLite (Datenbank)
 - **ADR-7:** JWT (Authentication)
@@ -44,6 +46,7 @@ Diese Dokumentation hält die **wichtigsten Architektur-Entscheidungen** für Bu
 - **ADR-9:** BigDecimal (Geldbeträge)
 
 ### Feature-Spezifische Entscheidungen
+
 - **ADR-3:** REST API (statt GraphQL)
 - **ADR-6:** Hybrid Kategorisierung (Lookup + Claude API)
 
@@ -52,26 +55,34 @@ Diese Dokumentation hält die **wichtigsten Architektur-Entscheidungen** für Bu
 ## Entscheidungs-Prinzipien
 
 ### MVP-First
+
 Alle Entscheidungen optimieren für schnelle MVP-Auslieferung, nicht für infinite Skalierbarkeit:
+
 - Monolith statt Microservices
 - SQLite statt PostgreSQL (Migration Path vorhanden)
 - JWT statt Session-Store (keine extra Infrastruktur)
 
 ### Pragmatische Tech-Wahl
+
 Gewählte Technologien sind:
+
 - **Reif & bewährt** (nicht experimental)
 - **Gut dokumentiert** (Team kann lernen)
 - **Open Source freundlich** (keine Licensing-Probleme)
 - **Team-familiar** (Studierende kennen Java/Angular)
 
 ### Fallback-Sicherheit
+
 Kritische Systeme haben Fallbacks:
+
 - PDF-Import mit Fehlerbehandlung (nie die Flow blockieren)
 - Claude API mit Fallback zu "Sonstiges" (wenn API down)
 - User-Korrektionen trainieren das System (Feeedback-Loop)
 
 ### Zukünftige Skalierbarkeit
+
 Architektur ermöglicht Upgrades **ohne Rewrite**:
+
 - SQLite → PostgreSQL (1-2 Sprints)
 - Monolith → Async Workers (bei Report-Generation)
 - JWT → Refresh Token Rotation (bei Logout-Anforderung)
@@ -82,20 +93,24 @@ Architektur ermöglicht Upgrades **ohne Rewrite**:
 ## Verwendung dieser ADRs
 
 ### Für neue Entwickler
+
 1. Lese **ADR-0** für System-Überblick
 2. Lese **ADR-1, ADR-2** für Tech-Stack
 3. Lese feature-spezifische ADR wenn du diese Feature arbeitest
 
 ### Für Code-Reviews
+
 - Verlinkung zu relevantem ADR in PR-Comments
 - Beispiel: "Diese Änderung trifft ADR-9 (BigDecimal). Bitte sicherstellen, dass alle Geldbeträge BigDecimal verwenden."
 
 ### Für Future Refactorings
+
 - **Migration zu PostgreSQL?** → Siehe ADR-5 Migration Path
 - **Adding Microservices?** → Siehe ADR-4 Warnsignale
 - **Instant Logout?** → Siehe ADR-7 Consequences
 
 ### Für neue Entscheidungen
+
 - Folge dem ADR-Template (Context → Decision → Rationale → Consequences)
 - Nummeriere in Reihenfolge (ADR-10, ADR-11, ...)
 - Verlinke auf verwandte ADRs
@@ -135,9 +150,11 @@ ADR-0: Frontend-Backend-Trennung
 ---
 
 ## Context
+
 [Problem-Beschreibung, Anforderungen, Constraints]
 
 ### Optionen
+
 1. **Option A** — [Beschreibung]
 2. **Option B** — [Beschreibung]
 3. **Option C** — [Beschreibung]
@@ -145,51 +162,61 @@ ADR-0: Frontend-Backend-Trennung
 ---
 
 ## Decision
+
 [Gewählte Lösung]
 
 ---
 
 ## Rationale
+
 [Warum diese Lösung besser ist als Alternativen]
 
 | Kriterium | Option A | Option B | Option C |
-|-----------|----------|----------|----------|
-| ... | ... | ... | ... |
+| --------- | -------- | -------- | -------- |
+| ...       | ...      | ...      | ...      |
 
 ---
 
 ## Consequences
 
 ### ✅ Positive
+
 - [Vorteil 1]
 - [Vorteil 2]
 
 ### ⚠️ Negative
+
 - [Nachteil 1]
 - [Nachteil 2]
 
 ### 🔄 Mitigations
-| Problem | Mitigation |
-|---------|-----------|
+
+| Problem     | Mitigation |
+| ----------- | ---------- |
 | [Problem 1] | [Lösung 1] |
 
 ---
 
 ## Alternatives Considered
+
 ### ❌ Option A
+
 [Warum abgelehnt]
 
 ### ⚠️ Option B
+
 [Warum abgelehnt oder später relevant]
 
 ---
 
 ## Related Decisions
+
 - **ADR-X:** [Related ADR Title]
 
 ---
 
 ## References
+
 - [Link 1]
 - [Link 2]
 ```
