@@ -269,6 +269,14 @@ Alle Calls zu Claude API und PDFBox müssen einen Timeout haben und bei Fehler a
 
 Ein fehlgeschlagener Claude-Call darf nie den gesamten Import-Flow blockieren (Churn-Risiko #1).
 
+### Testing: Frameworks
+
+| Stufe       | Backend                                                                                 | Frontend        | Coverage-Ziel |
+| ----------- | ---------------------------------------------------------------------------------------- | ---------------- | -------------- |
+| Unit        | JUnit 5 + Mockito + AssertJ                                                               | Vitest            | Backend 80% (90%+ für `budget/`, `categorization/`); Frontend 70–75% |
+| Integration | Spring Boot Test (`@DataJpaTest`, `@WebMvcTest`, `@SpringBootTest`) mit `jdbc:sqlite::memory:` | Angular TestBed | Keine eigene %-Zahl — jeder Endpoint und jede Migration mind. 1× getestet |
+| E2E         | Playwright                                                                                 | Playwright        | Keine Coverage-Metrik — alle Must-Have User Stories (US-03/04/05/06): 1 Happy Path + 1 Fehlerpfad |
+
 ## Architecture
 
 ### C2 Container Diagram
