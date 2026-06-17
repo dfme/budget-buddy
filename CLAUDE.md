@@ -113,7 +113,7 @@ BudgetBuddy is a web app for students and young professionals living in Switzerl
 | ----------- | ---------------------------------------------- | ------------------- | ------------------------------------------------------- |
 | Runtime     | Java                                           | 25 (LTS)            | Project-locked                                          |
 | Framework   | Spring Boot                                    | 3.5.3               | Project-locked; latest 3.x stable                       |
-| Build Tool  | Maven                                          | 3.9.x                | Project-locked; via Maven Wrapper (`mvnw`)              |
+| Build Tool  | Maven                                          | 3.9.x               | Project-locked; via Maven Wrapper (`mvnw`)              |
 | Web layer   | Spring Web MVC                                 | (bundled)           | Synchronous; correct for blocking SQLite JDBC           |
 | Security    | Spring Security                                | 6.5.x               | Stateless JWT resource server pattern                   |
 | ORM         | Spring Data JPA + Hibernate                    | (bundled)           | Repository pattern; needs community dialect for SQLite  |
@@ -131,8 +131,8 @@ BudgetBuddy is a web app for students and young professionals living in Switzerl
 | Layer            | Technology                             | Version   | Rationale                                                                    |
 | ---------------- | -------------------------------------- | --------- | ---------------------------------------------------------------------------- |
 | Framework        | Angular                                | 21.x      | Project-locked; standalone components, Signals                               |
-| Build Tool       | Angular CLI (`@angular/cli`)           | 21.x      | Standard; esbuild-basiert seit Angular 17+                                  |
-| Package Manager  | npm                                    | (bundled) | Bundled mit Node.js; kein Mehraufwand gegenüber pnpm/yarn für MVP-Scope    |
+| Build Tool       | Angular CLI (`@angular/cli`)           | 21.x      | Standard; esbuild-basiert seit Angular 17+                                   |
+| Package Manager  | npm                                    | (bundled) | Bundled mit Node.js; kein Mehraufwand gegenüber pnpm/yarn für MVP-Scope      |
 | State            | Angular Signals + Services             | (bundled) | No NgRx needed for MVP scope                                                 |
 | Forms            | Reactive Forms (FormGroup)             | (bundled) | Stable; Signal Forms still experimental                                      |
 | HTTP auth        | `withCredentials: true` auf HttpClient | (bundled) | Cookie automatisch mitgesendet; kein manueller HttpInterceptor nötig (ADR-7) |
@@ -288,7 +288,7 @@ Browser (Lara, Marc)
                    │ (gleicher Host in Prod → kein CORS)
                    ▼
 ┌─────────────────────────────────────────────────────┐     ┌────────────────────┐
-│  API Application  [Spring Boot 3.5 / Java 21, JAR]  │     │  Anthropic Claude  │
+│  API Application  [Spring Boot 3.5 / Java 25, JAR]  │     │  Anthropic Claude  │
 │                                                     │     │   [Ext. System]    │
 │  auth/         JWT HS256, bcrypt, httpOnly Cookie   │     └────────▲───────────┘
 │  transaction/  PDF-Upload → sync, Timeout+Fallback  │             │
@@ -316,7 +316,7 @@ Browser (Lara, Marc)
 | Container       | Technologie                          | Kernaufgabe                                                             |
 | --------------- | ------------------------------------ | ----------------------------------------------------------------------- |
 | Web SPA         | Angular 21, Signals, Reactive Forms  | UI: Onboarding, PDF-Upload, Dashboard, Korrekturen                      |
-| API Application | Spring Boot 3.5, Java 21, Single JAR | Auth, PDF-Parsing, Kategorisierung, Berechnungen, KI-Bericht            |
+| API Application | Spring Boot 3.5, Java 25, Single JAR | Auth, PDF-Parsing, Kategorisierung, Berechnungen, KI-Bericht            |
 | Database        | SQLite 3.x + Flyway                  | Persistenz: User, Transaktionen, Fixkosten, Lookup-Tabelle, Import-Jobs |
 
 **Bewusst weggelassen:** Redis/Cache, Message Queue, CDN, Microservices, eigener KI-Worker — alles Overengineering für 3 Devs / 3 Monate.
@@ -328,7 +328,7 @@ Vollständige ADRs: [docs/adr/README.md](docs/adr/README.md)
 | ADR                                                    | Entscheid                                                                            | Abgelehnte Alternativen                                                             |
 | ------------------------------------------------------ | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
 | [ADR-0](docs/adr/ADR-0-frontend-backend-separation.md) | SPA + REST API (Angular ↔ Spring Boot, JWT als httpOnly Cookie)                      | SSR (Next.js/Thymeleaf), Monolith mit JSP                                           |
-| [ADR-1](docs/adr/ADR-1-java-spring-boot-backend.md)    | Java 21 + Spring Boot 3.5.x                                                          | Node.js/Express, Python/FastAPI, Go, .NET 8                                         |
+| [ADR-1](docs/adr/ADR-1-java-spring-boot-backend.md)    | Java 25 + Spring Boot 3.5.x                                                          | Node.js/Express, Python/FastAPI, Go, .NET 8                                         |
 | [ADR-2](docs/adr/ADR-2-angular-frontend.md)            | Angular 21.x (Standalone Components, Signals, Reactive Forms)                        | React, Vue 3, Svelte, Astro                                                         |
 | [ADR-3](docs/adr/ADR-3-rest-vs-graphql.md)             | REST API + OpenAPI 3 (Springdoc)                                                     | GraphQL (Overkill, kein nativer File-Upload), gRPC                                  |
 | [ADR-4](docs/adr/ADR-4-monolith-vs-microservices.md)   | Single Spring Boot JAR (Monolith)                                                    | Microservices/K8s (zu komplex), Serverless (JVM Cold-Start)                         |
