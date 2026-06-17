@@ -10,6 +10,10 @@ assignees: ""
 
 <!-- Was soll gebaut werden? Kontext und Ziel in 2–3 Sätzen. -->
 
+## User Story
+
+Gehlrt zu der User-Story: <!-- z.B. [US-03](../../docs/requirements/US-03-fixkosten-wizard.md) -->
+
 ## Acceptance Criteria
 
 <!-- Was muss erfüllt sein, damit dieser Task als fertig gilt? -->
