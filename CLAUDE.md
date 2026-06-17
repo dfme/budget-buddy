@@ -217,18 +217,50 @@ Regel: Kein direkter Commit auf `main`. Jeder Branch wird per Pull Request gegen
 
 ### Backend: Package-Struktur (Modular Monolith)
 
-Packages nach Domäne, nicht nach Schicht:
+Packages nach Domäne, nicht nach Schicht, unterhalb von `backend/src/main/java/com/budgetbuddy/`:
 
 ```
-com.budgetbuddy
-  ├── auth/           (AuthController, AuthService, User-Entity, JWT-Config)
-  ├── transaction/    (TransactionController, PdfImportService, Transaction-Entity)
-  ├── categorization/ (CategorizationService, LookupTable, CategorizationPort)
-  ├── budget/         (BudgetController, SafeToSpendService, SavingsGoalService)
-  └── report/         (ReportController, AiReportService)
+backend/
+  └── src/main/java/com/budgetbuddy/
+        ├── auth/           (AuthController, AuthService, User-Entity, JWT-Config)
+        ├── transaction/    (TransactionController, PdfImportService, Transaction-Entity)
+        ├── categorization/ (CategorizationService, LookupTable, CategorizationPort)
+        ├── budget/         (BudgetController, SafeToSpendService, SavingsGoalService)
+        └── report/         (ReportController, AiReportService)
 ```
 
 Regel: Kein direkter Zugriff auf Repositories oder Services eines anderen Moduls. Cross-Modul-Kommunikation nur über definierte Interfaces.
+
+### Frontend: Feature-Struktur (nach Domäne)
+
+Angular Feature-Folders analog zu den Backend-Modulen, unterhalb von `frontend/src/app/`:
+
+```
+frontend/
+  └── src/app/
+        ├── auth/          (US-01: Login/Register)
+        ├── onboarding/    (US-03: Fixkosten-Wizard)
+        ├── transactions/  (US-04: Upload, US-05: Kategorisierung, US-13: pro Kategorie)
+        ├── dashboard/     (US-06: Safe-to-Spend, US-10: Monatsvergleich, US-12: Monatswechsel)
+        ├── savings/       (US-07: Sparziel)
+        ├── reports/       (US-09: KI-Monatsbericht)
+        ├── settings/      (US-02: Consent/Löschen, US-14: Passwort/Einkommen)
+        ├── shared/        (domänenübergreifende UI-Komponenten, Pipes)
+        └── core/          (Guards, Auth-State, HTTP-Error-Handling)
+```
+
+Regel: Kein NgRx — State liegt direkt in den Feature-Services via Signals (siehe Tech-Stack).
+
+### E2E: Verzeichnisstruktur
+
+Playwright-Tests in eigenem Verzeichnis ausserhalb von `backend/` und `frontend/`, da sie Frontend und Backend gemeinsam end-to-end testen:
+
+```
+e2e/
+  └── tests/   (1 Testfall pro Must-Have User Story: US-03, US-04, US-05, US-06)
+```
+
+Regel: Pro Must-Have Story je 1 Happy Path + 1 Fehlerpfad (siehe Testing: Frameworks).
 
 ### Backend: Claude API hinter Interface
 
