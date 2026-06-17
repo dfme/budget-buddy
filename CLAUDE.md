@@ -202,6 +202,25 @@ BudgetBuddy is a web app for students and young professionals living in Switzerl
 
 ## Conventions
 
+### Git: Branching-Strategie
+
+| Branch | Zweck | Format |
+|---|---|---|
+| `main` | Production-ready — immer deploybar | — |
+| Feature Branch | Für Tasks/User Stories | `feature/<TASK-ID>-<Freitext>` |
+| Bugfix Branch | Für Bugfixes | `fix/<TASK-ID>-<Freitext>` |
+
+Beispiele: `feature/US-04-pdf-upload`, `fix/INFRA-05-cors-header`
+
+Regel: Kein direkter Commit auf `main`. Jeder Branch wird per Pull Request gegen `main` gemergt.
+
+### Git: Review-Konvention
+
+1. **Lokaler Review durch Claude** — bevor ein PR erstellt wird, prüft Claude die Änderungen lokal
+2. **PR-Erstellung in GitHub** — erst nach erfolgreichem lokalem Review wird der PR in GitHub erstellt
+3. **Freigabe durch mind. 1 Dev** — der PR muss von mindestens einem Dev genehmigt werden, bevor er gemergt werden darf
+4. **Merge nur durch Dev** — der Merge auf `main` wird ausschliesslich von einem Dev getriggert, nie von Claude
+
 ### Backend: Package-Struktur (Modular Monolith)
 
 Packages nach Domäne, nicht nach Schicht:
