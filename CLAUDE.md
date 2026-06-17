@@ -1,6 +1,5 @@
-# BudgetBuddy — Projektstatus
+# BudgetBuddy
 
-**Stand:** 2026-05-06  
 **Kurs:** CAS Application Development with AI (ADAI) 2026 · BFH Biel · Ilja Rasin
 
 ---
