@@ -45,20 +45,6 @@
 
 ## Technische Entscheide
 
-### Tech Stack
-
-| Schicht | Technologie | Begründung |
-|---|---|---|
-| Frontend | Angular (TypeScript) | Component-basiert, Two-Way-Binding, gut für Forms |
-| Backend | Java 21 + Spring Boot 3.x | Typsicher, breites Ökosystem, Industriestandard |
-| API-Dokumentation | OpenAPI 3 (Springdoc) | Automatisch generierte Doku, Contract-First möglich |
-| Datenbank | SQLite | Einfach, kein separater DB-Server nötig — ideal für MVP |
-| KI | Claude API (Anthropic Java SDK) | Kategorisierung + KI-Monatsbericht |
-
-> **Hinweis SQLite:** Für das MVP ausreichend. Bei gleichzeitigen Schreibzugriffen mehrerer User kann SQLite zum Bottleneck werden — Migration zu PostgreSQL möglich, wenn nötig.
-
----
-
 ### Transaktions-Kategorisierung: Hybrid-Ansatz
 
 | Schritt                     | Methode                                  | Begründung                                                                    |
@@ -94,23 +80,22 @@ Antwort (nur Kategoriename):
 
 Vollständige Acceptance Criteria: [docs/requirements/](docs/requirements/)
 
-| #  | Story | Persona | MoSCoW |
-|----|-------|---------|--------|
-| [US-01](docs/requirements/US-01-konto-login.md) | Konto erstellen und einloggen | Lara | Should |
-| [US-02](docs/requirements/US-02-datenschutz-consent.md) | Datenschutz-Consent + Konto löschen (nDSG) | Marc | Should |
-| [US-03](docs/requirements/US-03-fixkosten-wizard.md) | Fixkosten erfassen (Onboarding-Wizard) | Lara | Must |
-| [US-04](docs/requirements/US-04-pdf-upload.md) | Kontoauszug als PDF hochladen | Lara | Must |
-| [US-05](docs/requirements/US-05-transaktionen-kategorisieren.md) | Transaktionen kategorisieren (Auto + manuell) | Lara | Must |
-| [US-06](docs/requirements/US-06-safe-to-spend.md) | Wöchentlicher Safe-to-Spend-Betrag | Lara | Must |
-| [US-07](docs/requirements/US-07-sparziel.md) | Sparziel definieren und verfolgen | Marc | Could |
-| [US-08](docs/requirements/US-08-wiederkehrende-ausgaben.md) | Wiederkehrende Ausgaben (Abos) erkennen | Marc | Should |
-| [US-09](docs/requirements/US-09-ki-monatsbericht.md) | KI-generierter Monatsbericht | Lara | Should |
-| [US-10](docs/requirements/US-10-monatsvergleich.md) | Monatsvergleich (aktuell vs. Vormonat) | Lara | Could |
-| [US-11](docs/requirements/US-11-openbanking.md) | OpenBanking-Anbindung | Lara | Could |
-| [US-12](docs/requirements/US-12-monatswechsel.md) | Zwischen Monaten wechseln | Lara | Should |
-| [US-13](docs/requirements/US-13-transaktionen-pro-kategorie.md) | Einzeltransaktionen pro Kategorie einsehen | Lara | Should |
-| [US-14](docs/requirements/US-14-einstellungen.md) | Passwort und Einkommen in Einstellungen ändern | Marc | Should |
-
+| #                                                                | Story                                          | Persona | MoSCoW |
+| ---------------------------------------------------------------- | ---------------------------------------------- | ------- | ------ |
+| [US-01](docs/requirements/US-01-konto-login.md)                  | Konto erstellen und einloggen                  | Lara    | Should |
+| [US-02](docs/requirements/US-02-datenschutz-consent.md)          | Datenschutz-Consent + Konto löschen (nDSG)     | Marc    | Should |
+| [US-03](docs/requirements/US-03-fixkosten-wizard.md)             | Fixkosten erfassen (Onboarding-Wizard)         | Lara    | Must   |
+| [US-04](docs/requirements/US-04-pdf-upload.md)                   | Kontoauszug als PDF hochladen                  | Lara    | Must   |
+| [US-05](docs/requirements/US-05-transaktionen-kategorisieren.md) | Transaktionen kategorisieren (Auto + manuell)  | Lara    | Must   |
+| [US-06](docs/requirements/US-06-safe-to-spend.md)                | Wöchentlicher Safe-to-Spend-Betrag             | Lara    | Must   |
+| [US-07](docs/requirements/US-07-sparziel.md)                     | Sparziel definieren und verfolgen              | Marc    | Could  |
+| [US-08](docs/requirements/US-08-wiederkehrende-ausgaben.md)      | Wiederkehrende Ausgaben (Abos) erkennen        | Marc    | Should |
+| [US-09](docs/requirements/US-09-ki-monatsbericht.md)             | KI-generierter Monatsbericht                   | Lara    | Should |
+| [US-10](docs/requirements/US-10-monatsvergleich.md)              | Monatsvergleich (aktuell vs. Vormonat)         | Lara    | Could  |
+| [US-11](docs/requirements/US-11-openbanking.md)                  | OpenBanking-Anbindung                          | Lara    | Could  |
+| [US-12](docs/requirements/US-12-monatswechsel.md)                | Zwischen Monaten wechseln                      | Lara    | Should |
+| [US-13](docs/requirements/US-13-transaktionen-pro-kategorie.md)  | Einzeltransaktionen pro Kategorie einsehen     | Lara    | Should |
+| [US-14](docs/requirements/US-14-einstellungen.md)                | Passwort und Einkommen in Einstellungen ändern | Marc    | Should |
 
 ## Project
 
@@ -120,95 +105,100 @@ BudgetBuddy is a web app for students and young professionals living in Switzerl
 
 **Core Value:** A weekly Safe-to-Spend number users can trust — calculated from real transaction data, not manual entry.
 
-### Constraints
-
-- **Tech Stack**: Angular (frontend), Java 21 + Spring Boot 3.x (backend), SQLite (MVP DB), Claude API via Anthropic Java SDK, OpenAPI 3 / Springdoc — locked in
-- **Database**: SQLite for MVP; migration path to PostgreSQL exists if concurrent writes become bottleneck
-- **Geography**: Switzerland only — CHF, Swiss banks (UBS, Raiffeisen, PostFinance), nDSG
-- **Privacy**: Sensitive financial data — security is existential; compliance with Swiss nDSG required (including right to deletion)
-- **Timeline**: No hard deadline; MVP-first mentality — validate core safe-to-spend concept, then iterate
-
 ## Technology Stack
 
-## Confidence: HIGH on framework/library choices, MEDIUM on a few version patches
-## Recommended Stack
 ### Backend
-| Layer | Technology | Version | Rationale |
-|-------|-----------|---------|-----------|
-| Runtime | Java | 25 (LTS) | Project-locked |
-| Framework | Spring Boot | 3.5.3 | Project-locked; latest 3.x stable |
-| Web layer | Spring Web MVC | (bundled) | Synchronous; correct for blocking SQLite JDBC |
-| Security | Spring Security | 6.5.x | Stateless JWT resource server pattern |
-| ORM | Spring Data JPA + Hibernate | (bundled) | Repository pattern; needs community dialect for SQLite |
-| DB | SQLite | 3.x | Project-locked for MVP |
-| JDBC driver | org.xerial:sqlite-jdbc | 3.49.x | Only production JDBC driver for SQLite |
-| Dialect | org.hibernate.orm:hibernate-community-dialects | (Hibernate version) | Provides `SQLiteDialect` |
-| Migrations | Flyway | 10.x | SQLite-confirmed; essential for team schema sync |
-| JWT | io.jsonwebtoken:jjwt-* | 0.12.x | HS256 signing, fluent builder API |
-| API docs | Springdoc OpenAPI | 2.8.17 | Spring Boot 3.5 compatible; zero-config Swagger UI |
-| AI | com.anthropic:anthropic-java | 2.31.0 | Official Anthropic SDK |
-| PDF parsing | org.apache.pdfbox:pdfbox | 3.0.x | Apache-licensed; correct for text-layer Swiss bank PDFs |
+
+| Layer       | Technology                                     | Version             | Rationale                                               |
+| ----------- | ---------------------------------------------- | ------------------- | ------------------------------------------------------- |
+| Runtime     | Java                                           | 25 (LTS)            | Project-locked                                          |
+| Framework   | Spring Boot                                    | 3.5.3               | Project-locked; latest 3.x stable                       |
+| Web layer   | Spring Web MVC                                 | (bundled)           | Synchronous; correct for blocking SQLite JDBC           |
+| Security    | Spring Security                                | 6.5.x               | Stateless JWT resource server pattern                   |
+| ORM         | Spring Data JPA + Hibernate                    | (bundled)           | Repository pattern; needs community dialect for SQLite  |
+| DB          | SQLite                                         | 3.x                 | Project-locked for MVP                                  |
+| JDBC driver | org.xerial:sqlite-jdbc                         | 3.49.x              | Only production JDBC driver for SQLite                  |
+| Dialect     | org.hibernate.orm:hibernate-community-dialects | (Hibernate version) | Provides `SQLiteDialect`                                |
+| Migrations  | Flyway                                         | 10.x                | SQLite-confirmed; essential for team schema sync        |
+| JWT         | io.jsonwebtoken:jjwt-\*                        | 0.12.x              | HS256 signing, fluent builder API                       |
+| API docs    | Springdoc OpenAPI                              | 2.8.17              | Spring Boot 3.5 compatible; zero-config Swagger UI      |
+| AI          | com.anthropic:anthropic-java                   | 2.31.0              | Official Anthropic SDK                                  |
+| PDF parsing | org.apache.pdfbox:pdfbox                       | 3.0.x               | Apache-licensed; correct for text-layer Swiss bank PDFs |
+
 ### Frontend
-| Layer | Technology | Version | Rationale |
-|-------|-----------|---------|-----------|
-| Framework | Angular | 21.x | Project-locked; standalone components, Signals |
-| State | Angular Signals + Services | (bundled) | No NgRx needed for MVP scope |
-| Forms | Reactive Forms (FormGroup) | (bundled) | Stable; Signal Forms still experimental |
-| HTTP auth | `withCredentials: true` auf HttpClient | (bundled) | Cookie automatisch mitgesendet; kein manueller HttpInterceptor nötig (ADR-7) |
-| Charts | Chart.js + ng2-charts | 4.x / 8.x | Lightweight, Angular-native wrapper for pie/bar |
-| Change detection | OnPush everywhere | (bundled) | Required for Signals to work correctly |
+
+| Layer            | Technology                             | Version   | Rationale                                                                    |
+| ---------------- | -------------------------------------- | --------- | ---------------------------------------------------------------------------- |
+| Framework        | Angular                                | 21.x      | Project-locked; standalone components, Signals                               |
+| State            | Angular Signals + Services             | (bundled) | No NgRx needed for MVP scope                                                 |
+| Forms            | Reactive Forms (FormGroup)             | (bundled) | Stable; Signal Forms still experimental                                      |
+| HTTP auth        | `withCredentials: true` auf HttpClient | (bundled) | Cookie automatisch mitgesendet; kein manueller HttpInterceptor nötig (ADR-7) |
+| Charts           | Chart.js + ng2-charts                  | 4.x / 8.x | Lightweight, Angular-native wrapper for pie/bar                              |
+| Change detection | OnPush everywhere                      | (bundled) | Required for Signals to work correctly                                       |
+
 ### AI/ML
+
 - **Categorization model**: `claude-haiku-3-5-20241022` — fast (~200ms), cheap, single-label output
 - **Monthly AI report model**: `claude-sonnet-4-20250514` (latest Sonnet) — richer language, called once/user/month
 - **Fallback**: catch `AnthropicException`, return `"Sonstiges"` — Claude unavailability must never block import flow
+
 ## Swiss Bank PDF Specifics
+
 - Columns: Buchungsdatum | Valuta | Text | Belastungen CHF | Gutschriften CHF | Saldo CHF
 - Date format: `dd.MM.yyyy`
 - Amount format: `1'234.56` (apostrophe thousands separator — requires `replace("'", "")` before `BigDecimal` parse)
 - Text field can include multiline wrapping — use Saldo column as row anchor when splitting
+
 ## Auth Decision: JWT (Stateless, HS256)
-| Factor | JWT (stateless) | Session (server-side) |
-|--------|----------------|----------------------|
-| SQLite write pressure | None — no session table | Every login/request writes to sessions table |
-| Angular SPA integration | httpOnly Cookie + `withCredentials: true`; kein HttpInterceptor | Requires cookie + CORS + SameSite config |
-| Spring Security support | JWT in Cookie; Spring Security liest Token aus Cookie | Also supported but adds Spring Session dep |
-| Logout invalidation | Backend setzt `Max-Age=0` → sofort invalidiert | Instant server-side invalidation |
-| MVP scope fit | Excellent | Overengineered |
+
+| Factor                  | JWT (stateless)                                                 | Session (server-side)                        |
+| ----------------------- | --------------------------------------------------------------- | -------------------------------------------- |
+| SQLite write pressure   | None — no session table                                         | Every login/request writes to sessions table |
+| Angular SPA integration | httpOnly Cookie + `withCredentials: true`; kein HttpInterceptor | Requires cookie + CORS + SameSite config     |
+| Spring Security support | JWT in Cookie; Spring Security liest Token aus Cookie           | Also supported but adds Spring Session dep   |
+| Logout invalidation     | Backend setzt `Max-Age=0` → sofort invalidiert                  | Instant server-side invalidation             |
+| MVP scope fit           | Excellent                                                       | Overengineered                               |
+
 ## SQLite + Spring Boot Gotchas (Critical)
+
 ## What NOT to Use
-| Technology | Why Not |
-|-----------|---------|
-| Spring Boot 4 | Explicit project risk decision — milestone releases only |
-| Spring WebFlux | SQLite JDBC is blocking; reactive wrapping adds complexity with no benefit |
-| iText 7 | AGPL license — requires open-sourcing or commercial license |
-| Tabula-java | Designed for scanned PDFs; Swiss bank PDFs have a text layer |
-| NgRx | Over-engineered for 2-3 person course project with simple state |
-| D3.js | Steep learning curve, no Angular integration, overkill for pie + bar |
-| Highcharts | Commercial license for non-personal projects |
-| Redis + Spring Session | Unnecessary infrastructure when using stateless JWT |
-| H2 in-memory (for testing) | Dialect mismatch vs SQLite; use `jdbc:sqlite::memory:` in tests instead |
-| PDFBox 2.x | Deprecated API (`PDDocument.load()`); use 3.x `Loader.loadPDF()` from the start |
-| `double`/`float` for money | Binary floating point cannot represent CHF amounts exactly |
+
+| Technology                 | Why Not                                                                         |
+| -------------------------- | ------------------------------------------------------------------------------- |
+| Spring Boot 4              | Explicit project risk decision — milestone releases only                        |
+| Spring WebFlux             | SQLite JDBC is blocking; reactive wrapping adds complexity with no benefit      |
+| iText 7                    | AGPL license — requires open-sourcing or commercial license                     |
+| Tabula-java                | Designed for scanned PDFs; Swiss bank PDFs have a text layer                    |
+| NgRx                       | Over-engineered for 2-3 person course project with simple state                 |
+| D3.js                      | Steep learning curve, no Angular integration, overkill for pie + bar            |
+| Highcharts                 | Commercial license for non-personal projects                                    |
+| Redis + Spring Session     | Unnecessary infrastructure when using stateless JWT                             |
+| H2 in-memory (for testing) | Dialect mismatch vs SQLite; use `jdbc:sqlite::memory:` in tests instead         |
+| PDFBox 2.x                 | Deprecated API (`PDDocument.load()`); use 3.x `Loader.loadPDF()` from the start |
+| `double`/`float` for money | Binary floating point cannot represent CHF amounts exactly                      |
+
 ## Open Questions
+
 ## Sources
-| Claim | Confidence |
-|-------|------------|
-| Anthropic Java SDK v2.31.0 | HIGH — GitHub releases |
-| Spring Boot 3.5 / Spring Security 6.5 | HIGH — official Spring docs |
-| Springdoc 2.8.17 Spring Boot 3.5 compat | HIGH — springdoc.org |
-| PDFBox text extraction + password detection | HIGH — Apache PDFBox repo |
-| JJWT 0.12.x API | MEDIUM — version patch unverified |
-| Raiffeisen PDF layout | HIGH — direct fixture inspection |
+
+| Claim                                       | Confidence                        |
+| ------------------------------------------- | --------------------------------- |
+| Anthropic Java SDK v2.31.0                  | HIGH — GitHub releases            |
+| Spring Boot 3.5 / Spring Security 6.5       | HIGH — official Spring docs       |
+| Springdoc 2.8.17 Spring Boot 3.5 compat     | HIGH — springdoc.org              |
+| PDFBox text extraction + password detection | HIGH — Apache PDFBox repo         |
+| JJWT 0.12.x API                             | MEDIUM — version patch unverified |
+| Raiffeisen PDF layout                       | HIGH — direct fixture inspection  |
 
 ## Conventions
 
 ### Git: Branching-Strategie
 
-| Branch | Zweck | Format |
-|---|---|---|
-| `main` | Production-ready — immer deploybar | — |
-| Feature Branch | Für Tasks/User Stories | `feature/<TASK-ID>-<Freitext>` |
-| Bugfix Branch | Für Bugfixes | `fix/<TASK-ID>-<Freitext>` |
+| Branch         | Zweck                              | Format                         |
+| -------------- | ---------------------------------- | ------------------------------ |
+| `main`         | Production-ready — immer deploybar | —                              |
+| Feature Branch | Für Tasks/User Stories             | `feature/<TASK-ID>-<Freitext>` |
+| Bugfix Branch  | Für Bugfixes                       | `fix/<TASK-ID>-<Freitext>`     |
 
 Beispiele: `feature/US-04-pdf-upload`, `fix/INFRA-05-cors-header`
 
@@ -319,11 +309,11 @@ Browser (Lara, Marc)
 
 ### Container-Verantwortlichkeiten
 
-| Container | Technologie | Kernaufgabe |
-|-----------|-------------|-------------|
-| Web SPA | Angular 21, Signals, Reactive Forms | UI: Onboarding, PDF-Upload, Dashboard, Korrekturen |
-| API Application | Spring Boot 3.5, Java 21, Single JAR | Auth, PDF-Parsing, Kategorisierung, Berechnungen, KI-Bericht |
-| Database | SQLite 3.x + Flyway | Persistenz: User, Transaktionen, Fixkosten, Lookup-Tabelle, Import-Jobs |
+| Container       | Technologie                          | Kernaufgabe                                                             |
+| --------------- | ------------------------------------ | ----------------------------------------------------------------------- |
+| Web SPA         | Angular 21, Signals, Reactive Forms  | UI: Onboarding, PDF-Upload, Dashboard, Korrekturen                      |
+| API Application | Spring Boot 3.5, Java 21, Single JAR | Auth, PDF-Parsing, Kategorisierung, Berechnungen, KI-Bericht            |
+| Database        | SQLite 3.x + Flyway                  | Persistenz: User, Transaktionen, Fixkosten, Lookup-Tabelle, Import-Jobs |
 
 **Bewusst weggelassen:** Redis/Cache, Message Queue, CDN, Microservices, eigener KI-Worker — alles Overengineering für 3 Devs / 3 Monate.
 
@@ -331,19 +321,19 @@ Browser (Lara, Marc)
 
 Vollständige ADRs: [docs/adr/README.md](docs/adr/README.md)
 
-| ADR | Entscheid | Abgelehnte Alternativen |
-|-----|-----------|------------------------|
-| [ADR-0](docs/adr/ADR-0-frontend-backend-separation.md) | SPA + REST API (Angular ↔ Spring Boot, JWT als httpOnly Cookie) | SSR (Next.js/Thymeleaf), Monolith mit JSP |
-| [ADR-1](docs/adr/ADR-1-java-spring-boot-backend.md) | Java 21 + Spring Boot 3.5.x | Node.js/Express, Python/FastAPI, Go, .NET 8 |
-| [ADR-2](docs/adr/ADR-2-angular-frontend.md) | Angular 21.x (Standalone Components, Signals, Reactive Forms) | React, Vue 3, Svelte, Astro |
-| [ADR-3](docs/adr/ADR-3-rest-vs-graphql.md) | REST API + OpenAPI 3 (Springdoc) | GraphQL (Overkill, kein nativer File-Upload), gRPC |
-| [ADR-4](docs/adr/ADR-4-monolith-vs-microservices.md) | Single Spring Boot JAR (Monolith) | Microservices/K8s (zu komplex), Serverless (JVM Cold-Start) |
-| [ADR-5](docs/adr/ADR-5-sqlite-mvp-database.md) | SQLite für MVP; Migration zu PostgreSQL möglich | PostgreSQL from Day One (Overkill), MongoDB (nicht relational) |
-| [ADR-6](docs/adr/ADR-6-hybrid-categorization.md) | Hybrid: Lookup-Tabelle zuerst, Claude API nur für unbekannte Tx | LLM-Only ($750/Monat, zu teuer), Fine-tuned ML Model (kein Trainingsdata) |
-| [ADR-7](docs/adr/ADR-7-jwt-authentication.md) | JWT HS256, bcrypt-Passwörter, httpOnly Cookie (XSS-sicher), CSRF via SameSite=Strict | Server-Side Sessions (DB-Schreibdruck), OAuth 2.0 (Overkill für MVP) |
-| [ADR-8](docs/adr/ADR-8-apache-pdfbox.md) | Apache PDFBox 3.x (`Loader.loadPDF()`) | iText 7 (AGPL-Lizenz!), Tabula-java (langsam, kein Text-Layer), pdfplumber (Python) |
-| [ADR-9](docs/adr/ADR-9-bigdecimal-money.md) | `BigDecimal` für alle CHF-Beträge, `DECIMAL(10,2)` in DB | `double`/`float` (Rundungsfehler!), `long` (Cent-Speicherung), Joda-Money |
-| [ADR-10](docs/adr/ADR-10-hosting-plattform.md) | Render (Frankfurt/EU), SPA gebündelt im JAR, nDSG-Risiko akzeptiert | Exoscale/Nine.ch (CH, teurer), SPA auf CDN (zwei Pipelines) |
+| ADR                                                    | Entscheid                                                                            | Abgelehnte Alternativen                                                             |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| [ADR-0](docs/adr/ADR-0-frontend-backend-separation.md) | SPA + REST API (Angular ↔ Spring Boot, JWT als httpOnly Cookie)                      | SSR (Next.js/Thymeleaf), Monolith mit JSP                                           |
+| [ADR-1](docs/adr/ADR-1-java-spring-boot-backend.md)    | Java 21 + Spring Boot 3.5.x                                                          | Node.js/Express, Python/FastAPI, Go, .NET 8                                         |
+| [ADR-2](docs/adr/ADR-2-angular-frontend.md)            | Angular 21.x (Standalone Components, Signals, Reactive Forms)                        | React, Vue 3, Svelte, Astro                                                         |
+| [ADR-3](docs/adr/ADR-3-rest-vs-graphql.md)             | REST API + OpenAPI 3 (Springdoc)                                                     | GraphQL (Overkill, kein nativer File-Upload), gRPC                                  |
+| [ADR-4](docs/adr/ADR-4-monolith-vs-microservices.md)   | Single Spring Boot JAR (Monolith)                                                    | Microservices/K8s (zu komplex), Serverless (JVM Cold-Start)                         |
+| [ADR-5](docs/adr/ADR-5-sqlite-mvp-database.md)         | SQLite für MVP; Migration zu PostgreSQL möglich                                      | PostgreSQL from Day One (Overkill), MongoDB (nicht relational)                      |
+| [ADR-6](docs/adr/ADR-6-hybrid-categorization.md)       | Hybrid: Lookup-Tabelle zuerst, Claude API nur für unbekannte Tx                      | LLM-Only ($750/Monat, zu teuer), Fine-tuned ML Model (kein Trainingsdata)           |
+| [ADR-7](docs/adr/ADR-7-jwt-authentication.md)          | JWT HS256, bcrypt-Passwörter, httpOnly Cookie (XSS-sicher), CSRF via SameSite=Strict | Server-Side Sessions (DB-Schreibdruck), OAuth 2.0 (Overkill für MVP)                |
+| [ADR-8](docs/adr/ADR-8-apache-pdfbox.md)               | Apache PDFBox 3.x (`Loader.loadPDF()`)                                               | iText 7 (AGPL-Lizenz!), Tabula-java (langsam, kein Text-Layer), pdfplumber (Python) |
+| [ADR-9](docs/adr/ADR-9-bigdecimal-money.md)            | `BigDecimal` für alle CHF-Beträge, `DECIMAL(10,2)` in DB                             | `double`/`float` (Rundungsfehler!), `long` (Cent-Speicherung), Joda-Money           |
+| [ADR-10](docs/adr/ADR-10-hosting-plattform.md)         | Render (Frankfurt/EU), SPA gebündelt im JAR, nDSG-Risiko akzeptiert                  | Exoscale/Nine.ch (CH, teurer), SPA auf CDN (zwei Pipelines)                         |
 
 ## Project Skills
 
