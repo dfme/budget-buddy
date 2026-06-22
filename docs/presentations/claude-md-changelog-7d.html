@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CLAUDE.md · Änderungen der letzten 7 Tage</title>
+<style>
+  :root {
+    --bg: #0c1820;
+    --panel: #11242e;
+    --panel-2: #16303c;
+    --ink: #eaf4f1;
+    --muted: #8fb0ad;
+    --accent: #29c391;
+    --accent-2: #38b6ff;
+    --warn: #ffc15c;
+    --danger: #ff7a7a;
+    --line: #1f3d48;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: radial-gradient(1200px 800px at 80% -10%, #16323d 0%, var(--bg) 55%);
+    color: var(--ink);
+    font-family: var(--sans);
+    overflow: hidden;
+  }
+
+  .deck { height: 100vh; width: 100vw; position: relative; }
+
+  .slide {
+    position: absolute; inset: 0;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    padding: 6vh 8vw 10vh;
+    animation: fade .45s ease;
+  }
+  .slide.active { display: flex; }
+  @keyframes fade {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .kicker {
+    font-family: var(--mono);
+    font-size: .82rem;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 1.1rem;
+    display: flex; align-items: center; gap: .7rem;
+  }
+  .kicker::before {
+    content: ""; width: 30px; height: 2px; background: var(--accent); display: inline-block;
+  }
+
+  h1 { font-size: clamp(2.2rem, 5.5vw, 4.4rem); line-height: 1.04; letter-spacing: -.02em; font-weight: 800; }
+  h2 { font-size: clamp(1.7rem, 3.6vw, 2.9rem); line-height: 1.1; letter-spacing: -.015em; font-weight: 750; margin-bottom: 1.6rem; }
+  .lede { font-size: clamp(1rem, 1.6vw, 1.35rem); color: var(--muted); margin-top: 1.4rem; max-width: 60ch; line-height: 1.55; }
+
+  .meta-row { display: flex; gap: 2.5rem; margin-top: 3rem; flex-wrap: wrap; }
+  .meta-row .m { }
+  .meta-row .m b { display: block; font-size: 2rem; color: var(--accent-2); font-family: var(--mono); }
+  .meta-row .m span { color: var(--muted); font-size: .9rem; }
+
+  .grid { display: grid; gap: 1.1rem; }
+  .grid.cols-2 { grid-template-columns: 1fr 1fr; }
+  .grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+
+  .card {
+    background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 1.3rem 1.5rem;
+  }
+  .card h3 { font-size: 1.18rem; margin-bottom: .55rem; display: flex; align-items: center; gap: .6rem; }
+  .card p { color: var(--muted); font-size: .98rem; line-height: 1.5; }
+  .card .tag { font-family: var(--mono); font-size: .72rem; color: var(--accent); border: 1px solid var(--line); padding: .12rem .5rem; border-radius: 6px; margin-left: auto; }
+
+  ul.clean { list-style: none; display: flex; flex-direction: column; gap: .85rem; margin-top: .4rem; }
+  ul.clean li { padding-left: 1.6rem; position: relative; line-height: 1.5; font-size: 1.05rem; }
+  ul.clean li::before { content: "▸"; color: var(--accent); position: absolute; left: 0; top: 0; }
+  ul.clean li b { color: var(--ink); }
+  ul.clean li span { color: var(--muted); }
+
+  .pill { display: inline-block; font-family: var(--mono); font-size: .72rem; padding: .2rem .6rem; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .pill.add { color: var(--accent); border-color: #1d6b53; background: #0f2b24; }
+  .pill.del { color: var(--danger); border-color: #6b2d2d; background: #2b1414; }
+  .pill.date { color: var(--accent-2); }
+
+  .diff { font-family: var(--mono); font-size: 1rem; line-height: 1.9; }
+  .diff .a { color: var(--accent); }
+  .diff .d { color: var(--danger); }
+
+  .icon { width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; font-size: 1.1rem; background: #0f2b24; border: 1px solid #1d6b53; flex: none; }
+  .icon.blue { background: #0f2533; border-color: #1d4d6b; }
+  .icon.warn { background: #2e2611; border-color: #6b591d; }
+  .icon.red  { background: #2b1414; border-color: #6b2d2d; }
+
+  /* guardrail chips */
+  .chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: .8rem; margin-top: .6rem; }
+  .chip { border: 1px solid var(--line); border-radius: 11px; padding: .9rem 1rem; background: var(--panel); }
+  .chip h4 { font-size: .95rem; color: var(--accent); margin-bottom: .35rem; font-family: var(--mono); }
+  .chip p { font-size: .85rem; color: var(--muted); line-height: 1.45; }
+
+  /* progress + chrome */
+  .bar { position: fixed; top: 0; left: 0; height: 3px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .4s ease; z-index: 30; }
+  .counter { position: fixed; bottom: 1.4rem; right: 1.8rem; font-family: var(--mono); font-size: .82rem; color: var(--muted); z-index: 30; }
+  .brand { position: fixed; bottom: 1.4rem; left: 1.8rem; font-family: var(--mono); font-size: .82rem; color: var(--muted); z-index: 30; display: flex; align-items: center; gap: .5rem; }
+  .brand .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); }
+  .hint { position: fixed; bottom: 1.4rem; left: 50%; transform: translateX(-50%); font-size: .76rem; color: #4d6b67; z-index: 30; }
+
+  .nav { position: fixed; inset: 0; display: flex; z-index: 20; }
+  .nav .half { flex: 1; cursor: pointer; }
+
+  @media (max-width: 720px) {
+    .grid.cols-2, .grid.cols-3, .chips { grid-template-columns: 1fr; }
+    .slide { padding: 7vh 7vw 12vh; }
+  }
+</style>
+</head>
+<body>
+<div class="bar" id="bar"></div>
+<div class="deck" id="deck">
+
+  <!-- 1 — Title -->
+  <section class="slide active">
+    <div class="kicker">CLAUDE.md · Changelog</div>
+    <h1>Was sich zuletzt<br>geändert hat</h1>
+    <p class="lede">Die Wissensbasis von <b>BudgetBuddy</b> — vom Sicherheits-Fundament über Tech-Stack-Feinschliff bis zu Guardrails für den KI-Agenten. Zeitraum 10.–22. Juni 2026.</p>
+    <div class="meta-row">
+      <div class="m"><b>9</b><span>Commits an CLAUDE.md</span></div>
+      <div class="m"><b>+282</b><span>Zeilen ergänzt</span></div>
+      <div class="m"><b>−120</b><span>Zeilen ersetzt</span></div>
+      <div class="m"><b>7</b><span>Themenblöcke</span></div>
+    </div>
+  </section>
+
+  <!-- 2 — Overview -->
+  <section class="slide">
+    <div class="kicker">Überblick</div>
+    <h2>Sieben Blöcke, drei Tage</h2>
+    <div class="grid cols-3">
+      <div class="card"><h3><span class="icon red">🧱</span> Fundament</h3><p>Keine Secrets im Git · BigDecimal für Geld.</p><span class="pill date">10. Juni</span></div>
+      <div class="card"><h3><span class="icon">⚙️</span> Tech-Stack</h3><p>Java 25, Build-Tools, Tabellen statt Fliesstext.</p><span class="pill date">17. Juni</span></div>
+      <div class="card"><h3><span class="icon">🌿</span> Git-Conventions</h3><p>Branching + Review-Workflow festgezurrt.</p><span class="pill date">17. Juni</span></div>
+      <div class="card"><h3><span class="icon">📁</span> Struktur</h3><p>Frontend-Feature-Folders + E2E-Verzeichnis.</p><span class="pill date">17. Juni</span></div>
+      <div class="card"><h3><span class="icon">🧪</span> Testing</h3><p>Frameworks & Coverage-Ziele pro Stufe.</p><span class="pill date">17. Juni</span></div>
+      <div class="card"><h3><span class="icon red">🔒</span> Security</h3><p>Mandantentrennung + Datenminimierung.</p><span class="pill date">22. Juni</span></div>
+      <div class="card"><h3><span class="icon blue">🤖</span> Karpathy-Bonus</h3><p>Skill Routing + Agenten-Guardrails.</p><span class="pill date">22. Juni</span></div>
+    </div>
+    <p class="lede">Roter Faden: vom „was bauen wir" zum „wie darf der KI-Agent damit arbeiten".</p>
+  </section>
+
+  <!-- 3 — Foundation (10 June security commit) -->
+  <section class="slide">
+    <div class="kicker">10. Juni · Fundament gelegt</div>
+    <h2>Zwei nicht verhandelbare Regeln</h2>
+    <div class="grid cols-2">
+      <div class="card">
+        <h3><span class="icon red">🔑</span> Keine Secrets im Git</h3>
+        <p>Credentials, API-Keys &amp; Passwörter nie ins Repo. <code>.env</code> in <code>.gitignore</code>; <code>ANTHROPIC_API_KEY</code> und JWT-Secret nur als Umgebungsvariablen — nie in Code oder <code>application.properties</code>.</p>
+        <p style="margin-top:.6rem"><span class="pill">Bei Leak: sofort Key-Rotation + nDSG-Incident-Assessment</span></p>
+      </div>
+      <div class="card">
+        <h3><span class="icon warn">💰</span> Geld immer als BigDecimal</h3>
+        <p>Alle CHF-Beträge in Entities, Services, DTOs &amp; Berechnungen als <code>BigDecimal</code>. <code>double</code>/<code>float</code> verboten (ADR-9: Rundungsfehler beim Safe-to-Spend).</p>
+        <p class="diff" style="margin-top:.6rem"><span class="a">+ DECIMAL(10,2) in der DB</span><br><span class="a">+ replace("'", "") vor new BigDecimal(…)</span></p>
+      </div>
+    </div>
+    <p class="lede">Das Sicherheits- und Korrektheits-Fundament — Voraussetzung für alle späteren Conventions.</p>
+  </section>
+
+  <!-- 4 — Tech Stack -->
+  <section class="slide">
+    <div class="kicker">17. Juni · Tech-Stack finalisiert</div>
+    <h2>Aufgeräumt &amp; auf Java 25</h2>
+    <div class="grid cols-2">
+      <div class="card">
+        <h3><span class="icon">☕</span> Runtime &amp; Build</h3>
+        <p class="diff"><span class="d">− Java 21</span><br><span class="a">+ Java 25 (LTS)</span><br><span class="a">+ Maven Wrapper (mvnw)</span><br><span class="a">+ Angular CLI 21 / npm</span></p>
+      </div>
+      <div class="card">
+        <h3><span class="icon warn">🧹</span> Struktur-Cleanup</h3>
+        <p>Lose Abschnitte ersetzt durch klare Tabellen:</p>
+        <p class="diff" style="margin-top:.5rem"><span class="d">− Recommended Stack</span><br><span class="d">− Constraints</span><br><span class="d">− Confidence: …</span></p>
+      </div>
+    </div>
+    <p class="lede">Ergebnis: eine konsistente <b>Technology-Stack</b>-Tabelle mit Layer · Technologie · Version · Rationale für Backend, Frontend und AI/ML.</p>
+  </section>
+
+  <!-- 4 — Git Conventions -->
+  <section class="slide">
+    <div class="kicker">17. Juni · Git-Conventions</div>
+    <h2>Kein Direkt-Commit auf <code>main</code></h2>
+    <div class="grid cols-2">
+      <div class="card">
+        <h3><span class="icon">🌿</span> Branching-Strategie</h3>
+        <ul class="clean">
+          <li><b>main</b> <span>— immer deploybar</span></li>
+          <li><b>feature/&lt;ID&gt;-…</b> <span>— Stories</span></li>
+          <li><b>fix/&lt;ID&gt;-…</b> <span>— Bugfixes</span></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3><span class="icon blue">✅</span> Review-Konvention</h3>
+        <ul class="clean">
+          <li>Lokaler Claude-Review <span>vor PR</span></li>
+          <li>PR in GitHub <span>nach grünem Review</span></li>
+          <li>Freigabe durch <b>≥ 1 Dev</b></li>
+          <li>Merge <b>nur durch Dev</b> — nie Claude</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 — Structure -->
+  <section class="slide">
+    <div class="kicker">17. Juni · Projekt-Struktur</div>
+    <h2>Frontend &amp; E2E definiert</h2>
+    <div class="grid cols-2">
+      <div class="card">
+        <h3><span class="icon">📁</span> Frontend nach Domäne</h3>
+        <p>Angular Feature-Folders analog zu den Backend-Modulen: <code>auth/ · onboarding/ · transactions/ · dashboard/ · savings/ · reports/ · settings/ · shared/ · core/</code></p>
+        <p style="margin-top:.6rem"><span class="pill">Kein NgRx — Signals in Feature-Services</span></p>
+      </div>
+      <div class="card">
+        <h3><span class="icon blue">🎭</span> E2E-Verzeichnis</h3>
+        <p>Playwright in eigenem <code>e2e/</code> ausserhalb von Front- und Backend — testet beides gemeinsam end-to-end.</p>
+        <p style="margin-top:.6rem"><span class="pill">Pro Must-Have-Story: 1 Happy Path + 1 Fehlerpfad</span></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 — Testing -->
+  <section class="slide">
+    <div class="kicker">17. Juni · Testing</div>
+    <h2>Frameworks &amp; Coverage-Ziele</h2>
+    <div class="grid cols-3">
+      <div class="card">
+        <h3>Unit</h3>
+        <p>JUnit 5 · Mockito · AssertJ <br> Vitest (Frontend)</p>
+        <p style="margin-top:.6rem"><span class="pill add">Backend 80 % · budget/+categorization 90 %+ · Frontend 70–75 %</span></p>
+      </div>
+      <div class="card">
+        <h3>Integration</h3>
+        <p>Spring Boot Test mit <code>jdbc:sqlite::memory:</code> · Angular TestBed</p>
+        <p style="margin-top:.6rem"><span class="pill">Jeder Endpoint &amp; jede Migration ≥ 1×</span></p>
+      </div>
+      <div class="card">
+        <h3>E2E</h3>
+        <p>Playwright über alle Must-Have-Stories US-03/04/05/06.</p>
+        <p style="margin-top:.6rem"><span class="pill">Happy Path + Fehlerpfad</span></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 — Security -->
+  <section class="slide">
+    <div class="kicker">22. Juni · Security verschärft</div>
+    <h2>Finanzdaten schützen</h2>
+    <div class="grid cols-2">
+      <div class="card">
+        <h3><span class="icon red">🛡️</span> Mandantentrennung</h3>
+        <p>Jede Query &amp; jeder Endpoint auf die JWT-<code>userId</code> gescoped — nie aus Body/Param. <b>404 statt 403</b> bei Fremd-IDs.</p>
+        <p style="margin-top:.6rem"><span class="pill">findByIdAndUserId(…) statt findById(…)</span></p>
+        <p style="margin-top:.4rem;font-size:.82rem">Schliesst die IDOR-Lücke — Risiko #2 (Liability &amp; Compliance).</p>
+      </div>
+      <div class="card">
+        <h3><span class="icon warn">🔐</span> Datenminimierung → Claude</h3>
+        <p><b>Erlaubt:</b> reiner Buchungstext.<br><b>Verboten:</b> Name, IBAN, Saldo, userId, ganzer Auszug.</p>
+        <p style="margin-top:.6rem"><span class="pill">Monatsbericht: aggregierte Kategorie-Summen, keine Roh-Tx</span></p>
+        <p style="margin-top:.4rem;font-size:.82rem">nDSG-Datenminimierung bei jedem LLM-Call.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8 — Skill Routing -->
+  <section class="slide">
+    <div class="kicker">22. Juni · Karpathy-Bonus (1/2)</div>
+    <h2>Skill Routing</h2>
+    <div class="grid cols-3">
+      <div class="card">
+        <h3><span class="icon">⚡</span> Auto-laden</h3>
+        <ul class="clean" style="margin-top:.2rem">
+          <li><b>.java</b> <span>standards-java</span></li>
+          <li><b>.ts/.tsx</b> <span>standards-typescript</span></li>
+          <li><b>.sh</b> <span>standards-shell</span></li>
+          <li><b>Claude SDK</b> <span>claude-api</span></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3><span class="icon blue">⌨️</span> Auf Anfrage</h3>
+        <ul class="clean" style="margin-top:.2rem">
+          <li><span>/user-stories · /design</span></li>
+          <li><span>/code-review · /security-review</span></li>
+          <li><span>/catchup · /wrapup · /todo</span></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3><span class="icon red">⛔</span> Bewusst NICHT</h3>
+        <ul class="clean" style="margin-top:.2rem">
+          <li><span>standards-gradle (Maven!)</span></li>
+          <li><span>standards-kotlin / -python</span></li>
+          <li><span>adcubum-* / syrius-*</span></li>
+        </ul>
+      </div>
+    </div>
+    <p class="lede">Context-Engineering: dem Agenten genau die richtigen Skills geben — und projektfremde explizit ausschliessen.</p>
+  </section>
+
+  <!-- 9 — Guardrails -->
+  <section class="slide">
+    <div class="kicker">22. Juni · Karpathy-Bonus (2/2)</div>
+    <h2>Guardrails: Was Claude <i>nicht</i> tun darf</h2>
+    <div class="chips">
+      <div class="chip"><h4>Git &amp; Workflow</h4><p>Kein Direkt-Commit auf main, kein Self-Merge, keine Co-Authored-By, keine Emojis.</p></div>
+      <div class="chip"><h4>Geld &amp; Berechnung</h4><p>Nie double/float — immer BigDecimal. Apostroph-Trenner vor dem Parsen entfernen.</p></div>
+      <div class="chip"><h4>Sicherheit &amp; Daten</h4><p>Keine Secrets/PII, kein findById ohne Owner-Check, foreign_keys nie aus.</p></div>
+      <div class="chip"><h4>Tech-Stack-Grenzen</h4><p>Kein Gradle, WebFlux, NgRx, H2-Tests, iText — kein Spring Boot 4.</p></div>
+      <div class="chip"><h4>Architektur</h4><p>Kein modulübergreifender Direktzugriff, Claude nur hinter CategorizationPort, Timeout+Fallback.</p></div>
+      <div class="chip"><h4>Scope</h4><p>Nichts ausserhalb Schweiz-MVP; ADRs nicht eigenmächtig überschreiben.</p></div>
+    </div>
+    <p class="lede">Meta-Regel: bei Konflikt <b>stoppen und nachfragen</b> — nicht umgehen.</p>
+  </section>
+
+  <!-- 10 — Closing -->
+  <section class="slide">
+    <div class="kicker">Wirkung</div>
+    <h1>Vom Stack-Dokument<br>zur Agenten-Verfassung</h1>
+    <p class="lede">In 7 Tagen wurde CLAUDE.md von einer Tech-Beschreibung zu einer steuernden Wissensbasis: <b>Was gebaut wird</b>, <b>wie reviewt &amp; getestet wird</b> und <b>welche harten Grenzen</b> für Mensch und KI gelten.</p>
+    <div class="meta-row">
+      <div class="m"><b>4</b><span>neue Convention-Blöcke</span></div>
+      <div class="m"><b>4</b><span>Security-/Geld-Regeln</span></div>
+      <div class="m"><b>6</b><span>Guardrail-Kategorien</span></div>
+    </div>
+  </section>
+
+</div>
+
+<div class="nav">
+  <div class="half" onclick="go(-1)"></div>
+  <div class="half" onclick="go(1)"></div>
+</div>
+
+<div class="brand"><span class="dot"></span> BudgetBuddy · CAS ADAI 2026</div>
+<div class="hint">← / → · Leertaste · Klick</div>
+<div class="counter" id="counter">01 / 10</div>
+
+<script>
+  const slides = Array.from(document.querySelectorAll('.slide'));
+  let i = 0;
+  const bar = document.getElementById('bar');
+  const counter = document.getElementById('counter');
+  const pad = n => String(n).padStart(2, '0');
+  function render() {
+    slides.forEach((s, n) => s.classList.toggle('active', n === i));
+    bar.style.width = ((i + 1) / slides.length * 100) + '%';
+    counter.textContent = pad(i + 1) + ' / ' + pad(slides.length);
+  }
+  function go(d) { i = Math.min(slides.length - 1, Math.max(0, i + d)); render(); }
+  window.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); go(1); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); go(-1); }
+    else if (e.key === 'Home') { i = 0; render(); }
+    else if (e.key === 'End') { i = slides.length - 1; render(); }
+  });
+  render();
+</script>
+</body>
+</html>
