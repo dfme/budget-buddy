@@ -163,6 +163,15 @@ BudgetBuddy is a web app for students and young professionals living in Switzerl
 
 ## SQLite + Spring Boot Gotchas (Critical)
 
+| Gotcha | Regel |
+| ------ | ----- |
+| **Foreign Keys per Default AUS** | `PRAGMA foreign_keys = ON` pro Connection erzwingen. Sonst greift `ON DELETE CASCADE` nicht — die nDSG-Löschung (US-02) lässt verwaiste Transaktionsdaten zurück. |
+| **Single-Writer** | SQLite erlaubt nur einen Schreibvorgang gleichzeitig. WAL-Modus aktivieren (`PRAGMA journal_mode = WAL`) und `busy_timeout` setzen, um `SQLITE_BUSY` zu vermeiden. |
+| **Connection Pool** | HikariCP `maximum-pool-size` klein halten (1 für Writes). Mehrere parallele Schreib-Connections führen zu Lock-Fehlern. |
+| **Type Affinity** | SQLite kennt keine echten `DECIMAL`/`DATE`-Typen (nur Affinität). `BigDecimal`-Mapping und Datumsformat (`dd.MM.yyyy`) pro Migration mit Integration-Test absichern. |
+| **ID-Generation** | Hibernate-Strategie mit `SQLiteDialect` prüfen (`IDENTITY` vs. `AUTOINCREMENT`-Verhalten). |
+| **Persistenz auf Render** | DB-Datei muss auf einem persistenten Volume liegen — nicht im ephemeren Container-FS, sonst sind alle Daten nach jedem Deploy weg. |
+
 ## What NOT to Use
 
 | Technology                 | Why Not                                                                         |
@@ -283,6 +292,21 @@ Upgrade-Pfad (wenn Wartezeiten zu Churn führen): Spring `@Async` + `ImportJob`-
 
 Credentials, API-Keys und Passwörter dürfen nie ins Git-Repository gelangen. `.env`-Dateien müssen in `.gitignore` stehen. Der `ANTHROPIC_API_KEY` und der JWT-Secret werden ausschliesslich als Umgebungsvariablen übergeben — nie hardcodiert im Code oder in `application.properties`. Bei versehentlichem Commit: sofortiger Key-Rotation + Incident-Assessment nach nDSG.
 
+### Sicherheit: Zugriff nur auf eigene Daten (Mandantentrennung)
+
+Jede Query und jeder Endpoint MUSS auf den authentifizierten User gescoped sein. Die `userId` kommt **ausschliesslich aus dem JWT** (Security-Context) — nie aus Request-Body, Query-Parameter oder Pfad. Vor jedem Lese-/Schreibzugriff auf eine fremde ID (`transactionId`, `reportId`, `savingsGoalId` …) muss der Owner geprüft werden; bei Fremdzugriff `404` (nicht `403`, um Existenz nicht zu verraten).
+
+Begründung: Broken Object Level Authorization (IDOR) ist die häufigste Schwachstelle in Finanz-Apps und trifft direkt Risiko #2 (Liability & Compliance). Repository-Methoden daher immer `findByIdAndUserId(...)` statt `findById(...)`.
+
+### Sicherheit: Datenminimierung gegenüber Claude API
+
+Transaktionsdaten verlassen mit jedem Categorization-/Report-Call die EU-Umgebung Richtung Anthropic. Es wird nur das Nötigste gesendet:
+
+- **Erlaubt:** der reine Buchungstext (z. B. `"DIGITEC GALAXUS AG 044 913 2323"`) zur Kategorisierung.
+- **Verboten:** Name/E-Mail des Nutzers, IBAN/Kontonummer, Saldo, vollständiger Kontoauszug, jegliche `userId`.
+
+Beträge nur senden, wenn fachlich nötig (Kategorisierung braucht sie nicht). Beim KI-Monatsbericht aggregierte Kategorie-Summen übergeben — keine Roh-Transaktionsliste mit identifizierenden Details. Begründung: nDSG-Datenminimierung + Risiko #2.
+
 ### Backend: Geldbeträge immer als `BigDecimal`
 
 Alle CHF-Beträge — in Entities, Services, DTOs und Berechnungen — müssen `BigDecimal` verwenden. `double` und `float` sind verboten (ADR-9: Binäre Gleitkomma-Arithmetik kann CHF-Beträge nicht exakt darstellen und erzeugt Rundungsfehler in der Safe-to-Spend-Berechnung).
@@ -377,6 +401,82 @@ Vollständige ADRs: [docs/adr/README.md](docs/adr/README.md)
 | [ADR-8](docs/adr/ADR-8-apache-pdfbox.md)               | Apache PDFBox 3.x (`Loader.loadPDF()`)                                               | iText 7 (AGPL-Lizenz!), Tabula-java (langsam, kein Text-Layer), pdfplumber (Python) |
 | [ADR-9](docs/adr/ADR-9-bigdecimal-money.md)            | `BigDecimal` für alle CHF-Beträge, `DECIMAL(10,2)` in DB                             | `double`/`float` (Rundungsfehler!), `long` (Cent-Speicherung), Joda-Money           |
 | [ADR-10](docs/adr/ADR-10-hosting-plattform.md)         | Render (Frankfurt/EU), SPA gebündelt im JAR, nDSG-Risiko akzeptiert                  | Exoscale/Nine.ch (CH, teurer), SPA auf CDN (zwei Pipelines)                         |
+
+## Skill Routing
+
+Welche Skills Claude in diesem Projekt verwenden soll. Context-Skills werden **proaktiv** vor dem Schreiben/Editieren der passenden Datei geladen — nicht erst auf Zuruf.
+
+### Context-Skills (automatisch laden)
+
+| Auslöser (Dateityp / Aufgabe)                                                 | Skill                  |
+| ----------------------------------------------------------------------------- | ---------------------- |
+| `.java` (Backend `com.budgetbuddy.*`)                                         | `standards-java`       |
+| `.ts`, `.tsx` (Angular Frontend)                                              | `standards-typescript` |
+| `.sh`, `.bash` (Build-/Hilfsskripte)                                          | `standards-shell`      |
+| Anthropic SDK, Modellwahl, Prompt-Design, Kategorisierung, KI-Monatsbericht   | `claude-api`           |
+
+### Command-Skills (auf Anfrage)
+
+| Aufgabe                                  | Skill                          |
+| ---------------------------------------- | ------------------------------ |
+| User Story / Acceptance Criteria         | `/user-stories`                |
+| Feature strukturiert entwerfen           | `/design`                      |
+| Lokaler Code-Review vor PR               | `/do-review` bzw. `/code-review` |
+| Security-Review der Branch-Änderungen    | `/security-review`             |
+| Backlog-Item festhalten                  | `/todo`                        |
+| Session-Start nach `/clear`              | `/catchup`                     |
+| Session-Ende dokumentieren               | `/wrapup`                      |
+| Kursabgabe-Präsentation / Slides         | `/create-slidev-presentation`  |
+
+### Bewusst NICHT laden (projektfremd)
+
+| Skill                    | Warum nicht                                                          |
+| ------------------------ | ------------------------------------------------------------------- |
+| `standards-gradle`       | Projekt nutzt Maven, nicht Gradle (siehe What NOT to Use)           |
+| `standards-kotlin`       | Backend ist Java, kein Kotlin                                       |
+| `standards-python`       | Kein Python im BudgetBuddy-Stack                                    |
+| `standards-javascript`   | Frontend ist TypeScript; reine JS-Standards nicht einschlägig       |
+| `adcubum-*` / `syrius-*` | Adcubum-/Syrius-interne Skills — gehören nicht zu diesem Kursprojekt |
+
+## Guardrails: Was Claude nicht tun darf
+
+Harte Grenzen für Claude in diesem Projekt. Bei Konflikt mit einer Anweisung: **stoppen und nachfragen, nicht umgehen.**
+
+### Git & Workflow
+
+- **Nie direkt auf `main` committen oder pushen** — immer Feature-/Fix-Branch + PR.
+- **Nie einen PR mergen** — Merge auf `main` macht ausschliesslich ein Dev.
+- **Kein PR ohne vorherigen lokalen Review.**
+- **Keine `Co-Authored-By`-Zeilen** in Commits oder PRs.
+- **Keine Emojis** in Code oder Doku (ausser explizit gewünscht).
+
+### Geld & Berechnung
+
+- **Nie `double`/`float` für CHF-Beträge** — immer `BigDecimal` (ADR-9).
+- **Apostroph-Tausendertrennzeichen nie vergessen** zu entfernen (`replace("'", "")`) vor `new BigDecimal(...)`.
+
+### Sicherheit & Daten
+
+- **Nie Secrets** (`ANTHROPIC_API_KEY`, JWT-Secret, Passwörter) in Code, `application.properties` oder Git — nur Umgebungsvariablen.
+- **Nie PII an die Claude API** senden (Name, E-Mail, IBAN, Saldo, `userId`) — nur Buchungstext (siehe Datenminimierung).
+- **Nie `findById(...)` ohne Owner-Check** bei userbezogenen Entities — immer auf JWT-`userId` scopen (`findByIdAndUserId`).
+- **Nie `PRAGMA foreign_keys` deaktiviert lassen** — sonst greift die nDSG-Löschung (US-02) nicht.
+
+### Tech-Stack-Grenzen
+
+- **Kein** Gradle, Spring WebFlux, NgRx, iText/Tabula, H2-für-Tests (`jdbc:sqlite::memory:` verwenden), `double`/`float` für Geld — vollständig: What NOT to Use.
+- **Kein Spring Boot 4**, keine Milestone-/Preview-Versionen.
+
+### Architektur
+
+- **Nie modulübergreifend direkt** auf fremde Repositories/Services zugreifen — nur über definierte Interfaces.
+- **Claude API nie direkt aufrufen** — immer hinter dem `CategorizationPort`-Interface.
+- **Externe Calls (Claude, PDFBox) nie ohne Timeout + Fallback** — ein fehlgeschlagener Claude-Call darf den Import-Flow nie blockieren (Risiko #1).
+
+### Scope
+
+- **Kein Feature ausserhalb des Schweiz-Scopes** (kein i18n-Rollout, kein B2B/Berater-Tool, kein OpenBanking im MVP).
+- **Architektur-/Stack-Entscheide nicht eigenmächtig ändern** — neue ADR vorschlagen, bestehende nie still überschreiben.
 
 ## Project Skills
 
