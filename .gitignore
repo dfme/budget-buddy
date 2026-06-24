@@ -31,3 +31,15 @@ replay_pid*
 
 # claude specific
 .claude/settings.local.json
+
+# Maven build output
+target/
+
+# SQLite runtime database files
+*.db
+*.db-journal
+*.sqlite
+
+# Local environment files (secrets via env vars only)
+.env
+.env.*
