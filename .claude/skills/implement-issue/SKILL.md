@@ -40,13 +40,21 @@ Present the full plan to the user:
 
 Wait for explicit user confirmation before continuing. If the user requests changes, revise and re-present the full plan from the top.
 
-### 5. BRANCH ERSTELLEN
+### 5. PLAN ABLEGEN
+After the user confirms the plan, persist it as markdown under `docs/plans/` before creating the branch:
+
+- File path: `docs/plans/<TASK-ID>-<kurztext>.md` (same `<kurztext>` as the branch name, e.g. `docs/plans/INFRA-01-spring-boot-skeleton.md`)
+- Content: the confirmed plan — issue reference, Task-ID, branch name, decisions, affected/new files, implementation steps, test strategy, and the acceptance criteria from the issue.
+
+`docs/plans/` is listed in `.claudeignore`, so these files stay out of Claude's automatic context/search. They serve as a human-readable artifact and git history; do not rely on reading them back in later runs.
+
+### 6. BRANCH ERSTELLEN
 ```bash
 git checkout main && git pull
 git checkout -b feature/<TASK-ID>-<kurztext>
 ```
 
-### 6. IMPLEMENTIEREN
+### 7. IMPLEMENTIEREN
 Implement code and tests according to the confirmed plan. Follow all conventions in CLAUDE.md:
 - Package structure by domain (not layer)
 - `BigDecimal` for all CHF amounts — never `double` or `float`
@@ -54,13 +62,13 @@ Implement code and tests according to the confirmed plan. Follow all conventions
 - Claude API always behind `CategorizationPort` interface
 - Timeouts + fallback to `"Sonstiges"` for all external calls
 
-### 7. LOKALER REVIEW
+### 8. LOKALER REVIEW
 Review all changes before creating a PR:
 - Run `git diff main` and check for correctness, security issues, and convention violations
 - Present review findings to the user
 - Wait for explicit user confirmation that the PR may be created
 
-### 8. PR ERSTELLEN
+### 9. PR ERSTELLEN
 ```bash
 gh pr create \
   --title "[<TASK-ID>] <concise title>" \
