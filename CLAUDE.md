@@ -436,7 +436,6 @@ Welche Skills Claude in diesem Projekt verwenden soll. Context-Skills werden **p
 | `standards-kotlin`       | Backend ist Java, kein Kotlin                                       |
 | `standards-python`       | Kein Python im BudgetBuddy-Stack                                    |
 | `standards-javascript`   | Frontend ist TypeScript; reine JS-Standards nicht einschlägig       |
-| `adcubum-*` / `syrius-*` | Adcubum-/Syrius-interne Skills — gehören nicht zu diesem Kursprojekt |
 
 ## Guardrails: Was Claude nicht tun darf
 
