@@ -209,6 +209,26 @@ Regel: Kein direkter Commit auf `main`. Jeder Branch wird per Pull Request gegen
 
 **Für Claude:** Niemals direkt auf `main` committen oder pushen — auch nicht auf explizite Benutzeranfrage. Immer einen Feature-/Bugfix-Branch erstellen und einen PR öffnen. Bei einer solchen Anfrage den Benutzer auf diese Regel hinweisen.
 
+### Git: Task-ID-Konvention (GitHub Issues)
+
+Issue-Titel folgen dem Format `[TASK-ID] Kurzbeschreibung`. Die Task-ID kodiert Bereich und Feature:
+
+| Präfix | Bereich | Beispiel |
+| ------ | ------- | -------- |
+| `INFRA-XX` | Infrastruktur / DevOps | `INFRA-01`, `INFRA-05` |
+| `DB-XX` | Datenbank / Flyway-Migrationen | `DB-01`, `DB-04` |
+| `BE-AUTH-XX` | Backend — Authentifizierung | `BE-AUTH-01` |
+| `BE-FC-XX` | Backend — Fixkosten | `BE-FC-01` |
+| `BE-PDF-XX` | Backend — PDF-Import | `BE-PDF-01` |
+| `BE-CAT-XX` | Backend — Kategorisierung | `BE-CAT-02` |
+| `BE-STS-XX` | Backend — Safe-to-Spend | `BE-STS-01` |
+| `FE-FC-XX` | Frontend — Fixkosten | `FE-FC-01` |
+| `FE-PDF-XX` | Frontend — PDF-Upload | `FE-PDF-01` |
+| `FE-CAT-XX` | Frontend — Kategorisierung | `FE-CAT-01` |
+| `FE-STS-XX` | Frontend — Safe-to-Spend | `FE-STS-01` |
+
+Die Task-ID im Issue-Titel wird direkt als `<TASK-ID>` in der Branch-Namenskonvention verwendet (siehe Branching-Strategie oben).
+
 ### Git: Review-Konvention
 
 1. **Lokaler Review durch Claude** — bevor ein PR erstellt wird, prüft Claude die Änderungen lokal
@@ -382,4 +402,6 @@ Vollständige ADRs: [docs/adr/README.md](docs/adr/README.md)
 
 ## Project Skills
 
-No project skills found. Add skills to any of: `.claude/skills/`, `.agents/skills/`, `.cursor/skills/`, `.github/skills/`, or `.codex/skills/` with a `SKILL.md` index file.
+| Skill | Befehl | Beschreibung |
+|-------|--------|--------------|
+| implement-issue | `/implement-issue <issue-number>` | GitHub Issue end-to-end umsetzen: Issue einlesen, Fragen klären, Plan präsentieren (mit Bestätigung), Branch erstellen, Code + Tests implementieren, lokalen Review durchführen (mit Bestätigung), PR öffnen. |
