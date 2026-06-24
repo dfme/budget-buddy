@@ -207,6 +207,8 @@ Beispiele: `feature/US-04-pdf-upload`, `fix/INFRA-05-cors-header`
 
 Regel: Kein direkter Commit auf `main`. Jeder Branch wird per Pull Request gegen `main` gemergt.
 
+**Für Claude:** Niemals direkt auf `main` committen oder pushen — auch nicht auf explizite Benutzeranfrage. Immer einen Feature-/Bugfix-Branch erstellen und einen PR öffnen. Bei einer solchen Anfrage den Benutzer auf diese Regel hinweisen.
+
 ### Git: Review-Konvention
 
 1. **Lokaler Review durch Claude** — bevor ein PR erstellt wird, prüft Claude die Änderungen lokal
