@@ -134,4 +134,94 @@
         </plugins>
     </build>
 
+    <profiles>
+        <!--
+            Prod-Build (INFRA-04): baut die Angular-SPA und bündelt den Build-Output
+            als statische Ressourcen ins JAR (BOOT-INF/static), gemäss ADR-10
+            (Single-Artifact, kein separater CDN-Deploy). Wird via `-Pprod` aktiviert;
+            der Default-Build bleibt backend-only und damit schnell für die lokale
+            Entwicklung.
+        -->
+        <profile>
+            <id>prod</id>
+            <properties>
+                <frontend-maven-plugin.version>1.15.1</frontend-maven-plugin.version>
+                <node.version>v22.12.0</node.version>
+                <frontend.dir>${project.basedir}/../frontend</frontend.dir>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>com.github.eirslett</groupId>
+                        <artifactId>frontend-maven-plugin</artifactId>
+                        <version>${frontend-maven-plugin.version}</version>
+                        <configuration>
+                            <workingDirectory>${frontend.dir}</workingDirectory>
+                            <installDirectory>${project.build.directory}</installDirectory>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>install-node-and-npm</id>
+                                <goals>
+                                    <goal>install-node-and-npm</goal>
+                                </goals>
+                                <phase>generate-resources</phase>
+                                <configuration>
+                                    <nodeVersion>${node.version}</nodeVersion>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>npm-ci</id>
+                                <goals>
+                                    <goal>npm</goal>
+                                </goals>
+                                <phase>generate-resources</phase>
+                                <configuration>
+                                    <arguments>ci</arguments>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>npm-build</id>
+                                <goals>
+                                    <goal>npm</goal>
+                                </goals>
+                                <phase>generate-resources</phase>
+                                <configuration>
+                                    <arguments>run build -- --configuration production</arguments>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <!--
+                        Kopiert den Angular-Build-Output in die statischen Ressourcen
+                        des JAR. Läuft nach dem Frontend-Build (generate-resources) und
+                        vor dem Spring-Boot-Repackage (package).
+                    -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-resources-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>copy-frontend-build</id>
+                                <goals>
+                                    <goal>copy-resources</goal>
+                                </goals>
+                                <phase>prepare-package</phase>
+                                <configuration>
+                                    <outputDirectory>${project.build.outputDirectory}/static</outputDirectory>
+                                    <resources>
+                                        <resource>
+                                            <directory>${frontend.dir}/dist/budgetbuddy/browser</directory>
+                                        </resource>
+                                    </resources>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
 </project>
