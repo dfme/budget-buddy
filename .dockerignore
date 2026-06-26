@@ -1,0 +1,23 @@
+# Build-Outputs (werden im Container neu gebaut)
+backend/target/
+frontend/dist/
+frontend/.angular/
+frontend/node_modules/
+
+# VCS / IDE / OS
+.git/
+.idea/
+.vscode/
+**/.DS_Store
+
+# Lokale Secrets / Datenbanken (dürfen nie ins Image)
+.env
+.env.*
+*.db
+*.db-journal
+*.sqlite
+
+# Doku / Claude-spezifisch (nicht für das Image relevant)
+docs/
+.claude/
+.claudeignore

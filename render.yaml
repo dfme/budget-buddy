@@ -1,0 +1,26 @@
+# Render Blueprint — BudgetBuddy (INFRA-04)
+# Deployt einen einzelnen Web Service: das Spring-Boot-JAR mit gebündelter
+# Angular-SPA (ADR-10). Docker, weil Render-Blueprints keinen nativen
+# Java-Runtime kennen; der Dockerfile-Build ruft `./mvnw -Pprod package` auf.
+services:
+  - type: web
+    name: budgetbuddy
+    runtime: docker
+    # Frankfurt (EU) — nächster Render-Standort zur Schweiz, EU-DSGVO (ADR-10).
+    region: frankfurt
+    # Free-Tier: kein Persistent Disk. SQLite liegt auf dem ephemeren Filesystem
+    # und geht bei jedem Redeploy verloren — für das MVP bewusst akzeptiert.
+    plan: free
+    dockerfilePath: ./Dockerfile
+    # Health-Check über den Actuator-Endpoint (in application.properties freigegeben).
+    healthCheckPath: /actuator/health
+    envVars:
+      # Aktiviert application-prod.properties.
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      # Secrets: NIE im Git. Werte ausschliesslich im Render-Dashboard setzen
+      # (sync: false verhindert, dass Render einen Wert aus dem Blueprint erwartet).
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: JWT_SECRET
+        sync: false
