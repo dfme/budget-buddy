@@ -58,10 +58,9 @@
             <artifactId>hibernate-community-dialects</artifactId>
         </dependency>
 
-        <!-- Migrations: im Skeleton deaktiviert (spring.flyway.enabled=false), aktiviert in DB-01.
-             Hinweis DB-01: Flyway 11 hat kein flyway-database-sqlite-Modul; SQLite-Support kommt
-             aus flyway-community-db-support (max. 10.24.0). Beim Aktivieren von Flyway das passende
-             SQLite-Support-Artefakt/Version hier ergänzen. -->
+        <!-- Migrations (DB-01): Flyway-Version von Spring Boot gemanaged. SQLite-Support
+             benötigt nur den JDBC-Treiber org.xerial:sqlite-jdbc (siehe oben); Spring Boot
+             aktiviert die Startup-Migration via spring.flyway.enabled=true. -->
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>

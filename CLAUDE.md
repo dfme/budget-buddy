@@ -236,6 +236,12 @@ Die Task-ID im Issue-Titel wird direkt als `<TASK-ID>` in der Branch-Namenskonve
 3. **Freigabe durch mind. 1 Dev** — der PR muss von mindestens einem Dev genehmigt werden, bevor er gemergt werden darf
 4. **Merge nur durch Dev** — der Merge auf `main` wird ausschliesslich von einem Dev getriggert, nie von Claude
 
+### Datenbank: Flyway-Migrationen
+
+- Versionsnummer immer **zweistellig mit führender Null**: `V01__`, `V02__`, … `V10__`. Sichert korrekte alphabetische Sortierung im Dateisystem bei vielen Migrationen.
+- Dateiname: `V<NN>__<snake_case_beschreibung>.sql` (z. B. `V01__create_users_table.sql`).
+- Geldbeträge als `DECIMAL(10,2)`, nie `FLOAT`/`REAL` (siehe ADR-9).
+
 ### Backend: Package-Struktur (Modular Monolith)
 
 Packages nach Domäne, nicht nach Schicht, unterhalb von `backend/src/main/java/com/budgetbuddy/`:
