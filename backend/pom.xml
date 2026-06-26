@@ -24,6 +24,7 @@
         <springdoc.version>2.8.17</springdoc.version>
         <anthropic.version>2.31.0</anthropic.version>
         <pdfbox.version>3.0.5</pdfbox.version>
+        <spring-dotenv.version>4.0.0</spring-dotenv.version>
     </properties>
 
     <dependencies>
@@ -35,6 +36,15 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!-- .env-Loader: liest lokale .env automatisch in die Spring Environment ein.
+             Echte System-Env-Vars (z.B. auf Render) haben Vorrang; fehlende .env wird
+             ignoriert. Dev-Convenience für plattformübergreifendes Team (Mac/Windows). -->
+        <dependency>
+            <groupId>me.paulschwarz</groupId>
+            <artifactId>spring-dotenv</artifactId>
+            <version>${spring-dotenv.version}</version>
         </dependency>
 
         <!-- Security (JWT-Konfiguration folgt in BE-AUTH-01) -->
@@ -130,6 +140,19 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+            <!-- Dummy-JWT_SECRET für alle Tests: JwtProperties erzwingt ein nicht-leeres
+                 Secret (Fail-fast). Hier zentral gesetzt, damit jeder Test-Kontext
+                 (test/prod/default-Profil) startet, ohne von einer lokalen .env abzuhängen.
+                 KEIN echtes Secret — nur für Tests. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <environmentVariables>
+                        <JWT_SECRET>test-only-secret-not-for-production-0123456789</JWT_SECRET>
+                    </environmentVariables>
+                </configuration>
             </plugin>
         </plugins>
     </build>

@@ -43,3 +43,4 @@ target/
 # Local environment files (secrets via env vars only)
 .env
 .env.*
+!.env.example
