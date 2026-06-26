@@ -45,9 +45,13 @@ class JwtServiceTest {
     @Test
     void rejectsTamperedToken() {
         String token = jwtService.generateToken(7L);
-        // Letztes Signatur-Zeichen verändern → Signaturprüfung muss fehlschlagen.
-        char last = token.charAt(token.length() - 1);
-        String tampered = token.substring(0, token.length() - 1) + (last == 'a' ? 'b' : 'a');
+        // ERSTES Signatur-Zeichen ändern (high-order Bits) → dekodiert garantiert zu anderen
+        // Bytes. Das letzte base64url-Zeichen hätte zu wenige signifikante Bits und könnte zur
+        // identischen Signatur dekodieren.
+        String[] parts = token.split("\\.");
+        char first = parts[2].charAt(0);
+        String tamperedSignature = (first == 'A' ? 'B' : 'A') + parts[2].substring(1);
+        String tampered = parts[0] + "." + parts[1] + "." + tamperedSignature;
 
         assertThatThrownBy(() -> jwtService.validateAndGetUserId(tampered))
                 .isInstanceOf(JwtException.class);
