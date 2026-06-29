@@ -74,10 +74,10 @@ class TransactionsMigrationTest {
         assertThat(typeByColumn.get("id")).isEqualTo("INTEGER");
         assertThat(typeByColumn.get("user_id")).isEqualTo("INTEGER");
         assertThat(typeByColumn.get("buchungsdatum")).isEqualTo("DATE");
-        assertThat(typeByColumn.get("text")).isEqualTo("TEXT");
+        assertThat(typeByColumn.get("text")).isEqualTo("VARCHAR");
         assertThat(typeByColumn.get("is_income")).isEqualTo("BOOLEAN");
-        assertThat(typeByColumn.get("category")).isEqualTo("TEXT");
-        assertThat(typeByColumn.get("pdf_sha256")).isEqualTo("TEXT");
+        assertThat(typeByColumn.get("category")).isEqualTo("VARCHAR");
+        assertThat(typeByColumn.get("pdf_sha256")).isEqualTo("VARCHAR");
     }
 
     @Test
