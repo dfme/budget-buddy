@@ -9,8 +9,9 @@
 
 - Dateiname `V02__create_transactions_table.sql` — zweistellige Version mit führender Null
   (CLAUDE.md-Konvention), trotz "Flyway V2" im Issue-Titel.
-- Spaltentypen: `VARCHAR` für `text`/`category`/`pdf_sha256` (gemäss Issue-Wortlaut).
-- Nicht durch AC vorgegebene Nullability: `user_id`, `buchungsdatum`, `text`, `betrag` = NOT NULL;
+- Spaltentypen: `VARCHAR` für `buchungstext`/`category`/`pdf_sha256` (gemäss Issue-Wortlaut).
+- Spalte `buchungstext` (statt `text`) — sprechender und kein SQL-naher Bezeichner.
+- Nicht durch AC vorgegebene Nullability: `user_id`, `buchungsdatum`, `buchungstext`, `betrag` = NOT NULL;
   `is_income` NOT NULL DEFAULT 0; `category` nullable (wird erst durch US-05 gesetzt);
   `pdf_sha256` nullable (AC).
 - `betrag` als `DECIMAL(10,2)` — nie FLOAT/REAL (ADR-9).
@@ -22,7 +23,7 @@ CREATE TABLE transactions (
     id            INTEGER       PRIMARY KEY AUTOINCREMENT,
     user_id       INTEGER       NOT NULL,
     buchungsdatum DATE          NOT NULL,
-    text          VARCHAR       NOT NULL,
+    buchungstext  VARCHAR       NOT NULL,
     betrag        DECIMAL(10,2) NOT NULL,
     is_income     BOOLEAN       NOT NULL DEFAULT 0,
     category      VARCHAR,

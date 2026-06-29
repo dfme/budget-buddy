@@ -68,13 +68,13 @@ class TransactionsMigrationTest {
         Map<String, String> typeByColumn = columnTypes();
 
         assertThat(typeByColumn).containsOnlyKeys(
-                "id", "user_id", "buchungsdatum", "text", "betrag",
+                "id", "user_id", "buchungsdatum", "buchungstext", "betrag",
                 "is_income", "category", "pdf_sha256");
 
         assertThat(typeByColumn.get("id")).isEqualTo("INTEGER");
         assertThat(typeByColumn.get("user_id")).isEqualTo("INTEGER");
         assertThat(typeByColumn.get("buchungsdatum")).isEqualTo("DATE");
-        assertThat(typeByColumn.get("text")).isEqualTo("VARCHAR");
+        assertThat(typeByColumn.get("buchungstext")).isEqualTo("VARCHAR");
         assertThat(typeByColumn.get("is_income")).isEqualTo("BOOLEAN");
         assertThat(typeByColumn.get("category")).isEqualTo("VARCHAR");
         assertThat(typeByColumn.get("pdf_sha256")).isEqualTo("VARCHAR");
@@ -106,7 +106,7 @@ class TransactionsMigrationTest {
 
         assertThat(notNullByColumn.get("user_id")).isEqualTo(1);
         assertThat(notNullByColumn.get("buchungsdatum")).isEqualTo(1);
-        assertThat(notNullByColumn.get("text")).isEqualTo(1);
+        assertThat(notNullByColumn.get("buchungstext")).isEqualTo(1);
         assertThat(notNullByColumn.get("betrag")).isEqualTo(1);
         assertThat(notNullByColumn.get("is_income")).isEqualTo(1);
 
