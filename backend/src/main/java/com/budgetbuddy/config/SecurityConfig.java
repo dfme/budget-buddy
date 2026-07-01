@@ -4,6 +4,7 @@ import com.budgetbuddy.auth.JwtCookieAuthenticationFilter;
 import com.budgetbuddy.auth.JwtService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -22,6 +23,13 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  * {@code SameSite=Strict} nutzt.
  *
  * <p>Frei zugänglich bleiben Swagger UI, OpenAPI-Docs und der Actuator-Health-Endpoint.
+ *
+ * <p>Zusätzlich werden die im JAR gebündelte Angular-SPA und ihre statischen Assets
+ * öffentlich per GET ausgeliefert (INFRA-05, ADR-10 Single-Artifact). Da die API keinen
+ * gemeinsamen Prefix hat (z.B. {@code /users/me}), bleiben die freigegebenen Pfade bewusst
+ * eng gefasst (Default-Deny), statt GET pauschal zu öffnen — versehentliche Exposition wäre
+ * bei Transaktionsdaten Risiko #2 (Datenleck). SPA-Routen werden in {@code SPA_GET_PATHS}
+ * gepflegt; neue Frontend-Routen müssen hier UND in {@code SpaForwardController} ergänzt werden.
  */
 @Configuration
 public class SecurityConfig {
@@ -33,6 +41,27 @@ public class SecurityConfig {
         "/actuator/health"
     };
 
+    /**
+     * Öffentlich per GET erreichbare Pfade für die Auslieferung der SPA: die statischen
+     * Build-Artefakte (flach unter {@code static/}: {@code main-*.js}, {@code styles-*.css},
+     * {@code favicon.ico}, {@code 3rdpartylicenses.txt}, optional {@code assets/**}), die
+     * Einstiegsseite {@code /} bzw. {@code /index.html} sowie die client-seitigen
+     * Angular-Routen (Deep-Link/Hard-Reload → {@code SpaForwardController}).
+     *
+     * <p>Bei neuen Frontend-Routen: hier und in {@code SpaForwardController} ergänzen.
+     */
+    private static final String[] SPA_GET_PATHS = {
+        "/",
+        "/index.html",
+        "/favicon.ico",
+        "/*.js",
+        "/*.css",
+        "/*.txt",
+        "/assets/**",
+        "/dashboard/**",
+        "/login/**"
+    };
+
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http, JwtService jwtService) throws Exception {
         http
@@ -41,6 +70,7 @@ public class SecurityConfig {
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(PUBLIC_PATHS).permitAll()
+                .requestMatchers(HttpMethod.GET, SPA_GET_PATHS).permitAll()
                 .anyRequest().authenticated())
             .httpBasic(AbstractHttpConfigurer::disable)
             .formLogin(AbstractHttpConfigurer::disable)
