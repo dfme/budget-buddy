@@ -38,6 +38,18 @@ public class User {
         // JPA
     }
 
+    /**
+     * Erzeugt einen neuen User bei der Registrierung (BE-AUTH-03).
+     *
+     * @param email E-Mail-Adresse (eindeutig).
+     * @param passwordHash bcrypt-Hash des Passworts — niemals Klartext (ADR-7).
+     */
+    public User(String email, String passwordHash) {
+        this.email = email;
+        this.passwordHash = passwordHash;
+        this.onboardingCompleted = false;
+    }
+
     public Long getId() {
         return id;
     }
