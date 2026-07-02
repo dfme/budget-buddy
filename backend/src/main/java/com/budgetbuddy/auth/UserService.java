@@ -42,10 +42,6 @@ public class UserService {
     }
 
     private UserProfileResponse toResponse(User user) {
-        return new UserProfileResponse(
-                user.getId(),
-                user.getEmail(),
-                user.getMonthlyIncome(),
-                user.isOnboardingCompleted());
+        return UserProfileResponse.from(user);
     }
 }
