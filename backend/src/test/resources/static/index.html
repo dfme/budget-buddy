@@ -1,0 +1,19 @@
+<!doctype html>
+<!--
+  Test-Fixture für SpaRoutingTest (INFRA-05).
+
+  Im Dev-/Test-Build existiert kein static/index.html — der echte Angular-Build wird erst
+  im Prod-Profil (-Pprod) via frontend-maven-plugin nach classes/static/ kopiert. Diese
+  Fixture liegt unter src/test/resources und landet nur im Test-Classpath, NICHT im Prod-JAR.
+  Sie erlaubt MockMvc zu verifizieren, dass die SPA unter / bzw. per Deep-Link-Forward
+  ausgeliefert wird.
+-->
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <title>BudgetBuddy (test fixture)</title>
+  </head>
+  <body>
+    <app-root>spa-index-fixture</app-root>
+  </body>
+</html>
