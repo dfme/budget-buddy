@@ -1,4 +1,39 @@
-<section>
+<section class="login">
   <h1>Login</h1>
-  <p>Platzhalter — Konto-Login kommt mit US-01.</p>
+
+  <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    <label for="email">E-Mail</label>
+    <input id="email" type="email" formControlName="email" autocomplete="email" required />
+    @if (form.controls.email.touched && form.controls.email.invalid) {
+      <p class="field-error">
+        @if (form.controls.email.hasError('required')) {
+          E-Mail ist erforderlich.
+        } @else if (form.controls.email.hasError('email')) {
+          Bitte eine gültige E-Mail-Adresse eingeben.
+        }
+      </p>
+    }
+
+    <label for="password">Passwort</label>
+    <input
+      id="password"
+      type="password"
+      formControlName="password"
+      autocomplete="current-password"
+      required
+    />
+    @if (form.controls.password.touched && form.controls.password.hasError('required')) {
+      <p class="field-error">Passwort ist erforderlich.</p>
+    }
+
+    @if (errorMessage(); as message) {
+      <p class="form-error" role="alert">{{ message }}</p>
+    }
+
+    <button type="submit" [disabled]="submitting()">
+      {{ submitting() ? 'Wird eingeloggt…' : 'Einloggen' }}
+    </button>
+  </form>
+
+  <p class="register-hint">Noch kein Konto? <a routerLink="/register">Jetzt registrieren</a></p>
 </section>
