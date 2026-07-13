@@ -1,0 +1,62 @@
+name: CD
+
+# Continuous Deployment (INFRA-06): Bei jedem Push auf main wird der
+# wiederverwendbare Build/Test-Workflow ausgeführt. Nur wenn er grün ist, wird
+# der Render Deploy Hook ausgelöst und anschliessend /actuator/health smoke-getestet.
+on:
+  push:
+    branches: [main]
+
+# Verhindert überlappende Deploys bei schnell aufeinanderfolgenden Pushes:
+# Ein laufender Deploy wird abgebrochen, sobald ein neuer Commit auf main landet.
+concurrency:
+  group: cd-main
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # Backend (mvn verify) + Frontend (test + prod build). Rotes Build/Test blockt
+    # via needs den Deploy (AC: Deploy schlägt fehl wenn mvn test oder ng build rot sind).
+    uses: ./.github/workflows/build.yml
+
+  deploy:
+    name: Deploy to Render + smoke test
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy hook
+        env:
+          # Deploy-Hook-URL ausschliesslich als GitHub Secret — nie im Code (AC 4).
+          # Anlegen unter: Settings → Secrets and variables → Actions →
+          # RENDER_DEPLOY_HOOK_URL (Wert aus Render → Service → Settings → Deploy Hook).
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "::error::Secret RENDER_DEPLOY_HOOK_URL ist nicht gesetzt."
+            exit 1
+          fi
+          # -f: non-2xx → Job rot. Der Hook ist fire-and-forget; der eigentliche
+          # Deploy läuft danach asynchron auf Render.
+          curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL"
+          echo "Render deploy hook ausgelöst."
+
+      - name: Smoke test /actuator/health
+        env:
+          HEALTH_URL: https://budgetbuddy-0myo.onrender.com/actuator/health
+        run: |
+          # Render deployt asynchron und der Free-Tier hat langsame Cold-Starts:
+          # /actuator/health pollen, bis HTTP 200 kommt (max. ~10 min), sonst rot.
+          max_attempts=40   # 40 × 15s = 600s = 10 min
+          sleep_seconds=15
+          echo "Smoke-Test gegen $HEALTH_URL (bis zu $((max_attempts * sleep_seconds))s)..."
+          for attempt in $(seq 1 "$max_attempts"); do
+            status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$HEALTH_URL" || echo "000")
+            if [ "$status" = "200" ]; then
+              echo "Health-Check grün (HTTP 200) nach Versuch $attempt."
+              exit 0
+            fi
+            echo "Versuch $attempt/$max_attempts: HTTP $status — warte ${sleep_seconds}s..."
+            sleep "$sleep_seconds"
+          done
+          echo "::error::Smoke-Test fehlgeschlagen — /actuator/health lieferte nach $max_attempts Versuchen kein HTTP 200."
+          exit 1
