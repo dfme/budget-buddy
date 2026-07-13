@@ -76,6 +76,19 @@ gh pr create \
 ```
 
 PR body must include:
-- Reference to the issue: `Part of #<issue-number>`
+- Closing keyword that links the issue: `Closes #<issue-number>` — creates the formal
+  link in the issue's Development panel (PR targets `main`, the default branch) and
+  auto-closes the issue when the PR is merged.
 - Summary (2–3 bullet points)
 - Test plan (checklist)
+
+### 10. ISSUE VERLINKEN (Rückrichtung)
+`gh pr create` prints the new PR URL. Post a backlink comment on the issue so the link is
+also explicit in the issue timeline:
+
+```bash
+gh issue comment <issue-number> --body "🔀 PR erstellt: <pr-url>"
+```
+
+Confirm to the user that PR and issue are now linked in both directions (PR → issue via
+`Closes #<issue-number>` + Development panel, issue → PR via the backlink comment).
