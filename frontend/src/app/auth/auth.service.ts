@@ -45,6 +45,15 @@ export class AuthService {
   }
 
   /**
+   * Leert den Auth-State ohne Backend-Call. Wird vom `authErrorInterceptor`
+   * genutzt, wenn ein 401 (abgelaufenes/fehlendes Cookie) auf einem geschützten
+   * Call auftritt — der Server hat die Session bereits invalidiert.
+   */
+  resetState(): void {
+    this.currentUserState.set(null);
+  }
+
+  /**
    * Stellt den State nach einem Reload wieder her. Ein gültiges Cookie liefert das
    * Profil; ohne Login antwortet das Backend mit 401 — dann bleibt der State `null`,
    * ohne dass ein Fehler propagiert wird.
