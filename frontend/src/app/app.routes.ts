@@ -1,5 +1,7 @@
 import { Routes } from '@angular/router';
 
+import { authGuard } from './core/guards/auth.guard';
+
 /**
  * Platzhalter-Routes für das Skeleton. Feature-Routes werden mit den jeweiligen
  * User Stories ergänzt (Struktur: docs CLAUDE.md → Frontend: Feature-Struktur).
@@ -8,8 +10,8 @@ export const routes: Routes = [
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
   {
     path: 'dashboard',
-    loadComponent: () =>
-      import('./dashboard/dashboard').then((m) => m.Dashboard),
+    canActivate: [authGuard],
+    loadComponent: () => import('./dashboard/dashboard').then((m) => m.Dashboard),
   },
   {
     path: 'login',
