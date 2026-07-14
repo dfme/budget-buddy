@@ -12,6 +12,29 @@ ng serve
 
 Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
 
+### Lokaler Dev-Betrieb (Frontend + Backend)
+
+Die SPA ruft ihre API relativ auf (`/auth/*`, `/users/me`). Im Dev-Betrieb leitet ein Angular
+Dev-Proxy (`proxy.conf.json`, in `angular.json` unter `serve` verdrahtet) diese Pfade an das
+Spring-Boot-Backend auf `http://localhost:8080` weiter — so bleibt der Browser same-origin auf
+`:4200`, das `Set-Cookie` (httpOnly JWT) kommt korrekt zurück, und es ist keine CORS-Konfiguration
+im Backend nötig.
+
+Beide Server parallel starten:
+
+```bash
+# Terminal 1 — Backend auf :8080
+cd backend
+./mvnw spring-boot:run
+
+# Terminal 2 — Frontend Dev-Server auf :4200 (lädt den Proxy automatisch)
+cd frontend
+ng serve
+```
+
+App im Browser unter `http://localhost:4200/` öffnen. Ein `POST /auth/login` z. B. wird
+transparent an `:8080` weitergereicht.
+
 ## Code scaffolding
 
 Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
