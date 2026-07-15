@@ -2,7 +2,10 @@ name: CD
 
 # Continuous Deployment (INFRA-06): Bei jedem Push auf main wird der
 # wiederverwendbare Build/Test-Workflow ausgeführt. Nur wenn er grün ist, wird
-# der Render Deploy Hook ausgelöst und anschliessend /actuator/health smoke-getestet.
+# der Render Deploy Hook ausgelöst und anschliessend smoke-getestet.
+#
+# Der Smoke-Test verifiziert die deployte VERSION, nicht bloss die Erreichbarkeit:
+# Er pollt, bis /actuator/info den Commit dieses Runs meldet (INFRA-08).
 on:
   push:
     branches: [main]
@@ -23,6 +26,9 @@ jobs:
     name: Deploy to Render + smoke test
     needs: build
     runs-on: ubuntu-latest
+    # Airbag: Der Smoke-Test begrenzt sich selbst auf 20 min; dieses Limit greift nur,
+    # falls die Schleife wider Erwarten hängt (z.B. curl ohne Rückkehr).
+    timeout-minutes: 25
     steps:
       - name: Trigger Render deploy hook
         env:
@@ -40,23 +46,53 @@ jobs:
           curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL"
           echo "Render deploy hook ausgelöst."
 
-      - name: Smoke test /actuator/health
+      - name: Smoke test — läuft der Commit dieses Runs?
         env:
-          HEALTH_URL: https://budgetbuddy-0myo.onrender.com/actuator/health
+          BASE_URL: https://budgetbuddy-0myo.onrender.com
         run: |
-          # Render deployt asynchron und der Free-Tier hat langsame Cold-Starts:
-          # /actuator/health pollen, bis HTTP 200 kommt (max. ~10 min), sonst rot.
-          max_attempts=40   # 40 × 15s = 600s = 10 min
+          # Der Deploy-Hook ist fire-and-forget: Render baut danach asynchron, während die
+          # ALTE Instanz weiterhin Traffic bedient. Ein reiner /actuator/health-Check konnte
+          # deshalb von der alten Version grün beantwortet werden — der Job war grün, ohne
+          # dass die neue Version je deployt war (INFRA-08).
+          #
+          # Darum wird die Version verifiziert, nicht bloss die Erreichbarkeit: /actuator/info
+          # meldet via RENDER_GIT_COMMIT den Commit, den die laufende Instanz ausführt. Grün
+          # nur, wenn dieser dem GITHUB_SHA dieses Runs entspricht UND health 200 liefert.
+          #
+          # Fehlt RENDER_GIT_COMMIT, meldet die App "unknown" (Fallback in
+          # application.properties) — das matcht nie, der Job wird rot statt falsch grün.
+          #
+          # Timeout: Obergrenze, keine Laufzeit — bei erfolgreichem Deploy bricht die
+          # Schleife ab, sobald der SHA matcht. Die vollen 20 min fallen nur bei einem
+          # kaputten Deploy an. Ein zu tiefes Limit würde dagegen langsame, aber
+          # erfolgreiche Deploys rot melden (Render Free-Tier: kein Build-Cache, langsame
+          # Hardware, Cold-Start) — also erneut ein Signal, dem man nicht trauen kann.
+          max_attempts=80   # 80 × 15s = 1200s = 20 min
           sleep_seconds=15
-          echo "Smoke-Test gegen $HEALTH_URL (bis zu $((max_attempts * sleep_seconds))s)..."
+          echo "Warte auf Deployment von Commit $GITHUB_SHA (bis zu $((max_attempts * sleep_seconds))s)..."
           for attempt in $(seq 1 "$max_attempts"); do
-            status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$HEALTH_URL" || echo "000")
-            if [ "$status" = "200" ]; then
-              echo "Health-Check grün (HTTP 200) nach Versuch $attempt."
-              exit 0
+            # || true: Der Step läuft unter `bash -e`; ein fehlschlagendes curl (Service
+            # baut noch / schläft) würde ihn sonst sofort abbrechen. Bei Fehler liefert
+            # curl -w bereits "000", ein zusätzliches echo würde nur "000000" ergeben.
+            deployed=$(curl -s --max-time 10 "$BASE_URL/actuator/info" \
+              | jq -r '.app.commit // empty' 2>/dev/null || true)
+            # Präfix- statt Exakt-Vergleich: GITHUB_SHA ist immer der volle 40-Zeichen-SHA,
+            # für RENDER_GIT_COMMIT ist das Format nicht dokumentiert (voll oder gekürzt).
+            # Ein Exakt-Match würde bei gekürztem SHA nie greifen → Job dauerhaft rot.
+            # Die Guards halten den Vergleich dicht: "" ist Präfix von allem, und < 7 Zeichen
+            # wäre kein belastbarer Commit-Nachweis. "unknown" ist nie ein SHA-Präfix.
+            if [ -n "$deployed" ] && [ "${#deployed}" -ge 7 ] \
+               && [ "${GITHUB_SHA#"$deployed"}" != "$GITHUB_SHA" ]; then
+              health=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$BASE_URL/actuator/health" || true)
+              if [ "$health" = "200" ]; then
+                echo "Neue Version live: Commit $GITHUB_SHA, health HTTP 200 (Versuch $attempt)."
+                exit 0
+              fi
+              echo "Versuch $attempt/$max_attempts: Commit ist da, aber health HTTP $health — warte ${sleep_seconds}s..."
+            else
+              echo "Versuch $attempt/$max_attempts: läuft '${deployed:-nicht erreichbar}', erwartet '$GITHUB_SHA' — warte ${sleep_seconds}s..."
             fi
-            echo "Versuch $attempt/$max_attempts: HTTP $status — warte ${sleep_seconds}s..."
             sleep "$sleep_seconds"
           done
-          echo "::error::Smoke-Test fehlgeschlagen — /actuator/health lieferte nach $max_attempts Versuchen kein HTTP 200."
+          echo "::error::Smoke-Test fehlgeschlagen — nach $max_attempts Versuchen meldet $BASE_URL nicht Commit $GITHUB_SHA mit health 200. Deploy-Log auf Render prüfen."
           exit 1
