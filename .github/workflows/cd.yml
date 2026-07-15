@@ -112,10 +112,13 @@ jobs:
                 duration=$(( $(date +%s) - started_at ))
                 echo "Neue Version live nach ${duration}s (Versuch $attempt): Instanz meldet Commit $deployed, health HTTP 200."
                 echo "Erreichbar unter: $BASE_URL"
-                # Zusätzlich als Job-Summary: erscheint klickbar zuoberst auf der Run-Seite,
-                # ohne dass der Job-Log aufgeklappt werden muss (INFRA-10). Nur im
-                # Erfolgsfall — im Fehlerfall trägt die ::error::-Annotation die Diagnose
-                # und wird von GitHub ohnehin prominent angezeigt.
+                # Zusätzlich als Job-Summary: erscheint klickbar auf der Run-Seite, ohne
+                # dass der Job-Log aufgeklappt werden muss (INFRA-10). GitHub ordnet
+                # Summaries nach Jobs, nicht nach Wichtigkeit — da dieser Job `needs: build`
+                # hat, steht die Box zwangsläufig unter der Summary des Frontend-Jobs, die
+                # Vitest in CI von sich aus schreibt. Nur im Erfolgsfall: Im Fehlerfall
+                # trägt die ::error::-Annotation die Diagnose und wird ohnehin prominent
+                # angezeigt.
                 {
                   echo "### ✅ Deployment erfolgreich"
                   echo ""
