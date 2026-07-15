@@ -24,7 +24,9 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  * mit 401 statt eines Browser-Login-Prompts. CSRF ist deaktiviert, da das JWT-Cookie
  * {@code SameSite=Strict} nutzt.
  *
- * <p>Frei zugänglich bleiben Swagger UI, OpenAPI-Docs und der Actuator-Health-Endpoint.
+ * <p>Frei zugänglich bleiben Swagger UI, OpenAPI-Docs sowie die Actuator-Endpoints Health und
+ * Info. Info meldet nur den deployten Commit-SHA (INFRA-08) und muss ohne Auth erreichbar sein,
+ * weil der CD-Smoke-Test die Version vor dem Login prüft.
  *
  * <p>Zusätzlich werden die im JAR gebündelte Angular-SPA und ihre statischen Assets
  * öffentlich per GET ausgeliefert (INFRA-05, ADR-10 Single-Artifact). Da die API keinen
@@ -41,7 +43,8 @@ public class SecurityConfig {
         "/v3/api-docs/**",
         "/swagger-ui/**",
         "/swagger-ui.html",
-        "/actuator/health"
+        "/actuator/health",
+        "/actuator/info"
     };
 
     /**

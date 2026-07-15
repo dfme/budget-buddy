@@ -13,7 +13,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 /**
  * Verifiziert die stateless Security-Konfiguration (Schritt 3): geschützte Pfade liefern 401
- * ohne Basic-Auth-Prompt, öffentliche Pfade (Actuator-Health) bleiben erreichbar.
+ * ohne Basic-Auth-Prompt, öffentliche Pfade (Actuator-Health/-Info) bleiben erreichbar.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -40,6 +40,13 @@ class SecurityConfigTest {
     @Test
     void healthEndpointIsPublic() throws Exception {
         mockMvc.perform(get("/actuator/health"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void infoEndpointIsPublic() throws Exception {
+        // Der CD-Smoke-Test liest den deployten Commit vor jedem Login (INFRA-08).
+        mockMvc.perform(get("/actuator/info"))
                 .andExpect(status().isOk());
     }
 }

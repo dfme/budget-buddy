@@ -229,6 +229,18 @@ Issue-Titel folgen dem Format `[TASK-ID] Kurzbeschreibung`. Die Task-ID kodiert 
 
 Die Task-ID im Issue-Titel wird direkt als `<TASK-ID>` in der Branch-Namenskonvention verwendet (siehe Branching-Strategie oben).
 
+### Git: Bug-Tickets
+
+Bugs bekommen **keine eigene ID-Reihe**. Die Task-ID kodiert den **Bereich**, nicht den Typ — der Typ steckt bereits im Branch-Präfix (`feature/` vs. `fix/`) und im Label. Regeln:
+
+1. **Neue, freie ID im betroffenen Bereich** — z. B. `INFRA-08` für einen Bug in der CD-Pipeline. Niemals eine bestehende Task-ID wiederverwenden, auch nicht die des Tasks, der den Bug eingebaut hat: Eine ID = eine Arbeitseinheit = ein Branch = ein PR. Wiederverwendung zerstört die Rückverfolgbarkeit.
+2. **Bereich = wo der Fix landet.** Ein Bug ist immer einem Bereich zuordenbar, auch wenn er zu keinem bestehenden Task gehört. Bei bereichsübergreifenden Bugs entscheidet der Ort des Fixes.
+3. **Typ via Label** — `bug` am Issue setzen. Nicht als Freitext-Präfix in den Titel (`Bug: …`) schreiben.
+4. **Branch:** `fix/<TASK-ID>-<Freitext>` (siehe Branching-Strategie oben).
+5. **Titel wie bei jedem Issue:** `[TASK-ID] Kurzbeschreibung`.
+
+Beispiel: [#68](https://github.com/dfme/budget-buddy/issues/68) — `[INFRA-08] Smoke-Test verifiziert nicht die neue Version`, Label `bug`, Branch `fix/INFRA-08-deploy-version-check`.
+
 ### Git: Review-Konvention
 
 1. **Lokaler Review durch Claude** — bevor ein PR erstellt wird, prüft Claude die Änderungen lokal
