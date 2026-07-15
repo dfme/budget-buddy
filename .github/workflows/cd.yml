@@ -109,7 +109,22 @@ jobs:
                 # Den GEMELDETEN Commit loggen, nicht den erwarteten: Nur so ist im Log
                 # nachvollziehbar, was die Instanz tatsächlich ausführt (INFRA-09).
                 # Dauer hier frisch berechnen statt $elapsed (das stammt von vor den curls).
-                echo "Neue Version live nach $(( $(date +%s) - started_at ))s (Versuch $attempt): Instanz meldet Commit $deployed, health HTTP 200."
+                duration=$(( $(date +%s) - started_at ))
+                echo "Neue Version live nach ${duration}s (Versuch $attempt): Instanz meldet Commit $deployed, health HTTP 200."
+                echo "Erreichbar unter: $BASE_URL"
+                # Zusätzlich als Job-Summary: erscheint klickbar zuoberst auf der Run-Seite,
+                # ohne dass der Job-Log aufgeklappt werden muss (INFRA-10). Nur im
+                # Erfolgsfall — im Fehlerfall trägt die ::error::-Annotation die Diagnose
+                # und wird von GitHub ohnehin prominent angezeigt.
+                {
+                  echo "### ✅ Deployment erfolgreich"
+                  echo ""
+                  echo "| | |"
+                  echo "|---|---|"
+                  echo "| **URL** | $BASE_URL |"
+                  echo "| **Commit** | \`$deployed\` |"
+                  echo "| **Dauer** | ${duration}s (Versuch $attempt) |"
+                } >> "$GITHUB_STEP_SUMMARY"
                 exit 0
               fi
               state="commit-da-health-$health"
