@@ -26,9 +26,12 @@ jobs:
     name: Deploy to Render + smoke test
     needs: build
     runs-on: ubuntu-latest
-    # Airbag: Der Smoke-Test begrenzt sich selbst auf 20 min; dieses Limit greift nur,
-    # falls die Schleife wider Erwarten hängt (z.B. curl ohne Rückkehr).
-    timeout-minutes: 25
+    # Airbag: Der Smoke-Test begrenzt sich selbst per Deadline auf 15 min und kann diese
+    # um höchstens einen Durchlauf überschreiten (Bedingung wird vor jeder Iteration
+    # geprüft: ~35s = sleep + curl-Timeouts). Dieses Limit greift also nur, falls die
+    # Schleife wider Erwarten ganz hängt — und liegt bewusst so nah an der Deadline, dass
+    # ein Timeout die aussagekräftige ::error::-Meldung ausgibt, statt gekillt zu werden.
+    timeout-minutes: 18
     steps:
       - name: Trigger Render deploy hook
         env:
@@ -63,36 +66,65 @@ jobs:
           # application.properties) — das matcht nie, der Job wird rot statt falsch grün.
           #
           # Timeout: Obergrenze, keine Laufzeit — bei erfolgreichem Deploy bricht die
-          # Schleife ab, sobald der SHA matcht. Die vollen 20 min fallen nur bei einem
+          # Schleife ab, sobald der SHA matcht. Die vollen 15 min fallen nur bei einem
           # kaputten Deploy an. Ein zu tiefes Limit würde dagegen langsame, aber
           # erfolgreiche Deploys rot melden (Render Free-Tier: kein Build-Cache, langsame
           # Hardware, Cold-Start) — also erneut ein Signal, dem man nicht trauen kann.
-          max_attempts=80   # 80 × 15s = 1200s = 20 min
+          #
+          # 15 min = 2.5× der gemessenen Deploy-Dauer (5m53s im ersten Lauf mit
+          # Versionsprüfung, Run 29409594339). Puffer für Build-Queue, Registry-Schwankungen
+          # und den über die Projektlaufzeit wachsenden Build (INFRA-09).
+          #
+          # Abbruch über Wall-Clock-Deadline statt Versuchszähler: Jeder Versuch kostet
+          # neben dem sleep bis zu --max-time pro curl. Ein Zähler begrenzt daher Versuche,
+          # nicht Zeit — bei hängendem Server (TCP offen, keine Antwort) lief die alte
+          # Variante bis zu 33 statt 20 min und wurde vom Job-Airbag gekillt, noch bevor
+          # die ::error::-Meldung unten ausgegeben werden konnte (INFRA-09).
+          timeout_seconds=900   # 15 min
           sleep_seconds=15
-          echo "Warte auf Deployment von Commit $GITHUB_SHA (bis zu $((max_attempts * sleep_seconds))s)..."
-          for attempt in $(seq 1 "$max_attempts"); do
+          log_every=4           # Lebenszeichen, wenn sich der Zustand nicht ändert
+          started_at=$(date +%s)
+          deadline=$(( started_at + timeout_seconds ))
+          attempt=0
+          last_state=""
+          echo "Warte auf Deployment von Commit $GITHUB_SHA (bis zu $((timeout_seconds / 60)) min)..."
+          while [ "$(date +%s)" -lt "$deadline" ]; do
+            attempt=$(( attempt + 1 ))
+            elapsed=$(( $(date +%s) - started_at ))
             # || true: Der Step läuft unter `bash -e`; ein fehlschlagendes curl (Service
             # baut noch / schläft) würde ihn sonst sofort abbrechen. Bei Fehler liefert
             # curl -w bereits "000", ein zusätzliches echo würde nur "000000" ergeben.
             deployed=$(curl -s --max-time 10 "$BASE_URL/actuator/info" \
               | jq -r '.app.commit // empty' 2>/dev/null || true)
-            # Präfix- statt Exakt-Vergleich: GITHUB_SHA ist immer der volle 40-Zeichen-SHA,
-            # für RENDER_GIT_COMMIT ist das Format nicht dokumentiert (voll oder gekürzt).
-            # Ein Exakt-Match würde bei gekürztem SHA nie greifen → Job dauerhaft rot.
-            # Die Guards halten den Vergleich dicht: "" ist Präfix von allem, und < 7 Zeichen
-            # wäre kein belastbarer Commit-Nachweis. "unknown" ist nie ein SHA-Präfix.
+            # Präfix- statt Exakt-Vergleich: GITHUB_SHA ist immer der volle 40-Zeichen-SHA.
+            # Render liefert zwar ebenfalls den vollen SHA (verifiziert in Run 29409594339),
+            # dokumentiert das Format aber nicht — die Toleranz kostet nichts und schützt
+            # vor einem stillen Formatwechsel. Die Guards halten den Vergleich dicht: "" wäre
+            # Präfix von allem, < 7 Zeichen kein belastbarer Nachweis. "unknown" (Fallback
+            # ohne RENDER_GIT_COMMIT) ist nie ein SHA-Präfix.
             if [ -n "$deployed" ] && [ "${#deployed}" -ge 7 ] \
                && [ "${GITHUB_SHA#"$deployed"}" != "$GITHUB_SHA" ]; then
               health=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$BASE_URL/actuator/health" || true)
               if [ "$health" = "200" ]; then
-                echo "Neue Version live: Commit $GITHUB_SHA, health HTTP 200 (Versuch $attempt)."
+                # Den GEMELDETEN Commit loggen, nicht den erwarteten: Nur so ist im Log
+                # nachvollziehbar, was die Instanz tatsächlich ausführt (INFRA-09).
+                # Dauer hier frisch berechnen statt $elapsed (das stammt von vor den curls).
+                echo "Neue Version live nach $(( $(date +%s) - started_at ))s (Versuch $attempt): Instanz meldet Commit $deployed, health HTTP 200."
                 exit 0
               fi
-              echo "Versuch $attempt/$max_attempts: Commit ist da, aber health HTTP $health — warte ${sleep_seconds}s..."
+              state="commit-da-health-$health"
+              message="Commit $deployed ist da, aber health HTTP $health"
             else
-              echo "Versuch $attempt/$max_attempts: läuft '${deployed:-nicht erreichbar}', erwartet '$GITHUB_SHA' — warte ${sleep_seconds}s..."
+              state="version-${deployed:-unerreichbar}"
+              message="läuft '${deployed:-nicht erreichbar}', erwartet '$GITHUB_SHA'"
             fi
+            # Nur bei Zustandswechsel loggen, sonst periodisch als Lebenszeichen — ein
+            # Deploy erzeugte sonst >20 identische Zeilen (INFRA-09).
+            if [ "$state" != "$last_state" ] || [ $(( attempt % log_every )) -eq 0 ]; then
+              echo "Versuch $attempt (${elapsed}s): $message"
+            fi
+            last_state="$state"
             sleep "$sleep_seconds"
           done
-          echo "::error::Smoke-Test fehlgeschlagen — nach $max_attempts Versuchen meldet $BASE_URL nicht Commit $GITHUB_SHA mit health 200. Deploy-Log auf Render prüfen."
+          echo "::error::Smoke-Test fehlgeschlagen — nach $(( $(date +%s) - started_at ))s ($attempt Versuche) meldet $BASE_URL nicht Commit $GITHUB_SHA mit health 200. Zuletzt gesehen: ${deployed:-nicht erreichbar}. Deploy-Log auf Render prüfen."
           exit 1
