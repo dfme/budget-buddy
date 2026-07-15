@@ -1,5 +1,8 @@
 <header>
   <h1>{{ title() }}</h1>
+  @if (isAuthenticated()) {
+    <button type="button" class="logout" (click)="logout()">Abmelden</button>
+  }
 </header>
 
 <main>
