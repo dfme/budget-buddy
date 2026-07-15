@@ -6,14 +6,15 @@ Weitere Details zu Projektidee, Personas, Architektur und Tech-Stack: siehe [CLA
 
 ## Environment Variables
 
-Die folgenden Umgebungsvariablen sind **required** und werden ausschliesslich über die
-Umgebung übergeben — **niemals** im Git-Repository, in `application.properties` oder im
-Code hardcodiert (siehe CLAUDE.md → "Sicherheit: Keine Secrets im Git"):
+Secrets werden ausschliesslich über die Umgebung übergeben — **niemals** im
+Git-Repository, in `application.properties` oder im Code hardcodiert (siehe CLAUDE.md →
+"Sicherheit: Keine Secrets im Git"):
 
 | Variable            | Required | Beschreibung                                                        |
 | ------------------- | -------- | ------------------------------------------------------------------- |
-| `ANTHROPIC_API_KEY` | ✅ ja    | API-Key für die Claude-API (Kategorisierung + KI-Monatsbericht).    |
-| `JWT_SECRET`        | ✅ ja    | Secret für die HS256-Signatur der JWTs (Auth, ab BE-AUTH-01).       |
+| `JWT_SECRET`        | ✅ ja    | Secret für die HS256-Signatur der JWTs (Auth, ab BE-AUTH-01). Fehlt er, startet die App nicht. |
+| `ANTHROPIC_API_KEY` | prod: ja | API-Key für die Claude-API (Kategorisierung + KI-Monatsbericht). Lokal optional: ohne Key startet die App normal, unbekannte Transaktionen werden dann als `Sonstiges` kategorisiert (BE-CAT-02). |
+| `ANTHROPIC_API_MODEL` | optional | Überschreibt das Kategorisierungs-Modell. Default: `claude-haiku-4-5`. |
 | `SQLITE_DB_PATH`    | optional | Pfad zur SQLite-Datei. Default: `budgetbuddy.db` im Arbeitsverzeichnis. |
 | `PORT`              | optional | Port, auf dem die App bindet (von Render gesetzt). Default: `8080`. |
 

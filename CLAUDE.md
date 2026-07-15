@@ -140,9 +140,10 @@ BudgetBuddy is a web app for students and young professionals living in Switzerl
 
 ### AI/ML
 
-- **Categorization model**: `claude-haiku-3-5-20241022` — fast (~200ms), cheap, single-label output
-- **Monthly AI report model**: `claude-sonnet-4-20250514` (latest Sonnet) — richer language, called once/user/month
+- **Categorization model**: `claude-haiku-4-5` — fast, cheap, single-label output. Konfigurierbar via `anthropic.api.model`.
+- **Monthly AI report model**: `claude-sonnet-5` — richer language, called once/user/month
 - **Fallback**: catch `AnthropicException`, return `"Sonstiges"` — Claude unavailability must never block import flow
+- **Circuit Breaker** (BE-CAT-02): Nach 3 fehlgeschlagenen Claude-Calls in Folge werden weitere Transaktionen 60s lang ohne API-Call als `Sonstiges` eingestuft. Der Fallback allein genügt nicht — bei ~20 unbekannten Transaktionen pro Import würde ein API-Ausfall den synchronen Upload sonst minutenlang blockieren.
 
 ## Swiss Bank PDF Specifics
 
