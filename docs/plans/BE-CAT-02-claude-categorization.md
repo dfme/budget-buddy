@@ -263,21 +263,13 @@ Coverage-Ziel `categorization/`: 90%+ (siehe CLAUDE.md → Testing).
 
 ## Offene Punkte für Folge-Tickets
 
-- **`ANTHROPIC_API_KEY` in Produktion setzen** — dieser PR liefert den Code, der den
-  Key liest, aber **nicht** den Key selbst. Solange er in Render nicht gesetzt ist,
-  läuft die deployte App im Fallback-Modus und kategorisiert jede unbekannte
-  Transaktion als `Sonstiges`; ein Bug ist das nicht, aber US-05 ist damit produktiv
-  nicht erfüllt. Zu klären im Team:
-  1. **Wer legt den Account an** und wer trägt die Kosten? Der Key hängt an einem
-     Anthropic-Account mit eigenem Guthaben — ein Claude.ai-Abo (Pro/Max) zählt nicht.
-     Bei Haiku sind die Kosten für den MVP-Scope gering, aber jemand muss zahlen.
-  2. **Wer setzt ihn in Render** (*Service `budgetbuddy` → Environment*)? Braucht
-     Dashboard-Zugriff.
-  3. **Ein Key fürs Team oder pro Person?** Fürs Deployment reicht einer; lokal
-     braucht ihn nur, wer an `categorization/` oder `report/` arbeitet.
-
-  Beschaffung Schritt für Schritt: [`backend/README.md`](../../backend/README.md)
-  → „`ANTHROPIC_API_KEY` beschaffen".
+- **[INFRA-11](https://github.com/dfme/budget-buddy/issues/76) — `ANTHROPIC_API_KEY` in
+  Render hinterlegen** (Sprint 3). Dieses Ticket liefert den Code, der den Key liest,
+  nicht den Key selbst. Ohne ihn läuft die deployte App im Fallback-Modus, US-05 ist
+  produktiv also erst mit INFRA-11 erfüllt. Bewusst ausgelagert statt hier gelöst: Ein
+  PR kann keinen Key liefern, und die offene Frage ist organisatorisch (Account,
+  Kostenträger, Render-Zugriff) — als Fussnote in diesem PR hätte sie den Merge
+  scheinbar blockiert und wäre nach dem Merge verloren gegangen.
 
 - **BE-CAT-03** — Orchestrator, der `LookupTableService` → `ClaudeCategorizationService`
   verkettet. Dieses Ticket liefert nur die zweite Stufe; die beiden
