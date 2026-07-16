@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Integrationstests von {@link SwissBankStatementParser} gegen echte (anonymisierte) Bank-PDFs aus
- * {@code src/main/resources/pdf/}. Deckt die vier realen Layouts ab: Viseca-Kreditkarte,
+ * {@code src/test/resources/pdf/}. Deckt die vier realen Layouts ab: Viseca-Kreditkarte,
  * PostFinance und UBS (plus die generische Raiffeisen-Logik in {@link
  * SwissBankStatementParserTest}).
  *
@@ -96,22 +96,22 @@ class SwissBankStatementParserFixtureTest {
       List<ParsedTransaction> txns = parser.parse(bytes(POST));
 
       assertThat(txns).hasSize(15);
-      // Gedruckte "Total"-Zeile: Gutschrift 6 500.00 / Lastschrift 4 107.40.
-      assertThat(sum(txns, true)).isEqualByComparingTo("6500.00");
-      assertThat(sum(txns, false)).isEqualByComparingTo("4107.40");
+      // Gedruckte "Total"-Zeile: Gutschrift 6 420.40 / Lastschrift 3 835.55.
+      assertThat(sum(txns, true)).isEqualByComparingTo("6420.40");
+      assertThat(sum(txns, false)).isEqualByComparingTo("3835.55");
     }
 
     @Test
     void spaceThousandsSeparator_isParsed() {
       List<ParsedTransaction> txns = parser.parse(bytes(POST));
 
-      // "GIRO AUS KONTO 84-571-2 4 500.00" -> Leerzeichen als Tausendertrennzeichen.
+      // "GIRO AUS KONTO 20-200-2 4 589.10" -> Leerzeichen als Tausendertrennzeichen.
       assertThat(txns)
-          .filteredOn(t -> t.buchungstext().startsWith("GIRO AUS KONTO 84-571-2"))
+          .filteredOn(t -> t.buchungstext().startsWith("GIRO AUS KONTO 20-200-2"))
           .singleElement()
           .satisfies(
               t -> {
-                assertThat(t.betrag()).isEqualByComparingTo("4500.00");
+                assertThat(t.betrag()).isEqualByComparingTo("4589.10");
                 assertThat(t.isIncome()).isTrue();
               });
     }
@@ -123,18 +123,18 @@ class SwissBankStatementParserFixtureTest {
       // Am 31.08.: eine Gutschrift (Fremdbank) und eine Belastung (Kontoführungsgebühr) im selben
       // Saldo-Block. Die Richtungen müssen unterschiedlich aufgelöst werden.
       assertThat(txns)
-          .filteredOn(t -> t.buchungsdatum().equals(LocalDate.of(2017, 8, 31)))
+          .filteredOn(t -> t.buchungsdatum().equals(LocalDate.of(2019, 8, 31)))
           .extracting(ParsedTransaction::isIncome, ParsedTransaction::betrag)
           .containsExactlyInAnyOrder(
-              Tuple.tuple(true, new BigDecimal("1000.00")),
-              Tuple.tuple(false, new BigDecimal("5.00")));
+              Tuple.tuple(true, new BigDecimal("1164.20")),
+              Tuple.tuple(false, new BigDecimal("6.60")));
     }
 
     @Test
-    void twoDigitYear_isParsedAs2017() {
+    void twoDigitYear_isParsedAs2019() {
       List<ParsedTransaction> txns = parser.parse(bytes(POST));
 
-      assertThat(txns).extracting(ParsedTransaction::buchungsdatum).allMatch(d -> d.getYear() == 2017);
+      assertThat(txns).extracting(ParsedTransaction::buchungsdatum).allMatch(d -> d.getYear() == 2019);
     }
   }
 
@@ -146,9 +146,9 @@ class SwissBankStatementParserFixtureTest {
       List<ParsedTransaction> txns = parser.parse(bytes(UBS));
 
       assertThat(txns).hasSize(38);
-      // Gedruckte "Umsatztotal"-Zeile: Belastung 32'045.35 / Gutschrift 54'072.75.
-      assertThat(sum(txns, false)).isEqualByComparingTo("32045.35");
-      assertThat(sum(txns, true)).isEqualByComparingTo("54072.75");
+      // Gedruckte "Umsatztotal"-Zeile: Belastung 36'027.86 / Gutschrift 54'376.07.
+      assertThat(sum(txns, false)).isEqualByComparingTo("36027.86");
+      assertThat(sum(txns, true)).isEqualByComparingTo("54376.07");
     }
 
     @Test
@@ -162,8 +162,8 @@ class SwissBankStatementParserFixtureTest {
           .satisfies(
               t -> {
                 assertThat(t.isIncome()).isTrue();
-                assertThat(t.betrag()).isEqualByComparingTo("12841.00");
-                assertThat(t.buchungsdatum()).isEqualTo(LocalDate.of(2018, 4, 27));
+                assertThat(t.betrag()).isEqualByComparingTo("10934.11");
+                assertThat(t.buchungsdatum()).isEqualTo(LocalDate.of(2020, 4, 27));
               });
       // Ein wiederkehrender Dauerauftrag ist eine Belastung.
       assertThat(txns)
@@ -179,14 +179,14 @@ class SwissBankStatementParserFixtureTest {
       assertThat(txns)
           .filteredOn(t -> t.buchungstext().equals("Ihr Auftrag"))
           .singleElement()
-          .satisfies(t -> assertThat(t.betrag()).isEqualByComparingTo("20972.50"));
+          .satisfies(t -> assertThat(t.betrag()).isEqualByComparingTo("24590.26"));
     }
 
     @Test
-    void allDates_areParsedAs2018() {
+    void allDates_areParsedAs2020() {
       List<ParsedTransaction> txns = parser.parse(bytes(UBS));
 
-      assertThat(txns).extracting(ParsedTransaction::buchungsdatum).allMatch(d -> d.getYear() == 2018);
+      assertThat(txns).extracting(ParsedTransaction::buchungsdatum).allMatch(d -> d.getYear() == 2020);
     }
   }
 
