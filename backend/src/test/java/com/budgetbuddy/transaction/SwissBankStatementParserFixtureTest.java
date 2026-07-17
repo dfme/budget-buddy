@@ -39,9 +39,9 @@ class SwissBankStatementParserFixtureTest {
     void april_extractsAllRows_andExpensesMatchTotalKarte() {
       List<ParsedTransaction> txns = parser.parse(bytes(KREDITKARTE_APRIL));
 
-      assertThat(txns).hasSize(10);
-      // Belastungssumme = im PDF gedruckte Zeile "Total Karte Mastercard Silber ... 881.95".
-      assertThat(sum(txns, false)).isEqualByComparingTo("881.95");
+      assertThat(txns).hasSize(12);
+      // Belastungssumme = im PDF gedruckte Zeile "Total Karte Mastercard Silber ... 1'025.85".
+      assertThat(sum(txns, false)).isEqualByComparingTo("1025.85");
       // Genau eine Gutschrift: die Zahlung der Vormonatsrechnung (nachgestelltes "-").
       assertThat(txns)
           .filteredOn(ParsedTransaction::isIncome)
@@ -83,9 +83,9 @@ class SwissBankStatementParserFixtureTest {
     void juni_extractsAllRows_andSumsMatchPrintedTotals() {
       List<ParsedTransaction> txns = parser.parse(bytes(KREDITKARTE_JUNI));
 
-      assertThat(txns).hasSize(11);
-      assertThat(sum(txns, false)).isEqualByComparingTo("599.60"); // "Total Karte ... 599.60"
-      assertThat(sum(txns, true)).isEqualByComparingTo("881.95"); // "Ihre Zahlung - Danke"
+      assertThat(txns).hasSize(13);
+      assertThat(sum(txns, false)).isEqualByComparingTo("814.30"); // "Total Karte ... 814.30"
+      assertThat(sum(txns, true)).isEqualByComparingTo("1025.85"); // "Ihre Zahlung - Danke"
     }
   }
 
@@ -96,10 +96,10 @@ class SwissBankStatementParserFixtureTest {
     void extractsAllRows_andSumsMatchPrintedTotalLine() {
       List<ParsedTransaction> txns = parser.parse(bytes(POST));
 
-      assertThat(txns).hasSize(7);
-      // Gedruckte "Total"-Zeile: Gutschrift 12 489.10 / Lastschrift 1 163.95.
+      assertThat(txns).hasSize(13);
+      // Gedruckte "Total"-Zeile: Gutschrift 12 489.10 / Lastschrift 2 243.90.
       assertThat(sum(txns, true)).isEqualByComparingTo("12489.10");
-      assertThat(sum(txns, false)).isEqualByComparingTo("1163.95");
+      assertThat(sum(txns, false)).isEqualByComparingTo("2243.90");
     }
 
     @Test
@@ -137,6 +137,22 @@ class SwissBankStatementParserFixtureTest {
 
       assertThat(txns).extracting(ParsedTransaction::buchungsdatum).allMatch(d -> d.getYear() == 2019);
     }
+
+    @Test
+    void merchantTexts_areExtractedVerbatimForCategorization() {
+      List<ParsedTransaction> txns = parser.parse(bytes(POST));
+
+      // Händler-Buchungstexte müssen unverändert ankommen — sie sind der Input für die
+      // Kategorisierung (US-05, Lookup-Tabelle + Claude API).
+      assertThat(txns)
+          .extracting(ParsedTransaction::buchungstext)
+          .contains(
+              "KAUF/DIENSTLEISTUNG MIGROS M BERN",
+              "LASTSCHRIFT SWISSCOM (SCHWEIZ) AG",
+              "LASTSCHRIFT CSS VERSICHERUNG AG",
+              "KAUF/DIENSTLEISTUNG SBB CFF FFS BERN",
+              "TWINT KAUF/DIENSTLEISTUNG COOP-4321");
+    }
   }
 
   @Nested
@@ -146,9 +162,9 @@ class SwissBankStatementParserFixtureTest {
     void extractsAllRows_andSumsMatchUmsatztotal() {
       List<ParsedTransaction> txns = parser.parse(bytes(UBS));
 
-      assertThat(txns).hasSize(22);
-      // Gedruckte "Umsatztotal"-Zeile: Belastung 26'402.75 / Gutschrift 40'950.00.
-      assertThat(sum(txns, false)).isEqualByComparingTo("26402.75");
+      assertThat(txns).hasSize(28);
+      // Gedruckte "Umsatztotal"-Zeile: Belastung 26'970.40 / Gutschrift 40'950.00.
+      assertThat(sum(txns, false)).isEqualByComparingTo("26970.40");
       assertThat(sum(txns, true)).isEqualByComparingTo("40950.00");
     }
 
@@ -197,6 +213,22 @@ class SwissBankStatementParserFixtureTest {
       List<ParsedTransaction> txns = parser.parse(bytes(UBS));
 
       assertThat(txns).extracting(ParsedTransaction::buchungsdatum).allMatch(d -> d.getYear() == 2021);
+    }
+
+    @Test
+    void merchantTexts_areExtractedVerbatimForCategorization() {
+      List<ParsedTransaction> txns = parser.parse(bytes(UBS));
+
+      // Händler-Buchungstexte müssen unverändert ankommen — Input für die Kategorisierung (US-05).
+      assertThat(txns)
+          .extracting(ParsedTransaction::buchungstext)
+          .contains(
+              "Kartenzahlung Migros Zuerich",
+              "Kartenzahlung Coop Pronto",
+              "Kartenzahlung SBB Billettautomat",
+              "LSV Swisscom AG",
+              "LSV CSS Kranken-Versicherung",
+              "TWINT Kiosk Bahnhof");
     }
   }
 
