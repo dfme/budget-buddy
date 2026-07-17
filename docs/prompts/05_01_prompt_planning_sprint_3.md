@@ -8,11 +8,11 @@ Kannst du anhand der Issues im Backlog einen Sinnvollen Sprint 3 vorschlagen. Bi
 
 # Sprint-3-Vorschlag — BudgetBuddy
 
-**Team:** 3 Entwickler · **Ziel-Umfang:** ~30 Story Points · **Sprint-Nr.:** 3
+**Team:** 3 Entwickler · **Neu-Commitment:** 28 SP (+ Carryover-Restaufwand) · **Sprint-Nr.:** 3
 
 ## Sprint-Ziel
 
-> **Die PDF-Import-Pipeline läuft end-to-end: Kontoauszug hochladen → parsen → automatisch kategorisieren → Ergebnis anzeigen.** Damit liefern wir zum ersten Mal den Kern-Nutzen der App (US-04 + US-05). Parallel legen wir mit der UI-Design-Entscheidung und der Produktiv-Konfiguration (API-Key) das Fundament für die restlichen Frontend-Screens.
+> **Die PDF-Import-Pipeline läuft end-to-end: Kontoauszug hochladen → parsen → automatisch kategorisieren → Ergebnis anzeigen → nach Kategorie auswerten.** Damit liefern wir zum ersten Mal den Kern-Nutzen der App (US-04 + US-05). Parallel legen wir mit der UI-Design-Entscheidung und der Produktiv-Konfiguration (API-Key) das Fundament für die restlichen Frontend-Screens.
 
 ## Ausgangslage
 
@@ -68,16 +68,17 @@ Sobald Transaktionen importiert & kategorisiert sind, folgt die Auswertung — d
 ## Empfohlene Bearbeitungsreihenfolge (nach Abhängigkeiten)
 
 ```
-Woche 1                          Woche 2
-─────────────────────────────    ────────────────────────────
-Dev A: #16 (Review→Done) ─┐      #17 BE-PDF-02 ──► #18 BE-PDF-03
-Dev B: #13 BE-PDF-01 ─────┴────► ┘ (entblockt Pipeline)
-Dev C: #80 FE-UI-01 · #27 FE-PDF-01     #28 FE-PDF-02
+Woche 1                              Woche 2
+─────────────────────────────────    ──────────────────────────────
+Dev A: #16 (Review→Done) · #19 ──┐   #17 BE-PDF-02 ─► #18 BE-PDF-03
+Dev B: #13 BE-PDF-01 ────────────┴─► ┘ (entblockt Pipeline) ─► #28
+Dev C: #80 FE-UI-01 · #27 FE-PDF-01   #20 BE-CAT-05 ─► #30 FE-CAT-01
         (parallel: #76, #78 als Füller)
 ```
 
 - **Kritischer Pfad:** `#13 → #17 → #18 → #28`. #13 (SP 8) ist das grösste Risiko — sollte in Woche 1 abgeschlossen sein, sonst rutscht die Pipeline.
-- **Parallelisierbar ab Tag 1:** #27, #80, #78, #76 hängen von nichts Offenem ab → halten Dev C und Puffer ausgelastet, während #13/#16 laufen.
+- **Parallelisierbar ab Tag 1:** #27, #80, #78, #76 sowie **#19 und #20** (Kategorie-Auswertung) hängen von nichts Offenem ab → halten das Team ausgelastet, während #13/#16 laufen.
+- **#30** folgt auf #20, **#28** auf #18 + #27 — beide realistisch in Woche 2.
 
 ## Bewusst *nicht* in Sprint 3
 
@@ -85,7 +86,7 @@ Dev C: #80 FE-UI-01 · #27 FE-PDF-01     #28 FE-PDF-02
 | ------- | ---------------- |
 | Fixkosten-Vertikale (#10–#12, #24–#26, 17 SP, US-03) | Vollständig unabhängig & bereit — passt aber nicht zusätzlich in 30 SP. **Erster Kandidat für Sprint 4.** |
 | Safe-to-Spend (#21–#23, #33–#35) | `#21 BE-STS-01` hängt an `#11 BE-FC-02` → braucht zuerst die Fixkosten-Vertikale. |
-| Kategorie-Screens (#30–#32) | Hängen an #20 (`GET /transactions/summary`) bzw. #19 — bauen sinnvoll auf der fertigen Pipeline in Sprint 4 auf. |
+| Kategorie-Visualisierung (#31 Pie-Chart, #32 manuelle Korrektur-UI) | Hängen an #30 bzw. #19 — beide in diesem Sprint fertiggestellt. Damit ist #31/#32 der **direkte Sprint-4-Einstieg** und profitiert vom gewählten UI-Design aus #80. |
 | #58 E2E-AUTH-01 (3 SP) | Bereit, aber nicht sprint-kritisch → **Stretch-/Puffer-Item**, falls Kapazität frei wird. |
 
 ## Risiken & Gegenmassnahmen
