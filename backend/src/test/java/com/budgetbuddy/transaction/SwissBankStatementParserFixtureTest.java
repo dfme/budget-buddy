@@ -65,12 +65,14 @@ class SwissBankStatementParserFixtureTest {
     void april_foreignCurrencyRow_usesLastAmountAsChf() {
       List<ParsedTransaction> txns = parser.parse(bytes(KREDITKARTE_APRIL));
 
-      // "BKG*HOTEL BELLEVUE, Amsterdam NL EUR 250.00 238.55" -> der letzte Betrag ist der CHF-Betrag.
+      // "BKG*HOTEL BELLEVUE, Amsterdam NL EUR 250.00 238.55" -> der letzte Betrag ist der
+      // CHF-Betrag; Fremdbetrag und Währungscode gehören nicht in den Buchungstext.
       assertThat(txns)
           .filteredOn(t -> t.buchungstext().startsWith("BKG*HOTEL"))
           .singleElement()
           .satisfies(
               t -> {
+                assertThat(t.buchungstext()).isEqualTo("BKG*HOTEL BELLEVUE, Amsterdam NL");
                 assertThat(t.betrag()).isEqualByComparingTo("238.55");
                 assertThat(t.isIncome()).isFalse();
                 assertThat(t.buchungsdatum()).isEqualTo(LocalDate.of(2025, 4, 6));

@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,7 +29,9 @@ import org.springframework.stereotype.Component;
  * <ul>
  *   <li><b>Viseca / Raiffeisen Kreditkarte</b> — Zeilen {@code Buchungsdatum Valuta Text [Währung
  *       Fremdbetrag] BetragCHF}, zweistelliges Jahr {@code dd.MM.yy}, kein laufender Saldo. Eine
- *       Gutschrift (Zahlung/Rückerstattung) ist an einem nachgestellten „-" erkennbar.
+ *       Gutschrift (Zahlung/Rückerstattung) ist an einem nachgestellten „-" erkennbar. Der
+ *       Buchungstext ist der Teil vor dem ersten Betrag; ein nachgestellter Währungscode
+ *       (z. B. {@code EUR}) wird entfernt.
  *   <li><b>PostFinance</b> — Zeilen {@code [Datum] Text Betrag Valuta [Saldo]}, {@code dd.MM.yy},
  *       Leerzeichen als Tausendertrennzeichen ({@code 1 000.00}). Der Saldo steht nur am Tagesende;
  *       die Richtung wird über das Saldo-Delta eines Buchungsblocks rekonstruiert.
@@ -57,8 +60,17 @@ public class SwissBankStatementParser {
           .appendValueReduced(ChronoField.YEAR, 2, 2, 2000)
           .toFormatter();
 
-  /** CHF-Betrag mit Apostroph- oder Leerzeichen-Tausendertrennzeichen, z. B. {@code 1'234.56}. */
-  private static final String AMOUNT = "-?\\d{1,3}(?:['  ]\\d{3})*\\.\\d{2}";
+  /**
+   * Tausendertrennzeichen in CHF-Beträgen: Apostroph, Leerzeichen, geschütztes Leerzeichen
+   * (U+00A0) und schmales geschütztes Leerzeichen (U+202F, übliche Schweizer Zahlformatierung).
+   * Einzige Quelle für {@link #AMOUNT} und {@code parseAmount} — sichtbar für Tests.
+   */
+  static final String THOUSANDS_SEPARATORS = "' \u00A0\u202F";
+
+  /** CHF-Betrag mit Tausendertrennzeichen, z. B. {@code 1'234.56} — sichtbar für Tests. */
+  static final String AMOUNT = "-?\\d{1,3}(?:[" + THOUSANDS_SEPARATORS + "]\\d{3})*\\.\\d{2}";
+
+  private static final Pattern SEPARATOR_CHARS = Pattern.compile("[" + THOUSANDS_SEPARATORS + "]");
 
   private static final String DATE4_RE = "\\d{2}\\.\\d{2}\\.\\d{4}";
   private static final String DATE2_RE = "\\d{2}\\.\\d{2}\\.\\d{2}";
@@ -76,7 +88,13 @@ public class SwissBankStatementParser {
   private static final Pattern VISECA_ROW =
       Pattern.compile("^(" + DATE2_RE + ")\\s+(" + DATE2_RE + ")\\s+(.*)$");
   private static final Pattern AMOUNT_TOKEN = Pattern.compile(AMOUNT);
-  private static final Pattern TRAILING_CURRENCY = Pattern.compile("\\s+[A-Z]{3}$");
+
+  /**
+   * Nachgestellter Fremdwährungscode im Buchungstext (Whitelist gängiger Codes statt beliebiger
+   * dreistelliger Grossbuchstaben-Tokens, damit z. B. „WALMART USA" nicht verstümmelt wird).
+   */
+  private static final Pattern TRAILING_CURRENCY =
+      Pattern.compile("\\s+(?:CHF|EUR|USD|GBP|SEK|NOK|DKK|PLN|CZK|HUF|JPY|CAD|AUD)$");
 
   // --- PostFinance ------------------------------------------------------------------------------
   private static final Pattern POST_KONTOSTAND =
@@ -111,12 +129,17 @@ public class SwissBankStatementParser {
         lines.add(line);
       }
     }
-    return switch (detectFormat(text)) {
-      case VISECA -> parseViseca(lines);
-      case POSTFINANCE -> parsePostFinance(lines);
-      case UBS -> parseUbs(lines);
-      case GENERIC -> parseGeneric(lines);
-    };
+    try {
+      return switch (detectFormat(text)) {
+        case VISECA -> parseViseca(lines);
+        case POSTFINANCE -> parsePostFinance(lines);
+        case UBS -> parseUbs(lines);
+        case GENERIC -> parseGeneric(lines);
+      };
+    } catch (DateTimeParseException e) {
+      // Kalendarisch ungültiges Datum (z. B. 32.01.) hat die Datums-Regex passiert.
+      throw new PdfParseException("PDF enthält ein ungültiges Datum: " + e.getParsedString(), e);
+    }
   }
 
   private enum Format {
@@ -126,14 +149,22 @@ public class SwissBankStatementParser {
     GENERIC
   }
 
+  /** Anzahl Zeichen am Dokumentanfang, in denen Format-Schlüsselwörter gesucht werden. */
+  private static final int DETECTION_HEAD_LENGTH = 2000;
+
   private static Format detectFormat(String text) {
-    if (text.contains("Viseca") || text.contains("Mastercard") || text.contains("Kartenkontonummer")) {
+    // Nur der Kopfbereich wird geprüft: Schlüsselwörter in Buchungszeilen (z. B. ein
+    // "MASTERCARD"-Händlertext in einem Kontoauszug) dürfen das Format nicht umleiten.
+    // "Mastercard" allein ist bewusst KEIN Viseca-Signal — PostFinance-/UBS-Karten sind
+    // ebenfalls Mastercard-gebrandet.
+    String head = text.substring(0, Math.min(text.length(), DETECTION_HEAD_LENGTH));
+    if (head.contains("Viseca") || head.contains("Kartenkontonummer")) {
       return Format.VISECA;
     }
-    if (text.contains("PostFinance")) {
+    if (head.contains("PostFinance")) {
       return Format.POSTFINANCE;
     }
-    if (text.contains("Kontobewegungen") && text.contains("UBS")) {
+    if (head.contains("Kontobewegungen") && head.contains("UBS")) {
       return Format.UBS;
     }
     return Format.GENERIC;
@@ -166,6 +197,11 @@ public class SwissBankStatementParser {
       Matcher row = GENERIC_ROW.matcher(line);
       if (row.matches()) {
         BigDecimal saldo = parseAmount(row.group(4));
+        if (previousSaldo == null && rows.isEmpty()) {
+          log.warn(
+              "Kontoauszug ohne Saldovortrag-Zeile: Richtung der ersten Buchung kann nicht"
+                  + " verifiziert werden — als Belastung übernommen");
+        }
         boolean isIncome = previousSaldo != null && saldo.compareTo(previousSaldo) > 0;
         previousSaldo = saldo;
         rows.add(
@@ -194,11 +230,13 @@ public class SwissBankStatementParser {
       }
       String rest = m.group(3);
       Matcher amounts = AMOUNT_TOKEN.matcher(rest);
-      int lastStart = -1;
+      int firstStart = -1;
       int lastEnd = -1;
       String lastAmount = null;
       while (amounts.find()) {
-        lastStart = amounts.start();
+        if (firstStart < 0) {
+          firstStart = amounts.start();
+        }
         lastEnd = amounts.end();
         lastAmount = amounts.group();
       }
@@ -206,7 +244,9 @@ public class SwissBankStatementParser {
         continue; // z. B. "5500 20XX XXXX 5446 Mastercard Silber, ..." ohne Betrag.
       }
       boolean isIncome = rest.substring(lastEnd).strip().equals("-");
-      String textPart = rest.substring(0, lastStart).strip();
+      // Buchungstext = Teil vor dem ERSTEN Betrag: bei Fremdwährungszeilen ("... EUR 89.99
+      // 85.90") bleibt so weder Fremdbetrag noch Währungscode im Text hängen.
+      String textPart = rest.substring(0, firstStart).strip();
       textPart = TRAILING_CURRENCY.matcher(textPart).replaceAll("");
       rows.add(
           new MutableRow(
@@ -257,7 +297,10 @@ public class SwissBankStatementParser {
   /**
    * Bestimmt die Richtung eines PostFinance-Buchungsblocks aus dem Saldo-Delta. Für gemischte Blöcke
    * (Gutschrift + Belastung am selben Tag) wird die Vorzeichenkombination gesucht, deren Summe dem
-   * Delta entspricht. Ist keine Lösung möglich, bleiben alle Buchungen Belastungen.
+   * Delta entspricht. Zugewiesen wird nur eine <em>eindeutige</em> Lösung: ist keine oder mehr als
+   * eine Kombination möglich, bleiben alle Buchungen Belastungen und es wird gewarnt — eine
+   * willkürlich gewählte Kombination könnte einzelne Richtungen falsch setzen, obwohl die Summe
+   * stimmt.
    */
   private static void assignDirections(List<MutableRow> block, BigDecimal before, BigDecimal after) {
     if (before == null || block.isEmpty()) {
@@ -266,8 +309,13 @@ public class SwissBankStatementParser {
     BigDecimal delta = after.subtract(before);
     int k = block.size();
     if (k > 16) {
+      log.warn(
+          "PostFinance: {} Buchungen im Saldo-Block — Richtungen nicht auflösbar, alle als"
+              + " Belastung übernommen",
+          k);
       return;
     }
+    int solution = -1;
     for (int mask = 0; mask < (1 << k); mask++) {
       BigDecimal sum = BigDecimal.ZERO.setScale(2);
       for (int i = 0; i < k; i++) {
@@ -275,13 +323,28 @@ public class SwissBankStatementParser {
         sum = sum.add((mask >> i & 1) == 1 ? b.negate() : b);
       }
       if (sum.compareTo(delta) == 0) {
-        for (int i = 0; i < k; i++) {
-          block.get(i).isIncome = (mask >> i & 1) == 0;
+        if (solution >= 0) {
+          log.warn(
+              "PostFinance: Saldo-Delta {} mehrdeutig für {} Buchung(en) — alle als Belastung"
+                  + " übernommen",
+              delta,
+              k);
+          return;
         }
-        return;
+        solution = mask;
       }
     }
-    log.debug("PostFinance: Saldo-Delta {} nicht auflösbar für {} Buchung(en)", delta, k);
+    if (solution < 0) {
+      log.warn(
+          "PostFinance: Saldo-Delta {} nicht auflösbar für {} Buchung(en) — alle als Belastung"
+              + " übernommen",
+          delta,
+          k);
+      return;
+    }
+    for (int i = 0; i < k; i++) {
+      block.get(i).isIncome = (solution >> i & 1) == 0;
+    }
   }
 
   private static LocalDate lastDate(List<MutableRow> pending, List<MutableRow> result) {
@@ -317,6 +380,11 @@ public class SwissBankStatementParser {
         rows.getLast().saldo = parseAmount(m.group(5));
       }
     }
+    if (anfangssaldo == null && !rows.isEmpty()) {
+      log.warn(
+          "UBS-Auszug ohne Anfangssaldo-Zeile: Richtung der ältesten Buchung kann nicht"
+              + " verifiziert werden — als Belastung übernommen");
+    }
     // UBS ist absteigend sortiert: von der ältesten Buchung (unten) aufwärts rechnen.
     BigDecimal previousSaldo = anfangssaldo;
     for (int i = rows.size() - 1; i >= 0; i--) {
@@ -332,12 +400,12 @@ public class SwissBankStatementParser {
   // === Helpers ==================================================================================
 
   /**
-   * Wandelt einen Betrags-String in einen {@link BigDecimal} mit Skala 2 um. Apostroph-, Leer- und
-   * geschützte Leerzeichen als Tausendertrennzeichen werden entfernt (CLAUDE.md / ADR-9). Das
-   * Vorzeichen bleibt erhalten.
+   * Wandelt einen Betrags-String in einen {@link BigDecimal} mit Skala 2 um. Alle
+   * Tausendertrennzeichen aus {@link #THOUSANDS_SEPARATORS} werden entfernt (CLAUDE.md /
+   * ADR-9). Das Vorzeichen bleibt erhalten. Sichtbar für Tests.
    */
-  private static BigDecimal parseAmount(String raw) {
-    return new BigDecimal(raw.replace("'", "").replace(" ", "").replace(" ", "")).setScale(2);
+  static BigDecimal parseAmount(String raw) {
+    return new BigDecimal(SEPARATOR_CHARS.matcher(raw).replaceAll("")).setScale(2);
   }
 
   private static List<ParsedTransaction> toResult(List<MutableRow> rows) {

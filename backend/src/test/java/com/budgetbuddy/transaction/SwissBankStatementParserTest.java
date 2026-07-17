@@ -127,6 +127,86 @@ class SwissBankStatementParserTest {
   }
 
   @Test
+  void parse_calendarInvalidDate_throwsPdfParseException() {
+    // "32.01." passiert die Datums-Regex (nur Ziffernform), muss aber als PdfParseException
+    // statt als rohe DateTimeParseException beim Aufrufer ankommen.
+    byte[] pdf =
+        pdfWithLines(
+            List.of(
+                "Saldovortrag 1'000.00",
+                "32.01.2024 32.01.2024 KAPUTTE ZEILE 10.00 990.00"));
+
+    assertThatThrownBy(() -> parser.parse(pdf)).isInstanceOf(PdfParseException.class);
+  }
+
+  @Test
+  void parse_mastercardInBookingText_doesNotMisrouteToVisecaParser() {
+    // "MASTERCARD" im Buchungstext (z. B. Kartenzahlung auf einem Kontoauszug) darf die
+    // Formaterkennung nicht auf den Viseca-Kreditkarten-Parser umleiten.
+    byte[] pdf =
+        pdfWithLines(
+            List.of(
+                "Saldovortrag 1'000.00",
+                "03.03.2024 03.03.2024 MASTERCARD PMT ONLINE SHOP 89.00 911.00"));
+
+    List<ParsedTransaction> transactions = parser.parse(pdf);
+
+    assertThat(transactions).singleElement()
+        .satisfies(
+            t -> {
+              assertThat(t.buchungstext()).isEqualTo("MASTERCARD PMT ONLINE SHOP");
+              assertThat(t.isIncome()).isFalse();
+            });
+  }
+
+  @Test
+  void parse_ambiguousPostFinanceBlock_defaultsAllToDebit() {
+    // Delta 0 mit zwei gleichen Beträgen: +50-50 und -50+50 sind beide gültig. Eine willkürliche
+    // Zuweisung wäre potenziell falsch — der Parser muss auf Belastung zurückfallen (und warnen).
+    byte[] pdf =
+        pdfWithLines(
+            List.of(
+                "PostFinance AG",
+                "01.09.19 Kontostand 100.00",
+                "05.09.19 BUCHUNG A 50.00 05.09.19",
+                "BUCHUNG B 50.00 05.09.19 100.00"));
+
+    List<ParsedTransaction> transactions = parser.parse(pdf);
+
+    assertThat(transactions).hasSize(2).allSatisfy(t -> assertThat(t.isIncome()).isFalse());
+  }
+
+  @Test
+  void parse_visecaForeignCurrencyRow_stripsCurrencyAndForeignAmountFromText() {
+    byte[] pdf =
+        pdfWithLines(
+            List.of(
+                "Viseca Payment Services SA",
+                "Kartenkontonummer 1107 0000 0000 0000",
+                "01.06.25 02.06.25 TESTSHOP AB, Dublin IE EUR 89.99 85.90"));
+
+    List<ParsedTransaction> transactions = parser.parse(pdf);
+
+    assertThat(transactions).singleElement()
+        .satisfies(
+            t -> {
+              assertThat(t.buchungstext()).isEqualTo("TESTSHOP AB, Dublin IE");
+              assertThat(t.betrag()).isEqualByComparingTo("85.90");
+              assertThat(t.isIncome()).isFalse();
+            });
+  }
+
+  @Test
+  void parseAmount_narrowNoBreakSpaceSeparator_isParsed() {
+    // U+202F (schmales geschütztes Leerzeichen) ist in Schweizer Zahlformatierung üblich, kann
+    // aber nicht mit den Standard-14-Fonts in ein Test-PDF gerendert werden — daher direkter
+    // Test der (für Regex und Parsing gemeinsamen) Normalisierung.
+    assertThat(SwissBankStatementParser.parseAmount("1\u202F000.00"))
+        .isEqualByComparingTo("1000.00");
+    assertThat("1\u202F000.00").matches(SwissBankStatementParser.AMOUNT);
+  }
+
+  @Test
   void parse_passwordProtectedPdf_throwsPasswordProtectedPdfException() {
     byte[] pdf = passwordProtectedPdf(RAIFFEISEN_STATEMENT);
 
