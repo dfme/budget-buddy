@@ -80,6 +80,21 @@ class SwissBankStatementParserFixtureTest {
     }
 
     @Test
+    void april_printedMerchantCategory_isKeptAsDetail_cardNoiseIsNot() {
+      List<ParsedTransaction> txns = parser.parse(bytes(KREDITKARTE_APRIL));
+
+      // Viseca druckt unter jeder Buchung seine eigene Händlerkategorie — ein Gratis-Signal
+      // für die Kategorisierung (US-05).
+      assertThat(byText(txns, "Restaurant Rosengarten, Bern CH").details())
+          .containsExactly("Restaurants");
+      // Umrechnungskurs-/Gebührenzeilen enthalten Beträge und gehören nicht in den Text.
+      assertThat(byText(txns, "BKG*HOTEL BELLEVUE, Amsterdam NL").details())
+          .containsExactly("Hotels");
+      // Maskierte Kartennummer und Limite unter der Zahlungszeile sind reines Rauschen.
+      assertThat(byText(txns, "Ihre Zahlung - Danke").details()).isEmpty();
+    }
+
+    @Test
     void juni_extractsAllRows_andSumsMatchPrintedTotals() {
       List<ParsedTransaction> txns = parser.parse(bytes(KREDITKARTE_JUNI));
 
@@ -152,6 +167,46 @@ class SwissBankStatementParserFixtureTest {
               "LASTSCHRIFT CSS VERSICHERUNG AG",
               "KAUF/DIENSTLEISTUNG SBB CFF FFS BERN",
               "TWINT KAUF/DIENSTLEISTUNG COOP-4321");
+    }
+
+    @Test
+    void transferBookings_carryPayeeInDetails_soCategorizationHasSomethingToWorkWith() {
+      List<ParsedTransaction> txns = parser.parse(bytes(POST));
+
+      // Bei Überweisungen trägt die Buchungszeile nur den Buchungstyp — ohne die Detailzeilen
+      // hätten weder Lookup noch Claude einen Anhaltspunkt und alles würde "Sonstiges" (ADR-6).
+      assertThat(byText(txns, "ESR").details()).containsExactly("Stadtwerke Bern");
+      assertThat(byText(txns, "GIRO INTERNATIONAL").details())
+          .containsExactly("Amazon EU S.a.r.l.", "Luxembourg");
+      assertThat(byText(txns, "GIRO INTERNATIONAL").fullText())
+          .isEqualTo("GIRO INTERNATIONAL Amazon EU S.a.r.l. Luxembourg");
+    }
+
+    @Test
+    void counterpartyIbanAndLabelLines_areNotTreatedAsDetails() {
+      List<ParsedTransaction> txns = parser.parse(bytes(POST));
+
+      // Unter "GIRO POST" stehen im PDF IBAN, Empfänger und Zweck; die IBAN trägt nichts zur
+      // Kategorisierung bei, "ABSENDER:" ist ein reines Label.
+      // ("GIRO POST" kommt zweimal vor — Miete am 02.09., Kautionsrückzahlung am 25.09.)
+      assertThat(onDate(txns, LocalDate.of(2019, 9, 2)).details())
+          .containsExactly("Muster Immobilien AG", "MIETE SEPTEMBER 2019");
+      assertThat(txns)
+          .allSatisfy(t -> assertThat(t.details()).noneMatch(d -> d.startsWith("CH")));
+      assertThat(txns).allSatisfy(t -> assertThat(t.details()).doesNotContain("ABSENDER:"));
+    }
+
+    @Test
+    void pageFurniture_neverReachesTheCategorizationInput() {
+      List<ParsedTransaction> txns = parser.parse(bytes(POST));
+
+      // Total-Zeile, Grussformel und Rechtshinweis stehen nach der letzten Buchung.
+      assertThat(txns)
+          .allSatisfy(
+              t ->
+                  assertThat(t.fullText())
+                      .doesNotContain(
+                          "Total", "Kontostand", "Freundliche", "genehmigt", "PostFinance AG"));
     }
   }
 
@@ -230,9 +285,45 @@ class SwissBankStatementParserFixtureTest {
               "LSV CSS Kranken-Versicherung",
               "TWINT Kiosk Bahnhof");
     }
+
+    @Test
+    void pageBreak_doesNotAttachHeaderOfPage2ToLastBookingOfPage1() {
+      List<ParsedTransaction> txns = parser.parse(bytes(UBS));
+
+      // Der Auszug ist zweiseitig; Seite 2 beginnt erneut mit Adresse, IBAN und Spaltenkopf.
+      // Ohne Seitenreset landete das alles in den details der letzten Buchung von Seite 1.
+      assertThat(txns).allSatisfy(t -> assertThat(t.details()).isEmpty());
+      assertThat(txns)
+          .allSatisfy(
+              t ->
+                  assertThat(t.fullText())
+                      .doesNotContain(
+                          "UBS Switzerland",
+                          "IBAN",
+                          "Angezeigt",
+                          "Seite",
+                          "Umsatztotal",
+                          "Anfangssaldo"));
+    }
   }
 
   // --- helpers ----------------------------------------------------------------------------------
+
+  /** Die eindeutige Transaktion mit diesem Buchungstext — schlägt fehl, wenn es nicht genau eine gibt. */
+  private static ParsedTransaction byText(List<ParsedTransaction> txns, String buchungstext) {
+    List<ParsedTransaction> matches =
+        txns.stream().filter(t -> t.buchungstext().equals(buchungstext)).toList();
+    assertThat(matches).as("Buchung '%s'", buchungstext).hasSize(1);
+    return matches.getFirst();
+  }
+
+  /** Die eindeutige Transaktion an diesem Datum — für Buchungstexte, die mehrfach vorkommen. */
+  private static ParsedTransaction onDate(List<ParsedTransaction> txns, LocalDate date) {
+    List<ParsedTransaction> matches =
+        txns.stream().filter(t -> t.buchungsdatum().equals(date)).toList();
+    assertThat(matches).as("Buchung am %s", date).hasSize(1);
+    return matches.getFirst();
+  }
 
   private static BigDecimal sum(List<ParsedTransaction> txns, boolean income) {
     return txns.stream()

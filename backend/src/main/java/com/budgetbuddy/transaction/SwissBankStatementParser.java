@@ -43,6 +43,10 @@ import org.springframework.stereotype.Component;
  *       der obigen Signaturen greift.
  * </ul>
  *
+ * <p>Eingerückte Fortsetzungszeilen unter einer Buchung landen in {@link
+ * ParsedTransaction#details()} — bei Überweisungen steht dort der Empfänger, den die
+ * Kategorisierung braucht (siehe {@link #appendDetail}).
+ *
  * <p>Alle Beträge werden als {@link BigDecimal} verarbeitet (ADR-9). Diese Klasse ist zustandslos
  * und threadsicher.
  */
@@ -65,7 +69,7 @@ public class SwissBankStatementParser {
    * (U+00A0) und schmales geschütztes Leerzeichen (U+202F, übliche Schweizer Zahlformatierung).
    * Einzige Quelle für {@link #AMOUNT} und {@code parseAmount} — sichtbar für Tests.
    */
-  static final String THOUSANDS_SEPARATORS = "' \u00A0\u202F";
+  static final String THOUSANDS_SEPARATORS = "'\u0020\u00A0\u202F";
 
   /** CHF-Betrag mit Tausendertrennzeichen, z. B. {@code 1'234.56} — sichtbar für Tests. */
   static final String AMOUNT = "-?\\d{1,3}(?:[" + THOUSANDS_SEPARATORS + "]\\d{3})*\\.\\d{2}";
@@ -75,6 +79,13 @@ public class SwissBankStatementParser {
   private static final String DATE4_RE = "\\d{2}\\.\\d{2}\\.\\d{4}";
   private static final String DATE2_RE = "\\d{2}\\.\\d{2}\\.\\d{2}";
 
+  /** Betrags-Token an beliebiger Stelle einer Zeile. */
+  private static final Pattern AMOUNT_TOKEN = Pattern.compile(AMOUNT);
+
+  /** Führendes Buchungsdatum, zwei- oder vierstelliges Jahr. */
+  private static final Pattern STARTS_WITH_DATE =
+      Pattern.compile("^\\d{2}\\.\\d{2}\\.\\d{2}(?:\\d{2})?\\b");
+
   // --- Generisch (Raiffeisen-Kontoauszug) -------------------------------------------------------
   private static final Pattern GENERIC_ROW =
       Pattern.compile(
@@ -82,12 +93,10 @@ public class SwissBankStatementParser {
               + AMOUNT + ")$");
   private static final Pattern SALDOVORTRAG =
       Pattern.compile("(?i)saldovortrag.*?(" + AMOUNT + ")\\s*$");
-  private static final Pattern STARTS_WITH_DATE4 = Pattern.compile("^" + DATE4_RE + "\\b");
 
   // --- Viseca / Kreditkarte ---------------------------------------------------------------------
   private static final Pattern VISECA_ROW =
       Pattern.compile("^(" + DATE2_RE + ")\\s+(" + DATE2_RE + ")\\s+(.*)$");
-  private static final Pattern AMOUNT_TOKEN = Pattern.compile(AMOUNT);
 
   /**
    * Nachgestellter Fremdwährungscode im Buchungstext (Whitelist gängiger Codes statt beliebiger
@@ -112,6 +121,38 @@ public class SwissBankStatementParser {
   private static final Pattern UBS_ANFANGSSALDO =
       Pattern.compile("^Anfangssaldo\\s+(" + AMOUNT + ")$");
 
+  // --- Fortsetzungszeilen -----------------------------------------------------------------------
+
+  /**
+   * Abschlusszeile des Buchungsteils einer Seite. Danach folgen nur noch Summen, Rechtshinweise und
+   * Grussformeln — nichts davon gehört an eine Buchung.
+   */
+  private static final Pattern TOTALS_LINE =
+      Pattern.compile(
+          "(?i)^(?:total|umsatztotal|kontostand|anfangssaldo|schlusssaldo|saldovortrag)\\b");
+
+  /**
+   * Zeilen ohne Kategorisierungswert: reine Label-Zeilen, Gegenpartei-IBAN und die maskierte
+   * Kartennummer samt Limite auf Viseca-Abrechnungen.
+   */
+  private static final Pattern DETAIL_NOISE =
+      Pattern.compile(
+          "(?i)^(?:absender|empfänger|empfaenger):?$"
+              + "|^[A-Z]{2}\\d{2}[\\d ]{10,}$"
+              + "|\\bXXXX\\b"
+              + "|^Kartenlimite\\b");
+
+  /** Maximale Anzahl Detailzeilen pro Buchung. */
+  private static final int MAX_DETAIL_LINES = 3;
+
+  /**
+   * Längengrenze einer Detailzeile. Empfänger, Referenzen und Händlerkategorien liegen in allen
+   * beobachteten Layouts deutlich darunter (Maximum ~30 Zeichen); Seitenfüsse, Grussformeln und
+   * Rechtshinweise deutlich darüber. Heuristik — die strukturell saubere Variante wäre der
+   * Einrückungsvergleich über die x-Koordinaten der {@code TextPosition} (eigenes Issue).
+   */
+  private static final int MAX_DETAIL_LENGTH = 40;
+
   /**
    * Parst alle Transaktionen aus den PDF-Bytes.
    *
@@ -121,20 +162,13 @@ public class SwissBankStatementParser {
    * @throws PdfParseException wenn das PDF nicht gelesen werden kann.
    */
   public List<ParsedTransaction> parse(byte[] pdfBytes) {
-    String text = extractText(pdfBytes);
-    List<String> lines = new ArrayList<>();
-    for (String raw : text.split("\\R")) {
-      String line = raw.strip();
-      if (!line.isEmpty()) {
-        lines.add(line);
-      }
-    }
+    List<List<String>> pages = extractPages(pdfBytes);
     try {
-      return switch (detectFormat(text)) {
-        case VISECA -> parseViseca(lines);
-        case POSTFINANCE -> parsePostFinance(lines);
-        case UBS -> parseUbs(lines);
-        case GENERIC -> parseGeneric(lines);
+      return switch (detectFormat(pages)) {
+        case VISECA -> parseViseca(pages);
+        case POSTFINANCE -> parsePostFinance(pages);
+        case UBS -> parseUbs(pages);
+        case GENERIC -> parseGeneric(pages);
       };
     } catch (DateTimeParseException e) {
       // Kalendarisch ungültiges Datum (z. B. 32.01.) hat die Datums-Regex passiert.
@@ -152,12 +186,13 @@ public class SwissBankStatementParser {
   /** Anzahl Zeichen am Dokumentanfang, in denen Format-Schlüsselwörter gesucht werden. */
   private static final int DETECTION_HEAD_LENGTH = 2000;
 
-  private static Format detectFormat(String text) {
-    // Nur der Kopfbereich wird geprüft: Schlüsselwörter in Buchungszeilen (z. B. ein
-    // "MASTERCARD"-Händlertext in einem Kontoauszug) dürfen das Format nicht umleiten.
+  private static Format detectFormat(List<List<String>> pages) {
+    // Nur der Kopfbereich der ersten Seite wird geprüft: Schlüsselwörter in Buchungszeilen (z. B.
+    // ein "MASTERCARD"-Händlertext in einem Kontoauszug) dürfen das Format nicht umleiten.
     // "Mastercard" allein ist bewusst KEIN Viseca-Signal — PostFinance-/UBS-Karten sind
     // ebenfalls Mastercard-gebrandet.
-    String head = text.substring(0, Math.min(text.length(), DETECTION_HEAD_LENGTH));
+    String firstPage = pages.isEmpty() ? "" : String.join("\n", pages.getFirst());
+    String head = firstPage.substring(0, Math.min(firstPage.length(), DETECTION_HEAD_LENGTH));
     if (head.contains("Viseca") || head.contains("Kartenkontonummer")) {
       return Format.VISECA;
     }
@@ -170,12 +205,23 @@ public class SwissBankStatementParser {
     return Format.GENERIC;
   }
 
-  private String extractText(byte[] pdfBytes) {
+  /**
+   * Extrahiert den Text seitenweise. Die Seitengrenze ist die Reset-Marke für die
+   * Fortsetzungszeilen-Zuordnung: ohne sie würde der Seitenkopf von Seite 2 (Adresse, IBAN,
+   * Spaltenüberschriften) an der letzten Buchung von Seite 1 landen.
+   */
+  private List<List<String>> extractPages(byte[] pdfBytes) {
     // PDFBox 3.x: Loader.loadPDF(byte[]) statt der veralteten 2.x-API PDDocument.load() (ADR-8).
     try (PDDocument document = Loader.loadPDF(pdfBytes)) {
       PDFTextStripper stripper = new PDFTextStripper();
       stripper.setSortByPosition(true);
-      return stripper.getText(document);
+      List<List<String>> pages = new ArrayList<>();
+      for (int pageNo = 1; pageNo <= document.getNumberOfPages(); pageNo++) {
+        stripper.setStartPage(pageNo);
+        stripper.setEndPage(pageNo);
+        pages.add(nonEmptyLines(stripper.getText(document)));
+      }
+      return pages;
     } catch (InvalidPasswordException e) {
       throw new PasswordProtectedPdfException(e);
     } catch (IOException e) {
@@ -183,37 +229,58 @@ public class SwissBankStatementParser {
     }
   }
 
+  private static List<String> nonEmptyLines(String text) {
+    List<String> lines = new ArrayList<>();
+    for (String raw : text.split("\\R")) {
+      String line = raw.strip();
+      if (!line.isEmpty()) {
+        lines.add(line);
+      }
+    }
+    return lines;
+  }
+
   // === Generisch (Raiffeisen) ===================================================================
 
-  private List<ParsedTransaction> parseGeneric(List<String> lines) {
+  private List<ParsedTransaction> parseGeneric(List<List<String>> pages) {
     List<MutableRow> rows = new ArrayList<>();
     BigDecimal previousSaldo = null;
-    for (String line : lines) {
-      Matcher saldovortrag = SALDOVORTRAG.matcher(line);
-      if (saldovortrag.find()) {
-        previousSaldo = parseAmount(saldovortrag.group(1));
-        continue;
-      }
-      Matcher row = GENERIC_ROW.matcher(line);
-      if (row.matches()) {
-        BigDecimal saldo = parseAmount(row.group(4));
-        if (previousSaldo == null && rows.isEmpty()) {
-          log.warn(
-              "Kontoauszug ohne Saldovortrag-Zeile: Richtung der ersten Buchung kann nicht"
-                  + " verifiziert werden — als Belastung übernommen");
+    boolean warnedMissingSaldovortrag = false;
+
+    for (List<String> page : pages) {
+      MutableRow current = null;
+      boolean bookingsEnded = false;
+
+      for (String line : page) {
+        Matcher saldovortrag = SALDOVORTRAG.matcher(line);
+        if (saldovortrag.find()) {
+          previousSaldo = parseAmount(saldovortrag.group(1));
+          continue;
         }
-        boolean isIncome = previousSaldo != null && saldo.compareTo(previousSaldo) > 0;
-        previousSaldo = saldo;
-        rows.add(
-            new MutableRow(
-                LocalDate.parse(row.group(1), DATE_4),
-                row.group(2).strip(),
-                parseAmount(row.group(3)).abs(),
-                isIncome));
-        continue;
-      }
-      if (!STARTS_WITH_DATE4.matcher(line).find() && !rows.isEmpty()) {
-        rows.getLast().appendText(line);
+        Matcher row = GENERIC_ROW.matcher(line);
+        if (row.matches()) {
+          BigDecimal saldo = parseAmount(row.group(4));
+          if (previousSaldo == null && rows.isEmpty() && !warnedMissingSaldovortrag) {
+            warnedMissingSaldovortrag = true;
+            log.warn(
+                "Kontoauszug ohne Saldovortrag-Zeile: Richtung der ersten Buchung kann nicht"
+                    + " verifiziert werden — als Belastung übernommen");
+          }
+          boolean isIncome = previousSaldo != null && saldo.compareTo(previousSaldo) > 0;
+          previousSaldo = saldo;
+          current =
+              new MutableRow(
+                  LocalDate.parse(row.group(1), DATE_4),
+                  row.group(2).strip(),
+                  parseAmount(row.group(3)).abs(),
+                  isIncome);
+          rows.add(current);
+          continue;
+        }
+        bookingsEnded |= endsBookings(current, line);
+        if (!bookingsEnded) {
+          appendDetail(current, line);
+        }
       }
     }
     return toResult(rows);
@@ -221,72 +288,95 @@ public class SwissBankStatementParser {
 
   // === Viseca / Kreditkarte =====================================================================
 
-  private List<ParsedTransaction> parseViseca(List<String> lines) {
+  private List<ParsedTransaction> parseViseca(List<List<String>> pages) {
     List<MutableRow> rows = new ArrayList<>();
-    for (String line : lines) {
-      Matcher m = VISECA_ROW.matcher(line);
-      if (!m.matches()) {
-        continue; // Kopf-, Total- und Kategoriezeilen haben keine zwei Datumsangaben.
-      }
-      String rest = m.group(3);
-      Matcher amounts = AMOUNT_TOKEN.matcher(rest);
-      int firstStart = -1;
-      int lastEnd = -1;
-      String lastAmount = null;
-      while (amounts.find()) {
-        if (firstStart < 0) {
-          firstStart = amounts.start();
+
+    for (List<String> page : pages) {
+      MutableRow current = null;
+      boolean bookingsEnded = false;
+
+      for (String line : page) {
+        Matcher m = VISECA_ROW.matcher(line);
+        if (!m.matches()) {
+          // Kopf-, Total- und Kategoriezeilen haben keine zwei Datumsangaben.
+          bookingsEnded |= endsBookings(current, line);
+          if (!bookingsEnded) {
+            appendDetail(current, line);
+          }
+          continue;
         }
-        lastEnd = amounts.end();
-        lastAmount = amounts.group();
+        String rest = m.group(3);
+        Matcher amounts = AMOUNT_TOKEN.matcher(rest);
+        int firstStart = -1;
+        int lastEnd = -1;
+        String lastAmount = null;
+        while (amounts.find()) {
+          if (firstStart < 0) {
+            firstStart = amounts.start();
+          }
+          lastEnd = amounts.end();
+          lastAmount = amounts.group();
+        }
+        if (lastAmount == null) {
+          continue; // z. B. "5500 20XX XXXX 5446 Mastercard Silber, ..." ohne Betrag.
+        }
+        boolean isIncome = rest.substring(lastEnd).strip().equals("-");
+        // Buchungstext = Teil vor dem ERSTEN Betrag: bei Fremdwährungszeilen ("... EUR 89.99
+        // 85.90") bleibt so weder Fremdbetrag noch Währungscode im Text hängen.
+        String textPart = rest.substring(0, firstStart).strip();
+        textPart = TRAILING_CURRENCY.matcher(textPart).replaceAll("");
+        current =
+            new MutableRow(
+                LocalDate.parse(m.group(1), DATE_2),
+                textPart,
+                parseAmount(lastAmount).abs(),
+                isIncome);
+        rows.add(current);
       }
-      if (lastAmount == null) {
-        continue; // z. B. "5500 20XX XXXX 5446 Mastercard Silber, ..." ohne Betrag.
-      }
-      boolean isIncome = rest.substring(lastEnd).strip().equals("-");
-      // Buchungstext = Teil vor dem ERSTEN Betrag: bei Fremdwährungszeilen ("... EUR 89.99
-      // 85.90") bleibt so weder Fremdbetrag noch Währungscode im Text hängen.
-      String textPart = rest.substring(0, firstStart).strip();
-      textPart = TRAILING_CURRENCY.matcher(textPart).replaceAll("");
-      rows.add(
-          new MutableRow(
-              LocalDate.parse(m.group(1), DATE_2),
-              textPart,
-              parseAmount(lastAmount).abs(),
-              isIncome));
     }
     return toResult(rows);
   }
 
   // === PostFinance ==============================================================================
 
-  private List<ParsedTransaction> parsePostFinance(List<String> lines) {
+  private List<ParsedTransaction> parsePostFinance(List<List<String>> pages) {
     List<MutableRow> result = new ArrayList<>();
     List<MutableRow> pending = new ArrayList<>();
     BigDecimal previousSaldo = null;
 
-    for (String line : lines) {
-      Matcher kontostand = POST_KONTOSTAND.matcher(line);
-      if (kontostand.matches()) {
-        previousSaldo = parseAmount(kontostand.group(1));
-        continue;
-      }
-      Matcher m = POST_ROW.matcher(line);
-      if (!m.matches()) {
-        continue;
-      }
-      LocalDate date = m.group(1) != null ? LocalDate.parse(m.group(1), DATE_2) : lastDate(pending, result);
-      if (date == null) {
-        continue; // Betrag vor der ersten datierten Buchung — ignorieren.
-      }
-      pending.add(new MutableRow(date, m.group(2).strip(), parseAmount(m.group(3)).abs(), false));
+    for (List<String> page : pages) {
+      MutableRow current = null;
+      boolean bookingsEnded = false;
 
-      if (m.group(5) != null) { // Saldo vorhanden -> Block auflösen.
-        BigDecimal saldo = parseAmount(m.group(5));
-        assignDirections(pending, previousSaldo, saldo);
-        result.addAll(pending);
-        pending.clear();
-        previousSaldo = saldo;
+      for (String line : page) {
+        Matcher kontostand = POST_KONTOSTAND.matcher(line);
+        if (kontostand.matches()) {
+          previousSaldo = parseAmount(kontostand.group(1));
+          continue;
+        }
+        Matcher m = POST_ROW.matcher(line);
+        if (!m.matches()) {
+          bookingsEnded |= endsBookings(current, line);
+          if (!bookingsEnded) {
+            appendDetail(current, line);
+          }
+          continue;
+        }
+        LocalDate date =
+            m.group(1) != null ? LocalDate.parse(m.group(1), DATE_2) : lastDate(pending, result);
+        if (date == null) {
+          continue; // Betrag vor der ersten datierten Buchung — ignorieren.
+        }
+        current = new MutableRow(date, m.group(2).strip(), parseAmount(m.group(3)).abs(), false);
+        pending.add(current);
+
+        if (m.group(5) != null) { // Saldo vorhanden -> Block auflösen.
+          BigDecimal saldo = parseAmount(m.group(5));
+          assignDirections(pending, previousSaldo, saldo);
+          result.addAll(pending);
+          pending.clear();
+          previousSaldo = saldo;
+        }
       }
     }
     // Buchungen ohne abschliessenden Saldo: als Belastung übernehmen (Default isIncome=false).
@@ -359,27 +449,40 @@ public class SwissBankStatementParser {
 
   // === UBS ======================================================================================
 
-  private List<ParsedTransaction> parseUbs(List<String> lines) {
+  private List<ParsedTransaction> parseUbs(List<List<String>> pages) {
     List<MutableRow> rows = new ArrayList<>();
     BigDecimal anfangssaldo = null;
-    for (String line : lines) {
-      Matcher anfang = UBS_ANFANGSSALDO.matcher(line);
-      if (anfang.matches()) {
-        anfangssaldo = parseAmount(anfang.group(1));
-        continue;
-      }
-      Matcher m = UBS_ROW.matcher(line);
-      if (m.matches()) {
-        rows.add(
-            new MutableRow(
-                LocalDate.parse(m.group(1), DATE_4),
-                m.group(2).strip(),
-                parseAmount(m.group(3)).abs(),
-                false));
-        // Saldo (group 5) getrennt merken für die Richtungsbestimmung.
-        rows.getLast().saldo = parseAmount(m.group(5));
+
+    for (List<String> page : pages) {
+      MutableRow current = null;
+      boolean bookingsEnded = false;
+
+      for (String line : page) {
+        Matcher anfang = UBS_ANFANGSSALDO.matcher(line);
+        if (anfang.matches()) {
+          anfangssaldo = parseAmount(anfang.group(1));
+          continue;
+        }
+        Matcher m = UBS_ROW.matcher(line);
+        if (m.matches()) {
+          current =
+              new MutableRow(
+                  LocalDate.parse(m.group(1), DATE_4),
+                  m.group(2).strip(),
+                  parseAmount(m.group(3)).abs(),
+                  false);
+          // Saldo (group 5) getrennt merken für die Richtungsbestimmung.
+          current.saldo = parseAmount(m.group(5));
+          rows.add(current);
+          continue;
+        }
+        bookingsEnded |= endsBookings(current, line);
+        if (!bookingsEnded) {
+          appendDetail(current, line);
+        }
       }
     }
+
     if (anfangssaldo == null && !rows.isEmpty()) {
       log.warn(
           "UBS-Auszug ohne Anfangssaldo-Zeile: Richtung der ältesten Buchung kann nicht"
@@ -395,6 +498,42 @@ public class SwissBankStatementParser {
       previousSaldo = r.saldo;
     }
     return toResult(rows);
+  }
+
+  // === Fortsetzungszeilen =======================================================================
+
+  /**
+   * Markiert das Ende des Buchungsteils einer Seite. Erst ab der ersten Buchung wirksam: die
+   * {@code Kontostand}-/{@code Schlusssaldo}-Zeile mancher Layouts steht <em>vor</em> den
+   * Buchungen und darf den Buchungsteil nicht vorzeitig schliessen.
+   */
+  private static boolean endsBookings(MutableRow current, String line) {
+    return current != null && TOTALS_LINE.matcher(line).find();
+  }
+
+  /**
+   * Ordnet eine Zeile der laufenden Buchung als Detailzeile zu, sofern sie wie eine aussieht.
+   *
+   * <p>Notwendig, weil bei Überweisungen der Empfänger nicht in der Buchungszeile steht, sondern
+   * darunter: {@code ESR} → {@code Stadtwerke Bern}, {@code GIRO POST} → {@code Muster Immobilien
+   * AG}. Ohne diese Zeilen liefern beide Stufen der Hybrid-Kategorisierung {@code Sonstiges}
+   * (ADR-6, US-05).
+   *
+   * <p>Bewusst konservativ: alles mit Datum oder Betrag ist eine eigene Buchung oder eine
+   * Summenzeile, und Fliesstext (Rechtshinweise, Grussformeln, Seitenfüsse) fällt über die
+   * Längengrenze heraus. Lieber eine Detailzeile zu wenig als Seitenmöblierung im
+   * Kategorisierungs-Input.
+   */
+  private static void appendDetail(MutableRow current, String line) {
+    if (current == null
+        || current.details.size() >= MAX_DETAIL_LINES
+        || line.length() > MAX_DETAIL_LENGTH
+        || STARTS_WITH_DATE.matcher(line).find()
+        || AMOUNT_TOKEN.matcher(line).find()
+        || DETAIL_NOISE.matcher(line).find()) {
+      return;
+    }
+    current.details.add(line);
   }
 
   // === Helpers ==================================================================================
@@ -417,27 +556,24 @@ public class SwissBankStatementParser {
     return result;
   }
 
-  /** Veränderbarer Zwischenzustand einer Zeile — erlaubt Textanhang und späte Richtungsbestimmung. */
+  /** Veränderbarer Zwischenzustand einer Zeile — erlaubt Detailzeilen und späte Richtungsbestimmung. */
   private static final class MutableRow {
     private final LocalDate buchungsdatum;
-    private final StringBuilder buchungstext;
+    private final String buchungstext;
+    private final List<String> details = new ArrayList<>();
     private final BigDecimal betrag;
     private boolean isIncome;
     private BigDecimal saldo;
 
     MutableRow(LocalDate buchungsdatum, String buchungstext, BigDecimal betrag, boolean isIncome) {
       this.buchungsdatum = buchungsdatum;
-      this.buchungstext = new StringBuilder(buchungstext);
+      this.buchungstext = buchungstext;
       this.betrag = betrag;
       this.isIncome = isIncome;
     }
 
-    void appendText(String continuation) {
-      buchungstext.append(' ').append(continuation);
-    }
-
     ParsedTransaction toParsedTransaction() {
-      return new ParsedTransaction(buchungsdatum, buchungstext.toString(), betrag, isIncome);
+      return new ParsedTransaction(buchungsdatum, buchungstext, details, betrag, isIncome);
     }
   }
 }

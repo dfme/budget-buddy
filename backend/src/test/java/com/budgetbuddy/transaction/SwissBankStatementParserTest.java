@@ -111,7 +111,7 @@ class SwissBankStatementParserTest {
   }
 
   @Test
-  void parse_wrappedText_isAppendedToBuchungstext() {
+  void parse_continuationLine_landsInDetailsNotInBuchungstext() {
     byte[] pdf =
         pdfWithLines(
             List.of(
@@ -123,7 +123,57 @@ class SwissBankStatementParserTest {
 
     assertThat(transactions).singleElement()
         .satisfies(
-            t -> assertThat(t.buchungstext()).isEqualTo("ONLINE SHOP BESTELLUNG REF NR 123456 ABCDEF"));
+            t -> {
+              // buchungstext bleibt die Buchungszeile selbst — die Fortsetzungszeile daneben.
+              assertThat(t.buchungstext()).isEqualTo("ONLINE SHOP BESTELLUNG");
+              assertThat(t.details()).containsExactly("REF NR 123456 ABCDEF");
+              // Die Kategorisierung bekommt beides.
+              assertThat(t.fullText()).isEqualTo("ONLINE SHOP BESTELLUNG REF NR 123456 ABCDEF");
+            });
+  }
+
+  @Test
+  void parse_pageFurniture_isNotAttachedToBooking() {
+    // Summen-, Gruss- und Rechtszeilen nach der letzten Buchung dürfen weder im buchungstext
+    // noch in den details landen — sie wären sonst Input für die Kategorisierung.
+    byte[] pdf =
+        pdfWithLines(
+            List.of(
+                "Saldovortrag 500.00",
+                "10.04.2024 10.04.2024 MIGROS MMM BERN 20.00 480.00",
+                "Filiale Marktgasse",
+                "Total 20.00 480.00",
+                "Freundliche Gruesse",
+                "Bitte pruefen Sie den Kontoauszug. Ohne Gegenbericht innert 30 Tagen genehmigt.",
+                "Seite 1/1"));
+
+    List<ParsedTransaction> transactions = parser.parse(pdf);
+
+    assertThat(transactions).singleElement()
+        .satisfies(
+            t -> {
+              assertThat(t.details()).containsExactly("Filiale Marktgasse");
+              assertThat(t.fullText())
+                  .doesNotContain("Freundliche", "Gegenbericht", "Seite", "Total");
+            });
+  }
+
+  @Test
+  void parse_detailsAreCapped_soRunawayTextCannotFloodTheCategorizationInput() {
+    byte[] pdf =
+        pdfWithLines(
+            List.of(
+                "Saldovortrag 500.00",
+                "10.04.2024 10.04.2024 ONLINE SHOP BESTELLUNG 20.00 480.00",
+                "Zeile A",
+                "Zeile B",
+                "Zeile C",
+                "Zeile D"));
+
+    List<ParsedTransaction> transactions = parser.parse(pdf);
+
+    assertThat(transactions).singleElement()
+        .satisfies(t -> assertThat(t.details()).containsExactly("Zeile A", "Zeile B", "Zeile C"));
   }
 
   @Test
