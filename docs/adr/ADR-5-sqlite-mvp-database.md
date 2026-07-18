@@ -63,16 +63,18 @@ Betroffen ist also nicht nur der Redeploy. Ein Free-Service spinnt bereits nach 
 
 ### Optionen (Recherchestand 18.07.2026, noch nicht entschieden)
 
-| # | Variante | Persistenz | Backups | Kosten/Monat | Wesentliche Limits |
-| --- | --- | --- | --- | --- | --- |
-| 1 | Status quo (SQLite, ephemer) | ✗ | ✗ | $0 | Datenverlust bei Redeploy, Restart und Spin-Down (alle 15 Min Inaktivität) |
-| 2 | Postgres als eigener Render-Container | ✗ | ✗ | $0 | Bräuchte selbst einen Disk → dasselbe Problem, plus Spin-Down. Netto schlechter als 1. |
-| 3 | Render Managed Postgres (Free) | ✓ | ✗ | $0 | **Läuft 30 Tage nach Erstellung ab**, 14 Tage Grace, dann Löschung · 1 GB · kein Connection Pooling · nur 1 DB pro Workspace |
-| 4 | Neon Free (Frankfurt/EU) | ✓ | ~ (6 h PITR) | $0 | Permanent, kein Ablaufdatum · 0.5 GB/Projekt · 100 CU-h/Projekt · Scale-to-Zero nach 5 Min (nur Latenz, kein Datenverlust) |
-| 5 | Supabase Free | ✓ | ✗ | $0 | 500 MB · **Projekt pausiert nach 1 Woche Inaktivität** · 2 aktive Projekte/Org |
-| 6a | Render Paid Instance + Disk | ✓ | ✓ 24 h-Snapshots, ≥7 Tage | $7.25 | Kein Spin-Down, kein 750 h-Deckel · kein Zero-Downtime-Deploy · keine Multi-Instanz · behält `hibernate-community-dialects` |
-| 6b | 6a + Pro-Workspace | ✓ | ✓ 24 h-Snapshots, ≥7 Tage | $32.25 | wie 6a, zusätzlich alle Devs administrationsfähig (heute erlaubt der Hobby-Workspace genau 1 Team-Member) |
-| 7 | Web-Service bleibt Free + **Render Postgres Basic-256MB** | ✓ | ✓ PITR 3 Tage (Hobby) + Logical Backups, 7 Tage | $6.00 | **Kein Ablaufdatum** (das 30-Tage-Limit gilt nur für die Free-Stufe) · Web-Service spinnt weiter herunter (~1 Min Cold Start) · 750 h-Deckel bleibt · **Migration auf Postgres nötig** |
+| # | Variante | DB-Technologie | Migration nötig | Persistenz | Backups | Kosten/Monat | Wesentliche Limits |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | Status quo (SQLite, ephemer) | **SQLite** (Datei im Container) | nein | ✗ | ✗ | $0 | Datenverlust bei Redeploy, Restart und Spin-Down (alle 15 Min Inaktivität) |
+| 2 | Postgres als eigener Render-Container | PostgreSQL (selbst betrieben) | **ja** | ✗ | ✗ | $0 | Bräuchte selbst einen Disk → dasselbe Problem, plus Spin-Down. Netto schlechter als 1. |
+| 3 | Render Managed Postgres (Free) | PostgreSQL (Render managed) | **ja** | ✓ | ✗ | $0 | **Läuft 30 Tage nach Erstellung ab**, 14 Tage Grace, dann Löschung · 1 GB · kein Connection Pooling · nur 1 DB pro Workspace |
+| 4 | Neon Free (Frankfurt/EU) | PostgreSQL (Neon, serverless) | **ja** | ✓ | ~ (6 h PITR) | $0 | Permanent, kein Ablaufdatum · 0.5 GB/Projekt · 100 CU-h/Projekt · Scale-to-Zero nach 5 Min (nur Latenz, kein Datenverlust) |
+| 5 | Supabase Free | PostgreSQL (Supabase managed) | **ja** | ✓ | ✗ | $0 | 500 MB · **Projekt pausiert nach 1 Woche Inaktivität** · 2 aktive Projekte/Org |
+| 6a | Render Paid Instance + Disk | **SQLite** (Datei auf Persistent Disk) | nein | ✓ | ✓ 24 h-Snapshots, ≥7 Tage | $7.25 | Kein Spin-Down, kein 750 h-Deckel · kein Zero-Downtime-Deploy · keine Multi-Instanz · behält `hibernate-community-dialects` |
+| 6b | 6a + Pro-Workspace | **SQLite** (Datei auf Persistent Disk) | nein | ✓ | ✓ 24 h-Snapshots, ≥7 Tage | $32.25 | wie 6a, zusätzlich alle Devs administrationsfähig (heute erlaubt der Hobby-Workspace genau 1 Team-Member) |
+| 7 | Web-Service bleibt Free + **Render Postgres Basic-256MB** | PostgreSQL (Render managed) | **ja** | ✓ | ✓ PITR 3 Tage (Hobby) + Logical Backups, 7 Tage | $6.00 | **Kein Ablaufdatum** (das 30-Tage-Limit gilt nur für die Free-Stufe) · Web-Service spinnt weiter herunter (~1 Min Cold Start) · 750 h-Deckel bleibt |
+
+**Die Spalte „DB-Technologie" trennt das Feld in zwei Lager:** Nur 1, 6a und 6b bleiben bei SQLite — dort entfällt jede Migration, dafür bleibt der `hibernate-community-dialects`-Workaround bestehen. Alle übrigen Varianten bedeuten PostgreSQL und damit Flyway-Anpassungen, Dialect-Wechsel und einen eigenen Umsetzungs-Task (~1–2 Sprints, siehe *Migration Path* unten).
 
 Anmerkungen zur Bewertung:
 
