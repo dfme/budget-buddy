@@ -18,4 +18,11 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
      */
     List<Transaction> findByUserIdAndIncomeFalseAndBuchungsdatumBetween(
             Long userId, LocalDate von, LocalDate bis);
+
+    /**
+     * Duplikatcheck des PDF-Imports (BE-PDF-02): {@code true}, wenn dieser User bereits
+     * Transaktionen aus dem PDF mit diesem SHA-256 importiert hat. Pro User — dasselbe PDF darf
+     * von einem anderen User (z. B. Gemeinschaftskonto) erneut importiert werden.
+     */
+    boolean existsByUserIdAndPdfSha256(Long userId, String pdfSha256);
 }
