@@ -72,12 +72,36 @@ Betroffen ist also nicht nur der Redeploy. Ein Free-Service spinnt bereits nach 
 | 5 | Supabase Free | ✓ | ✗ | $0 | 500 MB · **Projekt pausiert nach 1 Woche Inaktivität** · 2 aktive Projekte/Org |
 | 6a | Render Paid Instance + Disk | ✓ | ✓ 24 h-Snapshots, ≥7 Tage | $7.25 | Kein Spin-Down, kein 750 h-Deckel · kein Zero-Downtime-Deploy · keine Multi-Instanz · behält `hibernate-community-dialects` |
 | 6b | 6a + Pro-Workspace | ✓ | ✓ 24 h-Snapshots, ≥7 Tage | $32.25 | wie 6a, zusätzlich alle Devs administrationsfähig (heute erlaubt der Hobby-Workspace genau 1 Team-Member) |
+| 7 | Web-Service bleibt Free + **Render Postgres Basic-256MB** | ✓ | ✓ PITR 3 Tage (Hobby) + Logical Backups, 7 Tage | $6.00 | **Kein Ablaufdatum** (das 30-Tage-Limit gilt nur für die Free-Stufe) · Web-Service spinnt weiter herunter (~1 Min Cold Start) · 750 h-Deckel bleibt · **Migration auf Postgres nötig** |
 
 Anmerkungen zur Bewertung:
 
-- **Nur 6a/6b bieten echte Backups.** Render Free Postgres *"don't support any form of backups"*; Supabase Free ebenso wenig.
-- **Instance-Type und Workspace-Plan sind entkoppelt** — ein bezahlter Instance-Type läuft im gratis Hobby-Workspace. Der Mehr-Admin-Zugriff (6b) ist eine eigenständige Entscheidung und liesse sich auch mit Variante 4 kombinieren.
+- **Backups haben nur die bezahlten Stufen** — 6a/6b über Disk-Snapshots, 7 über PITR. Render Free Postgres *"don't support any form of backups"*, Supabase Free ebenso wenig; Render bietet für Free-Instanzen ausdrücklich *"no recovery capabilities"*.
+- **Varianten 6a und 7 lösen unterschiedliche Probleme.** 7 macht die *Daten* sicher und ist die billigste Option dafür — der Web-Service schläft weiter ein, was dann aber nur noch Latenz kostet. 6a macht zusätzlich den *Service* always-on und spart die Migration, bleibt aber bei SQLite. Kombinierbar: Starter-Web-Service + Postgres Basic ≈ $13/Monat.
+- **Instance-Type und Workspace-Plan sind entkoppelt** — ein bezahlter Instance-Type läuft im gratis Hobby-Workspace (im Dashboard verifiziert). Der Mehr-Admin-Zugriff (6b) ist eine eigenständige Entscheidung und liesse sich auch mit Variante 4 oder 7 kombinieren.
 - Die Disk-Nachteile (kein Zero-Downtime-Deploy, keine Multi-Instanz) wiegen hier gering: Horizontal Scaling ist unter SQLite ohnehin ausgeschlossen (siehe *Negative* oben).
+
+### Renders Preismodell — Lesehilfe
+
+Die Preise sind leicht misszuverstehen, weil **„Pro" zwei verschiedene Dinge bezeichnet**:
+
+| „Pro" als … | Was es ist | Preis |
+| --- | --- | --- |
+| **Workspace-Plan** | Kontoebene: Team-Members, Audit-Logs, längeres PITR-Fenster | $25/Mt flat |
+| **Postgres Instance-Type** | eine Datenbank-Maschine (RAM/CPU) | $55/Mt |
+
+Beide sind unabhängig voneinander und frei kombinierbar.
+
+**Gesamtkosten = Workspace-Plan + Summe aller laufenden Ressourcen.** Der Workspace-Plan enthält *kein* Compute — jede Ressource wird einzeln abgerechnet:
+
+| Achse | Optionen |
+| --- | --- |
+| Workspace-Plan (1×) | Hobby $0 · Pro $25 · Scale $499 |
+| Web-Service (pro Service) | Free $0 · Starter $7 · … |
+| Postgres (pro DB) | Free $0 · Basic-256MB $6 · Basic-1GB $19 · Basic-4GB $75 · Pro $55 · Accelerated $160 |
+| Disk (pro GB) | $0.25/GB/Mt |
+
+Für die Datenbank bringt der Pro-**Workspace** genau eine Verbesserung: PITR-Fenster 3 → 7 Tage. Ein Pro-Workspace lohnt sich also wegen des Bus-Faktors, nicht wegen der DB.
 
 ## Migration Path to PostgreSQL
 
