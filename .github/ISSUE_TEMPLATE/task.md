@@ -12,7 +12,7 @@ assignees: ""
 
 ## User Story
 
-Gehlrt zu der User-Story: <!-- z.B. [US-03](../../docs/requirements/US-03-fixkosten-wizard.md) -->
+Gehört zu der User-Story: <!-- z.B. [US-03](../../docs/requirements/US-03-fixkosten-wizard.md) -->
 
 ## Acceptance Criteria
 
@@ -31,12 +31,15 @@ Gehlrt zu der User-Story: <!-- z.B. [US-03](../../docs/requirements/US-03-fixkos
 
 ## Metadaten
 
-| Feld | Wert |
-|------|------|
-| Story Points | <!-- 1 / 2 / 3 / 5 / 8 --> |
-| Area | <!-- Backend / Frontend / DB / DevOps --> |
-| Sprint | <!-- Sprint 1 / Sprint 2 / Backlog --> |
-| Wave | <!-- Wave 0 / 1 / 2 / 3 --> |
+> Diese Werte werden **im [BudgetBuddy Sprint Board](https://github.com/users/dfme/projects/4)**
+> gesetzt, nicht hier. Die Checkliste ist nur die Erinnerung daran — bitte direkt nach dem
+> Anlegen des Issues im Board nachtragen.
+
+- [ ] **Story Points** im Board gesetzt <!-- 1 / 2 / 3 / 5 / 8 -->
+- [ ] **Area** im Board gesetzt <!-- Backend / Frontend / DB / DevOps -->
+- [ ] **Sprint-Zuordnung im Team geklärt** — nicht selbst festlegen. Ergebnis ist entweder
+      der Milestone des laufenden Sprints (`Sprint 3`, …) **oder** kein Milestone und
+      Status `Backlog` im Board.
 
 ## Definition of Done
 
