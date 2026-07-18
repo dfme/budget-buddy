@@ -23,6 +23,16 @@ buchbar. Wer die Doku liest, hält das Persistenz-Problem für gelöst.
 | Korrektur jetzt oder nach dem Vote? | **Jetzt**, parallel zum Vote | Deckt sich mit dem Scope von #78: "Die Korrektur ist dringend und in sich abgeschlossen; sie darf nicht hinter einer offenen Team-Diskussion blockieren." |
 | PR-Verknüpfung | `Refs #78` statt `Closes #78` | `Closes` würde das Issue beim Merge automatisch schliessen und den Voting-Thread mitschliessen. Das kollidiert mit dem AC "Folge-Issue existiert […] bevor dieser Task geschlossen wird". #78 wird manuell geschlossen, sobald Votums vorliegen und der Umsetzungs-Task existiert. |
 
+## Faktenlage und Optionen
+
+> **Single Source of Truth: [ADR-5, Abschnitt "Offene Frage: Persistenz in Produktion"](../adr/ADR-5-sqlite-mvp-database.md#offene-frage-persistenz-in-produktion).**
+>
+> Dort stehen die Varianten, die verifizierten Limits, Kosten und Quellenzitate. Dieser Plan
+> hält sie bewusst **nicht** zusätzlich vor — das war der erste Entscheid oben ("ein Ort,
+> keine Doppelpflege"), und eine Kopie hier ist genau die Stelle, die beim nächsten
+> Recherchefund veraltet. Der Voting-Kommentar in #78 ist die zweite, bewusst befristete
+> Kopie für die Diskussion; er verschwindet mit dem Entscheid.
+
 ## Betroffene Files
 
 | File | Änderung |
@@ -37,103 +47,6 @@ buchbar. Wer die Doku liest, hält das Persistenz-Problem für gelöst.
   Persistent Disk", enthalten keine falsche Mitigation.
 - `docs/prompts/03_01_prompt_c2_container_diagramm_jason.md` — historisches Prompt-Artefakt
   der Kursabgabe (zeigt `/data`-Mount), wird nicht rückwirkend umgeschrieben.
-
-## Verifizierte Faktenlage (Stand 18.07.2026)
-
-Alle Angaben gegen die Primärquellen geprüft, nicht aus dem Issue übernommen.
-
-### Render Free Web Services — [render.com/docs/free](https://render.com/docs/free)
-
-- Free Web Services **können keinen Disk anhängen**. Nur bezahlte Services können
-  *"preserve local filesystem changes by attaching a persistent disk."*
-- *"any changes to your web service's filesystem (uploaded images, local SQLite databases,
-  etc.) are lost every time the service redeploys, restarts, or spins down."*
-  → Betroffen ist **Redeploy, Restart und Spin-Down**, nicht nur der Redeploy.
-- Spin-Down nach **15 Minuten** ohne Traffic, Aufwachen dauert *"about one minute"*.
-  → ADR-10 behauptet aktuell "~30s Aufwachzeit" — ebenfalls zu optimistisch.
-- **750 Free Instance Hours/Monat.** Ein durchgehend laufender Service braucht ~720 h — der
-  Puffer ist praktisch null. Bei Überschreitung: *"suspends all of your Free web services
-  until the start of the next month."*
-- Free unterstützt **kein Shell-Access (SSH/Dashboard)** und **keine One-off Jobs**.
-
-### Render Persistent Disks — [render.com/docs/disks](https://render.com/docs/disks)
-
-- Anhängbar an *"a paid Render web service, private service, or background worker."*
-- *"Render automatically creates a snapshot of your persistent disk once every 24 hours"*,
-  mindestens 7 Tage vorgehalten, wiederherstellbar.
-- Gegenseite: *"Adding a disk to a service prevents zero-downtime deploys"* (Stop-vor-Start)
-  und keine Skalierung auf mehrere Instanzen mit Disk.
-- Disk-Preis: **$0.25 pro GB/Monat**. Günstigster bezahlter Instance-Type (Starter,
-  512 MB RAM / 0.5 CPU): **$7/Monat**.
-
-### Render Workspace-Plans — [render.com/docs/new-workspace-plans](https://render.com/docs/new-workspace-plans)
-
-Relevant für die Frage "wer darf administrieren" — und **unabhängig vom Instance-Type**:
-
-- **Hobby (gratis): *"Team members: 1"*** → das ist der heutige Zustand, Bus-Faktor 1.
-- **Pro: $25/Monat flat.** *"Pro removes per-seat billing, letting you invite unlimited team
-  members for a flat monthly fee."* → alle drei Devs administrationsfähig, ohne Seat-Kosten.
-- Scale: $499/Monat. Für dieses Projekt irrelevant.
-
-**Die beiden Kostenachsen sind entkoppelt** — verifiziert, nicht abgeleitet:
-
-> *"Upgrading your workspace plan does **not** remove limitations on Free instances. Your
-> workspace's plan only determines which platform-level features are available. **You change
-> a service's instance type independently.**"* — [render.com/docs/free](https://render.com/docs/free)
-
-> *"Render bills your workspace monthly according to its **plan and usage**."*
-> — [platform-features-by-plan](https://render.com/docs/platform-features-by-plan)
-
-> *"**Compute pricing is not changing at this time.** These changes only affect the pricing
-> structure for your workspace plan."* — [new-workspace-plans](https://render.com/docs/new-workspace-plans)
-
-Daraus folgt zweierlei:
-
-1. **Ein bezahlter Instance-Type läuft im gratis Hobby-Workspace.** Persistenz + Backups
-   kosten $7.25/Monat, ohne den Workspace anzufassen. Der Pro-Plan enthält **keine**
-   Compute-Credits — er ist eine Plattform-Gebühr, keine Ressourcen-Flatrate.
-2. **Der Mehr-Admin-Vorteil hängt ausschliesslich am Workspace-Plan.** Er ist eine *eigene*
-   Entscheidung, kombinierbar mit jeder Variante — auch Pro-Workspace + Neon (Variante 4) für
-   $25/Monat. Umgekehrt löst ein bezahlter Instance-Type allein den Bus-Faktor **nicht**.
-
-### Optionen im Vergleich
-
-| # | Variante | Persistenz | Backups | Kosten/Monat | Verifizierte Limits |
-| --- | --- | --- | --- | --- | --- |
-| **1** | **Status quo** (SQLite, ephemer) | ✗ | ✗ | $0 | Verlust bei Redeploy, Restart **und** Spin-Down (alle 15 Min Inaktivität) |
-| **2** | **Postgres als eigener Render-Container** | ✗ | ✗ | $0 | Bräuchte selbst einen Disk → dasselbe Problem, plus Spin-Down. Netto schlechter als Variante 1. |
-| **3** | **Render Managed Postgres (Free)** | ✓ | ✗ *"don't support any form of backups"* | $0 | **Läuft 30 Tage nach Erstellung ab**, 14 Tage Grace, dann Löschung · 1 GB · kein Connection Pooling · **nur 1 DB pro Workspace** |
-| **4** | **Neon Free** (Frankfurt/EU) | ✓ | ~ (6 h PITR, auf 1 GB Änderungen gedeckelt) | $0 | **Permanent, kein Ablaufdatum** · 0.5 GB/Projekt · 100 CU-h/Projekt · Scale-to-Zero nach 5 Min (nur Latenz, **kein** Datenverlust) · bei Limit-Überschreitung Suspend bis nächster Monat |
-| **5** | **Supabase Free** | ✓ | ✗ | $0 | 500 MB · **Projekt wird nach 1 Woche Inaktivität pausiert** · 2 aktive Projekte/Org |
-| **6a** | **Render Paid + Disk** (Hobby-Workspace) | ✓ | ✓ **24 h-Snapshots, ≥7 Tage** | **$7.25** — Starter $7 + 1 GB Disk $0.25 | **kein Spin-Down** · kein 750 h-Deckel · Shell-Access + One-off Jobs · kein Zero-Downtime-Deploy · keine Multi-Instanz · behält `hibernate-community-dialects` · **weiterhin nur 1 Admin** |
-| **6b** | **Render Paid + Disk + Pro-Workspace** | ✓ | ✓ **24 h-Snapshots, ≥7 Tage** | **$32.25** — 6a + Pro-Workspace $25 | alles aus 6a **plus alle Devs administrationsfähig** (Bus-Faktor behoben) · Audit-Logs · höhere Bandwidth-/Domain-Kontingente |
-
-### Vier Punkte, die den Entscheid tragen
-
-1. **Render Free Postgres (Variante 3) läuft mitten im Kurs ab.** 30 Tage ab Erstellung,
-   danach 14 Tage Grace. Bei einem Semesterprojekt ist das kein Randfall, sondern der
-   Normalfall.
-2. **Supabase (Variante 5) pausiert nach 1 Woche Inaktivität** — trifft ein Kursprojekt, das
-   zwischen Sprints ruht. Zu unterscheiden von Neons Scale-to-Zero nach 5 Min: das kostet nur
-   Anlaufzeit, keine Daten und keine Reaktivierung von Hand.
-3. **Variante 6 ist die einzige Option mit echten Backups** — für $7.25/Monat (6a). Alle
-   Free-Postgres-Varianten haben keine oder nur rudimentäre. Für Finanzdaten ist das das
-   stärkste Argument des Paid-Pfads — und es wiegt schwerer als der Disk-Nachteil (kein
-   Zero-Downtime-Deploy, keine Multi-Instanz), denn **beide Nachteile bestehen unter SQLite
-   ohnehin**: ADR-5 führt "Keine Horizontal Scaling" bereits als SQLite-Eigenschaft. Der Disk
-   nimmt uns nichts, was SQLite nicht schon ausschliesst.
-4. **Bus-Faktor 1 bei der Infrastruktur** — der Unterschied zwischen 6a und 6b. Der
-   Hobby-Workspace erlaubt genau *einen* Team-Member: aktuell kann nur eine Person deployen,
-   Logs lesen, Env-Vars setzen und im Störfall eingreifen. Für ein Team von drei Devs ist das
-   ein reales Projektrisiko und heute ungelöst. **Aber:** Es hängt am Workspace-Plan, nicht am
-   Disk. 6b ist deshalb nicht "die bessere Variante 6", sondern 6a **plus** eine eigenständige
-   Entscheidung, die sich genauso mit Variante 4 (Neon + Pro = $25/Monat) treffen liesse.
-
-Ergänzend: **Bereits 6a** schliesst drei in ADR-10 **getrennt geführte** Nachteile mit einer
-Entscheidung — SQLite-Persistenz, Cold Starts (Spin-Down entfällt vollständig) und den
-750-Stunden-Deckel. Dazu Shell-Access und One-off Jobs für Flyway-Troubleshooting in Prod.
-All das hängt am **Instance-Type**, nicht am Workspace-Plan; 6b fügt ausschliesslich
-Workspace-Features hinzu (Team-Members, Audit-Logs, grössere Kontingente).
 
 ## Implementierungsschritte
 
@@ -154,19 +67,37 @@ Workspace-Features hinzu (Team-Members, Audit-Logs, grössere Kontingente).
    ohne Plan-Upgrade buchbar, Verweis auf die offene Frage. `SQLITE_DB_PATH`-Verhalten und
    alle Property-Werte **unverändert**.
 6. **PR erstellen** mit `Refs #78`.
-7. **Voting-Kommentar in #78** mit der **nummerierten** Optionen-Tabelle (Varianten 1, 2, 3,
-   4, 5, 6a, 6b), allen Vor- und Nachteilen und den vier entscheidtragenden Punkten. Devs
-   antworten mit der Variantennummer, damit die Auszählung eindeutig ist.
-   **Zweite, getrennte Abstimmungsfrage im selben Kommentar:** Pro-Workspace ($25/Monat) für
-   Mehr-Admin-Zugriff — ja/nein. Gilt für die Varianten 1–5; bei Variante 6 ist die Antwort
-   bereits in der Wahl 6a vs. 6b enthalten (6b = ja). Wer 1–5 wählt, beantwortet sie separat.
+7. **Voting-Kommentar in #78** mit der nummerierten Optionen-Tabelle, den entscheidtragenden
+   Punkten und zwei getrennten Abstimmungsfragen: (1) welche Variante, (2) Pro-Workspace
+   ja/nein. Devs antworten mit der Variantennummer, damit die Auszählung eindeutig ist.
+
+## Verlauf — was während der Umsetzung dazukam
+
+Die Recherche lief über die Umsetzung hinaus weiter, angestossen durch Rückfragen und einen
+Dashboard-Gegencheck. Alle inhaltlichen Ergebnisse sind in ADR-5 eingeflossen; hier nur die
+Chronologie, damit die Commit-Historie lesbar bleibt.
+
+| Commit | Was und warum |
+| --- | --- |
+| `5b79e83` | Ursprüngliche Korrektur (ADR-5, ADR-10, Properties) |
+| `ee909c0` | **Variante 7** (Render Postgres Basic, $6) ergänzt. Aufgefallen beim Dashboard-Check: Die bezahlte Basic-Stufe läuft *nicht* ab — das 30-Tage-Limit gilt nur für Free. Zugleich Korrektur der Aussage "nur 6a/6b bieten Backups". Dazu eine Lesehilfe zum Preismodell, weil "Pro" bei Render sowohl einen Workspace-Plan ($25) als auch einen Postgres-Instance-Type ($55) bezeichnet. |
+| `bfe13f7` | Spalten **DB-Technologie** und **Migration nötig** — machen sichtbar, dass nur 1/6a/6b bei SQLite bleiben und alle übrigen einen Migrations-Task bedeuten. |
+| `f4758ec` | Spalte **Spin-Down Web-Service** — dritte, von DB-Wahl und Kosten unabhängige Achse. |
+| `c7f25b1` | **Backup-Bewertung von 6a korrigiert.** Render warnt: *"Do not restore a snapshot of a disk that's used for a custom database instance."* Damit sichert Variante 7 auf Datenbankebene, 6a nur auf Dateisystemebene — die Gewichtung dreht sich um. Zweiter Befund: Das Repo hat **keinerlei SQLite-PRAGMA-Konfiguration** (kein WAL, kein `busy_timeout`) bei HikariCP-Default von 10 Verbindungen. |
+| `23f2d05` | **Variante 8** (Starter + Neon Free, $7.00). Anbieterwahl Neon statt Supabase: Supabase Free pausiert nach 7 Tagen, Restore ist manuell, nach 90 Tagen endgültige Löschung — derselbe Ausfallpfad, den die Migration beseitigen soll. Neon hat Auto-Resume, Frankfurt/EU und 6 h PITR. |
+
+**Offener Nebenbefund (unabhängig vom Entscheid):** Die fehlende PRAGMA-Konfiguration ist
+bereits heute ein latenter Bug — HikariCP öffnet 10 Verbindungen gegen eine Datei mit
+Whole-File-Lock, ohne `busy_timeout` wirft ein blockierter Write sofort `SQLITE_BUSY`. Der
+Free-Tier maskiert das (0.1 CPU, ständiger Spin-Down). Braucht ein eigenes Issue, sofern der
+Entscheid bei SQLite bleibt (Varianten 1, 6a, 6b).
 
 ## Nach diesem Task (nicht Teil davon)
 
 Sobald alle Votums vorliegen:
 
 - Neuer ADR mit dem Entscheid, supersedet ADR-5 (inkl. Index-Zeile in `docs/adr/README.md`)
-- Umsetzungs-Task (`DB-05`) für die Migration — Inhalt hängt vom Entscheid ab
+- Umsetzungs-Task für die Migration — Inhalt hängt vom Entscheid ab
 - Erst dann wird #78 geschlossen
 
 ## Test-Strategie
@@ -184,19 +115,19 @@ Verifikation:
 
 ## Acceptance Criteria (aus Issue #78)
 
-- [ ] Keine Stelle in der Doku nennt den Render Persistent Disk mehr als verfügbare
+- [x] Keine Stelle in der Doku nennt den Render Persistent Disk mehr als verfügbare
       Mitigation, ohne das Plan-Upgrade als Voraussetzung zu benennen
-- [ ] ADR-5 "Deployment-Voraussetzung" beschreibt den tatsächlichen Stand: Free-Plan
+- [x] ADR-5 "Deployment-Voraussetzung" beschreibt den tatsächlichen Stand: Free-Plan
       schliesst Disks aus, Frage ist offen, Verweis auf dieses Issue
-- [ ] ADR-5 "Migration Path to PostgreSQL" nennt Persistenz — nicht Skalierung — als
+- [x] ADR-5 "Migration Path to PostgreSQL" nennt Persistenz — nicht Skalierung — als
       tatsächlichen Trigger
-- [ ] ADR-10 nennt unter "SQLite-Persistenz" keine Mitigation mehr, die auf dem Free-Plan
+- [x] ADR-10 nennt unter "SQLite-Persistenz" keine Mitigation mehr, die auf dem Free-Plan
       nicht existiert
-- [ ] ADR-10 stellt den Bezug zwischen Spin-Down und Datenverlust her
-- [ ] `application-prod.properties` verspricht keinen Disk mehr, der nicht kommen kann
-- [ ] Die Optionen inkl. ihrer Limits (30-Tage-Ablauf bei Render Free Postgres) sind
+- [x] ADR-10 stellt den Bezug zwischen Spin-Down und Datenverlust her
+- [x] `application-prod.properties` verspricht keinen Disk mehr, der nicht kommen kann
+- [x] Die Optionen inkl. ihrer Limits (30-Tage-Ablauf bei Render Free Postgres) sind
       dokumentiert, sodass der Entscheid auf Fakten fällt
-- [ ] Kein Code- oder Config-Verhalten geändert — reine Doku-Änderung
+- [x] Kein Code- oder Config-Verhalten geändert — reine Doku-Änderung
 - [ ] Folge-Issue existiert und ist hier verlinkt, bevor dieser Task geschlossen wird
       → **abgedeckt über den Voting-Kommentar + späteren Umsetzungs-Task**, nicht über ein
-      vorab angelegtes Issue. Deshalb `Refs #78` statt `Closes #78`.
+      vorab angelegtes Issue. Deshalb `Refs #78` statt `Closes #78`. **Offen bis zum Vote.**
