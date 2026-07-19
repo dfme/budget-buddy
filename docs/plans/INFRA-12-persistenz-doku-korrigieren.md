@@ -92,13 +92,30 @@ Whole-File-Lock, ohne `busy_timeout` wirft ein blockierter Write sofort `SQLITE_
 Free-Tier maskiert das (0.1 CPU, ständiger Spin-Down). Braucht ein eigenes Issue, sofern der
 Entscheid bei SQLite bleibt (Varianten 1, 6a, 6b).
 
+## Ergebnis der Abstimmung (18.07.2026)
+
+| Frage | Ergebnis |
+| --- | --- |
+| **Variante** | **4 — Neon Free (PostgreSQL, Frankfurt/EU), $0/Monat** |
+| **Pro-Workspace ($25/Mt)** | **nein** |
+
+Konsequenzen: Die Datenbank wechselt von SQLite auf PostgreSQL bei Neon. Der Render
+Web-Service bleibt auf Free — der Spin-Down nach 15 Min bleibt bestehen, kostet ab dann aber
+nur noch ~1 Min Latenz und **keine Daten** mehr. Der Workspace bleibt Hobby, Bus-Faktor 1
+wird bewusst in Kauf genommen. Upgrades auf Starter (Variante 8, $7/Mt) bzw. Pro-Workspace
+sind jederzeit ohne Nacharbeit möglich.
+
+Ergebnis-Kommentar: <https://github.com/dfme/budget-buddy/issues/78#issuecomment-5015065128>
+
 ## Nach diesem Task (nicht Teil davon)
 
-Sobald alle Votums vorliegen:
-
-- Neuer ADR mit dem Entscheid, supersedet ADR-5 (inkl. Index-Zeile in `docs/adr/README.md`)
-- Umsetzungs-Task für die Migration — Inhalt hängt vom Entscheid ab
-- Erst dann wird #78 geschlossen
+- **Folge-Issue [#89](https://github.com/dfme/budget-buddy/issues/89) — `[DB-05] Migration von
+  SQLite auf Neon Postgres (inkl. Entscheid-ADR)`.** Umfasst: Neon-Projekt aufsetzen,
+  ADR-11 (supersedet ADR-5), Flyway- und Dialect-Migration, lokales Dev-Setup via
+  `docker-compose.yml`, Umstellung der Tests auf Testcontainers. Liegt im Backlog ohne
+  Milestone — die Einplanung entscheidet das Team im Sprint-Planning.
+- **#78 schliessen**, sobald PR #87 gemergt ist. Passiert nicht automatisch, da der PR
+  `Refs #78` statt `Closes #78` trägt.
 
 ## Test-Strategie
 
@@ -128,6 +145,8 @@ Verifikation:
 - [x] Die Optionen inkl. ihrer Limits (30-Tage-Ablauf bei Render Free Postgres) sind
       dokumentiert, sodass der Entscheid auf Fakten fällt
 - [x] Kein Code- oder Config-Verhalten geändert — reine Doku-Änderung
-- [ ] Folge-Issue existiert und ist hier verlinkt, bevor dieser Task geschlossen wird
-      → **abgedeckt über den Voting-Kommentar + späteren Umsetzungs-Task**, nicht über ein
-      vorab angelegtes Issue. Deshalb `Refs #78` statt `Closes #78`. **Offen bis zum Vote.**
+- [x] Folge-Issue existiert und ist hier verlinkt, bevor dieser Task geschlossen wird
+      → **[#89](https://github.com/dfme/budget-buddy/issues/89)**, in #78 verlinkt. Abgedeckt
+      über den Voting-Kommentar + Umsetzungs-Task statt über ein vorab angelegtes Issue —
+      deshalb trägt PR #87 `Refs #78` statt `Closes #78`, damit der Merge die Abstimmung nicht
+      mitschliesst.
