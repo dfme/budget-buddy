@@ -14,7 +14,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Orchestriert den PDF-Import-Flow (BE-PDF-02, US-04): SHA-256-Hash → Duplikatcheck →
@@ -27,12 +26,21 @@ import org.springframework.transaction.annotation.Transactional;
  * <p><strong>Timeout (kooperativ):</strong> Nach dem Parse sowie vor jedem Kategorisierungs-Call
  * wird die injizierte {@link Clock} gegen das Zeitbudget geprüft
  * ({@code budgetbuddy.import.timeout-seconds}, Default 30). Überschritten →
- * {@link PdfImportTimeoutException}; dank {@code @Transactional} wird nichts persistiert (kein
- * Partial-Import). Kooperativ heisst: Ein laufender Schritt wird nie abgebrochen, nur der nächste
+ * {@link PdfImportTimeoutException}; da der einzige Schreibzugriff das abschliessende
+ * {@code saveAll} ist, wird dann nichts persistiert (kein Partial-Import).
+ * Kooperativ heisst: Ein laufender Schritt wird nie abgebrochen, nur der nächste
  * verhindert — die reale Obergrenze ist damit Deadline + ein vollständiger Claude-Call
  * (10s SDK-Timeout × 2 Versuche, BE-CAT-02), bei Default 30s also ~50s. Ein präemptiver
  * Thread-Abbruch würde diese Lücke schliessen, wäre hier aber nur Komplexität ohne Zusatznutzen,
  * da SDK-Timeout und Circuit Breaker den Einzelcall bereits begrenzen.
+ *
+ * <p><strong>Bewusst kein {@code @Transactional} um den ganzen Flow:</strong> Das würde die
+ * JDBC-Connection über sämtliche Claude-Calls halten — bis ~50s pro Import bei einem
+ * Default-Pool von 10 Connections. Atomar sein muss nur das abschliessende {@code saveAll};
+ * das läuft bereits in einer eigenen Transaktion (Spring Data, {@code SimpleJpaRepository}).
+ * Der Duplikatcheck liest davor transaktionslos — der damit mögliche TOCTOU-Race bei parallelem
+ * Doppel-Upload bestand schon mit Methoden-Transaktion (SQLite serialisiert Writes, sperrt aber
+ * keine Reads) und ist als Follow-up dokumentiert (eigene {@code pdf_imports}-Tabelle).
  *
  * <p><strong>Jede Transaktion erhält eine Kategorie</strong> (AC BE-PDF-02): Liefert die
  * Kategorisierung {@link java.util.Optional#empty()} (leerer Text), fällt sie auf
@@ -74,7 +82,6 @@ public class PdfImportService {
      * @throws PasswordProtectedPdfException wenn das PDF verschlüsselt ist.
      * @throws PdfParseException wenn das PDF nicht gelesen werden kann.
      */
-    @Transactional
     public ImportResult importPdf(long userId, byte[] pdfBytes) {
         Instant deadline = clock.instant().plus(timeout);
 

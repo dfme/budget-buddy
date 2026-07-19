@@ -132,6 +132,24 @@ class PdfImportServiceIntegrationTest {
     }
 
     @Test
+    void samePdfForDifferentUser_importsWithoutDuplicateConflict() {
+        // Der Duplikatcheck ist per User gescoped (Repository-Javadoc): dasselbe PDF darf von
+        // einem anderen User importiert werden — z. B. Partner mit Gemeinschaftskonto.
+        jdbcTemplate.update(
+                "INSERT INTO users (email, password_hash, monthly_income, onboarding_completed)"
+                        + " VALUES (?, ?, ?, ?)",
+                "lara.beispiel@example.ch", "bcrypt-hash", new BigDecimal("2200.00"), true);
+        long otherUserId = jdbcTemplate.queryForObject(
+                "SELECT id FROM users WHERE email = 'lara.beispiel@example.ch'", Long.class);
+
+        pdfImportService.importPdf(userId, fixture());
+        ImportResult second = pdfImportService.importPdf(otherUserId, fixture());
+
+        assertThat(second.transactionCount()).isEqualTo(28);
+        assertThat(transactionRepository.count()).isEqualTo(56);
+    }
+
+    @Test
     void pdfBinaryIsNotStoredInDatabase() {
         pdfImportService.importPdf(userId, fixture());
 
