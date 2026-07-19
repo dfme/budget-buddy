@@ -24,12 +24,15 @@ import org.springframework.transaction.annotation.Transactional;
  * <p><strong>Kein PDF in der DB:</strong> Von den PDF-Bytes wird ausschliesslich der SHA-256-Hash
  * gespeichert ({@code transactions.pdf_sha256}) — er dient als Duplikat-Schlüssel pro User.
  *
- * <p><strong>Timeout (kooperativ):</strong> Vor jedem Kategorisierungs-Call wird die injizierte
- * {@link Clock} gegen das Zeitbudget geprüft ({@code budgetbuddy.import.timeout-seconds},
- * Default 30). Überschritten → {@link PdfImportTimeoutException}; dank {@code @Transactional}
- * wird nichts persistiert (kein Partial-Import). Ein einzelner hängender Claude-Call wird bereits
- * durch SDK-Timeout und Circuit Breaker (BE-CAT-02) begrenzt — ein präemptiver Thread-Abbruch
- * wäre hier nur Komplexität ohne Zusatznutzen.
+ * <p><strong>Timeout (kooperativ):</strong> Nach dem Parse sowie vor jedem Kategorisierungs-Call
+ * wird die injizierte {@link Clock} gegen das Zeitbudget geprüft
+ * ({@code budgetbuddy.import.timeout-seconds}, Default 30). Überschritten →
+ * {@link PdfImportTimeoutException}; dank {@code @Transactional} wird nichts persistiert (kein
+ * Partial-Import). Kooperativ heisst: Ein laufender Schritt wird nie abgebrochen, nur der nächste
+ * verhindert — die reale Obergrenze ist damit Deadline + ein vollständiger Claude-Call
+ * (10s SDK-Timeout × 2 Versuche, BE-CAT-02), bei Default 30s also ~50s. Ein präemptiver
+ * Thread-Abbruch würde diese Lücke schliessen, wäre hier aber nur Komplexität ohne Zusatznutzen,
+ * da SDK-Timeout und Circuit Breaker den Einzelcall bereits begrenzen.
  *
  * <p><strong>Jede Transaktion erhält eine Kategorie</strong> (AC BE-PDF-02): Liefert die
  * Kategorisierung {@link java.util.Optional#empty()} (leerer Text), fällt sie auf
@@ -81,6 +84,14 @@ public class PdfImportService {
         }
 
         List<ParsedTransaction> parsed = parser.parse(pdfBytes);
+        // PDFBox kennt kein Timeout — ein pathologisches PDF kann den Parse beliebig lange
+        // beschäftigen. Ohne diesen Check würde die Deadline erst greifen, wenn auch noch
+        // kategorisiert wird (realistischster Ausfallpfad ganz ohne Claude-Beteiligung).
+        if (clock.instant().isAfter(deadline)) {
+            log.warn("PDF-Import für User {} nach dem Parsen abgebrochen (Timeout {}s).",
+                    userId, timeout.toSeconds());
+            throw new PdfImportTimeoutException(timeout);
+        }
 
         List<Transaction> entities = new ArrayList<>(parsed.size());
         for (ParsedTransaction tx : parsed) {

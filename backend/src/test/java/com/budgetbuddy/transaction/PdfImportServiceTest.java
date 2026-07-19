@@ -106,8 +106,9 @@ class PdfImportServiceTest {
 
     @Test
     void timeoutDuringCategorization_throwsWithoutPersisting() {
-        // instant(): 1. Deadline-Basis T0, 2. Check vor Tx1 (ok), 3. Check vor Tx2 (überschritten).
-        when(clock.instant()).thenReturn(T0, T0, T0.plusSeconds(TIMEOUT_SECONDS + 1));
+        // instant(): 1. Deadline-Basis T0, 2. Check nach Parse (ok), 3. Check vor Tx1 (ok),
+        // 4. Check vor Tx2 (überschritten).
+        when(clock.instant()).thenReturn(T0, T0, T0, T0.plusSeconds(TIMEOUT_SECONDS + 1));
         when(repository.existsByUserIdAndPdfSha256(any(), anyString())).thenReturn(false);
         when(parser.parse(PDF_BYTES)).thenReturn(List.of(
                 parsed("ESR", List.of("Stadtwerke Bern"), "78.50", false),
@@ -118,6 +119,23 @@ class PdfImportServiceTest {
         assertThatThrownBy(() -> service.importPdf(USER_ID, PDF_BYTES))
                 .isInstanceOf(PdfImportTimeoutException.class);
 
+        verify(repository, never()).saveAll(any());
+    }
+
+    @Test
+    void timeoutDuringParse_throwsWithoutCategorizing() {
+        // PDFBox kennt kein eigenes Timeout: Frisst der Parse das ganze Budget, muss der Import
+        // direkt danach abbrechen — ohne einen einzigen Kategorisierungs-Call.
+        // instant(): 1. Deadline-Basis T0, 2. Check nach Parse (überschritten).
+        when(clock.instant()).thenReturn(T0, T0.plusSeconds(TIMEOUT_SECONDS + 1));
+        when(repository.existsByUserIdAndPdfSha256(any(), anyString())).thenReturn(false);
+        when(parser.parse(PDF_BYTES)).thenReturn(List.of(
+                parsed("GIRO POST", List.of(), "850.00", false)));
+
+        assertThatThrownBy(() -> service.importPdf(USER_ID, PDF_BYTES))
+                .isInstanceOf(PdfImportTimeoutException.class);
+
+        verifyNoInteractions(categorizationPort);
         verify(repository, never()).saveAll(any());
     }
 
