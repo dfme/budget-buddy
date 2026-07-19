@@ -249,6 +249,16 @@ Beispiel: [#68](https://github.com/dfme/budget-buddy/issues/68) — `[INFRA-08] 
 3. **Freigabe durch mind. 1 Dev** — der PR muss von mindestens einem Dev genehmigt werden, bevor er gemergt werden darf
 4. **Merge nur durch Dev** — der Merge auf `main` wird ausschliesslich von einem Dev getriggert, nie von Claude
 
+### Sprint-Planung: Iteration-Feld ist führend
+
+Der Sprint wird **ausschliesslich** über das Iteration-Feld `Sprint` im Project Board [#4 „BudgetBuddy Sprint Board"](https://github.com/users/dfme/projects/4) gesetzt.
+
+- **Milestones werden nicht für Sprints verwendet.** Die bestehenden Milestones `Sprint 1`–`Sprint 3` sind Historie und geschlossen; es werden keine weiteren angelegt.
+- **Neue Issues werden ohne Milestone und ohne Sprint angelegt** — sie landen via `Auto-add to project` im Board-Backlog. Die Einplanung erfolgt im Sprint-Planning über das Sprint-Feld.
+- **Für Claude:** Beim Anlegen von Issues niemals eine Milestone- oder Sprint-Zuordnung setzen. Die Einplanung ist eine Kapazitätsentscheidung des Teams. Dringlichkeit gehört als Argument in den Issue-Text, nicht als gesetztes Planungs-Metadatum.
+
+**Grund:** Milestone und Iteration-Feld sind voneinander unabhängig — das Setzen des einen lässt das andere leer. Zwei parallel gepflegte Sprint-Quellen sind im Juli 2026 nachweislich auseinandergelaufen (Milestones sagten Sprint 3, das Board sagte Sprint 2). Das Iteration-Feld ist die richtige führende Quelle, weil es den laufenden Sprint **anhand des Datums** kennt und nicht manuell geschlossen werden muss.
+
 ### Datenbank: Flyway-Migrationen
 
 - Versionsnummer immer **zweistellig mit führender Null**: `V01__`, `V02__`, … `V10__`. Sichert korrekte alphabetische Sortierung im Dateisystem bei vielen Migrationen.

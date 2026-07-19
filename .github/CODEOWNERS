@@ -1,0 +1,10 @@
+# Code Owners — automatische Reviewer-Zuweisung
+#
+# Alle drei Devs sind Owner des gesamten Repos. GitHub überspringt beim
+# Review-Request immer den PR-Autor; angefragt werden dadurch automatisch
+# genau die anderen beiden.
+#
+# Ergänzt die Review-Konvention aus CLAUDE.md ("Freigabe durch mind. 1 Dev"):
+# Angefragt werden zwei, genehmigen muss mindestens einer.
+
+*  @dfme @danielwagner990 @sirjoe83
