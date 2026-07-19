@@ -1,0 +1,46 @@
+<section class="category-overview">
+  <h1>Kategorie-Übersicht</h1>
+
+  <div class="month-selector">
+    <button type="button" class="nav" (click)="previousMonth()" aria-label="Vorheriger Monat">‹</button>
+    <span class="month-label">{{ monthLabel() }}</span>
+    <button type="button" class="nav" (click)="nextMonth()" aria-label="Nächster Monat">›</button>
+  </div>
+
+  @if (loading()) {
+    <p class="status">Lädt …</p>
+  } @else if (errorMessage()) {
+    <p class="status error">{{ errorMessage() }}</p>
+  } @else if (isEmpty()) {
+    <p class="status empty">Keine Ausgaben in diesem Monat.</p>
+  } @else if (summary(); as data) {
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Kategorie</th>
+          <th scope="col" class="numeric">Summe</th>
+          <th scope="col" class="numeric">Anzahl</th>
+          <th scope="col" class="numeric">Anteil</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (item of data.categories; track item.category) {
+          <tr>
+            <td>{{ item.category }}</td>
+            <td class="numeric">{{ item.amount | currency: 'CHF' : 'symbol' : '1.2-2' }}</td>
+            <td class="numeric">{{ item.count }}</td>
+            <td class="numeric">{{ item.percentage }}%</td>
+          </tr>
+        }
+      </tbody>
+      <tfoot>
+        <tr>
+          <td>Total</td>
+          <td class="numeric">{{ data.totalAmount | currency: 'CHF' : 'symbol' : '1.2-2' }}</td>
+          <td class="numeric">{{ data.totalCount }}</td>
+          <td class="numeric">100%</td>
+        </tr>
+      </tfoot>
+    </table>
+  }
+</section>

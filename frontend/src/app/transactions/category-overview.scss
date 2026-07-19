@@ -1,0 +1,66 @@
+:host {
+  display: block;
+}
+
+.category-overview {
+  max-width: 40rem;
+  margin: 0 auto;
+}
+
+.month-selector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin: 1rem 0 1.5rem;
+}
+
+.month-label {
+  min-width: 10rem;
+  text-align: center;
+  font-weight: 600;
+}
+
+.nav {
+  padding: 0.25rem 0.75rem;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 0.5rem;
+  border-bottom: 1px solid #ddd;
+  text-align: left;
+}
+
+.numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+tfoot td {
+  font-weight: 600;
+  border-top: 2px solid #999;
+  border-bottom: none;
+}
+
+.status {
+  text-align: center;
+  padding: 1.5rem 0;
+}
+
+.status.empty {
+  color: #555;
+}
+
+.status.error {
+  color: #b00020;
+  font-weight: 600;
+}
