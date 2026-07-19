@@ -434,3 +434,4 @@ Vollständige ADRs: [docs/adr/README.md](docs/adr/README.md)
 | Skill | Befehl | Beschreibung |
 |-------|--------|--------------|
 | implement-issue | `/implement-issue <issue-number>` | GitHub Issue end-to-end umsetzen: Issue einlesen, Fragen klären, Plan präsentieren (mit Bestätigung), Branch erstellen, Code + Tests implementieren, lokalen Review durchführen (mit Bestätigung), PR öffnen. |
+| review-pr | `/review-pr <pr-number>` | Pull Request reviewen: PR und Issue einlesen, Diff gegen die Gegenseite kreuzprüfen, Tests selbst ausführen, Befunde in blockierend/nicht-blockierend trennen, Review präsentieren (mit Bestätigung), als `REQUEST_CHANGES` mit Inline-Threads absetzen. Blockierende Befunde gehören als Inline-Thread an den Diff — ein Review-Body ist für die Ruleset-Regel `required_review_thread_resolution` unsichtbar und hält den Merge nicht auf. |
