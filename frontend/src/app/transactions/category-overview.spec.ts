@@ -14,18 +14,25 @@ registerLocaleData(localeDeCh);
 
 const SUMMARY: CategorySummary = {
   month: '2026-07',
-  totalAmount: '1350.50',
+  totalAmount: 1350.5,
   totalCount: 7,
   categories: [
-    { category: 'Wohnen', amount: '1000.00', count: 1, percentage: '74.05' },
-    { category: 'Lebensmittel', amount: '350.50', count: 6, percentage: '25.95' },
+    { category: 'Wohnen', amount: 1000, count: 1, percentage: 74.05 },
+    { category: 'Lebensmittel', amount: 350.5, count: 6, percentage: 25.95 },
   ],
 };
 
 const EMPTY_SUMMARY: CategorySummary = {
   month: '2026-07',
-  totalAmount: '0.00',
+  totalAmount: 0,
   totalCount: 0,
+  categories: [],
+};
+
+const OLDER_MONTH_SUMMARY: CategorySummary = {
+  month: '2026-05',
+  totalAmount: 42,
+  totalCount: 3,
   categories: [],
 };
 
@@ -65,10 +72,11 @@ describe('CategoryOverview', () => {
     const rows = fixture.nativeElement.querySelectorAll('tbody tr');
     expect(rows.length).toBe(2);
 
-    const firstRow = rows[0].textContent as string;
-    expect(firstRow).toContain('Wohnen');
-    expect(firstRow).toContain('1');
-    expect(firstRow).toContain('74.05%');
+    const cells = rows[0].querySelectorAll('td');
+    expect(cells[0].textContent?.trim()).toBe('Wohnen');
+    expect(cells[1].textContent).toContain('1’000.00');
+    expect(cells[2].textContent?.trim()).toBe('1');
+    expect(cells[3].textContent?.trim()).toBe('74.05%');
 
     expect((fixture.nativeElement.textContent as string)).toContain('Lebensmittel');
     expect(component.isEmpty()).toBe(false);
@@ -114,5 +122,38 @@ describe('CategoryOverview', () => {
     expect(component.errorMessage()).not.toBeNull();
     expect(fixture.nativeElement.querySelector('.status.error')).not.toBeNull();
     expect(component.summary()).toBeNull();
+  });
+
+  it('disables the next-month button on the current month and enables it after navigating back', () => {
+    expectSummaryRequest(httpMock).flush(SUMMARY);
+    fixture.detectChanges();
+
+    const nextButton = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
+      'button[aria-label="Nächster Monat"]',
+    )!;
+    expect(nextButton.disabled).toBe(true);
+
+    component.previousMonth();
+    expectSummaryRequest(httpMock).flush(SUMMARY);
+    fixture.detectChanges();
+
+    expect(nextButton.disabled).toBe(false);
+  });
+
+  it('discards a stale response when the month changes again before it arrives', () => {
+    expectSummaryRequest(httpMock).flush(SUMMARY);
+
+    component.previousMonth();
+    const staleRequest = expectSummaryRequest(httpMock);
+
+    component.previousMonth();
+    const latestRequest = expectSummaryRequest(httpMock);
+
+    expect(staleRequest.cancelled).toBe(true);
+
+    latestRequest.flush(OLDER_MONTH_SUMMARY);
+    fixture.detectChanges();
+
+    expect(component.summary()?.totalCount).toBe(3);
   });
 });

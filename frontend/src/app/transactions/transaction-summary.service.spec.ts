@@ -7,9 +7,9 @@ import { TransactionSummaryService } from './transaction-summary.service';
 
 const SUMMARY: CategorySummary = {
   month: '2026-07',
-  totalAmount: '1200.00',
+  totalAmount: 1200,
   totalCount: 5,
-  categories: [{ category: 'Lebensmittel', amount: '1200.00', count: 5, percentage: '100.00' }],
+  categories: [{ category: 'Lebensmittel', amount: 1200, count: 5, percentage: 100 }],
 };
 
 describe('TransactionSummaryService', () => {

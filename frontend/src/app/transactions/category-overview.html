@@ -4,7 +4,15 @@
   <div class="month-selector">
     <button type="button" class="nav" (click)="previousMonth()" aria-label="Vorheriger Monat">‹</button>
     <span class="month-label">{{ monthLabel() }}</span>
-    <button type="button" class="nav" (click)="nextMonth()" aria-label="Nächster Monat">›</button>
+    <button
+      type="button"
+      class="nav"
+      (click)="nextMonth()"
+      [disabled]="isCurrentMonth()"
+      aria-label="Nächster Monat"
+    >
+      ›
+    </button>
   </div>
 
   @if (loading()) {
@@ -29,13 +37,13 @@
             <td>{{ item.category }}</td>
             <td class="numeric">{{ item.amount | currency: 'CHF' : 'symbol' : '1.2-2' }}</td>
             <td class="numeric">{{ item.count }}</td>
-            <td class="numeric">{{ item.percentage }}%</td>
+            <td class="numeric">{{ item.percentage | number: '1.2-2' }}%</td>
           </tr>
         }
       </tbody>
       <tfoot>
         <tr>
-          <td>Total</td>
+          <th scope="row">Total</th>
           <td class="numeric">{{ data.totalAmount | currency: 'CHF' : 'symbol' : '1.2-2' }}</td>
           <td class="numeric">{{ data.totalCount }}</td>
           <td class="numeric">100%</td>

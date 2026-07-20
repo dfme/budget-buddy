@@ -1,6 +1,7 @@
+import { CurrencyPipe, DecimalPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { Subscription } from 'rxjs';
 
 import { CategorySummary } from './category-summary.model';
 import { TransactionSummaryService } from './transaction-summary.service';
@@ -17,7 +18,7 @@ import { TransactionSummaryService } from './transaction-summary.service';
  */
 @Component({
   selector: 'app-category-overview',
-  imports: [CommonModule],
+  imports: [CurrencyPipe, DecimalPipe],
   templateUrl: './category-overview.html',
   styleUrl: './category-overview.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -46,6 +47,12 @@ export class CategoryOverview {
     return current !== null && current.categories.length === 0;
   });
 
+  /** `true`, wenn der angezeigte Monat der aktuelle Monat ist — sperrt "›". */
+  readonly isCurrentMonth = computed(() => this.month() >= CategoryOverview.currentMonth());
+
+  /** Subscription des zuletzt gestarteten Requests, um ihn bei Monatswechsel zu canceln. */
+  private pendingRequest: Subscription | undefined;
+
   constructor() {
     this.load();
   }
@@ -63,10 +70,14 @@ export class CategoryOverview {
   }
 
   private load(): void {
+    // Einen noch laufenden Request canceln, bevor ein neuer startet — sonst kann bei
+    // schneller Monat-Navigation die spätere Antwort von der früheren überschrieben
+    // werden (Race Condition).
+    this.pendingRequest?.unsubscribe();
     this.loading.set(true);
     this.errorMessage.set(null);
 
-    this.summaryService.getSummary(this.month()).subscribe({
+    this.pendingRequest = this.summaryService.getSummary(this.month()).subscribe({
       next: (summary) => {
         this.summary.set(summary);
         this.loading.set(false);
