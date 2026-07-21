@@ -3,7 +3,6 @@ package com.budgetbuddy.config;
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
 import com.budgetbuddy.categorization.AnthropicProperties;
-import java.time.Clock;
 import java.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,11 +62,5 @@ public class AnthropicConfig {
                 .timeout(TIMEOUT)
                 .maxRetries(MAX_RETRIES)
                 .build();
-    }
-
-    /** Systemzeit für den Circuit Breaker; in Tests durch eine feste Clock ersetzbar. */
-    @Bean
-    public Clock clock() {
-        return Clock.systemUTC();
     }
 }
