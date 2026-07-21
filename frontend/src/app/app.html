@@ -1,6 +1,10 @@
 <header>
   <h1>{{ title() }}</h1>
   @if (isAuthenticated()) {
+    <nav>
+      <a routerLink="/dashboard" routerLinkActive="active">Dashboard</a>
+      <a routerLink="/categories" routerLinkActive="active">Kategorien</a>
+    </nav>
     <button type="button" class="logout" (click)="logout()">Abmelden</button>
   }
 </header>

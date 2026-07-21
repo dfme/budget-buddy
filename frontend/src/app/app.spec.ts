@@ -67,6 +67,14 @@ describe('App', () => {
     expect(logoutButton()).not.toBeNull();
   });
 
+  it('shows the categories nav link when authenticated', () => {
+    login();
+
+    const link = (fixture.nativeElement as HTMLElement).querySelector('a[routerLink="/categories"]');
+    expect(link).not.toBeNull();
+    expect(link?.textContent).toContain('Kategorien');
+  });
+
   it('logs out on click: POSTs /auth/logout, clears state, redirects to /login', () => {
     login();
 
