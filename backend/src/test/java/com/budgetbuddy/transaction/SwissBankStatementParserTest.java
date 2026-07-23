@@ -271,6 +271,38 @@ class SwissBankStatementParserTest {
     assertThatThrownBy(() -> parser.parse(notAPdf)).isInstanceOf(PdfParseException.class);
   }
 
+  @Test
+  void parse_textWithoutRecognizableBooking_throwsUnsupportedStatementFormatException() {
+    // BE-PDF-04 (#83): Text vorhanden, aber kein Layout-Regex greift (hier: ISO-Datumsformat
+    // statt dd.MM.yyyy). Vorher kam still eine leere Liste zurück — für die Nutzerin sah das
+    // wie "Upload erfolgreich, 0 Transaktionen" aus.
+    byte[] pdf =
+        pdfWithLines(
+            List.of(
+                "Musterbank AG - Kontoauszug Maerz 2024",
+                "Datum Beschreibung Betrag Saldo",
+                "2024-03-01 MIGROS MMM BERN 45.60 954.40",
+                "2024-03-05 SWISSCOM AG RECHNUNG 89.00 865.40"));
+
+    assertThatThrownBy(() -> parser.parse(pdf))
+        .isInstanceOf(UnsupportedStatementFormatException.class)
+        // Subtyp von PdfParseException: bestehende Aufrufer-Verträge bleiben gültig.
+        .isInstanceOf(PdfParseException.class);
+  }
+
+  @Test
+  void parse_pdfWithoutTextLayer_throwsMissingTextLayerException() {
+    // Gescanntes PDF: Seite vorhanden, aber kein extrahierbarer Text. Muss vom unbekannten
+    // Layout unterscheidbar sein — die Nutzermeldung ist eine andere ("bitte aus dem
+    // E-Banking herunterladen statt scannen").
+    byte[] pdf = pdfWithLines(List.of());
+
+    assertThatThrownBy(() -> parser.parse(pdf))
+        .isInstanceOf(MissingTextLayerException.class)
+        .isInstanceOf(PdfParseException.class)
+        .isNotInstanceOf(UnsupportedStatementFormatException.class);
+  }
+
   // --- PDF-Fixture-Helper (PDFBox 3.x) -----------------------------------------------------
 
   private static byte[] pdfWithLines(List<String> lines) {

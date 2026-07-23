@@ -75,12 +75,14 @@ public class PdfImportService {
      *
      * @param userId ID des eingeloggten Users (aus dem JWT).
      * @param pdfBytes vollständiger Inhalt der PDF-Datei; wird nicht persistiert.
-     * @return Hash und Anzahl der importierten Transaktionen (0, wenn das PDF keine enthält —
-     *     Fehlerverhalten dafür ist BE-PDF-04).
+     * @return Hash und Anzahl der importierten Transaktionen (nie 0 — ein PDF ohne erkannte
+     *     Buchung wirft im Parser, BE-PDF-04).
      * @throws DuplicatePdfImportException wenn dieser User dasselbe PDF bereits importiert hat.
      * @throws PdfImportTimeoutException wenn das Zeitbudget überschritten wurde.
      * @throws PasswordProtectedPdfException wenn das PDF verschlüsselt ist.
-     * @throws PdfParseException wenn das PDF nicht gelesen werden kann.
+     * @throws PdfParseException wenn das PDF nicht gelesen oder keine Transaktion extrahiert
+     *     werden kann — inkl. der Subtypen {@link MissingTextLayerException} (Scan ohne
+     *     Textlayer) und {@link UnsupportedStatementFormatException} (unbekanntes Layout).
      */
     public ImportResult importPdf(long userId, byte[] pdfBytes) {
         Instant deadline = clock.instant().plus(timeout);

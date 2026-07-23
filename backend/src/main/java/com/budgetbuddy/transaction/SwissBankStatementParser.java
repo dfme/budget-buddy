@@ -157,14 +157,23 @@ public class SwissBankStatementParser {
    * Parst alle Transaktionen aus den PDF-Bytes.
    *
    * @param pdfBytes vollständiger Inhalt der PDF-Datei.
-   * @return die extrahierten Transaktionen (evtl. leer).
+   * @return die extrahierten Transaktionen — nie leer.
    * @throws PasswordProtectedPdfException wenn das PDF verschlüsselt ist.
+   * @throws MissingTextLayerException wenn das PDF keinen Textlayer enthält (Scan).
+   * @throws UnsupportedStatementFormatException wenn das PDF Text enthält, daraus aber keine
+   *     Buchungszeile erkannt wurde.
    * @throws PdfParseException wenn das PDF nicht gelesen werden kann.
    */
   public List<ParsedTransaction> parse(byte[] pdfBytes) {
     List<List<String>> pages = extractPages(pdfBytes);
+    // Kein Text auf keiner Seite: gescanntes PDF ohne Textlayer. Eigene Exception, weil die
+    // hilfreiche Nutzermeldung hier eine andere ist als bei unbekanntem Layout (BE-PDF-04).
+    if (pages.stream().allMatch(List::isEmpty)) {
+      throw new MissingTextLayerException();
+    }
+    List<ParsedTransaction> transactions;
     try {
-      return switch (detectFormat(pages)) {
+      transactions = switch (detectFormat(pages)) {
         case VISECA -> parseViseca(pages);
         case POSTFINANCE -> parsePostFinance(pages);
         case UBS -> parseUbs(pages);
@@ -174,6 +183,12 @@ public class SwissBankStatementParser {
       // Kalendarisch ungültiges Datum (z. B. 32.01.) hat die Datums-Regex passiert.
       throw new PdfParseException("PDF enthält ein ungültiges Datum: " + e.getParsedString(), e);
     }
+    // Text vorhanden, aber keine einzige Buchung erkannt: Layout wird nicht unterstützt. Ohne
+    // Exception sähe das für den User wie "Upload erfolgreich, 0 Transaktionen" aus (#83).
+    if (transactions.isEmpty()) {
+      throw new UnsupportedStatementFormatException();
+    }
+    return transactions;
   }
 
   private enum Format {
