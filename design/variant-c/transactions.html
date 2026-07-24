@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="de-CH">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BudgetBuddy — Buchungen (Variante C «Ledger»)</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="topbar__brand">
+          <span class="topbar__mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><rect x="3.25" y="3.25" width="17.5" height="17.5" rx="1.5" pathLength="100" stroke="currentColor" stroke-width="2.5" stroke-dasharray="78 22"/><rect x="9.5" y="9.5" width="5" height="5" fill="currentColor"/></svg></span>
+          BudgetBuddy
+        </div>
+        <button type="button" class="topbar__account">Privatkonto ····4471</button>
+      </header>
+
+      <nav class="nav" aria-label="Hauptnavigation">
+        <div class="nav__brand">
+          <span class="topbar__mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><rect x="3.25" y="3.25" width="17.5" height="17.5" rx="1.5" pathLength="100" stroke="currentColor" stroke-width="2.5" stroke-dasharray="78 22"/><rect x="9.5" y="9.5" width="5" height="5" fill="currentColor"/></svg></span>
+          BudgetBuddy
+        </div>
+        <a class="nav__item" href="index.html">
+          <span class="nav__icon" aria-hidden="true">▤</span>
+          Übersicht
+        </a>
+        <a class="nav__item nav__item--active" href="transactions.html" aria-current="page">
+          <span class="nav__icon" aria-hidden="true">▤</span>
+          Buchungen
+        </a>
+        <a class="nav__item" href="#">
+          <span class="nav__icon" aria-hidden="true">▤</span>
+          Import
+        </a>
+        <a class="nav__item" href="#">
+          <span class="nav__icon" aria-hidden="true">▤</span>
+          Konto
+        </a>
+
+        <div class="nav__account">
+          <div class="nav__user">
+            <span class="nav__avatar" aria-hidden="true">LM</span>
+            <span class="nav__user-meta">
+              <span class="nav__user-name">Lara Meier</span>
+              <span class="nav__user-mail">Privatkonto ····4471</span>
+            </span>
+          </div>
+          <button type="button" class="nav__logout">
+            <span class="nav__icon" aria-hidden="true">⏻</span>
+            Abmelden
+          </button>
+        </div>
+      </nav>
+
+      <main class="main">
+        <div class="page-head">
+          <div>
+            <h1 class="page-title">Buchungen</h1>
+            <p class="page-sub">12 von 47 · Juli 2026 · CHF 2'265.40 Ausgaben</p>
+          </div>
+          <div class="month-nav">
+            <button type="button" class="month-nav__btn" aria-label="Vorheriger Monat">‹</button>
+            <span class="month-nav__label">Juli 2026</span>
+            <button type="button" class="month-nav__btn" aria-label="Nächster Monat" disabled>›</button>
+          </div>
+        </div>
+
+        <div class="segment" role="tablist" aria-label="Filter" style="margin-bottom: 1rem">
+          <button type="button" class="segment__item segment__item--active" role="tab" aria-selected="true">Alle</button>
+          <button type="button" class="segment__item" role="tab" aria-selected="false">Belastungen</button>
+          <button type="button" class="segment__item" role="tab" aria-selected="false">Gutschriften</button>
+          <button type="button" class="segment__item" role="tab" aria-selected="false">Zu prüfen</button>
+        </div>
+
+        <!-- Eine echte <table>: der Kern dieser Variante. Auf 375px werden
+             die Valuta-Spalten ausgeblendet, ab 900px kommen sie dazu. -->
+        <section class="card">
+          <div class="card__head">
+            <h2 class="card__title">Kontobewegungen</h2>
+            <span class="card__meta">Privatkonto ····4471</span>
+          </div>
+
+          <div class="table-wrap">
+            <table class="table">
+              <caption class="table__caption">Neueste 12 Buchungen des Monats Juli 2026</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Datum</th>
+                  <th scope="col" class="table__wide">Valuta</th>
+                  <th scope="col" class="table__text">Buchungstext</th>
+                  <th scope="col" class="table__num">Betrag CHF</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>22.07.2026</td>
+                  <td class="table__wide">22.07.2026</td>
+                  <td class="table__text">
+                    MIGROS BERN BAHNHOF
+                    <div class="badge badge--lebensmittel">
+                      <span class="badge__dot" aria-hidden="true"></span>
+                      Lebensmittel
+                    </div>
+                  </td>
+                  <td class="table__num">64.35</td>
+                </tr>
+
+                <!-- Von Claude kategorisiert und unsicher: Balken links an der
+                     Zeile statt Warnfarbe am Badge — in einer dichten Tabelle
+                     ist die Zeile die richtige Trägereinheit. -->
+                <tr class="row--uncertain">
+                  <td>21.07.2026</td>
+                  <td class="table__wide">22.07.2026</td>
+                  <td class="table__text">
+                    TWINT LARA M.
+                    <div class="badge badge--sonstiges">
+                      <span class="badge__dot" aria-hidden="true"></span>
+                      Sonstiges
+                      <span class="flag">· prüfen</span>
+                    </div>
+                  </td>
+                  <td class="table__num">25.00</td>
+                </tr>
+
+                <tr>
+                  <td>21.07.2026</td>
+                  <td class="table__wide">21.07.2026</td>
+                  <td class="table__text">
+                    SBB MOBILE TICKET
+                    <div class="badge badge--transport">
+                      <span class="badge__dot" aria-hidden="true"></span>
+                      Transport
+                    </div>
+                  </td>
+                  <td class="table__num">12.60</td>
+                </tr>
+
+                <tr>
+                  <td>20.07.2026</td>
+                  <td class="table__wide">21.07.2026</td>
+                  <td class="table__text">
+                    NETFLIX.COM AMSTERDAM
+                    <div class="badge badge--freizeit">
+                      <span class="badge__dot" aria-hidden="true"></span>
+                      Freizeit
+                      <span class="flag">· wiederkehrend</span>
+                    </div>
+                  </td>
+                  <td class="table__num">19.90</td>
+                </tr>
+
+                <tr>
+                  <td>18.07.2026</td>
+                  <td class="table__wide">18.07.2026</td>
+                  <td class="table__text">
+                    RESTAURANT KREUZ BIEL
+                    <div class="badge badge--restaurant">
+                      <span class="badge__dot" aria-hidden="true"></span>
+                      Restaurant
+                    </div>
+                  </td>
+                  <td class="table__num">42.50</td>
+                </tr>
+
+                <tr>
+                  <td>18.07.2026</td>
+                  <td class="table__wide">18.07.2026</td>
+                  <td class="table__text">
+                    COOP PRONTO ZÜRICH HB
+                    <div class="badge badge--lebensmittel">
+                      <span class="badge__dot" aria-hidden="true"></span>
+                      Lebensmittel
+                    </div>
+                  </td>
+                  <td class="table__num">8.90</td>
+                </tr>
+
+                <tr>
+                  <td>17.07.2026</td>
+                  <td class="table__wide">17.07.2026</td>
+                  <td class="table__text">
+                    SWISSCOM (SCHWEIZ) AG
+                    <div class="badge badge--telekom">
+                      <span class="badge__dot" aria-hidden="true"></span>
+                      Telekom
+                      <span class="flag">· wiederkehrend</span>
+                    </div>
+                  </td>
+                  <td class="table__num">59.00</td>
+                </tr>
+
+                <tr>
+                  <td>16.07.2026</td>
+                  <td class="table__wide">16.07.2026</td>
+                  <td class="table__text">
+                    TOPPHARM APOTHEKE BERN
+                    <div class="badge badge--gesundheit">
+                      <span class="badge__dot" aria-hidden="true"></span>
+                      Gesundheit
+                    </div>
+                  </td>
+                  <td class="table__num">108.00</td>
+                </tr>
+
+                <tr>
+                  <td>15.07.2026</td>
+                  <td class="table__wide">16.07.2026</td>
+                  <td class="table__text">
+                    DIGITEC GALAXUS AG 044 913 2323
+                    <div class="badge badge--shopping">
+                      <span class="badge__dot" aria-hidden="true"></span>
+                      Shopping
+                    </div>
+                  </td>
+                  <td class="table__num">78.90</td>
+                </tr>
+
+                <tr>
+                  <td>15.07.2026</td>
+                  <td class="table__wide">15.07.2026</td>
+                  <td class="table__text">
+                    CSS VERSICHERUNG AG
+                    <div class="badge badge--versicherung">
+                      <span class="badge__dot" aria-hidden="true"></span>
+                      Versicherung
+                      <span class="flag">· wiederkehrend</span>
+                    </div>
+                  </td>
+                  <td class="table__num">168.40</td>
+                </tr>
+
+                <tr>
+                  <td>01.07.2026</td>
+                  <td class="table__wide">01.07.2026</td>
+                  <td class="table__text">
+                    MIETE WOHNUNG MONBIJOUSTRASSE
+                    <div class="badge badge--wohnen">
+                      <span class="badge__dot" aria-hidden="true"></span>
+                      Wohnen
+                      <span class="flag">· wiederkehrend</span>
+                    </div>
+                  </td>
+                  <td class="table__num">980.00</td>
+                </tr>
+
+                <tr>
+                  <td>01.07.2026</td>
+                  <td class="table__wide">01.07.2026</td>
+                  <td class="table__text">
+                    LOHN SPITEX REGION BERN
+                    <div class="badge badge--einkommen">
+                      <span class="badge__dot" aria-hidden="true"></span>
+                      Einkommen
+                    </div>
+                  </td>
+                  <!-- Gutschrift: Vorzeichen zuerst, Farbe zweitrangig -->
+                  <td class="table__num amount amount--positive">3'200.00</td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <!-- Eine Zelle pro Spalte, auch die auf Mobile ausgeblendete —
+                     sonst verrutscht die Fusszeile gegenüber dem Tabellenkopf. -->
+                <tr>
+                  <th scope="row">Summe</th>
+                  <td class="table__wide"></td>
+                  <td class="table__text">
+                    <span class="table__note">11 Belastungen, 1 Gutschrift</span>
+                  </td>
+                  <td class="table__num">1'567.55</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <div class="card__foot">
+            <button type="button" class="btn btn--ghost btn--block">
+              Weitere 35 Buchungen laden
+            </button>
+          </div>
+        </section>
+
+        <!-- Korrektur-UI (US-05). Im Prototyp permanent sichtbar, damit der
+             Zustand ohne Interaktion beurteilbar ist. In der App: Panel rechts
+             auf Desktop, Bottom-Sheet auf Mobile. -->
+        <div class="panel" role="group" aria-label="Kategorie ändern">
+          <div class="panel__head">
+            <h2 class="panel__title">Kategorie ändern</h2>
+            <button type="button" class="panel__close" aria-label="Schliessen">✕</button>
+          </div>
+
+          <div class="panel__body">
+            <dl class="ref">
+              <dt>Datum</dt>
+              <dd>21.07.2026</dd>
+              <dt>Text</dt>
+              <dd>TWINT LARA M.</dd>
+              <dt>Betrag</dt>
+              <dd>CHF 25.00</dd>
+              <dt>Quelle</dt>
+              <dd>Automatisch — Claude, geringe Sicherheit</dd>
+            </dl>
+
+            <p class="notice" style="margin-top: 1rem">
+              <span aria-hidden="true">!</span>
+              Die Korrektur wird für künftige Buchungen mit demselben
+              Empfängertext übernommen.
+            </p>
+
+            <p class="field__label" style="margin-top: 1rem">Kategorie</p>
+            <div class="chip-grid">
+              <button type="button" class="chip chip--wohnen"><span class="chip__dot" aria-hidden="true"></span>Wohnen</button>
+              <button type="button" class="chip chip--lebensmittel"><span class="chip__dot" aria-hidden="true"></span>Lebensmittel</button>
+              <button type="button" class="chip chip--transport"><span class="chip__dot" aria-hidden="true"></span>Transport</button>
+              <button type="button" class="chip chip--versicherung"><span class="chip__dot" aria-hidden="true"></span>Versicherung</button>
+              <button type="button" class="chip chip--telekom"><span class="chip__dot" aria-hidden="true"></span>Telekom</button>
+              <button type="button" class="chip chip--gesundheit"><span class="chip__dot" aria-hidden="true"></span>Gesundheit</button>
+              <button type="button" class="chip chip--freizeit chip--selected"><span class="chip__dot" aria-hidden="true"></span>Freizeit</button>
+              <button type="button" class="chip chip--restaurant"><span class="chip__dot" aria-hidden="true"></span>Restaurant</button>
+              <button type="button" class="chip chip--shopping"><span class="chip__dot" aria-hidden="true"></span>Shopping</button>
+              <button type="button" class="chip chip--bildung"><span class="chip__dot" aria-hidden="true"></span>Bildung</button>
+              <button type="button" class="chip chip--einkommen"><span class="chip__dot" aria-hidden="true"></span>Einkommen</button>
+              <button type="button" class="chip chip--sparen"><span class="chip__dot" aria-hidden="true"></span>Sparen</button>
+              <button type="button" class="chip chip--sonstiges"><span class="chip__dot" aria-hidden="true"></span>Sonstiges</button>
+            </div>
+          </div>
+
+          <div class="panel__actions">
+            <button type="button" class="btn btn--ghost" style="flex: 1">Abbrechen</button>
+            <button type="button" class="btn btn--primary" style="flex: 1">Übernehmen</button>
+          </div>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

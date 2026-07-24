@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="de-CH">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BudgetBuddy — Transaktionen (Variante A «Klarheit»)</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="topbar__brand">
+          <span class="topbar__mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" pathLength="100" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="76 24" transform="rotate(-90 12 12)"/><circle cx="12" cy="12" r="3.25" fill="currentColor"/></svg></span>
+          BudgetBuddy
+        </div>
+        <button type="button" class="topbar__avatar" aria-label="Konto">LM</button>
+      </header>
+
+      <nav class="nav" aria-label="Hauptnavigation">
+        <div class="nav__brand">
+          <span class="topbar__mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" pathLength="100" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="76 24" transform="rotate(-90 12 12)"/><circle cx="12" cy="12" r="3.25" fill="currentColor"/></svg></span>
+          BudgetBuddy
+        </div>
+        <a class="nav__item" href="index.html">
+          <span class="nav__icon" aria-hidden="true">◎</span>
+          Übersicht
+        </a>
+        <a class="nav__item nav__item--active" href="transactions.html" aria-current="page">
+          <span class="nav__icon" aria-hidden="true">≡</span>
+          Transaktionen
+        </a>
+        <a class="nav__item" href="#">
+          <span class="nav__icon" aria-hidden="true">↑</span>
+          Import
+        </a>
+        <a class="nav__item" href="#">
+          <span class="nav__icon" aria-hidden="true">⚙</span>
+          Einstellungen
+        </a>
+
+        <div class="nav__account">
+          <div class="nav__user">
+            <span class="nav__avatar" aria-hidden="true">LM</span>
+            <span class="nav__user-meta">
+              <span class="nav__user-name">Lara Meier</span>
+              <span class="nav__user-mail">lara.meier@example.ch</span>
+            </span>
+          </div>
+          <button type="button" class="nav__logout">
+            <span class="nav__icon" aria-hidden="true">⏻</span>
+            Abmelden
+          </button>
+        </div>
+      </nav>
+
+      <main class="main">
+        <h1 class="page-title">Transaktionen</h1>
+        <p class="page-sub">12 von 47 Buchungen · CHF 2'265.40 Ausgaben im Juli</p>
+
+        <!-- Monatswechsel (US-12) -->
+        <div class="month-nav">
+          <button type="button" class="month-nav__btn" aria-label="Vorheriger Monat">‹</button>
+          <span class="month-nav__label">Juli 2026</span>
+          <button type="button" class="month-nav__btn" aria-label="Nächster Monat" disabled>›</button>
+        </div>
+
+        <div class="segment" role="tablist" aria-label="Filter">
+          <button type="button" class="segment__item segment__item--active" role="tab" aria-selected="true">Alle</button>
+          <button type="button" class="segment__item" role="tab" aria-selected="false">Ausgaben</button>
+          <button type="button" class="segment__item" role="tab" aria-selected="false">Einnahmen</button>
+        </div>
+
+        <section class="card" style="margin-top: 1rem" aria-label="Buchungen Juli 2026">
+          <h2 class="tx-group__date">22.07.2026</h2>
+          <ul>
+            <li>
+              <button type="button" class="tx">
+                <span class="tx__name">MIGROS BERN BAHNHOF</span>
+                <span class="tx__amount">64.35</span>
+                <span class="tx__meta">
+                  <span class="badge badge--lebensmittel">
+                    <span class="badge__dot" aria-hidden="true"></span>
+                    Lebensmittel
+                  </span>
+                </span>
+              </button>
+            </li>
+          </ul>
+
+          <h2 class="tx-group__date">21.07.2026</h2>
+          <ul>
+            <li>
+              <button type="button" class="tx">
+                <span class="tx__name">SBB MOBILE TICKET</span>
+                <span class="tx__amount">12.60</span>
+                <span class="tx__meta">
+                  <span class="badge badge--transport">
+                    <span class="badge__dot" aria-hidden="true"></span>
+                    Transport
+                  </span>
+                </span>
+              </button>
+            </li>
+            <li>
+              <!-- Von Claude kategorisiert und unsicher: leiser Hinweis,
+                   kein Alarm — der Nutzer soll korrigieren dürfen, nicht müssen. -->
+              <button type="button" class="tx">
+                <span class="tx__name">TWINT LARA M.</span>
+                <span class="tx__amount">25.00</span>
+                <span class="tx__meta">
+                  <span class="badge badge--sonstiges">
+                    <span class="badge__dot" aria-hidden="true"></span>
+                    Sonstiges
+                  </span>
+                  <span class="tx__flag">Kategorie prüfen</span>
+                </span>
+              </button>
+            </li>
+          </ul>
+
+          <h2 class="tx-group__date">20.07.2026</h2>
+          <ul>
+            <li>
+              <button type="button" class="tx">
+                <span class="tx__name">NETFLIX.COM AMSTERDAM</span>
+                <span class="tx__amount">19.90</span>
+                <span class="tx__meta">
+                  <span class="badge badge--freizeit">
+                    <span class="badge__dot" aria-hidden="true"></span>
+                    Freizeit
+                  </span>
+                  <span class="tx__flag">Abo</span>
+                </span>
+              </button>
+            </li>
+          </ul>
+
+          <h2 class="tx-group__date">18.07.2026</h2>
+          <ul>
+            <li>
+              <button type="button" class="tx">
+                <span class="tx__name">RESTAURANT KREUZ BIEL</span>
+                <span class="tx__amount">42.50</span>
+                <span class="tx__meta">
+                  <span class="badge badge--restaurant">
+                    <span class="badge__dot" aria-hidden="true"></span>
+                    Restaurant
+                  </span>
+                </span>
+              </button>
+            </li>
+            <li>
+              <button type="button" class="tx">
+                <span class="tx__name">COOP PRONTO ZÜRICH HB</span>
+                <span class="tx__amount">8.90</span>
+                <span class="tx__meta">
+                  <span class="badge badge--lebensmittel">
+                    <span class="badge__dot" aria-hidden="true"></span>
+                    Lebensmittel
+                  </span>
+                </span>
+              </button>
+            </li>
+          </ul>
+
+          <h2 class="tx-group__date">17.07.2026</h2>
+          <ul>
+            <li>
+              <button type="button" class="tx">
+                <span class="tx__name">SWISSCOM (SCHWEIZ) AG</span>
+                <span class="tx__amount">59.00</span>
+                <span class="tx__meta">
+                  <span class="badge badge--telekom">
+                    <span class="badge__dot" aria-hidden="true"></span>
+                    Telekom
+                  </span>
+                </span>
+              </button>
+            </li>
+          </ul>
+
+          <h2 class="tx-group__date">16.07.2026</h2>
+          <ul>
+            <li>
+              <button type="button" class="tx">
+                <span class="tx__name">TOPPHARM APOTHEKE BERN</span>
+                <span class="tx__amount">108.00</span>
+                <span class="tx__meta">
+                  <span class="badge badge--gesundheit">
+                    <span class="badge__dot" aria-hidden="true"></span>
+                    Gesundheit
+                  </span>
+                </span>
+              </button>
+            </li>
+          </ul>
+
+          <h2 class="tx-group__date">15.07.2026</h2>
+          <ul>
+            <li>
+              <button type="button" class="tx">
+                <span class="tx__name">DIGITEC GALAXUS AG 044 913 2323</span>
+                <span class="tx__amount">78.90</span>
+                <span class="tx__meta">
+                  <span class="badge badge--shopping">
+                    <span class="badge__dot" aria-hidden="true"></span>
+                    Shopping
+                  </span>
+                </span>
+              </button>
+            </li>
+            <li>
+              <button type="button" class="tx">
+                <span class="tx__name">CSS VERSICHERUNG AG</span>
+                <span class="tx__amount">168.40</span>
+                <span class="tx__meta">
+                  <span class="badge badge--versicherung">
+                    <span class="badge__dot" aria-hidden="true"></span>
+                    Versicherung
+                  </span>
+                </span>
+              </button>
+            </li>
+          </ul>
+
+          <h2 class="tx-group__date">01.07.2026</h2>
+          <ul>
+            <li>
+              <button type="button" class="tx">
+                <span class="tx__name">LOHN SPITEX REGION BERN</span>
+                <!-- Einnahme: Vorzeichen zuerst, Farbe zweitrangig -->
+                <span class="tx__amount amount amount--positive">3'200.00</span>
+                <span class="tx__meta">
+                  <span class="badge badge--einkommen">
+                    <span class="badge__dot" aria-hidden="true"></span>
+                    Einkommen
+                  </span>
+                </span>
+              </button>
+            </li>
+            <li>
+              <button type="button" class="tx">
+                <span class="tx__name">MIETE WOHNUNG MONBIJOUSTRASSE</span>
+                <span class="tx__amount">980.00</span>
+                <span class="tx__meta">
+                  <span class="badge badge--wohnen">
+                    <span class="badge__dot" aria-hidden="true"></span>
+                    Wohnen
+                  </span>
+                  <span class="tx__flag">Fixkosten</span>
+                </span>
+              </button>
+            </li>
+          </ul>
+
+          <button type="button" class="btn btn--ghost btn--block" style="margin-top: 1rem">
+            Weitere 35 Buchungen laden
+          </button>
+        </section>
+
+        <!-- Korrektur-UI (US-05). Im Prototyp permanent sichtbar, damit der
+             Zustand ohne Interaktion beurteilbar ist. In der App: Bottom-Sheet
+             auf Mobile, zentrierter Dialog auf Desktop. -->
+        <div class="sheet" role="group" aria-label="Kategorie ändern">
+          <div class="sheet__grabber" aria-hidden="true"></div>
+          <h2 class="sheet__title">Kategorie ändern</h2>
+          <p class="sheet__sub">TWINT LARA M. · 21.07.2026 · CHF 25.00</p>
+
+          <p class="notice">
+            <span aria-hidden="true">!</span>
+            Automatisch als «Sonstiges» eingestuft — deine Korrektur merkt sich
+            BudgetBuddy für künftige Buchungen.
+          </p>
+
+          <div class="chip-grid" style="margin-top: 1rem">
+            <button type="button" class="chip">Wohnen</button>
+            <button type="button" class="chip">Lebensmittel</button>
+            <button type="button" class="chip">Transport</button>
+            <button type="button" class="chip">Versicherung</button>
+            <button type="button" class="chip">Telekom</button>
+            <button type="button" class="chip">Gesundheit</button>
+            <button type="button" class="chip chip--selected">Freizeit</button>
+            <button type="button" class="chip">Restaurant</button>
+            <button type="button" class="chip">Shopping</button>
+            <button type="button" class="chip">Bildung</button>
+            <button type="button" class="chip">Einkommen</button>
+            <button type="button" class="chip">Sparen</button>
+            <button type="button" class="chip">Sonstiges</button>
+          </div>
+
+          <div class="sheet__actions">
+            <button type="button" class="btn btn--ghost" style="flex: 1">Abbrechen</button>
+            <button type="button" class="btn btn--primary" style="flex: 1">Speichern</button>
+          </div>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

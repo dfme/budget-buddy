@@ -1,0 +1,925 @@
+// =============================================================================
+// BudgetBuddy — Design-Variante A: «Klarheit» (Clean / Minimal)
+//
+// Mobile-First: Alle Basis-Regeln gelten für den Smartphone-Viewport
+// (375–414px). Desktop kommt ausschliesslich über `min-width`-Queries dazu.
+//
+// Aufbau: 1. Tokens  2. Reset  3. Layout/Shell  4. Komponenten  5. Screens
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// 1. Tokens
+// -----------------------------------------------------------------------------
+
+// Farben — Neutralen sind leicht grünstichig, damit sie zum Teal-Akzent passen.
+$c-bg: #ffffff;
+$c-bg-subtle: #f6f8f7;
+$c-surface: #ffffff;
+$c-line: #e3e8e6;
+$c-line-strong: #cbd4d1;
+
+$c-ink: #101413;
+$c-ink-2: #5b6462;
+$c-ink-3: #8b9694;
+
+$c-accent: #0f6b5f;
+$c-accent-hover: #0b544a;
+$c-accent-soft: #e6f2f0;
+
+// Semantische Farben für Beträge. Safe-to-Spend kann negativ werden — die
+// beiden Töne müssen sich auch bei kleiner Schrift klar unterscheiden.
+$c-positive: #0f6b5f;
+$c-positive-soft: #e6f2f0;
+$c-negative: #b3261e;
+$c-negative-soft: #fdecea;
+$c-warning: #8a6100;
+$c-warning-soft: #fdf3dd;
+
+// Kategorie-Palette — deckt alle 13 Kategorien aus `Category.java` ab.
+// Gedämpfte Töne, damit der Donut nicht gegen den ruhigen Rest kämpft.
+$categories: (
+  "wohnen": #0f6b5f,
+  "lebensmittel": #6a9b3f,
+  "transport": #2f6f9f,
+  "versicherung": #7a5fa3,
+  "telekom": #3f8f9f,
+  "gesundheit": #b5566b,
+  "freizeit": #c2803a,
+  "restaurant": #a34f3a,
+  "shopping": #9b5f7f,
+  "bildung": #4f6f5f,
+  "einkommen": #2f8f5f,
+  "sparen": #5f6f8f,
+  "sonstiges": #8b9694,
+);
+
+// Typografie-Skala — 6 Stufen, 1.25er-Verhältnis, bewusst knapp gehalten.
+$fs-xs: 0.75rem; // 12px  Labels, Meta
+$fs-sm: 0.875rem; // 14px  Sekundärtext
+$fs-md: 1rem; // 16px  Fliesstext
+$fs-lg: 1.25rem; // 20px  Card-Titel
+$fs-xl: 2rem; // 32px  Screen-Titel
+$fs-hero: 2.75rem; // 44px  Safe-to-Spend-Betrag
+
+$ff-base: system-ui, -apple-system, "Segoe UI", roboto, sans-serif;
+
+// Spacing — 4px-Raster.
+$sp-1: 0.25rem;
+$sp-2: 0.5rem;
+$sp-3: 0.75rem;
+$sp-4: 1rem;
+$sp-5: 1.5rem;
+$sp-6: 2rem;
+$sp-7: 3rem;
+
+// Radien — klein und einheitlich; die Ruhe kommt aus Weissraum, nicht aus Rundung.
+$r-sm: 4px;
+$r-md: 8px;
+$r-pill: 999px;
+
+$shadow-card: 0 1px 2px rgba(16, 20, 19, 0.04);
+
+// Breakpoints
+$bp-desktop: 900px;
+
+@mixin desktop {
+  @media (min-width: $bp-desktop) {
+    @content;
+  }
+}
+
+// Beträge immer mit gleichbreiten Ziffern — sonst springen die Spalten.
+@mixin tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+// -----------------------------------------------------------------------------
+// 2. Reset
+// -----------------------------------------------------------------------------
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: $ff-base;
+  font-size: $fs-md;
+  line-height: 1.5;
+  color: $c-ink;
+  background: $c-bg-subtle;
+}
+
+h1,
+h2,
+h3,
+p,
+figure {
+  margin: 0;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+}
+
+// Sichtbarer Fokus — Grundvoraussetzung für Tastaturbedienung.
+:focus-visible {
+  outline: 2px solid $c-accent;
+  outline-offset: 2px;
+  border-radius: $r-sm;
+}
+
+// -----------------------------------------------------------------------------
+// 3. Layout / App-Shell
+// -----------------------------------------------------------------------------
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+
+  @include desktop {
+    flex-direction: row;
+    max-width: 1180px;
+    margin: 0 auto;
+    background: $c-bg;
+  }
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $sp-3;
+  padding: $sp-4;
+  background: $c-bg;
+  border-bottom: 1px solid $c-line;
+
+  &__brand {
+    display: flex;
+    align-items: center;
+    gap: $sp-2;
+    font-size: $fs-sm;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  // Wortmarke: offener Ring mit Kern — greift den Donut des Dashboards auf.
+  // `pathLength="100"` im SVG macht die Lücke unabhängig vom Radius exakt
+  // steuerbar.
+  &__mark {
+    width: 1.75rem;
+    height: 1.75rem;
+    flex: none;
+    color: $c-accent;
+
+    svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+  }
+
+  &__avatar {
+    width: 2rem;
+    height: 2rem;
+    border-radius: $r-pill;
+    background: $c-accent-soft;
+    color: $c-accent;
+    border: none;
+    font-size: $fs-xs;
+    font-weight: 700;
+    display: grid;
+    place-items: center;
+  }
+
+  // Auf Desktop übernimmt die Sidebar die Navigation.
+  @include desktop {
+    display: none;
+  }
+}
+
+.main {
+  flex: 1;
+  padding: $sp-5 $sp-4 $sp-7;
+
+  @include desktop {
+    padding: $sp-6 $sp-6 $sp-7;
+    min-width: 0; // verhindert, dass Charts das Grid aufblähen
+  }
+}
+
+// Mobile: Tab-Bar unten (Daumenzone). Desktop: vertikale Sidebar links.
+//
+// `order: 1` schiebt die Bar ans Ende der Spalte, ohne sie im DOM hinter
+// <main> zu verschieben — die Navigation bleibt für Screenreader und
+// Tastatur vor dem Inhalt. Ohne das bliebe `position: sticky; bottom: 0`
+// wirkungslos, weil das Element oben im Fluss steht und nie nach unten klebt.
+.nav {
+  order: 1;
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  background: $c-bg;
+  border-top: 1px solid $c-line;
+
+  &__item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: $sp-1;
+    padding: $sp-3 $sp-1;
+    font-size: $fs-xs;
+    color: $c-ink-3;
+    text-decoration: none;
+
+    &--active {
+      color: $c-accent;
+      font-weight: 600;
+    }
+  }
+
+  &__icon {
+    font-size: $fs-md;
+    line-height: 1;
+  }
+
+  @include desktop {
+    // Zurück in die Ausgangsreihenfolge: als Sidebar steht sie wieder links.
+    order: 0;
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+    height: 100vh;
+    width: 15rem;
+    flex-direction: column;
+    gap: $sp-1;
+    padding: $sp-6 $sp-3;
+    border-top: none;
+    border-right: 1px solid $c-line;
+
+    &__item {
+      flex: 0 0 auto;
+      flex-direction: row;
+      justify-content: flex-start;
+      gap: $sp-3;
+      padding: $sp-3;
+      border-radius: $r-md;
+      font-size: $fs-sm;
+
+      &--active {
+        background: $c-accent-soft;
+      }
+    }
+  }
+}
+
+.nav__brand {
+  display: none;
+
+  @include desktop {
+    display: flex;
+    align-items: center;
+    gap: $sp-2;
+    padding: 0 $sp-3 $sp-5;
+    font-size: $fs-md;
+    font-weight: 600;
+  }
+}
+
+// Konto-Block am Fuss der Sidebar. Auf Mobile übernimmt der Avatar in der
+// Topbar diese Rolle — dort ist in der Tab-Bar kein Platz dafür, und die
+// Bar gehört den vier Hauptzielen.
+.nav__account {
+  display: none;
+
+  @include desktop {
+    display: block;
+    // Schiebt den Block an den unteren Rand der 100vh hohen Sidebar.
+    margin-top: auto;
+    padding-top: $sp-4;
+    border-top: 1px solid $c-line;
+  }
+}
+
+.nav__user {
+  display: flex;
+  align-items: center;
+  gap: $sp-3;
+  padding: $sp-2 $sp-3;
+  min-width: 0;
+
+  &-meta {
+    min-width: 0;
+  }
+
+  &-name {
+    display: block;
+    font-size: $fs-sm;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &-mail {
+    display: block;
+    font-size: $fs-xs;
+    color: $c-ink-3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.nav__avatar {
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  border-radius: $r-pill;
+  background: $c-accent-soft;
+  color: $c-accent;
+  font-size: $fs-xs;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+
+.nav__logout {
+  display: flex;
+  align-items: center;
+  gap: $sp-3;
+  width: 100%;
+  margin-top: $sp-1;
+  padding: $sp-3;
+  border: none;
+  border-radius: $r-md;
+  background: transparent;
+  font-size: $fs-sm;
+  color: $c-ink-2;
+  text-align: left;
+
+  &:hover {
+    background: $c-bg-subtle;
+    color: $c-ink;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// 4. Komponenten
+// -----------------------------------------------------------------------------
+
+.page-title {
+  font-size: $fs-xl;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-bottom: $sp-1;
+}
+
+.page-sub {
+  font-size: $fs-sm;
+  color: $c-ink-2;
+  margin-bottom: $sp-5;
+}
+
+.card {
+  background: $c-surface;
+  border: 1px solid $c-line;
+  border-radius: $r-md;
+  padding: $sp-5;
+  box-shadow: $shadow-card;
+
+  & + & {
+    margin-top: $sp-4;
+  }
+
+  &__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: $sp-3;
+    margin-bottom: $sp-4;
+  }
+
+  &__title {
+    font-size: $fs-lg;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  &__meta {
+    font-size: $fs-xs;
+    color: $c-ink-3;
+  }
+}
+
+// Hero: der Safe-to-Spend-Betrag ist das einzige Element auf diesem
+// Grössenlevel — er trägt den Screen allein.
+.hero {
+  &__label {
+    font-size: $fs-xs;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: $c-ink-2;
+  }
+
+  &__amount {
+    @include tabular;
+
+    display: flex;
+    align-items: baseline;
+    gap: $sp-2;
+    margin: $sp-2 0 $sp-1;
+    font-size: $fs-hero;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+    color: $c-positive;
+  }
+
+  &__currency {
+    font-size: $fs-lg;
+    font-weight: 500;
+    color: $c-ink-2;
+  }
+
+  &__note {
+    font-size: $fs-sm;
+    color: $c-ink-2;
+  }
+
+  &--negative &__amount {
+    color: $c-negative;
+  }
+
+  &--muted &__amount {
+    color: $c-ink-3;
+  }
+}
+
+// Fortschrittsbalken: Woche im Monat.
+.meter {
+  margin-top: $sp-4;
+
+  &__track {
+    height: 6px;
+    border-radius: $r-pill;
+    background: $c-bg-subtle;
+    overflow: hidden;
+  }
+
+  &__fill {
+    height: 100%;
+    border-radius: $r-pill;
+    background: $c-accent;
+  }
+
+  &__legend {
+    display: flex;
+    justify-content: space-between;
+    margin-top: $sp-2;
+    font-size: $fs-xs;
+    color: $c-ink-3;
+  }
+
+  &--negative &__fill {
+    background: $c-negative;
+  }
+}
+
+// Kompakte Kennzahlen unter dem Hero.
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: $sp-3;
+  margin-top: $sp-5;
+  padding-top: $sp-4;
+  border-top: 1px solid $c-line;
+
+  &__label {
+    font-size: $fs-xs;
+    color: $c-ink-3;
+  }
+
+  &__value {
+    @include tabular;
+
+    font-size: $fs-md;
+    font-weight: 600;
+  }
+}
+
+.amount {
+  @include tabular;
+
+  font-weight: 600;
+
+  &--positive {
+    color: $c-positive;
+
+    // Vorzeichen ist die primäre Information, Farbe die sekundäre —
+    // Farbe allein wäre für Rot-Grün-Schwäche nicht ausreichend.
+    &::before {
+      content: "+";
+    }
+  }
+
+  &--negative {
+    color: $c-ink;
+  }
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: $sp-2;
+  padding: $sp-1 $sp-3;
+  border-radius: $r-pill;
+  font-size: $fs-xs;
+  font-weight: 500;
+  white-space: nowrap;
+  background: $c-bg-subtle;
+  color: $c-ink-2;
+
+  &__dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: $r-pill;
+    flex: none;
+  }
+}
+
+// Ein Modifier pro Kategorie — im Angular-Port wird daraus eine
+// `[class]`-Bindung auf den Kategorie-Slug.
+@each $name, $color in $categories {
+  .badge--#{$name} .badge__dot,
+  .legend__dot--#{$name} {
+    background: $color;
+  }
+
+  .badge--#{$name} {
+    color: $color;
+  }
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: $sp-2;
+  padding: $sp-3 $sp-5;
+  border: 1px solid transparent;
+  border-radius: $r-md;
+  font-size: $fs-sm;
+  font-weight: 600;
+  text-decoration: none;
+
+  &--primary {
+    background: $c-accent;
+    color: #fff;
+
+    &:hover {
+      background: $c-accent-hover;
+    }
+  }
+
+  &--ghost {
+    background: transparent;
+    border-color: $c-line-strong;
+    color: $c-ink;
+
+    &:hover {
+      background: $c-bg-subtle;
+    }
+  }
+
+  &--block {
+    width: 100%;
+  }
+}
+
+.input,
+.select {
+  width: 100%;
+  padding: $sp-3;
+  border: 1px solid $c-line-strong;
+  border-radius: $r-md;
+  background: $c-bg;
+  font: inherit;
+  font-size: $fs-sm;
+
+  &:focus {
+    border-color: $c-accent;
+    outline: none;
+    box-shadow: 0 0 0 3px $c-accent-soft;
+  }
+}
+
+.field {
+  &__label {
+    display: block;
+    margin-bottom: $sp-2;
+    font-size: $fs-xs;
+    font-weight: 600;
+    color: $c-ink-2;
+  }
+}
+
+// Segmentierter Umschalter (Monatswechsel, Filter).
+.segment {
+  display: flex;
+  gap: $sp-1;
+  padding: $sp-1;
+  border-radius: $r-md;
+  background: $c-bg-subtle;
+
+  &__item {
+    flex: 1;
+    padding: $sp-2;
+    border: none;
+    border-radius: $r-sm;
+    background: transparent;
+    font-size: $fs-sm;
+    color: $c-ink-2;
+
+    &--active {
+      background: $c-surface;
+      color: $c-ink;
+      font-weight: 600;
+      box-shadow: $shadow-card;
+    }
+  }
+}
+
+.month-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $sp-3;
+  margin-bottom: $sp-4;
+
+  &__label {
+    font-size: $fs-md;
+    font-weight: 600;
+  }
+
+  &__btn {
+    width: 2.25rem;
+    height: 2.25rem;
+    border: 1px solid $c-line-strong;
+    border-radius: $r-md;
+    background: $c-surface;
+    line-height: 1;
+
+    &[disabled] {
+      color: $c-ink-3;
+      cursor: not-allowed;
+    }
+  }
+}
+
+.notice {
+  display: flex;
+  gap: $sp-3;
+  padding: $sp-3 $sp-4;
+  border-radius: $r-md;
+  font-size: $fs-sm;
+  background: $c-warning-soft;
+  color: $c-warning;
+
+  &--info {
+    background: $c-accent-soft;
+    color: $c-accent;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// 5. Screens
+// -----------------------------------------------------------------------------
+
+// -- Charts -------------------------------------------------------------------
+
+// Feste Höhe + `position: relative`: Chart.js braucht einen Container mit
+// definierter Höhe, sonst wächst das Canvas bei `responsive: true` endlos.
+.chart {
+  position: relative;
+  height: 220px;
+
+  @include desktop {
+    height: 260px;
+  }
+}
+
+.legend {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: $sp-2 $sp-4;
+  margin-top: $sp-4;
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: $sp-2;
+    font-size: $fs-xs;
+    color: $c-ink-2;
+    min-width: 0;
+  }
+
+  &__dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: $r-pill;
+    flex: none;
+  }
+
+  &__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__value {
+    @include tabular;
+
+    margin-left: auto;
+    color: $c-ink;
+    font-weight: 600;
+  }
+}
+
+// -- Zustands-Demo ------------------------------------------------------------
+
+.states {
+  display: grid;
+  gap: $sp-4;
+
+  @include desktop {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.section-label {
+  margin: $sp-6 0 $sp-3;
+  font-size: $fs-xs;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: $c-ink-3;
+}
+
+// -- Transaktionsliste --------------------------------------------------------
+
+.tx-group {
+  &__date {
+    padding: $sp-4 0 $sp-2;
+    font-size: $fs-xs;
+    font-weight: 600;
+    color: $c-ink-3;
+  }
+}
+
+.tx {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: $sp-1 $sp-3;
+  width: 100%;
+  padding: $sp-3 0;
+  border: none;
+  border-bottom: 1px solid $c-line;
+  background: transparent;
+  text-align: left;
+
+  &:hover {
+    background: $c-bg-subtle;
+  }
+
+  &__name {
+    font-size: $fs-sm;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__amount {
+    @include tabular;
+
+    grid-row: span 2;
+    align-self: center;
+    font-size: $fs-md;
+    font-weight: 600;
+  }
+
+  &__meta {
+    display: flex;
+    align-items: center;
+    gap: $sp-2;
+  }
+
+  // Unsichere Auto-Kategorisierung: leiser Hinweis, kein Alarm.
+  &__flag {
+    font-size: $fs-xs;
+    color: $c-warning;
+  }
+}
+
+// Korrektur-UI: mobil ein Bottom-Sheet, auf Desktop eine zentrierte Karte.
+// Im Prototyp permanent sichtbar, damit der Zustand ohne Klick beurteilbar ist.
+.sheet {
+  margin-top: $sp-5;
+  border: 1px solid $c-line;
+  border-radius: $r-md $r-md 0 0;
+  background: $c-surface;
+  padding: $sp-5;
+  box-shadow: 0 -4px 16px rgba(16, 20, 19, 0.06);
+
+  &__grabber {
+    width: 2.5rem;
+    height: 4px;
+    margin: 0 auto $sp-4;
+    border-radius: $r-pill;
+    background: $c-line-strong;
+  }
+
+  &__title {
+    font-size: $fs-lg;
+    font-weight: 600;
+    margin-bottom: $sp-1;
+  }
+
+  &__sub {
+    font-size: $fs-sm;
+    color: $c-ink-2;
+    margin-bottom: $sp-4;
+  }
+
+  &__actions {
+    display: flex;
+    gap: $sp-3;
+    margin-top: $sp-4;
+  }
+
+  @include desktop {
+    border-radius: $r-md;
+  }
+}
+
+.chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $sp-2;
+}
+
+.chip {
+  padding: $sp-2 $sp-3;
+  border: 1px solid $c-line-strong;
+  border-radius: $r-pill;
+  background: $c-surface;
+  font-size: $fs-xs;
+
+  &--selected {
+    border-color: $c-accent;
+    background: $c-accent-soft;
+    color: $c-accent;
+    font-weight: 600;
+  }
+}
+
+// -- Desktop-Grid -------------------------------------------------------------
+// Mobile ist alles eine Spalte; ab 900px wandern die Charts nebeneinander.
+.grid-2 {
+  @include desktop {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: $sp-4;
+    align-items: start;
+
+    .card + .card {
+      margin-top: 0;
+    }
+  }
+}
