@@ -1,0 +1,1117 @@
+// =============================================================================
+// BudgetBuddy — Design-Variante C: «Ledger» (Fintech seriös)
+//
+// Mobile-First: Alle Basis-Regeln gelten für den Smartphone-Viewport
+// (375–414px). Desktop kommt ausschliesslich über `min-width`-Queries dazu.
+//
+// Dunkel-first: Die Palette ist als Dark Theme entworfen, nicht invertiert.
+// Ein Light Theme wäre über dieselben Tokens ableitbar (siehe README).
+//
+// Aufbau: 1. Tokens  2. Reset  3. Layout/Shell  4. Komponenten  5. Screens
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// 1. Tokens
+// -----------------------------------------------------------------------------
+
+// Farben — kühle, blaustichige Neutralen mit engen Helligkeitsstufen.
+// Die Flächen unterscheiden sich bewusst nur minimal: Struktur entsteht
+// über Linien, nicht über Kontrast.
+$c-bg: #0d141d;
+$c-surface: #151e2a;
+$c-surface-2: #1b2634;
+$c-line: #253143;
+$c-line-strong: #33425a;
+
+$c-ink: #e8eef6;
+$c-ink-2: #93a3b8;
+$c-ink-3: #64748b;
+
+$c-accent: #4f8ff7;
+$c-accent-hover: #6ba0f9;
+$c-accent-soft: #16263f;
+
+// Semantische Farben für Beträge. Auf dunklem Grund braucht Grün mehr
+// Helligkeit und weniger Sättigung als auf Weiss, sonst flimmert es.
+$c-positive: #34d399;
+$c-positive-soft: #10261f;
+$c-negative: #f87171;
+$c-negative-soft: #2a1618;
+$c-warning: #fbbf24;
+$c-warning-soft: #2a2113;
+
+// Kategorie-Palette — auf dunklem Grund aufgehellt (400er-Stufen).
+// Deckt alle 13 Kategorien aus `Category.java` ab.
+$categories: (
+  "wohnen": #60a5fa,
+  "lebensmittel": #4ade80,
+  "transport": #38bdf8,
+  "versicherung": #a78bfa,
+  "telekom": #22d3ee,
+  "gesundheit": #fb7185,
+  "freizeit": #fbbf24,
+  "restaurant": #fb923c,
+  "shopping": #e879f9,
+  "bildung": #818cf8,
+  "einkommen": #34d399,
+  "sparen": #facc15,
+  "sonstiges": #94a3b8,
+);
+
+// Typografie-Skala — kompakt. Der Hero ist kleiner als bei A und B,
+// weil hier die Tabelle gleichberechtigt neben der Kennzahl steht.
+$fs-xs: 0.6875rem; // 11px  Tabellenköpfe, Meta
+$fs-sm: 0.8125rem; // 13px  Tabellenzellen, Sekundärtext
+$fs-md: 0.9375rem; // 15px  Fliesstext
+$fs-lg: 1.0625rem; // 17px  Card-Titel
+$fs-xl: 1.5rem; // 24px  Screen-Titel
+$fs-hero: 2.5rem; // 40px  Safe-to-Spend-Betrag
+
+$ff-base: system-ui, -apple-system, "Segoe UI", roboto, sans-serif;
+
+// Spacing — enger als A und B. Datendichte ist hier ein Feature.
+$sp-1: 0.25rem;
+$sp-2: 0.5rem;
+$sp-3: 0.75rem;
+$sp-4: 1rem;
+$sp-5: 1.25rem;
+$sp-6: 1.75rem;
+$sp-7: 2.5rem;
+
+// Radien — minimal. Rundung wirkt hier wie ein Zugeständnis an Verspieltheit.
+$r-sm: 3px;
+$r-md: 6px;
+$r-pill: 999px;
+
+$bp-desktop: 900px;
+
+@mixin desktop {
+  @media (min-width: $bp-desktop) {
+    @content;
+  }
+}
+
+// In dieser Variante gilt tabellarische Ziffernbreite global für alles
+// Numerische — sie ist Teil der Gestaltungsidee, nicht nur eine Korrektur.
+@mixin tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+// -----------------------------------------------------------------------------
+// 2. Reset
+// -----------------------------------------------------------------------------
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  font-family: $ff-base;
+  font-size: $fs-md;
+  line-height: 1.45;
+  color: $c-ink;
+  background: $c-bg;
+}
+
+h1,
+h2,
+h3,
+p,
+figure {
+  margin: 0;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid $c-accent;
+  outline-offset: 2px;
+  border-radius: $r-sm;
+}
+
+// -----------------------------------------------------------------------------
+// 3. Layout / App-Shell
+// -----------------------------------------------------------------------------
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+
+  @include desktop {
+    flex-direction: row;
+  }
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $sp-3;
+  padding: $sp-3 $sp-4;
+  background: $c-surface;
+  border-bottom: 1px solid $c-line;
+
+  &__brand {
+    display: flex;
+    align-items: center;
+    gap: $sp-2;
+    font-size: $fs-sm;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  // Wortmarke: kantiger offener Rahmen mit Kern — dieselbe Idee wie in
+  // Variante A, aber in der Formensprache dieser Variante (Ecke statt Kreis).
+  &__mark {
+    width: 1.5rem;
+    height: 1.5rem;
+    flex: none;
+    color: $c-accent;
+
+    svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+  }
+
+  &__account {
+    @include tabular;
+
+    padding: $sp-1 $sp-2;
+    border: 1px solid $c-line-strong;
+    border-radius: $r-sm;
+    background: transparent;
+    font-size: $fs-xs;
+    color: $c-ink-2;
+  }
+
+  @include desktop {
+    display: none;
+  }
+}
+
+.main {
+  flex: 1;
+  padding: $sp-5 $sp-4 $sp-7;
+
+  @include desktop {
+    padding: $sp-6;
+    min-width: 0; // verhindert, dass Tabelle und Charts das Grid aufblähen
+  }
+}
+
+// Mobile: Tab-Bar unten. Desktop: schmale, dichte Sidebar.
+//
+// `order: 1` schiebt die Bar ans Ende der Spalte, ohne sie im DOM hinter
+// <main> zu verschieben — die Navigation bleibt für Screenreader und
+// Tastatur vor dem Inhalt. Ohne das bliebe `position: sticky; bottom: 0`
+// wirkungslos, weil das Element oben im Fluss steht und nie nach unten klebt.
+.nav {
+  order: 1;
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  background: $c-surface;
+  border-top: 1px solid $c-line;
+
+  &__item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: $sp-3 $sp-1;
+    font-size: $fs-xs;
+    letter-spacing: 0.02em;
+    color: $c-ink-3;
+    text-decoration: none;
+    border-top: 2px solid transparent;
+
+    // Aktiv-Markierung als Linie, nicht als Fläche — dieselbe Logik wie
+    // die Tabellenrahmen: Struktur über Linien.
+    &--active {
+      color: $c-accent;
+      border-top-color: $c-accent;
+    }
+  }
+
+  &__icon {
+    font-size: $fs-md;
+    line-height: 1.1;
+  }
+
+  @include desktop {
+    // Zurück in die Ausgangsreihenfolge: als Sidebar steht sie wieder links.
+    order: 0;
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+    height: 100vh;
+    width: 13.5rem;
+    flex-direction: column;
+    gap: 2px;
+    padding: $sp-5 $sp-3;
+    border-top: none;
+    border-right: 1px solid $c-line;
+
+    &__item {
+      flex: 0 0 auto;
+      flex-direction: row;
+      justify-content: flex-start;
+      gap: $sp-3;
+      padding: $sp-2 $sp-3;
+      border-top: none;
+      border-left: 2px solid transparent;
+      border-radius: 0 $r-sm $r-sm 0;
+      font-size: $fs-sm;
+      text-transform: none;
+
+      &--active {
+        background: $c-accent-soft;
+        border-left-color: $c-accent;
+      }
+    }
+  }
+}
+
+.nav__brand {
+  display: none;
+
+  @include desktop {
+    display: flex;
+    align-items: center;
+    gap: $sp-2;
+    padding: 0 $sp-3 $sp-5;
+    font-size: $fs-sm;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+}
+
+// Konto-Block am Fuss der Sidebar. Auf Mobile übernimmt der Kontowähler in
+// der Topbar diese Rolle — in der Tab-Bar ist kein Platz dafür, und die Bar
+// gehört den vier Hauptzielen.
+.nav__account {
+  display: none;
+
+  @include desktop {
+    display: block;
+    // Schiebt den Block an den unteren Rand der 100vh hohen Sidebar.
+    margin-top: auto;
+    padding-top: $sp-3;
+    border-top: 1px solid $c-line;
+  }
+}
+
+.nav__user {
+  display: flex;
+  align-items: center;
+  gap: $sp-3;
+  padding: $sp-2 $sp-3;
+  min-width: 0;
+
+  &-meta {
+    min-width: 0;
+  }
+
+  &-name {
+    display: block;
+    font-size: $fs-sm;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &-mail {
+    @include tabular;
+
+    display: block;
+    font-size: $fs-xs;
+    color: $c-ink-3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.nav__avatar {
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: none;
+  border-radius: $r-sm;
+  background: $c-accent-soft;
+  color: $c-accent;
+  font-size: $fs-xs;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+
+.nav__logout {
+  display: flex;
+  align-items: center;
+  gap: $sp-3;
+  width: 100%;
+  padding: $sp-2 $sp-3;
+  border: none;
+  border-left: 2px solid transparent;
+  background: transparent;
+  font-size: $fs-sm;
+  color: $c-ink-2;
+  text-align: left;
+
+  &:hover {
+    background: $c-surface-2;
+    color: $c-ink;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// 4. Komponenten
+// -----------------------------------------------------------------------------
+
+.page-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: $sp-3;
+  flex-wrap: wrap;
+  margin-bottom: $sp-5;
+}
+
+.page-title {
+  font-size: $fs-xl;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.page-sub {
+  font-size: $fs-xs;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: $c-ink-3;
+}
+
+.card {
+  background: $c-surface;
+  border: 1px solid $c-line;
+  border-radius: $r-md;
+
+  & + & {
+    margin-top: $sp-4;
+  }
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $sp-3;
+    padding: $sp-3 $sp-4;
+    border-bottom: 1px solid $c-line;
+  }
+
+  &__title {
+    font-size: $fs-xs;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: $c-ink-2;
+  }
+
+  &__meta {
+    @include tabular;
+
+    font-size: $fs-xs;
+    color: $c-ink-3;
+  }
+
+  &__body {
+    padding: $sp-4;
+  }
+
+  &__foot {
+    padding: $sp-3 $sp-4;
+    border-top: 1px solid $c-line;
+  }
+}
+
+// Hero: bewusst kleiner als in A und B. Der Safe-to-Spend-Wert steht hier
+// gleichberechtigt neben seiner Herleitung — das ist der Vertrauensmechanismus
+// dieser Variante.
+.hero {
+  &__label {
+    font-size: $fs-xs;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: $c-ink-2;
+  }
+
+  &__amount {
+    @include tabular;
+
+    display: flex;
+    align-items: baseline;
+    gap: $sp-2;
+    margin: $sp-2 0 $sp-1;
+    font-size: $fs-hero;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    color: $c-positive;
+  }
+
+  &__currency {
+    font-size: $fs-md;
+    font-weight: 500;
+    color: $c-ink-3;
+  }
+
+  &__note {
+    font-size: $fs-sm;
+    color: $c-ink-2;
+  }
+
+  &--negative &__amount {
+    color: $c-negative;
+  }
+
+  &--muted &__amount {
+    color: $c-ink-3;
+  }
+}
+
+// Herleitung des Safe-to-Spend als Rechnung — die Zeile, die Marcs
+// Skepsis adressiert: nachvollziehbar statt magisch.
+.breakdown {
+  margin-top: $sp-4;
+  padding-top: $sp-3;
+  border-top: 1px solid $c-line;
+
+  &__row {
+    display: flex;
+    justify-content: space-between;
+    gap: $sp-3;
+    padding: $sp-1 0;
+    font-size: $fs-sm;
+    color: $c-ink-2;
+  }
+
+  &__value {
+    @include tabular;
+
+    color: $c-ink;
+  }
+
+  &__row--total {
+    margin-top: $sp-2;
+    padding-top: $sp-2;
+    border-top: 1px solid $c-line;
+    font-weight: 600;
+    color: $c-ink;
+  }
+}
+
+.meter {
+  margin-top: $sp-4;
+
+  &__track {
+    height: 4px;
+    border-radius: $r-pill;
+    background: $c-surface-2;
+    overflow: hidden;
+  }
+
+  &__fill {
+    height: 100%;
+    background: $c-accent;
+  }
+
+  &__legend {
+    @include tabular;
+
+    display: flex;
+    justify-content: space-between;
+    margin-top: $sp-2;
+    font-size: $fs-xs;
+    color: $c-ink-3;
+  }
+
+  &--negative &__fill {
+    background: $c-negative;
+  }
+}
+
+.amount {
+  @include tabular;
+
+  font-weight: 500;
+
+  &--positive {
+    color: $c-positive;
+
+    // Vorzeichen trägt die Information, Farbe verstärkt sie nur —
+    // Farbe allein wäre bei Rot-Grün-Schwäche nicht ausreichend.
+    &::before {
+      content: "+";
+    }
+  }
+
+  &--negative {
+    color: $c-ink;
+  }
+}
+
+// Badge ohne Fläche: nur ein farbiger Punkt und Text. Auf dunklem Grund
+// wirken gefüllte Badges in einer dichten Tabelle schnell unruhig.
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: $sp-2;
+  font-size: $fs-xs;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  color: $c-ink-2;
+
+  &__dot {
+    width: 0.4375rem;
+    height: 0.4375rem;
+    border-radius: $r-pill;
+    flex: none;
+  }
+}
+
+// Ein Modifier pro Kategorie — im Angular-Port wird daraus eine
+// `[class]`-Bindung auf den Kategorie-Slug.
+@each $name, $color in $categories {
+  .badge--#{$name} .badge__dot,
+  .legend__dot--#{$name} {
+    background: $color;
+  }
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: $sp-2;
+  padding: $sp-2 $sp-4;
+  min-height: 2.5rem;
+  border: 1px solid transparent;
+  border-radius: $r-sm;
+  font-size: $fs-sm;
+  font-weight: 600;
+  text-decoration: none;
+
+  &--primary {
+    background: $c-accent;
+    color: #08111d;
+
+    &:hover {
+      background: $c-accent-hover;
+    }
+  }
+
+  &--ghost {
+    background: transparent;
+    border-color: $c-line-strong;
+    color: $c-ink;
+
+    &:hover {
+      background: $c-surface-2;
+    }
+  }
+
+  &--block {
+    width: 100%;
+  }
+}
+
+.input,
+.select {
+  width: 100%;
+  padding: $sp-2 $sp-3;
+  border: 1px solid $c-line-strong;
+  border-radius: $r-sm;
+  background: $c-bg;
+  color: $c-ink;
+  font: inherit;
+  font-size: $fs-sm;
+
+  &:focus {
+    border-color: $c-accent;
+    outline: none;
+  }
+}
+
+.field__label {
+  display: block;
+  margin-bottom: $sp-2;
+  font-size: $fs-xs;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: $c-ink-3;
+}
+
+.segment {
+  display: flex;
+  border: 1px solid $c-line-strong;
+  border-radius: $r-sm;
+  overflow: hidden;
+
+  &__item {
+    flex: 1;
+    padding: $sp-2 $sp-3;
+    border: none;
+    border-right: 1px solid $c-line-strong;
+    background: transparent;
+    font-size: $fs-sm;
+    color: $c-ink-2;
+
+    &:last-child {
+      border-right: none;
+    }
+
+    &--active {
+      background: $c-accent-soft;
+      color: $c-accent;
+      font-weight: 600;
+    }
+  }
+}
+
+.month-nav {
+  display: flex;
+  align-items: center;
+  gap: $sp-2;
+
+  &__label {
+    @include tabular;
+
+    min-width: 7rem;
+    text-align: center;
+    font-size: $fs-sm;
+    font-weight: 600;
+  }
+
+  &__btn {
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid $c-line-strong;
+    border-radius: $r-sm;
+    background: transparent;
+    line-height: 1;
+
+    &[disabled] {
+      color: $c-ink-3;
+      cursor: not-allowed;
+    }
+  }
+}
+
+.notice {
+  display: flex;
+  gap: $sp-3;
+  padding: $sp-2 $sp-3;
+  border-left: 2px solid $c-warning;
+  border-radius: 0 $r-sm $r-sm 0;
+  font-size: $fs-sm;
+  background: $c-warning-soft;
+  color: $c-warning;
+
+  &--info {
+    border-left-color: $c-accent;
+    background: $c-accent-soft;
+    color: $c-accent;
+  }
+
+  &--success {
+    border-left-color: $c-positive;
+    background: $c-positive-soft;
+    color: $c-positive;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// 5. Screens
+// -----------------------------------------------------------------------------
+
+// Feste Höhe + `position: relative`: Chart.js braucht einen Container mit
+// definierter Höhe, sonst wächst das Canvas bei `responsive: true` endlos.
+.chart {
+  position: relative;
+  height: 200px;
+
+  @include desktop {
+    height: 240px;
+  }
+}
+
+.legend {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: $sp-1;
+  margin-top: $sp-4;
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: $sp-2;
+    padding: $sp-1 0;
+    font-size: $fs-xs;
+    color: $c-ink-2;
+    border-bottom: 1px solid $c-line;
+    min-width: 0;
+  }
+
+  &__dot {
+    width: 0.4375rem;
+    height: 0.4375rem;
+    border-radius: $r-pill;
+    flex: none;
+  }
+
+  &__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__share {
+    @include tabular;
+
+    margin-left: auto;
+    color: $c-ink-3;
+  }
+
+  &__value {
+    @include tabular;
+
+    min-width: 4.5rem;
+    text-align: right;
+    color: $c-ink;
+    font-weight: 500;
+  }
+}
+
+.states {
+  display: grid;
+  gap: $sp-4;
+
+  @include desktop {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.section-label {
+  margin: $sp-6 0 $sp-3;
+  font-size: $fs-xs;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: $c-ink-3;
+}
+
+// -- Transaktionstabelle ------------------------------------------------------
+// Eine echte <table> statt einer Karten-Liste: das ist der Kern dieser Variante.
+// Auf Mobile werden Valuta und Saldo ausgeblendet, ab 900px kommen sie dazu.
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: $fs-sm;
+
+  // Mobile: feste Spaltenbreiten erzwingen. Ohne das wächst die Tabelle auf
+  // ihre natürliche Breite (~756px) und die Betrag-Spalte — die wichtigste —
+  // steht ausserhalb des Viewports, weil `.table-wrap` sie wegscrollt.
+  table-layout: fixed;
+
+  @include desktop {
+    table-layout: auto;
+  }
+
+  // Datum
+  th:first-child,
+  td:first-child {
+    width: 5.75rem;
+
+    @include desktop {
+      width: auto;
+    }
+  }
+
+  &__caption {
+    padding: $sp-2 $sp-3;
+    text-align: left;
+    font-size: $fs-xs;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: $c-ink-3;
+  }
+
+  th,
+  td {
+    padding: $sp-2 $sp-3;
+    text-align: left;
+    border-bottom: 1px solid $c-line;
+    white-space: nowrap;
+  }
+
+  thead th {
+    position: sticky;
+    top: 0;
+    // Kopfzeilen dürfen umbrechen — «Betrag CHF» passt sonst nicht in die
+    // schmale Zahlenspalte auf Mobile.
+    white-space: normal;
+    font-size: $fs-xs;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: $c-ink-3;
+    background: $c-surface-2;
+    border-bottom: 1px solid $c-line-strong;
+  }
+
+  tbody tr:hover {
+    background: $c-surface-2;
+  }
+
+  &__num {
+    @include tabular;
+
+    text-align: right;
+    width: 5.5rem;
+
+    @include desktop {
+      width: auto;
+    }
+  }
+
+  // Der Buchungstext ist das einzige Feld, das umbrechen darf —
+  // alle Zahlenspalten bleiben einzeilig. Lange Empfängertexte ohne
+  // Leerzeichen (z. B. «MONBIJOUSTRASSE») müssen hart brechen dürfen,
+  // sonst sprengen sie die feste Spaltenbreite.
+  &__text {
+    white-space: normal;
+    overflow-wrap: anywhere;
+
+    @include desktop {
+      min-width: 11rem;
+    }
+
+    // Das Badge bekommt eine eigene Zeile und darf umbrechen. Als
+    // `inline-flex` mit `nowrap` (Grundregel weiter unten) würde es sonst
+    // neben dem Buchungstext stehen und in die Betrag-Spalte hineinlaufen.
+    .badge {
+      display: flex;
+      flex-wrap: wrap;
+      white-space: normal;
+      margin-top: 2px;
+    }
+  }
+
+  // Nur ab Desktop: Valuta und Saldo. Auf 375px wäre die Tabelle sonst
+  // breiter als der Viewport.
+  &__wide {
+    display: none;
+
+    @include desktop {
+      display: table-cell;
+    }
+  }
+
+  tfoot td,
+  tfoot th {
+    font-weight: 600;
+    border-top: 1px solid $c-line-strong;
+    border-bottom: none;
+    color: $c-ink;
+  }
+
+  &__note {
+    font-weight: 400;
+    color: $c-ink-3;
+  }
+}
+
+// Unsichere Auto-Kategorisierung: markierte Zeile statt Badge-Farbe.
+.row--uncertain {
+  box-shadow: inset 2px 0 0 $c-warning;
+}
+
+.flag {
+  font-size: $fs-xs;
+  color: $c-warning;
+}
+
+// Korrektur-UI: mobil ein Bottom-Sheet, auf Desktop ein Seiten-Panel rechts.
+// Im Prototyp permanent sichtbar, damit der Zustand ohne Klick beurteilbar ist.
+.panel {
+  margin-top: $sp-4;
+  border: 1px solid $c-line;
+  border-radius: $r-md;
+  background: $c-surface;
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: $sp-3 $sp-4;
+    border-bottom: 1px solid $c-line;
+  }
+
+  &__title {
+    font-size: $fs-xs;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: $c-ink-2;
+  }
+
+  &__close {
+    border: none;
+    background: transparent;
+    color: $c-ink-3;
+    line-height: 1;
+  }
+
+  &__body {
+    padding: $sp-4;
+  }
+
+  &__actions {
+    display: flex;
+    gap: $sp-2;
+    padding: $sp-3 $sp-4;
+    border-top: 1px solid $c-line;
+  }
+}
+
+// Referenzzeile im Panel: zeigt die Buchung im selben Zahlenformat wie die
+// Tabelle, damit klar ist, welcher Datensatz geändert wird.
+.ref {
+  @include tabular;
+
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: $sp-1 $sp-4;
+  padding: $sp-3;
+  border-radius: $r-sm;
+  background: $c-bg;
+  font-size: $fs-sm;
+
+  dt {
+    color: $c-ink-3;
+    font-size: $fs-xs;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  dd {
+    margin: 0;
+  }
+}
+
+.chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $sp-2;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: $sp-2;
+  padding: $sp-1 $sp-3;
+  border: 1px solid $c-line-strong;
+  border-radius: $r-sm;
+  background: transparent;
+  font-size: $fs-xs;
+  color: $c-ink-2;
+
+  &__dot {
+    width: 0.4375rem;
+    height: 0.4375rem;
+    border-radius: $r-pill;
+    flex: none;
+  }
+
+  &--selected {
+    border-color: $c-accent;
+    background: $c-accent-soft;
+    color: $c-accent;
+    font-weight: 600;
+  }
+}
+
+@each $name, $color in $categories {
+  .chip--#{$name} .chip__dot {
+    background: $color;
+  }
+}
+
+// -- Desktop-Grid -------------------------------------------------------------
+// Mobile ist alles eine Spalte. Ab 900px steht der Hero links neben den Charts.
+.grid-2 {
+  @include desktop {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: $sp-4;
+    align-items: start;
+
+    .card + .card {
+      margin-top: 0;
+    }
+  }
+}
+
+.grid-hero {
+  @include desktop {
+    display: grid;
+    grid-template-columns: 22rem 1fr;
+    gap: $sp-4;
+    align-items: start;
+
+    .card + .card {
+      margin-top: 0;
+    }
+  }
+}

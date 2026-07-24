@@ -1,0 +1,967 @@
+// =============================================================================
+// BudgetBuddy — Design-Variante B: «Buddy» (Freundlich / Verspielt)
+//
+// Mobile-First: Alle Basis-Regeln gelten für den Smartphone-Viewport
+// (375–414px). Desktop kommt ausschliesslich über `min-width`-Queries dazu.
+//
+// Aufbau: 1. Tokens  2. Reset  3. Layout/Shell  4. Komponenten  5. Screens
+// =============================================================================
+
+// `color.mix` erzeugt die Pastell-Tönungen der Kategorie-Badges aus der
+// jeweiligen Vollfarbe — so muss nur eine Farbe pro Kategorie gepflegt werden.
+@use "sass:color";
+
+// -----------------------------------------------------------------------------
+// 1. Tokens
+// -----------------------------------------------------------------------------
+
+// Farben — warme, leicht rosé-stichige Neutralen. Kein reines Grau im System:
+// Grau ist der Ton, den diese Variante bewusst vermeidet.
+$c-bg: #fff8f4;
+$c-surface: #ffffff;
+$c-surface-sunken: #fdf1ec;
+$c-line: #f2e3dc;
+
+$c-ink: #2e2a3f;
+$c-ink-2: #6b6480;
+$c-ink-3: #a49db5;
+
+$c-violet: #6c4ef0;
+$c-violet-soft: #efeaff;
+$c-coral: #ff7e6b;
+$c-coral-soft: #ffeeea;
+
+// Der Hero trägt den einzigen Verlauf im ganzen System. Genau eine Stelle —
+// sonst wird aus «freundlich» schnell «laut».
+$gradient-hero: linear-gradient(135deg, #7c5cff 0%, #a855f7 45%, #ff7e6b 100%);
+
+// Semantische Farben für Beträge. Safe-to-Spend kann negativ werden.
+$c-positive: #12a06a;
+$c-positive-soft: #e2f7ee;
+$c-negative: #e2496b;
+$c-negative-soft: #ffe9ee;
+$c-warning: #b06d00;
+$c-warning-soft: #fff3d9;
+
+// Kategorie-Palette — kräftig und bunt, eine eigene Hue pro Kategorie.
+// Deckt alle 13 Kategorien aus `Category.java` ab.
+$categories: (
+  "wohnen": #6c4ef0,
+  "lebensmittel": #35c17a,
+  "transport": #2f9bef,
+  "versicherung": #00b3a4,
+  "telekom": #4fd1e0,
+  "gesundheit": #ff5d8f,
+  "freizeit": #ffa62b,
+  "restaurant": #ff7043,
+  "shopping": #e05fd8,
+  "bildung": #7a8cff,
+  "einkommen": #86c232,
+  "sparen": #f2b705,
+  "sonstiges": #a49db5,
+);
+
+// Typografie-Skala — grosszügiger als bei A, mit mehr Zeilenhöhe.
+$fs-xs: 0.8125rem; // 13px
+$fs-sm: 0.9375rem; // 15px
+$fs-md: 1.0625rem; // 17px
+$fs-lg: 1.375rem; // 22px
+$fs-xl: 2rem; // 32px
+$fs-hero: 3rem; // 48px
+
+$ff-base: system-ui, -apple-system, "Segoe UI", roboto, sans-serif;
+
+// Spacing — 4px-Raster, aber grosszügiger eingesetzt als bei A.
+$sp-1: 0.25rem;
+$sp-2: 0.5rem;
+$sp-3: 0.75rem;
+$sp-4: 1rem;
+$sp-5: 1.5rem;
+$sp-6: 2rem;
+$sp-7: 3rem;
+
+// Radien — das prägendste Merkmal dieser Variante. Nichts hat eine harte Ecke.
+$r-sm: 12px;
+$r-md: 20px;
+$r-lg: 28px;
+$r-pill: 999px;
+
+$shadow-soft: 0 4px 16px rgba(108, 78, 240, 0.07);
+$shadow-lift: 0 8px 28px rgba(108, 78, 240, 0.14);
+
+$bp-desktop: 900px;
+
+@mixin desktop {
+  @media (min-width: $bp-desktop) {
+    @content;
+  }
+}
+
+@mixin tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+// -----------------------------------------------------------------------------
+// 2. Reset
+// -----------------------------------------------------------------------------
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: $ff-base;
+  font-size: $fs-md;
+  line-height: 1.6;
+  color: $c-ink;
+  background: $c-bg;
+}
+
+h1,
+h2,
+h3,
+p,
+figure {
+  margin: 0;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid $c-violet;
+  outline-offset: 3px;
+  border-radius: $r-sm;
+}
+
+// -----------------------------------------------------------------------------
+// 3. Layout / App-Shell
+// -----------------------------------------------------------------------------
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+
+  // Platz für die schwebende Tab-Bar, die über dem Inhalt liegt.
+  padding-bottom: 5.5rem;
+
+  @include desktop {
+    flex-direction: row;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding-bottom: 0;
+  }
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $sp-3;
+  padding: $sp-5 $sp-4 $sp-2;
+
+  // Marke und Begrüssung als eine Gruppe links, Avatar rechts.
+  &__brand {
+    display: flex;
+    align-items: center;
+    gap: $sp-3;
+    min-width: 0;
+  }
+
+  &__mark {
+    font-size: 1.75rem;
+    line-height: 1;
+    flex: none;
+  }
+
+  &__greeting {
+    font-size: $fs-sm;
+    color: $c-ink-2;
+  }
+
+  &__name {
+    font-size: $fs-lg;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  &__avatar {
+    width: 2.75rem;
+    height: 2.75rem;
+    border: none;
+    border-radius: $r-pill;
+    background: $c-violet-soft;
+    color: $c-violet;
+    font-size: $fs-sm;
+    font-weight: 700;
+    display: grid;
+    place-items: center;
+  }
+
+  @include desktop {
+    display: none;
+  }
+}
+
+.main {
+  flex: 1;
+  padding: $sp-4 $sp-4 $sp-6;
+
+  @include desktop {
+    padding: $sp-6;
+    min-width: 0; // verhindert, dass Charts das Grid aufblähen
+  }
+}
+
+// Mobile: schwebende Pill-Bar mit Abstand zum Rand — das auffälligste
+// Navigationselement der drei Varianten. Desktop: Sidebar links.
+.nav {
+  position: fixed;
+  left: $sp-4;
+  right: $sp-4;
+  bottom: $sp-4;
+  z-index: 20;
+  display: flex;
+  gap: $sp-1;
+  padding: $sp-2;
+  border-radius: $r-pill;
+  background: $c-surface;
+  box-shadow: $shadow-lift;
+
+  &__item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: $sp-2 $sp-1;
+    border-radius: $r-pill;
+    font-size: 0.6875rem;
+    color: $c-ink-3;
+    text-decoration: none;
+
+    &--active {
+      background: $c-violet-soft;
+      color: $c-violet;
+      font-weight: 700;
+    }
+  }
+
+  &__icon {
+    font-size: 1.125rem;
+    line-height: 1.2;
+  }
+
+  @include desktop {
+    position: sticky;
+    top: $sp-6;
+    align-self: flex-start;
+    width: 15rem;
+    margin: $sp-6 0 $sp-6 $sp-6;
+    flex-direction: column;
+    gap: $sp-1;
+    padding: $sp-5 $sp-3;
+    border-radius: $r-lg;
+
+    &__item {
+      flex: 0 0 auto;
+      flex-direction: row;
+      justify-content: flex-start;
+      gap: $sp-3;
+      padding: $sp-3 $sp-4;
+      border-radius: $r-pill;
+      font-size: $fs-sm;
+    }
+  }
+}
+
+.nav__brand {
+  display: none;
+
+  @include desktop {
+    display: flex;
+    align-items: center;
+    gap: $sp-2;
+    padding: 0 $sp-4 $sp-5;
+    font-size: $fs-lg;
+    font-weight: 700;
+  }
+}
+
+// Konto-Block am Fuss der Sidebar. Auf Mobile übernimmt der Avatar in der
+// Topbar diese Rolle — in der schwebenden Pill-Bar ist kein Platz dafür,
+// und die Bar gehört den vier Hauptzielen.
+.nav__account {
+  display: none;
+
+  @include desktop {
+    display: block;
+    // Schiebt den Block an den unteren Rand der Sidebar-Karte.
+    margin-top: auto;
+    padding-top: $sp-4;
+    border-top: 1px solid $c-line;
+  }
+}
+
+.nav__user {
+  display: flex;
+  align-items: center;
+  gap: $sp-3;
+  padding: $sp-2 $sp-3;
+  min-width: 0;
+
+  &-meta {
+    min-width: 0;
+  }
+
+  &-name {
+    display: block;
+    font-size: $fs-sm;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &-mail {
+    display: block;
+    font-size: $fs-xs;
+    color: $c-ink-3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.nav__avatar {
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: none;
+  border-radius: $r-pill;
+  background: $c-violet-soft;
+  color: $c-violet;
+  font-size: $fs-xs;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+
+.nav__logout {
+  display: flex;
+  align-items: center;
+  gap: $sp-3;
+  width: 100%;
+  margin-top: $sp-1;
+  padding: $sp-3 $sp-4;
+  border: none;
+  border-radius: $r-pill;
+  background: transparent;
+  font-size: $fs-sm;
+  font-weight: 600;
+  color: $c-ink-2;
+  text-align: left;
+
+  &:hover {
+    background: $c-surface-sunken;
+    color: $c-ink;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// 4. Komponenten
+// -----------------------------------------------------------------------------
+
+.page-title {
+  font-size: $fs-xl;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: $sp-1;
+}
+
+.page-sub {
+  font-size: $fs-sm;
+  color: $c-ink-2;
+  margin-bottom: $sp-5;
+}
+
+.card {
+  background: $c-surface;
+  border-radius: $r-md;
+  padding: $sp-5;
+  box-shadow: $shadow-soft;
+
+  & + & {
+    margin-top: $sp-4;
+  }
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $sp-3;
+    margin-bottom: $sp-4;
+  }
+
+  &__title {
+    font-size: $fs-lg;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  &__meta {
+    font-size: $fs-xs;
+    color: $c-ink-3;
+  }
+}
+
+// Hero: die einzige Fläche im System mit Verlauf und weisser Schrift.
+.hero {
+  border-radius: $r-lg;
+  padding: $sp-6 $sp-5;
+  background: $gradient-hero;
+  color: #fff;
+  box-shadow: $shadow-lift;
+
+  &__label {
+    font-size: $fs-sm;
+    font-weight: 600;
+    opacity: 0.9;
+  }
+
+  &__amount {
+    @include tabular;
+
+    display: flex;
+    align-items: baseline;
+    gap: $sp-2;
+    margin: $sp-2 0 $sp-2;
+    font-size: $fs-hero;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+
+  &__currency {
+    font-size: $fs-lg;
+    font-weight: 600;
+    opacity: 0.85;
+  }
+
+  &__note {
+    font-size: $fs-sm;
+    opacity: 0.92;
+  }
+
+  // Negativer Safe-to-Spend: der freundliche Verlauf weicht einer klaren
+  // Warnfarbe. Der Ton bleibt aufmunternd, die Farbe wird deutlich.
+  &--negative {
+    background: linear-gradient(135deg, #e2496b 0%, #ff7e6b 100%);
+  }
+
+  // Kein Einkommen hinterlegt: kein Verlauf, keine Zahl, kein Alarm —
+  // nur eine Einladung.
+  &--empty {
+    background: $c-surface;
+    color: $c-ink;
+    box-shadow: $shadow-soft;
+  }
+
+  &--empty &__amount {
+    color: $c-ink-3;
+  }
+}
+
+.meter {
+  margin-top: $sp-5;
+
+  &__track {
+    height: 10px;
+    border-radius: $r-pill;
+    background: rgba(255, 255, 255, 0.3);
+    overflow: hidden;
+  }
+
+  &__fill {
+    height: 100%;
+    border-radius: $r-pill;
+    background: #fff;
+  }
+
+  &__legend {
+    display: flex;
+    justify-content: space-between;
+    margin-top: $sp-2;
+    font-size: $fs-xs;
+    opacity: 0.9;
+  }
+}
+
+// Kennzahlen als eigene Kacheln statt als Zeile im Hero — der Hero soll
+// nur die eine Zahl tragen.
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: $sp-3;
+  margin-top: $sp-4;
+
+  &__tile {
+    padding: $sp-4 $sp-3;
+    border-radius: $r-sm;
+    background: $c-surface;
+    box-shadow: $shadow-soft;
+    text-align: center;
+  }
+
+  &__label {
+    font-size: $fs-xs;
+    color: $c-ink-2;
+  }
+
+  &__value {
+    @include tabular;
+
+    font-size: $fs-md;
+    font-weight: 700;
+  }
+}
+
+.amount {
+  @include tabular;
+
+  font-weight: 700;
+
+  &--positive {
+    color: $c-positive;
+
+    // Vorzeichen trägt die Information, Farbe verstärkt sie nur —
+    // Farbe allein wäre bei Rot-Grün-Schwäche nicht ausreichend.
+    &::before {
+      content: "+";
+    }
+  }
+
+  &--negative {
+    color: $c-ink;
+  }
+}
+
+// Kategorie-Badge mit Emoji: schnellster visueller Anker beim Scrollen
+// und ohne Icon-Set oder zusätzlichen Request zu haben.
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: $sp-2;
+  padding: $sp-1 $sp-3;
+  border-radius: $r-pill;
+  font-size: $fs-xs;
+  font-weight: 600;
+  white-space: nowrap;
+
+  &__emoji {
+    font-size: 0.9375rem;
+    line-height: 1;
+  }
+}
+
+// Runder Emoji-Avatar vor jeder Transaktion.
+.avatar {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: $r-pill;
+  display: grid;
+  place-items: center;
+  font-size: 1.25rem;
+  flex: none;
+}
+
+// Ein Modifier pro Kategorie — im Angular-Port wird daraus eine
+// `[class]`-Bindung auf den Kategorie-Slug.
+// `color.mix` mit Weiss erzeugt den passenden Pastellhintergrund, damit die
+// Tönungen nicht von Hand gepflegt werden müssen.
+@each $name, $hue in $categories {
+  .badge--#{$name} {
+    background: color.mix($hue, #fff, 14%);
+    color: color.mix($hue, #000, 82%);
+  }
+
+  .avatar--#{$name} {
+    background: color.mix($hue, #fff, 16%);
+  }
+
+  .legend__dot--#{$name} {
+    background: $hue;
+  }
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: $sp-2;
+  padding: $sp-3 $sp-5;
+  min-height: 3rem;
+  border: 2px solid transparent;
+  border-radius: $r-pill;
+  font-size: $fs-sm;
+  font-weight: 700;
+  text-decoration: none;
+
+  &--primary {
+    background: $c-violet;
+    color: #fff;
+    box-shadow: $shadow-soft;
+
+    &:hover {
+      background: color.mix($c-violet, #000, 88%);
+    }
+  }
+
+  &--ghost {
+    background: transparent;
+    border-color: $c-line;
+    color: $c-ink;
+
+    &:hover {
+      background: $c-surface-sunken;
+    }
+  }
+
+  &--block {
+    width: 100%;
+  }
+}
+
+.input,
+.select {
+  width: 100%;
+  padding: $sp-3 $sp-4;
+  border: 2px solid $c-line;
+  border-radius: $r-sm;
+  background: $c-surface;
+  font: inherit;
+  font-size: $fs-sm;
+
+  &:focus {
+    border-color: $c-violet;
+    outline: none;
+  }
+}
+
+.field__label {
+  display: block;
+  margin-bottom: $sp-2;
+  font-size: $fs-xs;
+  font-weight: 700;
+  color: $c-ink-2;
+}
+
+.segment {
+  display: flex;
+  gap: $sp-1;
+  padding: $sp-1;
+  border-radius: $r-pill;
+  background: $c-surface-sunken;
+
+  &__item {
+    flex: 1;
+    padding: $sp-2;
+    border: none;
+    border-radius: $r-pill;
+    background: transparent;
+    font-size: $fs-sm;
+    color: $c-ink-2;
+
+    &--active {
+      background: $c-surface;
+      color: $c-violet;
+      font-weight: 700;
+      box-shadow: $shadow-soft;
+    }
+  }
+}
+
+.month-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $sp-3;
+  margin-bottom: $sp-4;
+
+  &__label {
+    font-size: $fs-md;
+    font-weight: 700;
+  }
+
+  &__btn {
+    width: 2.75rem;
+    height: 2.75rem;
+    border: none;
+    border-radius: $r-pill;
+    background: $c-surface;
+    box-shadow: $shadow-soft;
+    line-height: 1;
+
+    &[disabled] {
+      color: $c-ink-3;
+      box-shadow: none;
+      background: $c-surface-sunken;
+      cursor: not-allowed;
+    }
+  }
+}
+
+.notice {
+  display: flex;
+  gap: $sp-3;
+  padding: $sp-3 $sp-4;
+  border-radius: $r-sm;
+  font-size: $fs-sm;
+  background: $c-warning-soft;
+  color: $c-warning;
+
+  &--info {
+    background: $c-violet-soft;
+    color: $c-violet;
+  }
+
+  &--success {
+    background: $c-positive-soft;
+    color: $c-positive;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// 5. Screens
+// -----------------------------------------------------------------------------
+
+// Feste Höhe + `position: relative`: Chart.js braucht einen Container mit
+// definierter Höhe, sonst wächst das Canvas bei `responsive: true` endlos.
+.chart {
+  position: relative;
+  height: 240px;
+
+  @include desktop {
+    height: 280px;
+  }
+}
+
+.legend {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: $sp-2 $sp-4;
+  margin-top: $sp-4;
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: $sp-2;
+    font-size: $fs-xs;
+    color: $c-ink-2;
+    min-width: 0;
+  }
+
+  &__dot {
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: $r-pill;
+    flex: none;
+  }
+
+  &__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__value {
+    @include tabular;
+
+    margin-left: auto;
+    color: $c-ink;
+    font-weight: 700;
+  }
+}
+
+.states {
+  display: grid;
+  gap: $sp-4;
+
+  @include desktop {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.section-label {
+  margin: $sp-6 0 $sp-3;
+  font-size: $fs-xs;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: $c-ink-3;
+}
+
+// -- Transaktionsliste --------------------------------------------------------
+
+.tx-group__date {
+  padding: $sp-4 0 $sp-2;
+  font-size: $fs-xs;
+  font-weight: 700;
+  color: $c-ink-3;
+}
+
+// Jede Buchung ist eine eigene kleine Karte statt einer Tabellenzeile —
+// das ist die verspielteste Entscheidung dieser Variante und kostet
+// deutlich mehr vertikalen Platz als die Listen in A und C.
+.tx {
+  display: flex;
+  align-items: center;
+  gap: $sp-3;
+  width: 100%;
+  padding: $sp-3;
+  margin-bottom: $sp-2;
+  border: none;
+  border-radius: $r-sm;
+  background: $c-surface;
+  box-shadow: $shadow-soft;
+  text-align: left;
+
+  &:hover {
+    box-shadow: $shadow-lift;
+  }
+
+  &__body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__name {
+    font-size: $fs-sm;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__meta {
+    display: flex;
+    align-items: center;
+    gap: $sp-2;
+    font-size: $fs-xs;
+    color: $c-ink-3;
+  }
+
+  &__amount {
+    @include tabular;
+
+    font-size: $fs-md;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  // Unsichere Auto-Kategorisierung: gestrichelter Rahmen statt Warnfarbe.
+  &--uncertain {
+    border: 2px dashed $c-warning;
+    box-shadow: none;
+  }
+}
+
+// Korrektur-UI: mobil ein Bottom-Sheet, auf Desktop ein zentrierter Dialog.
+// Im Prototyp permanent sichtbar, damit der Zustand ohne Klick beurteilbar ist.
+.sheet {
+  margin-top: $sp-5;
+  border-radius: $r-lg $r-lg 0 0;
+  background: $c-surface;
+  padding: $sp-5;
+  box-shadow: $shadow-lift;
+
+  &__grabber {
+    width: 3rem;
+    height: 5px;
+    margin: 0 auto $sp-4;
+    border-radius: $r-pill;
+    background: $c-line;
+  }
+
+  &__title {
+    font-size: $fs-lg;
+    font-weight: 700;
+    margin-bottom: $sp-1;
+  }
+
+  &__sub {
+    font-size: $fs-sm;
+    color: $c-ink-2;
+    margin-bottom: $sp-4;
+  }
+
+  &__actions {
+    display: flex;
+    gap: $sp-3;
+    margin-top: $sp-5;
+  }
+
+  @include desktop {
+    border-radius: $r-lg;
+  }
+}
+
+.chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $sp-2;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: $sp-2;
+  padding: $sp-2 $sp-4;
+  border: 2px solid $c-line;
+  border-radius: $r-pill;
+  background: $c-surface;
+  font-size: $fs-xs;
+  font-weight: 600;
+
+  &--selected {
+    border-color: $c-violet;
+    background: $c-violet-soft;
+    color: $c-violet;
+  }
+}
+
+// Mobile einspaltig; ab 900px wandern die Charts nebeneinander.
+.grid-2 {
+  @include desktop {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: $sp-4;
+    align-items: start;
+
+    .card + .card {
+      margin-top: 0;
+    }
+  }
+}

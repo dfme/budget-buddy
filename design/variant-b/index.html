@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="de-CH">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BudgetBuddy — Dashboard (Variante B «Buddy»)</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <!-- Mobile: persönliche Begrüssung statt Logo-Leiste. Desktop: ersetzt durch die Sidebar. -->
+      <header class="topbar">
+        <div class="topbar__brand">
+          <span class="topbar__mark" aria-hidden="true">🐷</span>
+          <div>
+            <p class="topbar__greeting">Hoi Lara 👋</p>
+            <p class="topbar__name">Deine Woche</p>
+          </div>
+        </div>
+        <button type="button" class="topbar__avatar" aria-label="Konto">LM</button>
+      </header>
+
+      <!-- Mobile: schwebende Pill-Bar unten. Desktop: Sidebar links. -->
+      <nav class="nav" aria-label="Hauptnavigation">
+        <div class="nav__brand">
+          <span aria-hidden="true">🐷</span>
+          BudgetBuddy
+        </div>
+        <a class="nav__item nav__item--active" href="index.html" aria-current="page">
+          <span class="nav__icon" aria-hidden="true">🏠</span>
+          Übersicht
+        </a>
+        <a class="nav__item" href="transactions.html">
+          <span class="nav__icon" aria-hidden="true">🧾</span>
+          Buchungen
+        </a>
+        <a class="nav__item" href="#">
+          <span class="nav__icon" aria-hidden="true">📄</span>
+          Import
+        </a>
+        <a class="nav__item" href="#">
+          <span class="nav__icon" aria-hidden="true">⚙️</span>
+          Profil
+        </a>
+
+        <div class="nav__account">
+          <div class="nav__user">
+            <span class="nav__avatar" aria-hidden="true">LM</span>
+            <span class="nav__user-meta">
+              <span class="nav__user-name">Lara Meier</span>
+              <span class="nav__user-mail">lara.meier@example.ch</span>
+            </span>
+          </div>
+          <button type="button" class="nav__logout">
+            <span class="nav__icon" aria-hidden="true">👋</span>
+            Abmelden
+          </button>
+        </div>
+      </nav>
+
+      <main class="main">
+        <!-- Hero: die einzige Fläche im System mit Verlauf. -->
+        <section class="hero" aria-labelledby="sts-label">
+          <p class="hero__label" id="sts-label">Diese Woche kannst du ausgeben</p>
+          <p class="hero__amount">
+            <span class="hero__currency">CHF</span>
+            148.50
+          </p>
+          <p class="hero__note">Läuft gut — du bist 40 Franken besser als letzte Woche. 🎉</p>
+
+          <div class="meter">
+            <div class="meter__track">
+              <div class="meter__fill" style="width: 62%"></div>
+            </div>
+            <div class="meter__legend">
+              <span>20.–26. Juli</span>
+              <span>noch 4 Tage</span>
+            </div>
+          </div>
+        </section>
+
+        <div class="stats">
+          <div class="stats__tile">
+            <p class="stats__label">Einkommen</p>
+            <p class="stats__value">3'200.00</p>
+          </div>
+          <div class="stats__tile">
+            <p class="stats__label">Fixkosten</p>
+            <p class="stats__value">1'845.00</p>
+          </div>
+          <div class="stats__tile">
+            <p class="stats__label">Rest</p>
+            <p class="stats__value">297.00</p>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-top: 1rem">
+          <!-- Donut: Ausgaben nach Kategorie (US-05 / US-13) -->
+          <section class="card" aria-labelledby="cat-title">
+            <div class="card__head">
+              <h2 class="card__title" id="cat-title">Wohin ging's?</h2>
+              <span class="card__meta">Juli 2026</span>
+            </div>
+
+            <div class="chart">
+              <canvas id="chart-categories" role="img"
+                aria-label="Donut-Diagramm der Ausgaben nach Kategorie, Juli 2026. Wohnen 980 Franken, Lebensmittel 412.65, Transport 185, Versicherung 168.40, Restaurant 142.80, Gesundheit 108, Freizeit 96.50, Shopping 78.90, Telekom 59, Sonstiges 34.15."></canvas>
+            </div>
+
+            <!-- Eigene Legende statt der Chart.js-Legende: bricht auf 375px
+                 zuverlässig um und zeigt die Beträge direkt mit. -->
+            <ul class="legend">
+              <li class="legend__item">
+                <span class="legend__dot legend__dot--wohnen" aria-hidden="true"></span>
+                <span class="legend__name">🏠 Wohnen</span>
+                <span class="legend__value">980.00</span>
+              </li>
+              <li class="legend__item">
+                <span class="legend__dot legend__dot--lebensmittel" aria-hidden="true"></span>
+                <span class="legend__name">🛒 Lebensmittel</span>
+                <span class="legend__value">412.65</span>
+              </li>
+              <li class="legend__item">
+                <span class="legend__dot legend__dot--transport" aria-hidden="true"></span>
+                <span class="legend__name">🚋 Transport</span>
+                <span class="legend__value">185.00</span>
+              </li>
+              <li class="legend__item">
+                <span class="legend__dot legend__dot--versicherung" aria-hidden="true"></span>
+                <span class="legend__name">🛡️ Versicherung</span>
+                <span class="legend__value">168.40</span>
+              </li>
+              <li class="legend__item">
+                <span class="legend__dot legend__dot--restaurant" aria-hidden="true"></span>
+                <span class="legend__name">🍽️ Restaurant</span>
+                <span class="legend__value">142.80</span>
+              </li>
+              <li class="legend__item">
+                <span class="legend__dot legend__dot--gesundheit" aria-hidden="true"></span>
+                <span class="legend__name">💊 Gesundheit</span>
+                <span class="legend__value">108.00</span>
+              </li>
+              <li class="legend__item">
+                <span class="legend__dot legend__dot--freizeit" aria-hidden="true"></span>
+                <span class="legend__name">🎬 Freizeit</span>
+                <span class="legend__value">96.50</span>
+              </li>
+              <li class="legend__item">
+                <span class="legend__dot legend__dot--shopping" aria-hidden="true"></span>
+                <span class="legend__name">🛍️ Shopping</span>
+                <span class="legend__value">78.90</span>
+              </li>
+              <li class="legend__item">
+                <span class="legend__dot legend__dot--telekom" aria-hidden="true"></span>
+                <span class="legend__name">📱 Telekom</span>
+                <span class="legend__value">59.00</span>
+              </li>
+              <li class="legend__item">
+                <span class="legend__dot legend__dot--sonstiges" aria-hidden="true"></span>
+                <span class="legend__name">✨ Sonstiges</span>
+                <span class="legend__value">34.15</span>
+              </li>
+            </ul>
+          </section>
+
+          <!-- Bar: Monatsvergleich (US-10) -->
+          <section class="card" aria-labelledby="month-title">
+            <div class="card__head">
+              <h2 class="card__title" id="month-title">Deine letzten Monate</h2>
+              <span class="card__meta">6 Monate</span>
+            </div>
+
+            <div class="chart">
+              <canvas id="chart-months" role="img"
+                aria-label="Balkendiagramm der monatlichen Ausgaben. Februar 2340.10, März 2512.75, April 2198.40, Mai 2640.20, Juni 2405.60, Juli 2265.40 Franken."></canvas>
+            </div>
+
+            <p class="notice notice--success" style="margin-top: 1rem">
+              <span aria-hidden="true">🎯</span>
+              CHF 140.20 weniger als im Juni — dein bester Monat seit April!
+            </p>
+          </section>
+        </div>
+
+        <!-- Zustands-Demo: die semantischen Farben müssen im Prototyp
+             entschieden sein, nicht erst im Angular-Code. -->
+        <h2 class="section-label">Zustände (Design-Referenz)</h2>
+        <div class="states">
+          <section class="hero hero--negative">
+            <p class="hero__label">Diese Woche kannst du ausgeben</p>
+            <p class="hero__amount">
+              <span class="hero__currency">CHF</span>
+              −62.40
+            </p>
+            <p class="hero__note">
+              Diese Woche ist das Budget aufgebraucht. Kein Drama — der Betrag
+              wird nächste Woche verrechnet.
+            </p>
+            <div class="meter">
+              <div class="meter__track">
+                <div class="meter__fill" style="width: 100%"></div>
+              </div>
+              <div class="meter__legend">
+                <span>Wochenbudget aufgebraucht</span>
+                <span>−62.40</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="hero hero--empty">
+            <p class="hero__label">Diese Woche kannst du ausgeben</p>
+            <p class="hero__amount">
+              <span class="hero__currency">CHF</span>
+              —
+            </p>
+            <p class="hero__note">
+              Fast geschafft! Sag uns noch, was du im Monat verdienst — dann
+              rechnen wir deinen Wochenbetrag aus.
+            </p>
+            <a class="btn btn--primary btn--block" href="#" style="margin-top: 1rem">
+              Einkommen erfassen
+            </a>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <!-- Chart.js per CDN, Version gepinnt und mit Subresource Integrity abgesichert:
+         wird die Datei auf dem CDN ausgetauscht, führt der Browser sie nicht aus. -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"
+      integrity="sha384-vsrfeLOOY6KuIYKDlmVH5UiBmgIdB1oEf7p01YgWHuqmOHfZr374+odEv96n9tNC"
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
+    <script src="charts.js"></script>
+  </body>
+</html>
