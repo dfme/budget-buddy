@@ -5,9 +5,11 @@
  * ng2-charts später als `[data]` / `[options]` erhält — der Port nach Angular
  * ist damit ein Copy-Paste in ein Signal.
  *
- * Chart.js kommt per CDN. Ohne Netzverbindung (z. B. beim Öffnen via file://)
- * bleiben die Chart-Flächen leer; der Rest des Prototyps ist davon nicht
- * betroffen.
+ * Chart.js liegt lokal im Repo (design/vendor/chart.umd.min.js) und wird in
+ * index.html vor dieser Datei eingebunden. Grund: htmlpreview.github.io führt
+ * nur GitHub-gehostete Scripts aus — ein externes CDN-Script bliebe wirkungslos
+ * und die Charts leer. Sollte Chart.js wider Erwarten fehlen, greift die
+ * Schutzabfrage unten und der Rest des Prototyps bleibt intakt.
  */
 (function () {
   'use strict';

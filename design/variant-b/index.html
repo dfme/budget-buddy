@@ -225,14 +225,12 @@
       </main>
     </div>
 
-    <!-- Chart.js per CDN, Version gepinnt und mit Subresource Integrity abgesichert:
-         wird die Datei auf dem CDN ausgetauscht, führt der Browser sie nicht aus. -->
-    <script
-      src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"
-      integrity="sha384-vsrfeLOOY6KuIYKDlmVH5UiBmgIdB1oEf7p01YgWHuqmOHfZr374+odEv96n9tNC"
-      crossorigin="anonymous"
-      referrerpolicy="no-referrer"
-    ></script>
+    <!-- Chart.js liegt lokal im Repo (design/vendor/), nicht am CDN. Grund:
+         htmlpreview.github.io führt nur Scripts aus, die auf GitHub liegen —
+         externe CDN-Scripts werden still verworfen und die Charts blieben leer.
+         Der lokale, relative Pfad wird dagegen wie charts.js geladen und
+         funktioniert zusätzlich offline über file://. Version 4.4.7, pinned. -->
+    <script src="../vendor/chart.umd.min.js"></script>
     <script src="charts.js"></script>
   </body>
 </html>

@@ -39,9 +39,8 @@ Pixel (412px).
 open design/variant-a/index.html
 ```
 
-Hinweis: Beim Öffnen via `file://` ohne Netzverbindung bleiben die
-**Chart-Flächen leer**, weil Chart.js per CDN geladen wird. Layout, Farben und
-Typografie sind davon nicht betroffen.
+Funktioniert vollständig offline: Chart.js liegt lokal im Repo, es gibt keinen
+externen Request.
 
 ---
 
@@ -158,6 +157,8 @@ design/
     styles.css         kompiliert, eingecheckt (Browser können kein SCSS)
     charts.js          Chart.js-Konfiguration
     README.md          Designidee, Farb-/Typo-System, Komponenten-Ansatz
+  vendor/
+    chart.umd.min.js   Chart.js 4.4.7, lokal (von allen Varianten genutzt)
 ```
 
 **SCSS neu kompilieren** nach Änderungen an `styles.scss`:
@@ -174,12 +175,15 @@ done
 aus, ein Browser kann SCSS nicht rendern. Ohne die kompilierte CSS wären die
 Previews ungestylt.
 
-**Chart.js** kommt per CDN (`chart.js@4.4.7`, Version gepinnt und per
-[Subresource Integrity](https://developer.mozilla.org/en-US/docs/Web/Security/Subresource_Integrity)
-abgesichert — wird die Datei auf dem CDN ausgetauscht, führt der Browser sie
-nicht aus), damit die Prototypen dem späteren `ng2-charts`-Setup nahekommen. Die Datenstrukturen in
-`charts.js` sind so aufgebaut, dass sie sich beim Angular-Port direkt in ein
-Signal übernehmen lassen.
+**Chart.js** liegt lokal unter [`design/vendor/chart.umd.min.js`](vendor/chart.umd.min.js)
+(`chart.js@4.4.7`, unverändert vom CDN übernommen) und wird relativ eingebunden —
+**nicht** per CDN. Grund: `htmlpreview.github.io` führt ausschliesslich Scripts
+aus, die auf GitHub liegen, und verwirft externe CDN-Scripts stillschweigend.
+Ein per CDN eingebundenes Chart.js bliebe in der Preview also wirkungslos und die
+Charts leer — unabhängig vom Netz. Der lokale, relative Pfad wird dagegen wie
+`charts.js` von GitHub geladen und funktioniert zusätzlich offline über `file://`.
+Die Datenstrukturen in `charts.js` sind so aufgebaut, dass sie sich beim
+Angular-Port direkt in ein Signal (bzw. `ng2-charts`-`[data]`) übernehmen lassen.
 
 **Nicht enthalten** — bewusst, gemäss Issue-Scope: Onboarding-Wizard, PDF-Upload,
 Auth, Settings, Sparziel, KI-Monatsbericht. Jede Variante definiert aber ein
