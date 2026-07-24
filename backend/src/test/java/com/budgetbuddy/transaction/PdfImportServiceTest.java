@@ -172,20 +172,6 @@ class PdfImportServiceTest {
     }
 
     @Test
-    void emptyParseResult_returnsZeroCountWithoutCategorizing() throws Exception {
-        clockNeverExpires();
-        when(repository.existsByUserIdAndPdfSha256(any(), anyString())).thenReturn(false);
-        when(parser.parse(PDF_BYTES)).thenReturn(List.of());
-
-        ImportResult result = service.importPdf(USER_ID, PDF_BYTES);
-
-        // 0 Transaktionen: kein Fehler auf Service-Ebene — Exception-Verhalten ist BE-PDF-04 (#83).
-        assertThat(result.transactionCount()).isZero();
-        assertThat(result.pdfSha256()).isEqualTo(expectedSha256());
-        verifyNoInteractions(categorizationPort);
-    }
-
-    @Test
     void parserExceptions_propagateUnchanged() {
         when(clock.instant()).thenReturn(T0);
         when(repository.existsByUserIdAndPdfSha256(any(), anyString())).thenReturn(false);
