@@ -107,6 +107,14 @@ public class Transaction {
         return category;
     }
 
+    /**
+     * Setzt das Kategorie-Label (manuelle Korrektur, BE-CAT-04). Erwartet einen Wert aus
+     * {@link com.budgetbuddy.categorization.Category}; die Validierung erfolgt beim Aufrufer.
+     */
+    public void setCategory(String category) {
+        this.category = category;
+    }
+
     public String getPdfSha256() {
         return pdfSha256;
     }
