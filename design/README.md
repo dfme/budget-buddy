@@ -219,12 +219,14 @@ vollständiges Token- und Komponenten-System, das auf diese Screens übertragbar
 
 ## Entscheid
 
-> **Status: offen** — zu treffen im Team-Review.
+> **Entscheid: Variante A «Klarheit».** Das Team hat sich nach dem Voting
+> (A und C gleichauf, B ohne Stimme) und dem Hell/Dunkel-Vergleich für **A**
+> entschieden. Der **Komponenten-Unterbau bleibt bewusst offen** und wird im
+> Fundament-Issue (FE-UI-02) entschieden — die Tokens werden dort in jedem Fall
+> theme-fähig angelegt (CSS Custom Properties + `data-theme`), damit sowohl ein
+> Custom-SCSS- als auch ein CDK-gestützter Weg offen bleibt.
 
-Vorgehen: Alle drei Previews im Smartphone-Viewport durchklicken, danach im
-Issue [#80](https://github.com/dfme/budget-buddy/issues/80) kommentieren.
-
-Fragen, die den Entscheid tragen sollten:
+Die folgenden Punkte waren die **Grundlage** des Entscheids (als Kontext erhalten):
 
 1. **Welches Risiko wiegt schwerer** — Laras Abbruch nach dem ersten Import
    (Risiko #1) oder Marcs Vertrauensverlust (Risiko #2)? A und B zahlen auf das
@@ -275,13 +277,17 @@ Nicht überankern an „wir haben ja schon die SCSS-Prototypen" — wiederverwen
 werden in beiden Wegen vor allem die **Tokens**; Komponenten entstehen so oder so
 als Angular-Komponenten neu.
 
-Nach dem Entscheid:
+Nach dem Entscheid (offen, sofern nicht abgehakt):
 
+- [x] Diese Datei um den Entscheid ergänzen (Variante A gewählt)
 - [ ] Gewählte Variante im Issue #80 dokumentieren (mit Begründung)
-- [ ] Diese Datei um den Entscheid ergänzen
-- [ ] Preview-Links oben von `feature/FE-UI-01-design-varianten` auf `main` umstellen
-- [ ] Folge-Issue für die Übertragung ins Angular-Frontend anlegen
-      (Tokens nach `frontend/src/styles.scss`, Komponenten nach `frontend/src/app/shared/`)
+- [ ] PR #96 mergen (nur durch einen Dev)
+- [ ] Preview-Links oben von `feature/FE-UI-01-design-varianten` auf `main` umstellen (nach Merge)
+- [ ] Fundament-Issue **FE-UI-02** anlegen: Tokens theme-fähig nach
+      `frontend/src/styles.scss`, Komponenten-/CDK-Frage dort entscheiden.
+      Danach FE-UI-03 (Basiskomponenten in `frontend/src/app/shared/`),
+      FE-UI-04 (App-Shell), Chart-Integration (ng2-charts)
+- [ ] ADR-11 (UI-Design-System) + CLAUDE.md (Tech-Stack, ADR-Tabelle) nachziehen
 
 ### Mögliche spätere Erweiterung: nutzerseitige Theme-Präferenz
 
