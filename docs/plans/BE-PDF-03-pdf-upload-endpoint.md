@@ -33,7 +33,10 @@ Neu:
 - `transaction/PdfImportOversizeIntegrationTest.java`
 
 Geändert:
-- `application.properties` — `spring.servlet.multipart.max-file-size=10MB` + `max-request-size=10MB`.
+- `application.properties` — `max-file-size=10MB`, `max-request-size=11MB` (Puffer für
+  Multipart-Overhead, damit eine Datei an der 10-MB-Grenze nicht fälschlich mit 413 abgelehnt
+  wird), `resolve-lazily=true` (Handler beim Werfen der MaxUploadSizeExceededException bereits
+  aufgelöst → 413-Mapping statt 500).
 
 ## Implementierungsschritte
 
@@ -48,6 +51,7 @@ Geändert:
 - 200 Happy Path — UBS-Fixture (28 Tx), Port gemockt → `count: 28`.
 - 409 — dasselbe PDF zweimal → Conflict.
 - 400 Format — Nicht-PDF-Bytes → Bad Request.
+- 400 Passwort — AES-verschlüsseltes PDF (PDFBox-generiert) → Bad Request.
 - 408 Timeout — `budgetbuddy.import.timeout-seconds=0` → Request Timeout.
 - 401 — ohne JWT-Cookie → Unauthorized.
 - 413 Oversize — eigener Context mit 1KB-Limit, Fixture > 1KB → Payload Too Large.

@@ -11,6 +11,7 @@ import com.budgetbuddy.auth.JwtService;
 import com.budgetbuddy.categorization.CategorizationPort;
 import com.budgetbuddy.categorization.Category;
 import jakarta.servlet.http.Cookie;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -18,7 +19,16 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Optional;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.encryption.AccessPermission;
+import org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy;
+import org.apache.pdfbox.pdmodel.font.PDType1Font;
+import org.apache.pdfbox.pdmodel.font.Standard14Fonts.FontName;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -114,6 +124,33 @@ class PdfImportControllerIntegrationTest {
         }
     }
 
+    /** Erzeugt ein AES-128-verschlüsseltes PDF (PDFBox 3.x) — analog SwissBankStatementParserTest. */
+    private static byte[] passwordProtectedPdf() {
+        try (PDDocument document = new PDDocument()) {
+            PDPage page = new PDPage(PDRectangle.A4);
+            document.addPage(page);
+            try (PDPageContentStream content = new PDPageContentStream(document, page)) {
+                content.beginText();
+                content.setFont(new PDType1Font(FontName.HELVETICA), 10);
+                content.newLineAtOffset(50, 780);
+                for (String line : List.of("Kontoauszug", "03.07.2026 MIGROS BERN 45.60 954.40")) {
+                    content.showText(line);
+                    content.newLineAtOffset(0, -14);
+                }
+                content.endText();
+            }
+            StandardProtectionPolicy policy =
+                    new StandardProtectionPolicy("owner-pw", "user-pw", new AccessPermission());
+            policy.setEncryptionKeyLength(128);
+            document.protect(policy);
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            document.save(out);
+            return out.toByteArray();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
     @Test
     void validPdfReturns200WithTransactionCount() throws Exception {
         mockMvc.perform(multipart("/import/pdf").file(pdfPart(fixture())).cookie(jwtCookie(userId)))
@@ -138,6 +175,15 @@ class PdfImportControllerIntegrationTest {
         byte[] notAPdf = "Dies ist kein PDF".getBytes(StandardCharsets.UTF_8);
 
         mockMvc.perform(multipart("/import/pdf").file(pdfPart(notAPdf)).cookie(jwtCookie(userId)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void passwordProtectedPdfReturns400() throws Exception {
+        // Führt den PasswordProtectedPdfException-Zweig des PdfImportExceptionHandler am Endpoint
+        // aus. Verschlüsselung wird vor dem Parsen erkannt, der Inhalt ist daher belanglos.
+        mockMvc.perform(multipart("/import/pdf")
+                        .file(pdfPart(passwordProtectedPdf())).cookie(jwtCookie(userId)))
                 .andExpect(status().isBadRequest());
     }
 
