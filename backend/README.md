@@ -43,6 +43,39 @@ Ohne Key ist die App lauffähig: unbekannte Transaktionen werden dann als `Sonst
 kategorisiert (BE-CAT-02). Für die Arbeit an anderen Modulen braucht es also keinen
 Anthropic-Account.
 
+### `ANTHROPIC_API_KEY` verifizieren (nach dem Setzen in Render)
+
+Nach dem Setzen im Render-Dashboard startet der Service automatisch neu. Zwei Checks
+bestätigen, dass der Key produktiv greift:
+
+**1. Log-Signal beim Start (definitiv).** Render-Dashboard → Service `budgetbuddy` →
+_Logs_. Genau eine der beiden Zeilen erscheint:
+
+| Zustand      | Log-Zeile                                                   | Level |
+| ------------ | ---------------------------------------------------------- | ----- |
+| ✅ Key erkannt | `Anthropic-Client initialisiert (Modell: claude-haiku-4-5)` | INFO  |
+| ❌ Key fehlt   | `ANTHROPIC_API_KEY ist nicht gesetzt — …`                   | WARN  |
+
+Die INFO-Zeile prüft nur die _Anwesenheit_ des Keys, nicht Gültigkeit oder Guthaben.
+
+**2. Funktionaler Test (end-to-end).** Einen Kontoauszug mit mindestens einer
+Transaktion hochladen, deren Empfänger **nicht** in `category_lookup` steht — nur solche
+erreichen Claude (Hybrid-Ansatz, ADR-6). Erhält sie eine echte Kategorie statt
+`Sonstiges`, ist der Key inkl. Guthaben produktiv aktiv. Fällt sie trotz INFO-Zeile auf
+`Sonstiges`, ist die häufigste Ursache **fehlendes Guthaben**, nicht der Key.
+
+**Automatischer Gültigkeits-Check beim Start (INFRA-11).** Zusätzlich zur reinen
+Anwesenheits-Zeile aus Check 1 prüft die App beim Start automatisch, ob der Key auch
+_gültig_ ist (kostenloser `GET /v1/models`-Call), und loggt genau eine Zeile:
+
+| Zustand              | Log-Zeile (Auszug)                           | Level |
+| -------------------- | -------------------------------------------- | ----- |
+| ✅ Key gültig         | `Anthropic-Healthcheck OK — API-Key gültig.` | INFO  |
+| ❌ Key ungültig (401) | `API-Key ungültig oder widerrufen …`         | WARN  |
+
+Der Check prüft die _Gültigkeit_, **nicht das Guthaben** (dafür bleibt Check 2), läuft
+asynchron und blockiert den Start nicht.
+
 ### Variablen setzen (lokal)
 
 **PowerShell (Windows):**
