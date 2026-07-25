@@ -64,6 +64,18 @@ erreichen Claude (Hybrid-Ansatz, ADR-6). Erhält sie eine echte Kategorie statt
 `Sonstiges`, ist der Key inkl. Guthaben produktiv aktiv. Fällt sie trotz INFO-Zeile auf
 `Sonstiges`, ist die häufigste Ursache **fehlendes Guthaben**, nicht der Key.
 
+**Automatischer Gültigkeits-Check beim Start (INFRA-11).** Zusätzlich zur reinen
+Anwesenheits-Zeile aus Check 1 prüft die App beim Start automatisch, ob der Key auch
+_gültig_ ist (kostenloser `GET /v1/models`-Call), und loggt genau eine Zeile:
+
+| Zustand              | Log-Zeile (Auszug)                           | Level |
+| -------------------- | -------------------------------------------- | ----- |
+| ✅ Key gültig         | `Anthropic-Healthcheck OK — API-Key gültig.` | INFO  |
+| ❌ Key ungültig (401) | `API-Key ungültig oder widerrufen …`         | WARN  |
+
+Der Check prüft die _Gültigkeit_, **nicht das Guthaben** (dafür bleibt Check 2), läuft
+asynchron und blockiert den Start nicht.
+
 ### Variablen setzen (lokal)
 
 **PowerShell (Windows):**
