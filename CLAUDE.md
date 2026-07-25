@@ -137,6 +137,7 @@ BudgetBuddy is a web app for students and young professionals living in Switzerl
 | HTTP auth        | `withCredentials: true` auf HttpClient | (bundled) | Cookie automatisch mitgesendet; kein manueller HttpInterceptor nötig (ADR-7) |
 | Charts           | Chart.js + ng2-charts                  | 4.x / 8.x | Lightweight, Angular-native wrapper for pie/bar                              |
 | Change detection | OnPush everywhere                      | (bundled) | Required for Signals to work correctly                                       |
+| Design-System    | Custom SCSS, Variante A «Klarheit»     | (n/a)     | Design-Entscheid FE-UI-01 / ADR-11; Baseline `design/variant-a/`. Komponenten-Unterbau (Custom SCSS vs. `@angular/cdk`) offen bis FE-UI-02 (#99) |
 
 ### AI/ML
 
@@ -428,6 +429,7 @@ Vollständige ADRs: [docs/adr/README.md](docs/adr/README.md)
 | [ADR-8](docs/adr/ADR-8-apache-pdfbox.md)               | Apache PDFBox 3.x (`Loader.loadPDF()`)                                               | iText 7 (AGPL-Lizenz!), Tabula-java (langsam, kein Text-Layer), pdfplumber (Python) |
 | [ADR-9](docs/adr/ADR-9-bigdecimal-money.md)            | `BigDecimal` für alle CHF-Beträge, `DECIMAL(10,2)` in DB                             | `double`/`float` (Rundungsfehler!), `long` (Cent-Speicherung), Joda-Money           |
 | [ADR-10](docs/adr/ADR-10-hosting-plattform.md)         | Render (Frankfurt/EU), SPA gebündelt im JAR, nDSG-Risiko akzeptiert                  | Exoscale/Nine.ch (CH, teurer), SPA auf CDN (zwei Pipelines)                         |
+| [ADR-11](docs/adr/ADR-11-ui-design-system.md)          | UI-Design-Richtung «Klarheit» (Variante A); Komponenten-Unterbau offen bis FE-UI-02 | Variante B (0 Stimmen), Variante C «Ledger» (starker Zweiter, Elemente übernehmbar) |
 
 ## Project Skills
 
