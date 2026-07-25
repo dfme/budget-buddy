@@ -10,6 +10,11 @@
  * nur GitHub-gehostete Scripts aus — ein externes CDN-Script bliebe wirkungslos
  * und die Charts leer. Sollte Chart.js wider Erwarten fehlen, greift die
  * Schutzabfrage unten und der Rest des Prototyps bleibt intakt.
+ *
+ * Theme-fähig: Alle Farben werden aus den CSS Custom Properties gelesen (dem-
+ * selben Token-System wie das übrige UI). Ein Canvas kennt keine CSS-Variablen,
+ * deshalb werden die Charts bei jedem `themechange` (aus theme.js) zerstört und
+ * mit den Farben des neuen Themes neu aufgebaut.
  */
 (function () {
   'use strict';
@@ -19,34 +24,12 @@
     return;
   }
 
-  // Muss mit $categories in styles.scss übereinstimmen.
-  const CATEGORY_COLORS = {
-    Wohnen: '#60a5fa',
-    Lebensmittel: '#4ade80',
-    Transport: '#38bdf8',
-    Versicherung: '#a78bfa',
-    Telekom: '#22d3ee',
-    Gesundheit: '#fb7185',
-    Freizeit: '#fbbf24',
-    Restaurant: '#fb923c',
-    Shopping: '#e879f9',
-    Bildung: '#818cf8',
-    Einkommen: '#34d399',
-    Sparen: '#facc15',
-    Sonstiges: '#94a3b8',
-  };
+  var root = document.documentElement;
 
-  const SURFACE = '#151e2a';
-  const SURFACE_2 = '#1b2634';
-  const LINE = '#253143';
-  const INK = '#e8eef6';
-  const INK_3 = '#64748b';
-  const ACCENT = '#4f8ff7';
-
-  Chart.defaults.font.family =
-    'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
-  Chart.defaults.font.size = 11;
-  Chart.defaults.color = INK_3;
+  /** Liest eine CSS Custom Property vom <html>-Element (aktuelles Theme). */
+  function cssVar(name) {
+    return getComputedStyle(root).getPropertyValue(name).trim();
+  }
 
   /** CHF im Schweizer Format: 1'234.56 */
   function chf(value) {
@@ -57,134 +40,134 @@
   }
 
   // Ausgaben Juli 2026 nach Kategorie — identisch zur Legende im HTML.
-  const spendingByCategory = [
-    ['Wohnen', 980.0],
-    ['Lebensmittel', 412.65],
-    ['Transport', 185.0],
-    ['Versicherung', 168.4],
-    ['Restaurant', 142.8],
-    ['Gesundheit', 108.0],
-    ['Freizeit', 96.5],
-    ['Shopping', 78.9],
-    ['Telekom', 59.0],
-    ['Sonstiges', 34.15],
+  var spendingByCategory = [
+    ['Wohnen', 'wohnen', 980.0],
+    ['Lebensmittel', 'lebensmittel', 412.65],
+    ['Transport', 'transport', 185.0],
+    ['Versicherung', 'versicherung', 168.4],
+    ['Restaurant', 'restaurant', 142.8],
+    ['Gesundheit', 'gesundheit', 108.0],
+    ['Freizeit', 'freizeit', 96.5],
+    ['Shopping', 'shopping', 78.9],
+    ['Telekom', 'telekom', 59.0],
+    ['Sonstiges', 'sonstiges', 34.15],
   ];
-
-  const donutCanvas = document.getElementById('chart-categories');
-  if (donutCanvas) {
-    new Chart(donutCanvas, {
-      type: 'doughnut',
-      data: {
-        labels: spendingByCategory.map((entry) => entry[0]),
-        datasets: [
-          {
-            data: spendingByCategory.map((entry) => entry[1]),
-            backgroundColor: spendingByCategory.map(
-              (entry) => CATEGORY_COLORS[entry[0]]
-            ),
-            // Trennlinie in der Flächenfarbe der Karte statt in Weiss —
-            // auf dunklem Grund wäre Weiss ein grelles Gitter.
-            borderColor: SURFACE,
-            borderWidth: 2,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        // Sehr dünner Ring: hier ist der Donut Beleg, nicht Blickfang —
-        // die eigentliche Auswertung steht in der Legende darunter.
-        cutout: '78%',
-        plugins: {
-          // Eigene Legende im HTML: als Tabelle mit Betrag und Prozentanteil.
-          // Die Chart.js-Legende kann keine zwei Werte pro Eintrag zeigen.
-          legend: { display: false },
-          tooltip: {
-            backgroundColor: SURFACE_2,
-            borderColor: LINE,
-            borderWidth: 1,
-            titleColor: INK,
-            bodyColor: INK,
-            padding: 8,
-            cornerRadius: 3,
-            displayColors: false,
-            callbacks: {
-              label: (ctx) => `CHF ${chf(ctx.parsed)}`,
-            },
-          },
-        },
-      },
-    });
-  }
 
   // Ausgaben der letzten 6 Monate (Monatsvergleich, US-10).
-  const monthlySpending = [
-    ['Feb', 2340.1],
-    ['Mär', 2512.75],
-    ['Apr', 2198.4],
-    ['Mai', 2640.2],
-    ['Jun', 2405.6],
-    ['Jul', 2265.4],
+  var monthlySpending = [
+    ['Feb', 2340.1], ['Mär', 2512.75], ['Apr', 2198.4],
+    ['Mai', 2640.2], ['Jun', 2405.6], ['Jul', 2265.4],
   ];
 
-  const barCanvas = document.getElementById('chart-months');
-  if (barCanvas) {
-    new Chart(barCanvas, {
-      type: 'bar',
-      data: {
-        labels: monthlySpending.map((entry) => entry[0]),
-        datasets: [
-          {
-            data: monthlySpending.map((entry) => entry[1]),
-            // Der laufende Monat im Akzent, die Historie neutral —
-            // so braucht es keine zusätzliche Beschriftung.
-            backgroundColor: monthlySpending.map((entry, index) =>
-              index === monthlySpending.length - 1 ? ACCENT : '#2c3a4e'
-            ),
-            // Kantig wie der Rest des Systems.
+  var charts = [];
+
+  function destroyCharts() {
+    for (var i = 0; i < charts.length; i++) charts[i].destroy();
+    charts = [];
+  }
+
+  function buildCharts() {
+    destroyCharts();
+
+    // Farben je nach aktuellem Theme frisch auslesen.
+    var surface = cssVar('--c-surface');
+    var surface2 = cssVar('--c-surface-2');
+    var line = cssVar('--c-line');
+    var ink = cssVar('--c-ink');
+    var ink3 = cssVar('--c-ink-3');
+    var accent = cssVar('--c-accent');
+
+    Chart.defaults.font.family =
+      'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+    Chart.defaults.font.size = 11;
+    Chart.defaults.color = ink3;
+
+    var tooltip = {
+      backgroundColor: surface2,
+      borderColor: line,
+      borderWidth: 1,
+      titleColor: ink,
+      bodyColor: ink,
+      padding: 8,
+      cornerRadius: 3,
+      displayColors: false,
+    };
+
+    var donutCanvas = document.getElementById('chart-categories');
+    if (donutCanvas) {
+      charts.push(new Chart(donutCanvas, {
+        type: 'doughnut',
+        data: {
+          labels: spendingByCategory.map(function (e) { return e[0]; }),
+          datasets: [{
+            data: spendingByCategory.map(function (e) { return e[2]; }),
+            backgroundColor: spendingByCategory.map(function (e) {
+              return cssVar('--cat-' + e[1]);
+            }),
+            // Trennlinie in der Flächenfarbe der Karte — in beiden Themes sauber.
+            borderColor: surface,
+            borderWidth: 2,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          // Sehr dünner Ring: Beleg, nicht Blickfang.
+          cutout: '78%',
+          plugins: {
+            legend: { display: false },
+            tooltip: Object.assign({}, tooltip, {
+              callbacks: { label: function (ctx) { return 'CHF ' + chf(ctx.parsed); } },
+            }),
+          },
+        },
+      }));
+    }
+
+    var barCanvas = document.getElementById('chart-months');
+    if (barCanvas) {
+      charts.push(new Chart(barCanvas, {
+        type: 'bar',
+        data: {
+          labels: monthlySpending.map(function (e) { return e[0]; }),
+          datasets: [{
+            data: monthlySpending.map(function (e) { return e[1]; }),
+            // Laufender Monat im Akzent, Historie neutral (Linienfarbe-nah).
+            backgroundColor: monthlySpending.map(function (e, i) {
+              return i === monthlySpending.length - 1 ? accent : cssVar('--c-line-strong');
+            }),
             borderRadius: 2,
             borderSkipped: false,
             barPercentage: 0.72,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: Object.assign({}, tooltip, {
+              callbacks: { label: function (ctx) { return 'CHF ' + chf(ctx.parsed.y); } },
+            }),
           },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            backgroundColor: SURFACE_2,
-            borderColor: LINE,
-            borderWidth: 1,
-            titleColor: INK,
-            bodyColor: INK,
-            padding: 8,
-            cornerRadius: 3,
-            displayColors: false,
-            callbacks: {
-              label: (ctx) => `CHF ${chf(ctx.parsed.y)}`,
+          scales: {
+            x: { grid: { display: false }, border: { color: line }, ticks: { color: ink3 } },
+            y: {
+              beginAtZero: true,
+              border: { display: false },
+              grid: { color: line },
+              ticks: {
+                maxTicksLimit: 5,
+                color: ink3,
+                callback: function (v) { return v.toLocaleString('de-CH'); },
+              },
             },
           },
         },
-        scales: {
-          x: {
-            grid: { display: false },
-            border: { color: LINE },
-            ticks: { color: INK_3 },
-          },
-          y: {
-            beginAtZero: true,
-            border: { display: false },
-            grid: { color: LINE },
-            ticks: {
-              maxTicksLimit: 5,
-              color: INK_3,
-              callback: (value) => value.toLocaleString('de-CH'),
-            },
-          },
-        },
-      },
-    });
+      }));
+    }
   }
+
+  buildCharts();
+  document.addEventListener('themechange', buildCharts);
 })();

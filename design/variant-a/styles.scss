@@ -11,47 +11,140 @@
 // 1. Tokens
 // -----------------------------------------------------------------------------
 
-// Farben — Neutralen sind leicht grünstichig, damit sie zum Teal-Akzent passen.
-$c-bg: #ffffff;
-$c-bg-subtle: #f6f8f7;
-$c-surface: #ffffff;
-$c-line: #e3e8e6;
-$c-line-strong: #cbd4d1;
+// Farben als CSS Custom Properties, damit das Theme zur Laufzeit umschaltbar
+// ist (data-theme auf <html>, gesteuert durch theme.js). Die SCSS-Variablen
+// zeigen nur auf die Custom Properties — alle Verwendungen weiter unten bleiben
+// dadurch unverändert. Die konkreten Werte je Theme stehen in den :root- und
+// [data-theme]-Blöcken direkt darunter.
+//
+// A ist hell-first: :root trägt die hellen Werte, [data-theme="dark"] überschreibt.
+$c-bg: var(--c-bg);
+$c-bg-subtle: var(--c-bg-subtle);
+$c-surface: var(--c-surface);
+$c-line: var(--c-line);
+$c-line-strong: var(--c-line-strong);
 
-$c-ink: #101413;
-$c-ink-2: #5b6462;
-$c-ink-3: #8b9694;
+$c-ink: var(--c-ink);
+$c-ink-2: var(--c-ink-2);
+$c-ink-3: var(--c-ink-3);
 
-$c-accent: #0f6b5f;
-$c-accent-hover: #0b544a;
-$c-accent-soft: #e6f2f0;
+$c-accent: var(--c-accent);
+$c-accent-hover: var(--c-accent-hover);
+$c-accent-soft: var(--c-accent-soft);
 
-// Semantische Farben für Beträge. Safe-to-Spend kann negativ werden — die
-// beiden Töne müssen sich auch bei kleiner Schrift klar unterscheiden.
-$c-positive: #0f6b5f;
-$c-positive-soft: #e6f2f0;
-$c-negative: #b3261e;
-$c-negative-soft: #fdecea;
-$c-warning: #8a6100;
-$c-warning-soft: #fdf3dd;
+$c-positive: var(--c-positive);
+$c-positive-soft: var(--c-positive-soft);
+$c-negative: var(--c-negative);
+$c-negative-soft: var(--c-negative-soft);
+$c-warning: var(--c-warning);
+$c-warning-soft: var(--c-warning-soft);
 
 // Kategorie-Palette — deckt alle 13 Kategorien aus `Category.java` ab.
-// Gedämpfte Töne, damit der Donut nicht gegen den ruhigen Rest kämpft.
 $categories: (
-  "wohnen": #0f6b5f,
-  "lebensmittel": #6a9b3f,
-  "transport": #2f6f9f,
-  "versicherung": #7a5fa3,
-  "telekom": #3f8f9f,
-  "gesundheit": #b5566b,
-  "freizeit": #c2803a,
-  "restaurant": #a34f3a,
-  "shopping": #9b5f7f,
-  "bildung": #4f6f5f,
-  "einkommen": #2f8f5f,
-  "sparen": #5f6f8f,
-  "sonstiges": #8b9694,
+  "wohnen": var(--cat-wohnen),
+  "lebensmittel": var(--cat-lebensmittel),
+  "transport": var(--cat-transport),
+  "versicherung": var(--cat-versicherung),
+  "telekom": var(--cat-telekom),
+  "gesundheit": var(--cat-gesundheit),
+  "freizeit": var(--cat-freizeit),
+  "restaurant": var(--cat-restaurant),
+  "shopping": var(--cat-shopping),
+  "bildung": var(--cat-bildung),
+  "einkommen": var(--cat-einkommen),
+  "sparen": var(--cat-sparen),
+  "sonstiges": var(--cat-sonstiges),
 );
+
+// --- Theme-Werte -------------------------------------------------------------
+// Hell (Default). Neutralen sind leicht grünstichig, damit sie zum Teal-Akzent
+// passen. Kategorie-Töne gedämpft, damit der Donut nicht gegen den ruhigen Rest
+// kämpft.
+:root,
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --c-bg: #ffffff;
+  --c-bg-subtle: #f6f8f7;
+  --c-surface: #ffffff;
+  --c-line: #e3e8e6;
+  --c-line-strong: #cbd4d1;
+
+  --c-ink: #101413;
+  --c-ink-2: #5b6462;
+  --c-ink-3: #8b9694;
+
+  --c-accent: #0f6b5f;
+  --c-accent-hover: #0b544a;
+  --c-accent-soft: #e6f2f0;
+
+  --c-positive: #0f6b5f;
+  --c-positive-soft: #e6f2f0;
+  --c-negative: #b3261e;
+  --c-negative-soft: #fdecea;
+  --c-warning: #8a6100;
+  --c-warning-soft: #fdf3dd;
+
+  --shadow-card: 0 1px 2px rgba(16, 20, 19, 0.04);
+
+  --cat-wohnen: #0f6b5f;
+  --cat-lebensmittel: #6a9b3f;
+  --cat-transport: #2f6f9f;
+  --cat-versicherung: #7a5fa3;
+  --cat-telekom: #3f8f9f;
+  --cat-gesundheit: #b5566b;
+  --cat-freizeit: #c2803a;
+  --cat-restaurant: #a34f3a;
+  --cat-shopping: #9b5f7f;
+  --cat-bildung: #4f6f5f;
+  --cat-einkommen: #2f8f5f;
+  --cat-sparen: #5f6f8f;
+  --cat-sonstiges: #8b9694;
+}
+
+// Dunkel. Kein Invertieren: Flächen grünstichig-dunkel, Teal-Akzent aufgehellt,
+// damit er auf dunklem Grund trägt; Kategorie-Töne um eine Stufe angehoben, weil
+// gedämpfte Farben auf Dunkel verschwinden. Die Teal-Identität von A bleibt.
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --c-bg: #121917;
+  --c-bg-subtle: #0e1312;
+  --c-surface: #171f1d;
+  --c-line: #26302e;
+  --c-line-strong: #36423f;
+
+  --c-ink: #e6efec;
+  --c-ink-2: #9db0aa;
+  --c-ink-3: #6f817b;
+
+  --c-accent: #2dbfa4;
+  --c-accent-hover: #45cbb2;
+  --c-accent-soft: #10302a;
+
+  --c-positive: #2dbfa4;
+  --c-positive-soft: #10302a;
+  --c-negative: #f2837b;
+  --c-negative-soft: #2e1a19;
+  --c-warning: #e0b64f;
+  --c-warning-soft: #2a2313;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3);
+
+  --cat-wohnen: #2dbfa4;
+  --cat-lebensmittel: #8fc45f;
+  --cat-transport: #5ba0d4;
+  --cat-versicherung: #ab8fd4;
+  --cat-telekom: #58c0d0;
+  --cat-gesundheit: #e0899a;
+  --cat-freizeit: #e0a45f;
+  --cat-restaurant: #d47f68;
+  --cat-shopping: #c98fb0;
+  --cat-bildung: #82ab93;
+  --cat-einkommen: #4fce97;
+  --cat-sparen: #93a3c9;
+  --cat-sonstiges: #9db0aa;
+}
 
 // Typografie-Skala — 6 Stufen, 1.25er-Verhältnis, bewusst knapp gehalten.
 $fs-xs: 0.75rem; // 12px  Labels, Meta
@@ -77,7 +170,7 @@ $r-sm: 4px;
 $r-md: 8px;
 $r-pill: 999px;
 
-$shadow-card: 0 1px 2px rgba(16, 20, 19, 0.04);
+$shadow-card: var(--shadow-card);
 
 // Breakpoints
 $bp-desktop: 900px;
@@ -921,5 +1014,37 @@ a {
     .card + .card {
       margin-top: 0;
     }
+  }
+}
+
+// -----------------------------------------------------------------------------
+// 6. Theme-Umschalter (Prototyp-Steuerung, nicht Teil des finalen UI)
+// -----------------------------------------------------------------------------
+// Fixed unten rechts — auf Mobile oberhalb der Tab-Bar, auf Desktop in der
+// freien unteren Ecke. Nutzt die Tokens, passt sich also selbst dem Theme an.
+.theme-toggle {
+  position: fixed;
+  right: $sp-4;
+  bottom: 4.75rem;
+  z-index: 100;
+  display: inline-flex;
+  align-items: center;
+  gap: $sp-2;
+  padding: $sp-2 $sp-4;
+  border: 1px solid $c-line-strong;
+  border-radius: $r-pill;
+  background: $c-surface;
+  color: $c-ink;
+  font-size: $fs-xs;
+  font-weight: 600;
+  box-shadow: $shadow-card;
+
+  @include desktop {
+    bottom: $sp-4;
+  }
+
+  &__icon {
+    font-size: $fs-md;
+    line-height: 1;
   }
 }

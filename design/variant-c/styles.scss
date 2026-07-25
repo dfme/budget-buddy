@@ -5,7 +5,7 @@
 // (375–414px). Desktop kommt ausschliesslich über `min-width`-Queries dazu.
 //
 // Dunkel-first: Die Palette ist als Dark Theme entworfen, nicht invertiert.
-// Ein Light Theme wäre über dieselben Tokens ableitbar (siehe README).
+// Ein Light Theme ist über dieselben Tokens umgesetzt (data-theme, siehe unten).
 //
 // Aufbau: 1. Tokens  2. Reset  3. Layout/Shell  4. Komponenten  5. Screens
 // =============================================================================
@@ -14,49 +14,139 @@
 // 1. Tokens
 // -----------------------------------------------------------------------------
 
-// Farben — kühle, blaustichige Neutralen mit engen Helligkeitsstufen.
-// Die Flächen unterscheiden sich bewusst nur minimal: Struktur entsteht
-// über Linien, nicht über Kontrast.
-$c-bg: #0d141d;
-$c-surface: #151e2a;
-$c-surface-2: #1b2634;
-$c-line: #253143;
-$c-line-strong: #33425a;
+// Farben als CSS Custom Properties, damit das Theme zur Laufzeit umschaltbar
+// ist (data-theme auf <html>, gesteuert durch theme.js). Die SCSS-Variablen
+// zeigen nur auf die Custom Properties — alle Verwendungen weiter unten bleiben
+// unverändert. Werte je Theme in den :root- / [data-theme]-Blöcken darunter.
+//
+// C ist dunkel-first: :root trägt die dunklen Werte, [data-theme="light"]
+// überschreibt.
+$c-bg: var(--c-bg);
+$c-surface: var(--c-surface);
+$c-surface-2: var(--c-surface-2);
+$c-line: var(--c-line);
+$c-line-strong: var(--c-line-strong);
 
-$c-ink: #e8eef6;
-$c-ink-2: #93a3b8;
-$c-ink-3: #64748b;
+$c-ink: var(--c-ink);
+$c-ink-2: var(--c-ink-2);
+$c-ink-3: var(--c-ink-3);
 
-$c-accent: #4f8ff7;
-$c-accent-hover: #6ba0f9;
-$c-accent-soft: #16263f;
+$c-accent: var(--c-accent);
+$c-accent-hover: var(--c-accent-hover);
+$c-accent-soft: var(--c-accent-soft);
+$c-on-accent: var(--c-on-accent); // Textfarbe auf Akzent-Flächen (Primary-Button)
 
-// Semantische Farben für Beträge. Auf dunklem Grund braucht Grün mehr
-// Helligkeit und weniger Sättigung als auf Weiss, sonst flimmert es.
-$c-positive: #34d399;
-$c-positive-soft: #10261f;
-$c-negative: #f87171;
-$c-negative-soft: #2a1618;
-$c-warning: #fbbf24;
-$c-warning-soft: #2a2113;
+$c-positive: var(--c-positive);
+$c-positive-soft: var(--c-positive-soft);
+$c-negative: var(--c-negative);
+$c-negative-soft: var(--c-negative-soft);
+$c-warning: var(--c-warning);
+$c-warning-soft: var(--c-warning-soft);
 
-// Kategorie-Palette — auf dunklem Grund aufgehellt (400er-Stufen).
-// Deckt alle 13 Kategorien aus `Category.java` ab.
 $categories: (
-  "wohnen": #60a5fa,
-  "lebensmittel": #4ade80,
-  "transport": #38bdf8,
-  "versicherung": #a78bfa,
-  "telekom": #22d3ee,
-  "gesundheit": #fb7185,
-  "freizeit": #fbbf24,
-  "restaurant": #fb923c,
-  "shopping": #e879f9,
-  "bildung": #818cf8,
-  "einkommen": #34d399,
-  "sparen": #facc15,
-  "sonstiges": #94a3b8,
+  "wohnen": var(--cat-wohnen),
+  "lebensmittel": var(--cat-lebensmittel),
+  "transport": var(--cat-transport),
+  "versicherung": var(--cat-versicherung),
+  "telekom": var(--cat-telekom),
+  "gesundheit": var(--cat-gesundheit),
+  "freizeit": var(--cat-freizeit),
+  "restaurant": var(--cat-restaurant),
+  "shopping": var(--cat-shopping),
+  "bildung": var(--cat-bildung),
+  "einkommen": var(--cat-einkommen),
+  "sparen": var(--cat-sparen),
+  "sonstiges": var(--cat-sonstiges),
 );
+
+// --- Theme-Werte -------------------------------------------------------------
+// Dunkel (Default, dunkel-first). Flächen unterscheiden sich bewusst nur minimal
+// — Struktur entsteht über Linien, nicht über Kontrast. Auf dunklem Grund braucht
+// Grün mehr Helligkeit und weniger Sättigung, sonst flimmert es; Kategorie-Töne
+// sind 400er-Stufen.
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --c-bg: #0d141d;
+  --c-surface: #151e2a;
+  --c-surface-2: #1b2634;
+  --c-line: #253143;
+  --c-line-strong: #33425a;
+
+  --c-ink: #e8eef6;
+  --c-ink-2: #93a3b8;
+  --c-ink-3: #64748b;
+
+  --c-accent: #4f8ff7;
+  --c-accent-hover: #6ba0f9;
+  --c-accent-soft: #16263f;
+  --c-on-accent: #08111d;
+
+  --c-positive: #34d399;
+  --c-positive-soft: #10261f;
+  --c-negative: #f87171;
+  --c-negative-soft: #2a1618;
+  --c-warning: #fbbf24;
+  --c-warning-soft: #2a2113;
+
+  --cat-wohnen: #60a5fa;
+  --cat-lebensmittel: #4ade80;
+  --cat-transport: #38bdf8;
+  --cat-versicherung: #a78bfa;
+  --cat-telekom: #22d3ee;
+  --cat-gesundheit: #fb7185;
+  --cat-freizeit: #fbbf24;
+  --cat-restaurant: #fb923c;
+  --cat-shopping: #e879f9;
+  --cat-bildung: #818cf8;
+  --cat-einkommen: #34d399;
+  --cat-sparen: #facc15;
+  --cat-sonstiges: #94a3b8;
+}
+
+// Hell. Kein Invertieren: kühle, blaustichige helle Neutralen, Blau-Akzent auf
+// 600er abgedunkelt (trägt auf Weiss), Kategorie-Töne auf 500/600 abgedunkelt.
+// Struktur bleibt über Linien — die Flächen sind nah beieinander.
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --c-bg: #eef2f7;
+  --c-surface: #ffffff;
+  --c-surface-2: #f1f4f9;
+  --c-line: #e2e8f0;
+  --c-line-strong: #cbd5e1;
+
+  --c-ink: #0f1b2a;
+  --c-ink-2: #475569;
+  --c-ink-3: #64748b;
+
+  --c-accent: #2563eb;
+  --c-accent-hover: #1d4ed8;
+  --c-accent-soft: #e6edfd;
+  --c-on-accent: #ffffff;
+
+  --c-positive: #059669;
+  --c-positive-soft: #e3f6ee;
+  --c-negative: #dc2626;
+  --c-negative-soft: #fdecec;
+  --c-warning: #b45309;
+  --c-warning-soft: #fdf3d9;
+
+  --cat-wohnen: #2563eb;
+  --cat-lebensmittel: #16a34a;
+  --cat-transport: #0284c7;
+  --cat-versicherung: #7c3aed;
+  --cat-telekom: #0891b2;
+  --cat-gesundheit: #e11d48;
+  --cat-freizeit: #d97706;
+  --cat-restaurant: #ea580c;
+  --cat-shopping: #c026d3;
+  --cat-bildung: #4f46e5;
+  --cat-einkommen: #059669;
+  --cat-sparen: #ca8a04;
+  --cat-sonstiges: #64748b;
+}
 
 // Typografie-Skala — kompakt. Der Hero ist kleiner als bei A und B,
 // weil hier die Tabelle gleichberechtigt neben der Kennzahl steht.
@@ -110,7 +200,7 @@ $bp-desktop: 900px;
 
 html {
   -webkit-text-size-adjust: 100%;
-  color-scheme: dark;
+  // color-scheme wird pro Theme in den :root/[data-theme]-Blöcken gesetzt.
 }
 
 body {
@@ -638,7 +728,7 @@ a {
 
   &--primary {
     background: $c-accent;
-    color: #08111d;
+    color: $c-on-accent;
 
     &:hover {
       background: $c-accent-hover;
@@ -1113,5 +1203,36 @@ a {
     .card + .card {
       margin-top: 0;
     }
+  }
+}
+
+// -----------------------------------------------------------------------------
+// 6. Theme-Umschalter (Prototyp-Steuerung, nicht Teil des finalen UI)
+// -----------------------------------------------------------------------------
+// Fixed unten rechts — auf Mobile oberhalb der Tab-Bar, auf Desktop in der
+// freien unteren Ecke. Nutzt die Tokens, passt sich also selbst dem Theme an.
+.theme-toggle {
+  position: fixed;
+  right: $sp-4;
+  bottom: 4.5rem;
+  z-index: 100;
+  display: inline-flex;
+  align-items: center;
+  gap: $sp-2;
+  padding: $sp-2 $sp-3;
+  border: 1px solid $c-line-strong;
+  border-radius: $r-sm;
+  background: $c-surface;
+  color: $c-ink;
+  font-size: $fs-xs;
+  font-weight: 600;
+
+  @include desktop {
+    bottom: $sp-4;
+  }
+
+  &__icon {
+    font-size: $fs-md;
+    line-height: 1;
   }
 }

@@ -14,6 +14,16 @@ Screen, der beim Öffnen sofort eine einzige Zahl liefert und sonst nichts
 verlangt, hat die niedrigste Einstiegsschwelle. Es gibt keinen Zustand, in dem
 der Nutzer erst etwas suchen oder interpretieren muss.
 
+## Hell & Dunkel
+
+Diese Variante hat einen **Theme-Umschalter** (Button unten rechts, ☾/☀).
+Default ist **hell** — das ist A's nativer Look. Das Dunkel-Theme ist kein
+Invertieren: Flächen werden grünstichig-dunkel, der Teal-Akzent aufgehellt,
+damit er auf dunklem Grund trägt, und die Kategorie-Töne um eine Stufe angehoben
+(gedämpfte Farben verschwinden auf Dunkel). A's Ruhe und die Teal-Identität
+bleiben in beiden Modi. Die Farbwerte unten beschreiben das **helle** Theme; das
+dunkle steht als paralleles Token-Set in `styles.scss` (`[data-theme="dark"]`).
+
 ## Farbsystem
 
 | Rolle | Wert | Einsatz |

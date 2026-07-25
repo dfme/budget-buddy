@@ -22,6 +22,18 @@ Die Buchungen sind eine **echte `<table>`** mit Valuta-Spalte und
 Summenzeile — der Bezug zum Kontoauszug, aus dem die Daten stammen, bleibt
 sichtbar.
 
+## Hell & Dunkel
+
+Diese Variante hat einen **Theme-Umschalter** (Button unten rechts, ☀/☾).
+Default ist **dunkel** — C's nativer Look. Das **Light Theme ist jetzt real
+umgesetzt** (nicht mehr nur „ableitbar"): kühle, blaustichige helle Neutralen,
+der Blau-Akzent auf 600er abgedunkelt, damit er auf Weiss trägt, Kategorie-Töne
+auf 500/600. Entscheidend: C-hell behält die **dichte, seriöse Struktur**
+(Herleitung, Datentabelle, kantige Geometrie, Uppercase-Labels) — der „Pro"-
+Eindruck kommt also nicht allein vom dunklen Grund. Genau das lässt sich am
+Umschalter prüfen. Die Farbwerte unten beschreiben das **dunkle** Theme; das
+helle steht als paralleles Token-Set in `styles.scss` (`[data-theme="light"]`).
+
 ## Farbsystem
 
 Dunkel-first: Die Palette ist als Dark Theme entworfen, nicht aus einem hellen
@@ -164,11 +176,11 @@ ohne gegen das Framework zu arbeiten.
 | ✅ Zugänglichkeit | Bester Stand der drei Varianten — Fokus-Management, ARIA und Tastaturbedienung kommen mit |
 | ✅ Komplexe Widgets | Tabelle mit Sortierung/Paginierung ist ein Einzeiler statt eines Eigenbaus |
 | ✅ Konsistenz | Vom Framework erzwungen, nicht von der Disziplin des Teams abhängig |
-| ✅ Light Theme | Über dieselben Tokens ableitbar — Material-Theming liefert die Struktur dafür mit |
+| ✅ Light Theme | Im Prototyp bereits umgesetzt (Umschalter); Material-Theming liefert die Struktur dafür auch im Angular-Port |
 | ⚠️ Einarbeitung | Material-3-Theming in Angular 21 ist nicht trivial. Das kostet real 1–2 Tage, bevor die erste Komponente richtig aussieht |
 | ⚠️ Bundle | Grösste der drei Varianten. Bei einem Single JAR auf Render mit SPA in `BOOT-INF/static/` relevant, aber nicht kritisch |
 | ⚠️ Wiedererkennbarkeit | Geringste der drei — die App sieht kompetent aus, aber nicht eigen |
-| ⚠️ Dark-only | Ein reines Dark Theme schliesst Nutzer aus, die hell bevorzugen. Der Light-Mode ist ableitbar, aber **zusätzlicher Aufwand**, der im Entscheid eingeplant werden muss |
+| ⚠️ Zwei Themes pflegen | Mit dem umgesetzten Light-Mode entfällt der Dark-only-Nachteil, dafür müssen im Angular-Port **beide** Themes gepflegt werden (Tokens sind aber schon getrennt) |
 
 ## Wann diese Variante Sinn macht
 

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de-CH">
+<html lang="de-CH" data-theme="dark" data-theme-key="variant-c">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -8,6 +8,11 @@
   </head>
   <body>
     <div class="app">
+      <!-- Prototyp-Steuerung: schaltet zwischen dunklem und hellem Theme. -->
+      <button type="button" class="theme-toggle" data-theme-toggle>
+        <span class="theme-toggle__icon" data-theme-icon aria-hidden="true">☀</span>
+        <span data-theme-text>Hell</span>
+      </button>
       <!-- Mobile: Topbar. Desktop: durch die Sidebar ersetzt. -->
       <header class="topbar">
         <div class="topbar__brand">
@@ -278,5 +283,6 @@
          funktioniert zusätzlich offline über file://. Version 4.4.7, pinned. -->
     <script src="../vendor/chart.umd.min.js"></script>
     <script src="charts.js"></script>
+    <script src="theme.js"></script>
   </body>
 </html>

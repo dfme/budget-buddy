@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de-CH">
+<html lang="de-CH" data-theme="dark" data-theme-key="variant-c">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -8,6 +8,11 @@
   </head>
   <body>
     <div class="app">
+      <!-- Prototyp-Steuerung: schaltet zwischen dunklem und hellem Theme. -->
+      <button type="button" class="theme-toggle" data-theme-toggle>
+        <span class="theme-toggle__icon" data-theme-icon aria-hidden="true">☀</span>
+        <span data-theme-text>Hell</span>
+      </button>
       <header class="topbar">
         <div class="topbar__brand">
           <span class="topbar__mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><rect x="3.25" y="3.25" width="17.5" height="17.5" rx="1.5" pathLength="100" stroke="currentColor" stroke-width="2.5" stroke-dasharray="78 22"/><rect x="9.5" y="9.5" width="5" height="5" fill="currentColor"/></svg></span>
@@ -332,5 +337,6 @@
         </div>
       </main>
     </div>
+    <script src="theme.js"></script>
   </body>
 </html>

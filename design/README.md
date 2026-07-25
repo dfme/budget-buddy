@@ -32,6 +32,25 @@ mobile-first entworfen; die Desktop-Ansicht ist die Erweiterung, nicht der
 Ausgangspunkt. In den DevTools: Device Toolbar → iPhone SE (375px) oder
 Pixel (412px).
 
+### Hell/Dunkel-Umschalter (Varianten A und C)
+
+Nach dem Team-Voting (A und C gleichauf, B raus) tragen **A und C je einen
+Theme-Umschalter** — der Button unten rechts (☾/☀). Damit lässt sich die
+Diskussion „professioneller Eindruck = Dark Theme oder = Struktur?" am Objekt
+klären, statt sie zu vermuten:
+
+- **A** startet hell, **C** startet dunkel (der jeweils native Look).
+- Ein Klick zeigt dieselbe Variante im anderen Theme — inkl. Charts, die sich
+  mit umfärben.
+- So sind alle vier Felder vergleichbar: A-hell, A-dunkel, C-hell, C-dunkel.
+  C-**hell** zeigt, ob C's dichte, „seriöse" Struktur auch ohne den dunklen
+  Grund trägt; A-**dunkel**, ob A's Ruhe im Dark Theme professioneller wirkt.
+
+Technisch ist das ein echtes, produktionsnahes Theming: Farb-Tokens als CSS
+Custom Properties, umgeschaltet über `data-theme` auf `<html>`. Genau so würde
+es später im Angular-Frontend laufen. (Variante B hat keinen Umschalter — sie
+ist mit 0 Stimmen aus der Auswahl.)
+
 ### Alternativ lokal
 
 ```bash
@@ -155,11 +174,18 @@ design/
     transactions.html  Transaktionsliste
     styles.scss        Quelle — Tokens → Komponenten → Screens
     styles.css         kompiliert, eingecheckt (Browser können kein SCSS)
-    charts.js          Chart.js-Konfiguration
+    charts.js          Chart.js-Konfiguration (theme-fähig bei A und C)
+    theme.js           Hell/Dunkel-Umschalter (nur A und C)
     README.md          Designidee, Farb-/Typo-System, Komponenten-Ansatz
   vendor/
     chart.umd.min.js   Chart.js 4.4.7, lokal (von allen Varianten genutzt)
 ```
+
+Farb-Tokens liegen bei A und C als **CSS Custom Properties** (`--c-*`, `--cat-*`)
+in `:root` bzw. `[data-theme="…"]`. `theme.js` schaltet nur das `data-theme`-
+Attribut um und löst ein `themechange`-Event aus, auf das `charts.js` die
+Chart.js-Instanzen mit den neuen Token-Farben neu aufbaut (ein Canvas kennt
+keine CSS-Variablen). Variante B nutzt weiterhin reine Compile-Zeit-SCSS-Werte.
 
 **SCSS neu kompilieren** nach Änderungen an `styles.scss`:
 
@@ -215,3 +241,27 @@ Nach dem Entscheid:
 - [ ] Preview-Links oben von `feature/FE-UI-01-design-varianten` auf `main` umstellen
 - [ ] Folge-Issue für die Übertragung ins Angular-Frontend anlegen
       (Tokens nach `frontend/src/styles.scss`, Komponenten nach `frontend/src/app/shared/`)
+
+### Mögliche spätere Erweiterung: nutzerseitige Theme-Präferenz
+
+> **Status: offen, bewusst zurückgestellt** — kein Bestandteil dieses Issues.
+
+Der Hell/Dunkel-Umschalter in den Prototypen (A und C) ist reine
+**Review-Steuerung** und wird **nicht** ins Frontend übernommen (`theme.js` ist
+Wegwerf-Code). Falls das Team Nutzern später ein umschaltbares Theme anbieten
+will, gehört das in ein **eigenes Issue** — festgehalten, damit es nicht verloren
+geht:
+
+- **Abhängig vom Design-Entscheid:** nur sinnvoll, wenn „beide Themes
+  unterstützen" gewählt wird. Bei „nur hell" bzw. „nur dunkel" entfällt es.
+- **Scope-Gabelung** (bestimmt den Zuschnitt, im Issue offen zu lassen):
+  - *Client-only* — Präferenz in `localStorage` + `prefers-color-scheme` als
+    Default → reines Frontend-Issue.
+  - *Geräteübergreifend* — Präferenz im User-Profil (DB) → Frontend **und**
+    Backend, berührt US-14 (Einstellungen).
+- **Mehr als CSS:** Theme vor dem ersten Paint anwenden (kein Flash), OS-Default
+  respektieren, sinnvoller Ort im UI (Einstellungen).
+- **Voraussetzung schon jetzt sichern:** Das Fundament-Issue muss die
+  Token-Architektur **theme-fähig** anlegen (CSS Custom Properties + `data-theme`,
+  beide Themes als Sets — wie in diesen Prototypen), auch wenn die Umschalt-UI
+  vorerst weggelassen wird. Dann ist diese Erweiterung später billig.
