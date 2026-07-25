@@ -234,6 +234,47 @@ Fragen, die den Entscheid tragen sollten:
 3. **Elemente lassen sich kombinieren.** Die Safe-to-Spend-Herleitung aus C ist
    nicht an deren Look gebunden und wäre auch in A oder B sinnvoll.
 
+### Komponenten-Unterbau: Material vs. Custom SCSS (möglicher Tiebreaker)
+
+Die Komponenten-Frage ist mit der Varianten-Wahl gebündelt (A → Custom SCSS,
+C → Angular Material), aber die beiden Achsen — Optik und Unterbau — sind
+**trennbar**. Weil A und C gleichauf liegen, kann das den Ausschlag geben.
+
+| Faktor | Angular Material | Custom SCSS Design System |
+| --- | --- | --- |
+| Barrierefreiheit (Fokus-Falle, ARIA, Tastatur) | **Kommt mit** — v. a. für Dialog/Bottom-Sheet und Tabelle | Selbst zu bauen, schwer korrekt, leicht kaputt |
+| Komplexe Widgets (Tabelle mit Sortierung, Dialog, Select) | `MatTable`/`MatDialog`/`MatSelect` — quasi Einzeiler | Handarbeit — die dichte Tabelle ist das teuerste Stück |
+| Visuelle Kontrolle | Eingeschränkt — Material-DNA (Elevation, Ripple, Density) | Voll — nichts zu überschreiben |
+| Konsistenz | Framework-erzwungen | Team-Disziplin (3 Devs) |
+| Einarbeitung | Material-3-Theming real 1–2 Tage | Gering — Tokens/Basiskomponenten aus den Prototypen skizziert |
+| Bundle / Wiedererkennbarkeit | Grösser / „von der Stange" | Kleinstmöglich / eigener Look |
+
+**Zuordnung zu den Varianten:**
+
+- **C + Material ist kohärent.** C's Kern (Datentabelle + Dialoge) ist genau
+  Materials Stärke, und C's kantig-systemische Ästhetik kämpft nicht gegen
+  Material. Die Theming-Einarbeitung wird durch geschenkte Tabelle/Dialoge/a11y
+  aufgewogen.
+- **A + Custom SCSS ist kohärent.** Materials Look liefe A's Minimalismus
+  zuwider. A zahlt a11y/Widgets selbst — aber A's Screens sind weniger
+  Widget-lastig (luftige Liste statt dichter Tabelle), der Aufwand ist kleiner.
+
+**Dritte Option, die den A-Nachteil entschärft:** `@angular/cdk` **ohne**
+Materials Optik nehmen. CDK liefert die harten a11y-Primitiven (Overlay/Dialog,
+Fokus-Falle, Live-Announcer, `cdk-table`, Virtual Scroll) — für Variante A ideal:
+eigenen minimalen Look behalten, aber Korrektur-Dialog/Sheet (und evtl. die
+Tabelle) über CDK absichern statt von Hand.
+
+**Wie es einfliessen sollte:** nicht als primärer Treiber (die UX-Richtung führt),
+aber als Tiebreaker. Pro C, wenn Tabellen-/Dialog-Reichhaltigkeit + „a11y for
+free" zählen und die 1–2 Tage Material-Theming eingeplant sind. Pro A, wenn ein
+eigenständiger Look gewünscht ist — dann bewusst CDK für die a11y-harten Stellen.
+Kostenprofil beachten: Material-Einarbeitung ist **einmalig**, ein barrierefreier
+Dialog + Tabelle von Hand ist **wiederkehrender**, oft unterschätzter Aufwand.
+Nicht überankern an „wir haben ja schon die SCSS-Prototypen" — wiederverwendet
+werden in beiden Wegen vor allem die **Tokens**; Komponenten entstehen so oder so
+als Angular-Komponenten neu.
+
 Nach dem Entscheid:
 
 - [ ] Gewählte Variante im Issue #80 dokumentieren (mit Begründung)
