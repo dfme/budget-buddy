@@ -3,6 +3,10 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { Subscription } from 'rxjs';
 
+import { Badge } from '../shared/badge/badge';
+import { Card } from '../shared/card/card';
+import { CATEGORIES } from '../shared/category';
+import { MonthNav } from '../shared/month-nav/month-nav';
 import { CategorySummary } from './category-summary.model';
 import { TransactionSummaryService } from './transaction-summary.service';
 
@@ -18,12 +22,15 @@ import { TransactionSummaryService } from './transaction-summary.service';
  */
 @Component({
   selector: 'app-category-overview',
-  imports: [CurrencyPipe, DecimalPipe],
+  imports: [CurrencyPipe, DecimalPipe, MonthNav, Card, Badge],
   templateUrl: './category-overview.html',
   styleUrl: './category-overview.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CategoryOverview {
+  /** Deutsches Label → Kategorie-Slug, um aus der API-Antwort das `app-badge`-Token zu treffen. */
+  private static readonly SLUG_BY_LABEL = new Map(CATEGORIES.map((c) => [c.label, c.slug]));
+
   private readonly summaryService = inject(TransactionSummaryService);
 
   /** Aktuell angezeigter Monat im Format `YYYY-MM`. */
@@ -67,6 +74,14 @@ export class CategoryOverview {
   nextMonth(): void {
     this.month.set(CategoryOverview.shiftMonth(this.month(), 1));
     this.load();
+  }
+
+  /**
+   * Kategorie-Slug (z. B. `"wohnen"`) zum deutschen Label aus der API-Antwort, damit das
+   * `app-badge` die passende `--cat-<slug>`-Farbe zieht. Unbekannte Labels → neutraler Punkt.
+   */
+  categorySlug(label: string): string | undefined {
+    return CategoryOverview.SLUG_BY_LABEL.get(label);
   }
 
   private load(): void {

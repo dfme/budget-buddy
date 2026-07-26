@@ -1,0 +1,5 @@
+<label class="field__label" [for]="inputId()">{{ label() }}</label>
+<ng-content />
+@if (error(); as message) {
+  <p class="field__error" role="alert">{{ message }}</p>
+}

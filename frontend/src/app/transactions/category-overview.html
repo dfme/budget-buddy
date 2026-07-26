@@ -1,19 +1,13 @@
 <section class="category-overview">
   <h1>Kategorie-Übersicht</h1>
 
-  <div class="month-selector">
-    <button type="button" class="nav" (click)="previousMonth()" aria-label="Vorheriger Monat">‹</button>
-    <span class="month-label">{{ monthLabel() }}</span>
-    <button
-      type="button"
-      class="nav"
-      (click)="nextMonth()"
-      [disabled]="isCurrentMonth()"
-      aria-label="Nächster Monat"
-    >
-      ›
-    </button>
-  </div>
+  <app-month-nav
+    class="month-selector"
+    [label]="monthLabel()"
+    [disableNext]="isCurrentMonth()"
+    (prev)="previousMonth()"
+    (next)="nextMonth()"
+  />
 
   @if (loading()) {
     <p class="status">Lädt …</p>
@@ -22,33 +16,35 @@
   } @else if (isEmpty()) {
     <p class="status empty">Keine Ausgaben in diesem Monat.</p>
   } @else if (summary(); as data) {
-    <table>
-      <thead>
-        <tr>
-          <th scope="col">Kategorie</th>
-          <th scope="col" class="numeric">Summe</th>
-          <th scope="col" class="numeric">Anzahl</th>
-          <th scope="col" class="numeric">Anteil</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (item of data.categories; track item.category) {
+    <app-card>
+      <table>
+        <thead>
           <tr>
-            <td>{{ item.category }}</td>
-            <td class="numeric">{{ item.amount | currency: 'CHF' : 'symbol' : '1.2-2' }}</td>
-            <td class="numeric">{{ item.count }}</td>
-            <td class="numeric">{{ item.percentage | number: '1.2-2' }}%</td>
+            <th scope="col">Kategorie</th>
+            <th scope="col" class="numeric">Summe</th>
+            <th scope="col" class="numeric">Anzahl</th>
+            <th scope="col" class="numeric">Anteil</th>
           </tr>
-        }
-      </tbody>
-      <tfoot>
-        <tr>
-          <th scope="row">Total</th>
-          <td class="numeric">{{ data.totalAmount | currency: 'CHF' : 'symbol' : '1.2-2' }}</td>
-          <td class="numeric">{{ data.totalCount }}</td>
-          <td class="numeric">100%</td>
-        </tr>
-      </tfoot>
-    </table>
+        </thead>
+        <tbody>
+          @for (item of data.categories; track item.category) {
+            <tr>
+              <td><app-badge [category]="categorySlug(item.category)" [label]="item.category" /></td>
+              <td class="numeric">{{ item.amount | currency: 'CHF' : 'symbol' : '1.2-2' }}</td>
+              <td class="numeric">{{ item.count }}</td>
+              <td class="numeric">{{ item.percentage | number: '1.2-2' }}%</td>
+            </tr>
+          }
+        </tbody>
+        <tfoot>
+          <tr>
+            <th scope="row">Total</th>
+            <td class="numeric">{{ data.totalAmount | currency: 'CHF' : 'symbol' : '1.2-2' }}</td>
+            <td class="numeric">{{ data.totalCount }}</td>
+            <td class="numeric">100%</td>
+          </tr>
+        </tfoot>
+      </table>
+    </app-card>
   }
 </section>

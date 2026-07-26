@@ -7,6 +7,8 @@ import { Badge } from '../shared/badge/badge';
 import { Button } from '../shared/button/button';
 import { Card } from '../shared/card/card';
 import { Chip } from '../shared/chip/chip';
+import { Field } from '../shared/field/field';
+import { Input } from '../shared/input/input';
 import { Meter } from '../shared/meter/meter';
 import { MonthNav } from '../shared/month-nav/month-nav';
 import { Notice } from '../shared/notice/notice';
@@ -21,7 +23,7 @@ import { Segment, SegmentOption } from '../shared/segment/segment';
  */
 @Component({
   selector: 'app-styleguide',
-  imports: [Amount, Badge, Button, Card, Chip, Meter, MonthNav, Notice, Segment],
+  imports: [Amount, Badge, Button, Card, Chip, Field, Input, Meter, MonthNav, Notice, Segment],
   templateUrl: './styleguide.html',
   styleUrl: './styleguide.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
