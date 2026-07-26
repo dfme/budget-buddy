@@ -25,6 +25,7 @@ Diese Dokumentation hält die **wichtigsten Architektur-Entscheidungen** für Bu
 | **ADR-8**  | [Apache PDFBox 3.x für PDF-Verarbeitung](ADR-8-apache-pdfbox.md)                   | ✅ Accepted | PDF-Import                 |
 | **ADR-9**  | [BigDecimal für Geldbeträge](ADR-9-bigdecimal-money.md)                            | ✅ Accepted | Money Calculations         |
 | **ADR-10** | [Hosting-Plattform und Deployment-Strategie](ADR-10-hosting-plattform.md)          | ✅ Accepted | Deployment & Hosting       |
+| **ADR-11** | [UI-Design-Richtung «Klarheit» (Variante A)](ADR-11-ui-design-system.md)           | ✅ Accepted | Frontend UI / Design-System |
 
 ---
 
@@ -49,6 +50,10 @@ Diese Dokumentation hält die **wichtigsten Architektur-Entscheidungen** für Bu
 
 - **ADR-3:** REST API (statt GraphQL)
 - **ADR-6:** Hybrid Kategorisierung (Lookup + Claude API)
+
+### Frontend UI / Design
+
+- **ADR-11:** UI-Design-Richtung «Klarheit» (Variante A); Komponenten-Unterbau offen (FE-UI-02)
 
 ---
 
@@ -243,5 +248,5 @@ Falls Fragen zu einer Entscheidung oder Anpassungsbedarf:
 
 ---
 
-**Zuletzt aktualisiert:** 2026-05-27  
+**Zuletzt aktualisiert:** 2026-07-25  
 **Maintainer:** BudgetBuddy Team
