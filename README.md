@@ -4,6 +4,60 @@ BudgetBuddy ist eine Web-App für in der Schweiz wohnhafte Studenten und Berufse
 
 Weitere Details zu Projektidee, Personas, Architektur und Tech-Stack: siehe [CLAUDE.md](CLAUDE.md).
 
+## Lokal starten (Dev)
+
+**Voraussetzungen:** Java 25 (JDK), Node.js 20+ mit npm. Maven kommt über den
+Wrapper (`./mvnw`) mit, Angular CLI über `npx` — global muss nichts installiert sein.
+
+Frontend und Backend laufen im Dev-Betrieb als **zwei getrennte Prozesse**. Die SPA
+ruft ihre API relativ auf; ein Angular-Dev-Proxy (`frontend/proxy.conf.json`) leitet
+diese Pfade an das Backend auf `:8080` weiter — der Browser bleibt same-origin auf
+`:4200`, das httpOnly-JWT-Cookie kommt korrekt zurück und es ist keine
+CORS-Konfiguration nötig.
+
+```bash
+# Terminal 1 — Backend auf :8080
+cd backend
+export JWT_SECRET="$(openssl rand -base64 48)"   # Pflicht: sonst Fail-fast beim Start
+./mvnw spring-boot:run
+```
+
+```bash
+# Terminal 2 — Frontend Dev-Server auf :4200
+cd frontend
+npm install        # nur beim ersten Mal bzw. nach Dependency-Änderungen
+npx ng serve
+```
+
+Danach die App unter **http://localhost:4200/** öffnen.
+
+- **`ANTHROPIC_API_KEY` ist lokal optional** — ohne Key startet alles normal, unbekannte
+  Transaktionen werden als `Sonstiges` kategorisiert (BE-CAT-02). Man kann also ohne
+  Anthropic-Account entwickeln.
+- Windows (PowerShell) statt `export`: `$env:JWT_SECRET = "<secret>"`.
+
+Details zu den Umgebungsvariablen und zum Beschaffen des API-Keys: siehe
+[`backend/README.md`](backend/README.md). Mehr zum Dev-Proxy und den Frontend-Befehlen
+(Tests, Build): siehe [`frontend/README.md`](frontend/README.md).
+
+### VS Code: Ein-Knopf-Start & Debugging
+
+Für VS Code liegen fertige Konfigurationen unter [`.vscode/`](.vscode/) im Repo — kein
+manuelles Setup nötig.
+
+**Starten (ohne Debugger):** `Cmd+Shift+B` (macOS) bzw. `Ctrl+Shift+B` startet die Task
+_Dev: Full Stack_ — Backend und Frontend parallel, jeweils im eigenen Terminal. Das
+`JWT_SECRET` wird dabei automatisch als Wegwerf-Wert generiert; es ist kein Setup nötig.
+Alternativ: `Cmd+Shift+P` → _Tasks: Run Task_ → _Dev: Full Stack_.
+
+**Debuggen (mit Breakpoints):** Im _Run and Debug_-Panel (`Cmd+Shift+D`) die Compound
+_Debug: Full Stack_ wählen und `F5` drücken — startet das Backend mit Java-Breakpoints und
+das Frontend im Chrome-Debugger. `Cmd+F5` startet dieselbe Config ohne Debugger.
+Voraussetzungen: das **Extension Pack for Java** ist installiert, und `JWT_SECRET` ist in
+der Umgebung gesetzt (Launch-Configs generieren — anders als die Task — kein Secret; einmalig
+z. B. in `~/.zshrc`: `export JWT_SECRET="$(openssl rand -base64 48)"`, dann VS Code neu
+starten).
+
 ## Environment Variables
 
 Secrets werden ausschliesslich über die Umgebung übergeben — **niemals** im
