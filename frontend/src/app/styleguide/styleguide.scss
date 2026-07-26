@@ -1,0 +1,64 @@
+@use 'tokens' as *;
+
+:host {
+  display: block;
+}
+
+.styleguide {
+  max-width: 40rem;
+  margin: 0 auto;
+}
+
+.sg-topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: $sp-3;
+}
+
+.page-title {
+  font-size: $fs-xl;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-bottom: $sp-1;
+}
+
+.page-sub {
+  font-size: $fs-sm;
+  color: $c-ink-2;
+  margin-bottom: $sp-5;
+}
+
+// Abschnittsüberschrift über jeder Komponenten-Gruppe.
+.sg-label {
+  margin: $sp-6 0 $sp-3;
+  font-size: $fs-xs;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: $c-ink-3;
+}
+
+.sg-row {
+  display: flex;
+  align-items: center;
+  gap: $sp-3;
+
+  &--wrap {
+    flex-wrap: wrap;
+  }
+
+  & + & {
+    margin-top: $sp-3;
+  }
+}
+
+.sg-stack {
+  display: grid;
+  gap: $sp-3;
+}
+
+.sg-note {
+  margin-top: $sp-2;
+  font-size: $fs-xs;
+  color: $c-ink-3;
+}

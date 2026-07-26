@@ -1,0 +1,23 @@
+@use 'tokens' as *;
+
+:host {
+  @include tabular;
+
+  font-weight: 600;
+}
+
+// Negativ trägt die Farbe der ruhigen Tinte — das Minuszeichen macht die Richtung
+// klar, nicht ein Alarm-Rot. Positiv hebt sich im Akzent ab.
+:host(.amount--positive) {
+  color: $c-positive;
+}
+
+:host(.amount--negative) {
+  color: $c-ink;
+}
+
+.amount__currency {
+  margin-right: $sp-1;
+  font-weight: 500;
+  color: $c-ink-2;
+}

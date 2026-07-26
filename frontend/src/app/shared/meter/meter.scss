@@ -1,0 +1,30 @@
+@use 'tokens' as *;
+
+:host {
+  display: block;
+}
+
+.meter__track {
+  height: 6px;
+  border-radius: $r-pill;
+  background: $c-bg-subtle;
+  overflow: hidden;
+}
+
+.meter__fill {
+  height: 100%;
+  border-radius: $r-pill;
+  background: $c-accent;
+}
+
+.meter__track--negative .meter__fill {
+  background: $c-negative;
+}
+
+.meter__legend {
+  display: flex;
+  justify-content: space-between;
+  margin-top: $sp-2;
+  font-size: $fs-xs;
+  color: $c-ink-3;
+}

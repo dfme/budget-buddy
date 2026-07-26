@@ -1,0 +1,17 @@
+<div
+  class="meter__track"
+  [class.meter__track--negative]="variant() === 'negative'"
+  role="progressbar"
+  [attr.aria-valuenow]="clamped()"
+  aria-valuemin="0"
+  aria-valuemax="100"
+  [attr.aria-label]="ariaLabel()"
+>
+  <div class="meter__fill" [style.width.%]="clamped()"></div>
+</div>
+@if (labelStart() || labelEnd()) {
+  <div class="meter__legend">
+    <span>{{ labelStart() }}</span>
+    <span>{{ labelEnd() }}</span>
+  </div>
+}

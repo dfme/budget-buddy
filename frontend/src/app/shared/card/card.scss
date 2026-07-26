@@ -1,0 +1,29 @@
+@use 'tokens' as *;
+
+:host {
+  display: block;
+  background: $c-surface;
+  border: 1px solid $c-line;
+  border-radius: $r-md;
+  padding: $sp-5;
+  box-shadow: $shadow-card;
+}
+
+.card__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: $sp-3;
+  margin-bottom: $sp-4;
+}
+
+.card__title {
+  font-size: $fs-lg;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.card__meta {
+  font-size: $fs-xs;
+  color: $c-ink-3;
+}
