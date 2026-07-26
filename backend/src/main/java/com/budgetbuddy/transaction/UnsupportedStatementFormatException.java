@@ -9,6 +9,10 @@ package com.budgetbuddy.transaction;
  * ein stiller Fehlschlag beim ersten PDF-Upload ist Churn-Risiko #1. Der Aufrufer übersetzt
  * sie in die nutzerseitige Meldung „Dieses Kontoauszug-Format können wir noch nicht lesen".
  *
+ * <p>Bewusst <em>nicht</em> geworfen, wenn das Format erkannt wurde (Kopfzeilen-Signatur oder
+ * Saldovortrag-/Anfangssaldo-Zeile), der Auszug aber schlicht keine Buchung enthält — ein
+ * Konto ohne Bewegung ist ein erfolgreicher Import mit 0 Transaktionen (BE-PDF-05).
+ *
  * <p>Subklasse von {@link PdfParseException}, damit bestehende Aufrufer-Verträge gültig
  * bleiben und der Upload-Endpoint (BE-PDF-03) per Subtyp differenzieren kann.
  */

@@ -75,8 +75,10 @@ public class PdfImportService {
      *
      * @param userId ID des eingeloggten Users (aus dem JWT).
      * @param pdfBytes vollständiger Inhalt der PDF-Datei; wird nicht persistiert.
-     * @return Hash und Anzahl der importierten Transaktionen (nie 0 — ein PDF ohne erkannte
-     *     Buchung wirft im Parser, BE-PDF-04).
+     * @return Hash und Anzahl der importierten Transaktionen. 0 nur bei erkanntem Format ohne
+     *     Buchungen (Konto ohne Bewegung, BE-PDF-05) — dann wird nichts persistiert und ein
+     *     erneuter Upload desselben PDFs gilt nicht als Duplikat. Ein PDF ohne erkennbares
+     *     Format wirft im Parser (BE-PDF-04).
      * @throws DuplicatePdfImportException wenn dieser User dasselbe PDF bereits importiert hat.
      * @throws PdfImportTimeoutException wenn das Zeitbudget überschritten wurde.
      * @throws PasswordProtectedPdfException wenn das PDF verschlüsselt ist.

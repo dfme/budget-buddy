@@ -124,21 +124,22 @@ class PdfImportControllerIntegrationTest {
         }
     }
 
+    /** Erzeugt ein unverschlüsseltes Text-PDF mit den gegebenen Zeilen (PDFBox 3.x). */
+    private static byte[] pdfWithLines(List<String> lines) {
+        try (PDDocument document = new PDDocument()) {
+            writeLines(document, lines);
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            document.save(out);
+            return out.toByteArray();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
     /** Erzeugt ein AES-128-verschlüsseltes PDF (PDFBox 3.x) — analog SwissBankStatementParserTest. */
     private static byte[] passwordProtectedPdf() {
         try (PDDocument document = new PDDocument()) {
-            PDPage page = new PDPage(PDRectangle.A4);
-            document.addPage(page);
-            try (PDPageContentStream content = new PDPageContentStream(document, page)) {
-                content.beginText();
-                content.setFont(new PDType1Font(FontName.HELVETICA), 10);
-                content.newLineAtOffset(50, 780);
-                for (String line : List.of("Kontoauszug", "03.07.2026 MIGROS BERN 45.60 954.40")) {
-                    content.showText(line);
-                    content.newLineAtOffset(0, -14);
-                }
-                content.endText();
-            }
+            writeLines(document, List.of("Kontoauszug", "03.07.2026 MIGROS BERN 45.60 954.40"));
             StandardProtectionPolicy policy =
                     new StandardProtectionPolicy("owner-pw", "user-pw", new AccessPermission());
             policy.setEncryptionKeyLength(128);
@@ -151,6 +152,21 @@ class PdfImportControllerIntegrationTest {
         }
     }
 
+    private static void writeLines(PDDocument document, List<String> lines) throws IOException {
+        PDPage page = new PDPage(PDRectangle.A4);
+        document.addPage(page);
+        try (PDPageContentStream content = new PDPageContentStream(document, page)) {
+            content.beginText();
+            content.setFont(new PDType1Font(FontName.HELVETICA), 10);
+            content.newLineAtOffset(50, 780);
+            for (String line : lines) {
+                content.showText(line);
+                content.newLineAtOffset(0, -14);
+            }
+            content.endText();
+        }
+    }
+
     @Test
     void validPdfReturns200WithTransactionCount() throws Exception {
         mockMvc.perform(multipart("/import/pdf").file(pdfPart(fixture())).cookie(jwtCookie(userId)))
@@ -159,6 +175,23 @@ class PdfImportControllerIntegrationTest {
 
         // Kreuzprobe: die 28 Transaktionen sind auch wirklich persistiert.
         assertThat(transactionRepository.count()).isEqualTo(28);
+    }
+
+    @Test
+    void recognizedStatementWithoutBookingsReturns200WithCountZero() throws Exception {
+        // BE-PDF-05 (#95): Format erkannt (Saldovortrag-Zeile), aber keine Buchung — Konto ohne
+        // Bewegung. Erfolg mit count=0 statt 400 "Format nicht unterstützt" (Team-Entscheid).
+        byte[] emptyStatement = pdfWithLines(List.of(
+                "Kontoauszug Maerz 2024",
+                "Saldovortrag 1'000.00",
+                "Schlusssaldo 1'000.00"));
+
+        mockMvc.perform(multipart("/import/pdf")
+                        .file(pdfPart(emptyStatement)).cookie(jwtCookie(userId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.count").value(0));
+
+        assertThat(transactionRepository.count()).isZero();
     }
 
     @Test
