@@ -1,0 +1,26 @@
+@use 'tokens' as *;
+
+.segment {
+  display: flex;
+  gap: $sp-1;
+  padding: $sp-1;
+  border-radius: $r-md;
+  background: $c-bg-subtle;
+}
+
+.segment__item {
+  flex: 1;
+  padding: $sp-2;
+  border: none;
+  border-radius: $r-sm;
+  background: transparent;
+  font-size: $fs-sm;
+  color: $c-ink-2;
+
+  &--active {
+    background: $c-surface;
+    color: $c-ink;
+    font-weight: 600;
+    box-shadow: $shadow-card;
+  }
+}

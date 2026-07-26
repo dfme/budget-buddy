@@ -1,0 +1,16 @@
+@use 'tokens' as *;
+
+:host {
+  display: flex;
+  gap: $sp-3;
+  padding: $sp-3 $sp-4;
+  border-radius: $r-md;
+  font-size: $fs-sm;
+  background: $c-warning-soft;
+  color: $c-warning;
+}
+
+:host(.notice--info) {
+  background: $c-accent-soft;
+  color: $c-accent;
+}

@@ -1,0 +1,84 @@
+<section class="styleguide">
+  <div class="sg-topbar">
+    <div>
+      <h1 class="page-title">Styleguide</h1>
+      <p class="page-sub">Dev-only Übersicht der Shared-Basiskomponenten (FE-UI-03).</p>
+    </div>
+    <!-- Dev-only Theme-Umschalter: setzt data-theme auf <html>. Keine Nutzer-UI -->
+    <!-- (die Theme-Präferenz ist zurückgestellt), nur ein Review-Helfer. -->
+    <button
+      appButton
+      variant="ghost"
+      type="button"
+      (click)="toggleTheme()"
+      [attr.aria-pressed]="theme() === 'dark'"
+    >
+      {{ theme() === 'dark' ? '☀︎ Hell' : '☾ Dunkel' }}
+    </button>
+  </div>
+
+  <h2 class="sg-label">Button</h2>
+  <div class="sg-row">
+    <button appButton>Primary</button>
+    <button appButton variant="ghost">Ghost</button>
+    <button appButton disabled>Disabled</button>
+  </div>
+  <div class="sg-row">
+    <button appButton block>Block</button>
+  </div>
+
+  <h2 class="sg-label">Card</h2>
+  <app-card title="Ausgaben nach Kategorie" meta="Juli 2026">
+    <p>Inhalt der Karte — beliebig projizierbar.</p>
+  </app-card>
+
+  <h2 class="sg-label">Badge (13 Kategorien)</h2>
+  <div class="sg-row sg-row--wrap">
+    @for (cat of categories; track cat.slug) {
+      <app-badge [category]="cat.slug" [label]="cat.label" />
+    }
+  </div>
+
+  <h2 class="sg-label">Amount</h2>
+  <div class="sg-row">
+    <app-amount [value]="1234.5" />
+    <app-amount [value]="-980" />
+    <app-amount [value]="0" />
+    <app-amount [value]="3200" [showCurrency]="true" />
+  </div>
+
+  <h2 class="sg-label">Segment</h2>
+  <app-segment [options]="segmentOptions" [(value)]="segmentValue" ariaLabel="Filter" />
+  <p class="sg-note">Gewählt: {{ segmentValue() }}</p>
+
+  <h2 class="sg-label">Month-Nav</h2>
+  <app-month-nav
+    [label]="monthLabel()"
+    [disablePrev]="monthIndex() === 0"
+    [disableNext]="monthIndex() === 2"
+    (prev)="prevMonth()"
+    (next)="nextMonth()"
+  />
+
+  <h2 class="sg-label">Notice</h2>
+  <div class="sg-stack">
+    <app-notice>Diese Buchung ist unsicher kategorisiert.</app-notice>
+    <app-notice variant="info">Dein Kontoauszug wurde importiert.</app-notice>
+  </div>
+
+  <h2 class="sg-label">Chip</h2>
+  <div class="sg-row sg-row--wrap">
+    <button appChip [selected]="chipSelected()" (click)="chipSelected.set(true)">
+      Lebensmittel
+    </button>
+    <button appChip [selected]="!chipSelected()" (click)="chipSelected.set(false)">
+      Transport
+    </button>
+  </div>
+
+  <h2 class="sg-label">Meter</h2>
+  <div class="sg-stack">
+    <app-meter [value]="50" labelStart="Woche 2" labelEnd="von 4" ariaLabel="Woche im Monat" />
+    <app-meter [value]="120" variant="negative" ariaLabel="Budget überschritten" />
+  </div>
+</section>

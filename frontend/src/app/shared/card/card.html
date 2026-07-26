@@ -1,0 +1,12 @@
+@if (title() || meta()) {
+  <div class="card__head">
+    @if (title()) {
+      <h2 class="card__title">{{ title() }}</h2>
+    }
+    <ng-content select="[card-actions]" />
+    @if (meta()) {
+      <span class="card__meta">{{ meta() }}</span>
+    }
+  </div>
+}
+<ng-content />

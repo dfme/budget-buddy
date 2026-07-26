@@ -1,0 +1,21 @@
+<div class="month-nav">
+  <button
+    type="button"
+    class="month-nav__btn"
+    [disabled]="disablePrev()"
+    (click)="prev.emit()"
+    aria-label="Vorheriger Monat"
+  >
+    ‹
+  </button>
+  <span class="month-nav__label">{{ label() }}</span>
+  <button
+    type="button"
+    class="month-nav__btn"
+    [disabled]="disableNext()"
+    (click)="next.emit()"
+    aria-label="Nächster Monat"
+  >
+    ›
+  </button>
+</div>

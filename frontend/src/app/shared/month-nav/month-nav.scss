@@ -1,0 +1,27 @@
+@use 'tokens' as *;
+
+.month-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $sp-3;
+}
+
+.month-nav__label {
+  font-size: $fs-md;
+  font-weight: 600;
+}
+
+.month-nav__btn {
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid $c-line-strong;
+  border-radius: $r-md;
+  background: $c-surface;
+  line-height: 1;
+
+  &[disabled] {
+    color: $c-ink-3;
+    cursor: not-allowed;
+  }
+}

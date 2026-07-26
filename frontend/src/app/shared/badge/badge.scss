@@ -1,0 +1,35 @@
+@use 'tokens' as *;
+
+:host {
+  display: inline-flex;
+  align-items: center;
+  gap: $sp-2;
+  padding: $sp-1 $sp-3;
+  border-radius: $r-pill;
+  font-size: $fs-xs;
+  font-weight: 500;
+  white-space: nowrap;
+  background: $c-bg-subtle;
+  color: $c-ink-2;
+}
+
+.badge__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  flex: none;
+  border-radius: $r-pill;
+  // Fallback für unbekannte/fehlende Kategorie.
+  background: $c-ink-3;
+}
+
+// Einzige Quelle der Kategorie-Farben: die $categories-Map (→ --cat-<slug>-Tokens).
+// Ein Regelpaar pro Kategorie, generiert statt dupliziert.
+@each $name, $color in $categories {
+  :host([data-cat='#{$name}']) {
+    color: $color;
+  }
+
+  :host([data-cat='#{$name}']) .badge__dot {
+    background: $color;
+  }
+}

@@ -1,0 +1,18 @@
+@use 'tokens' as *;
+
+:host {
+  display: inline-flex;
+  align-items: center;
+  padding: $sp-2 $sp-3;
+  border: 1px solid $c-line-strong;
+  border-radius: $r-pill;
+  background: $c-surface;
+  font-size: $fs-xs;
+}
+
+:host(.chip--selected) {
+  border-color: $c-accent;
+  background: $c-accent-soft;
+  color: $c-accent;
+  font-weight: 600;
+}
