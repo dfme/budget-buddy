@@ -291,6 +291,47 @@ class SwissBankStatementParserTest {
   }
 
   @Test
+  void parse_genericStatementWithSaldovortragButNoBookings_returnsEmptyList() {
+    // BE-PDF-05 (#95): Format erkannt (Saldovortrag-Zeile), aber keine einzige Buchung —
+    // ein Konto ohne Bewegung im Monat. Das ist ein Erfolg mit 0 Transaktionen, kein
+    // nicht unterstütztes Format.
+    byte[] pdf =
+        pdfWithLines(
+            List.of(
+                "Kontoauszug Maerz 2024",
+                "Saldovortrag 1'000.00",
+                "Schlusssaldo 1'000.00"));
+
+    assertThat(parser.parse(pdf)).isEmpty();
+  }
+
+  @Test
+  void parse_genericStatementWithAnfangssaldoButNoBookings_returnsEmptyList() {
+    // BE-PDF-05: auch eine Anfangssaldo-Zeile ist ein positives Format-Signal.
+    byte[] pdf =
+        pdfWithLines(
+            List.of(
+                "Kontoauszug April 2024",
+                "Anfangssaldo 250.00",
+                "Schlusssaldo 250.00"));
+
+    assertThat(parser.parse(pdf)).isEmpty();
+  }
+
+  @Test
+  void parse_headerSignatureStatementWithoutBookings_returnsEmptyList() {
+    // BE-PDF-05: Kopfzeilen-Signatur (PostFinance) erkannt, keine Buchungen — kein Fehler.
+    byte[] pdf =
+        pdfWithLines(
+            List.of(
+                "PostFinance AG",
+                "Kontoauszug Maerz 2024",
+                "Kontostand 1'000.00"));
+
+    assertThat(parser.parse(pdf)).isEmpty();
+  }
+
+  @Test
   void parse_pdfWithoutTextLayer_throwsMissingTextLayerException() {
     // Gescanntes PDF: Seite vorhanden, aber kein extrahierbarer Text. Muss vom unbekannten
     // Layout unterscheidbar sein — die Nutzermeldung ist eine andere ("bitte aus dem

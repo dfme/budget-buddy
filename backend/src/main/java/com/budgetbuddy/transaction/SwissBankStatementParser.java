@@ -157,11 +157,12 @@ public class SwissBankStatementParser {
    * Parst alle Transaktionen aus den PDF-Bytes.
    *
    * @param pdfBytes vollständiger Inhalt der PDF-Datei.
-   * @return die extrahierten Transaktionen — nie leer.
+   * @return die extrahierten Transaktionen — leer nur, wenn das Format erkannt wurde, der
+   *     Auszug aber keine Buchung enthält (Konto ohne Bewegung, BE-PDF-05).
    * @throws PasswordProtectedPdfException wenn das PDF verschlüsselt ist.
    * @throws MissingTextLayerException wenn das PDF keinen Textlayer enthält (Scan).
-   * @throws UnsupportedStatementFormatException wenn das PDF Text enthält, daraus aber keine
-   *     Buchungszeile erkannt wurde.
+   * @throws UnsupportedStatementFormatException wenn das PDF Text enthält, daraus aber weder
+   *     eine Buchungszeile noch eine Format-Signatur erkannt wurde.
    * @throws PdfParseException wenn das PDF nicht gelesen werden kann.
    */
   public List<ParsedTransaction> parse(byte[] pdfBytes) {
@@ -171,9 +172,10 @@ public class SwissBankStatementParser {
     if (pages.stream().allMatch(List::isEmpty)) {
       throw new MissingTextLayerException();
     }
+    Format format = detectFormat(pages);
     List<ParsedTransaction> transactions;
     try {
-      transactions = switch (detectFormat(pages)) {
+      transactions = switch (format) {
         case VISECA -> parseViseca(pages);
         case POSTFINANCE -> parsePostFinance(pages);
         case UBS -> parseUbs(pages);
@@ -183,12 +185,31 @@ public class SwissBankStatementParser {
       // Kalendarisch ungültiges Datum (z. B. 32.01.) hat die Datums-Regex passiert.
       throw new PdfParseException("PDF enthält ein ungültiges Datum: " + e.getParsedString(), e);
     }
-    // Text vorhanden, aber keine einzige Buchung erkannt: Layout wird nicht unterstützt. Ohne
-    // Exception sähe das für den User wie "Upload erfolgreich, 0 Transaktionen" aus (#83).
-    if (transactions.isEmpty()) {
+    // Text vorhanden, aber keine einzige Buchung erkannt: Ohne positives Format-Signal ist das
+    // ein nicht unterstütztes Layout — ohne Exception sähe es für den User wie "Upload
+    // erfolgreich, 0 Transaktionen" aus (#83). MIT erkannter Signatur ist es ein gültiger
+    // Auszug ohne Kontobewegung: Erfolg mit leerer Liste (BE-PDF-05, #95).
+    if (transactions.isEmpty() && !hasFormatSignature(format, pages)) {
       throw new UnsupportedStatementFormatException();
     }
     return transactions;
+  }
+
+  /**
+   * Positives Format-Signal eines Auszugs ohne erkannte Buchung (BE-PDF-05): Ein per
+   * Kopfzeilen-Schlüsselwort erkanntes Layout (Viseca/PostFinance/UBS) zählt immer; das
+   * generische Layout ist nur ein Fallback und zählt erst mit einer Saldovortrag- oder
+   * Anfangssaldo-Zeile als erkannt.
+   */
+  private static boolean hasFormatSignature(Format format, List<List<String>> pages) {
+    if (format != Format.GENERIC) {
+      return true;
+    }
+    return pages.stream()
+        .flatMap(List::stream)
+        .anyMatch(
+            line ->
+                SALDOVORTRAG.matcher(line).find() || UBS_ANFANGSSALDO.matcher(line).matches());
   }
 
   private enum Format {
