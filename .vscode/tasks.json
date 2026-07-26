@@ -1,0 +1,70 @@
+{
+  // VS-Code-Pendant zu IntelliJ "Run Configurations".
+  //
+  // "Dev: Full Stack" startet Backend (:8080) und Frontend (:4200) parallel und ist
+  // als Default-Build-Task hinterlegt → Cmd+Shift+B (macOS) / Ctrl+Shift+B startet
+  // beide auf einen Schlag. Alternativ: Cmd+Shift+P → "Tasks: Run Task".
+  //
+  // Kein Secret im Git: die Backend-Task erzeugt beim Start ein Wegwerf-JWT_SECRET
+  // (openssl). Es wechselt bei jedem Neustart — d. h. eine bestehende Login-Session
+  // wird ungültig, man muss sich neu einloggen. Wer eine stabile Session über
+  // Neustarts hinweg will, setzt JWT_SECRET einmalig im Shell-Profil und ersetzt den
+  // command unten durch nur "./mvnw spring-boot:run".
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Backend: spring-boot:run",
+      "type": "shell",
+      "command": "JWT_SECRET=\"$(openssl rand -base64 48)\" ./mvnw spring-boot:run",
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated",
+        "group": "dev",
+        "reveal": "always"
+      }
+    },
+    {
+      "label": "Frontend: ng serve",
+      "type": "shell",
+      "command": "npx ng serve",
+      "options": {
+        "cwd": "${workspaceFolder}/frontend"
+      },
+      "isBackground": true,
+      // Background-Matcher: signalisiert VS Code, wann der Dev-Server bereit ist,
+      // damit ein Chrome-Debug-Launch (preLaunchTask) nicht ewig "wartet". Der
+      // endsPattern trifft die Angular-esbuild-Ausgabe ("… bundle generation
+      // complete", "Watch mode enabled" bzw. die Local-URL).
+      "problemMatcher": {
+        "owner": "angular",
+        "pattern": {
+          "regexp": "^$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "(Building|Application bundle generation)",
+          "endsPattern": "(bundle generation complete|Watch mode enabled|Local:\\s+http)"
+        }
+      },
+      "presentation": {
+        "panel": "dedicated",
+        "group": "dev",
+        "reveal": "always"
+      }
+    },
+    {
+      "label": "Dev: Full Stack",
+      "dependsOn": ["Backend: spring-boot:run", "Frontend: ng serve"],
+      "dependsOrder": "parallel",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}

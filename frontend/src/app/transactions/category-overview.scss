@@ -1,3 +1,8 @@
+// Nachweis, dass die Design-Tokens (FE-UI-02) in Komponenten-SCSS greifen:
+// die zuvor hartkodierten Hex-Farben sind durch Tokens ersetzt, Spacing/Typo
+// nutzen die Token-Skala, Beträge die `tabular`-Mixin. Struktur unverändert.
+@use 'tokens' as *;
+
 :host {
   display: block;
 }
@@ -11,8 +16,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
-  margin: 1rem 0 1.5rem;
+  gap: $sp-4;
+  margin: $sp-4 0 $sp-5;
 }
 
 .month-label {
@@ -22,8 +27,8 @@
 }
 
 .nav {
-  padding: 0.25rem 0.75rem;
-  font-size: 1.25rem;
+  padding: $sp-1 $sp-3;
+  font-size: $fs-lg;
   line-height: 1;
   cursor: pointer;
 }
@@ -35,33 +40,34 @@ table {
 
 th,
 td {
-  padding: 0.5rem;
-  border-bottom: 1px solid #ddd;
+  padding: $sp-2;
+  border-bottom: 1px solid $c-line;
   text-align: left;
 }
 
 .numeric {
+  @include tabular;
+
   text-align: right;
-  font-variant-numeric: tabular-nums;
 }
 
 tfoot th,
 tfoot td {
   font-weight: 600;
-  border-top: 2px solid #999;
+  border-top: 2px solid $c-line-strong;
   border-bottom: none;
 }
 
 .status {
   text-align: center;
-  padding: 1.5rem 0;
+  padding: $sp-5 0;
 }
 
 .status.empty {
-  color: #555;
+  color: $c-ink-2;
 }
 
 .status.error {
-  color: #b00020;
+  color: $c-negative;
   font-weight: 600;
 }

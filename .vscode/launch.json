@@ -1,0 +1,45 @@
+{
+  // VS-Code-Pendant zu IntelliJ "Run Configurations" (Debug). Erscheint im
+  // Run-and-Debug-Panel (▶ links) im Dropdown.
+  //
+  // "Debug: Full Stack" startet Backend (mit Java-Breakpoints) UND Frontend
+  // (Chrome-Debugger gegen :4200) zusammen. Voraussetzungen:
+  //   - Backend-Debug: "Extension Pack for Java" installiert.
+  //   - JWT_SECRET muss in der Umgebung gesetzt sein (Fail-fast) — anders als die
+  //     Task generiert eine Launch-Config kein Wegwerf-Secret. Einmalig im
+  //     Shell-Profil setzen, z. B. in ~/.zshrc:
+  //         export JWT_SECRET="$(openssl rand -base64 48)"
+  //     VS Code neu starten, damit die Variable im Prozess ankommt. Vorteil
+  //     gegenüber der Task: stabiles Secret → Login-Session überlebt Neustarts.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "Debug Backend (Spring Boot)",
+      "request": "launch",
+      "mainClass": "com.budgetbuddy.BudgetBuddyApplication",
+      "cwd": "${workspaceFolder}/backend",
+      "console": "integratedTerminal",
+      "env": {
+        "JWT_SECRET": "${env:JWT_SECRET}"
+      }
+    },
+    {
+      "type": "chrome",
+      "name": "Debug Frontend (Chrome)",
+      "request": "launch",
+      "url": "http://localhost:4200",
+      "webRoot": "${workspaceFolder}/frontend",
+      // Startet den Dev-Server automatisch mit und wartet dank Background-Matcher
+      // (siehe tasks.json), bis er bereit ist, bevor Chrome öffnet.
+      "preLaunchTask": "Frontend: ng serve"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Debug: Full Stack",
+      "configurations": ["Debug Backend (Spring Boot)", "Debug Frontend (Chrome)"],
+      "stopAll": true
+    }
+  ]
+}

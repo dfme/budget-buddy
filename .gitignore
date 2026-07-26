@@ -25,6 +25,13 @@ replay_pid*
 .DS_Store
 .idea
 
+# VS Code: persönliche Dateien ignorieren, geteilte Team-Configs whitelisten
+.vscode/*
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/settings.json
+!.vscode/extensions.json
+
 # Temporary files (Word, Excel, PowerPoint, LibreOffice, OpenOffice)
 .~lock.*
 .~$*

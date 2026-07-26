@@ -1,0 +1,114 @@
+// =============================================================================
+// BudgetBuddy — Design-Tokens (Variante A «Klarheit»)
+//
+// Quelle: design/variant-a/styles.scss (Design-Entscheid FE-UI-01 / ADR-11).
+//
+// WICHTIG: Dieser Partial darf KEIN CSS ausgeben. Er enthält ausschliesslich
+// SCSS-Variablen, Maps und Mixins — d. h. nebeneffekt-freie Deklarationen.
+// Er wird per `@use 'tokens'` sowohl vom globalen `styles.scss` als auch von
+// einzelnen Komponenten eingebunden. Stünde hier CSS (z. B. `:root { … }`),
+// würde es in jede Komponente dupliziert, die diesen Partial `@use`t.
+//
+// Die konkreten Farbwerte je Theme (hell/dunkel) leben deshalb als CSS Custom
+// Properties im globalen `styles.scss`. Die SCSS-Variablen hier zeigen nur auf
+// diese Custom Properties — dadurch bleibt das Theme zur Laufzeit über
+// `data-theme` umschaltbar, ohne dass Komponenten-SCSS angefasst werden muss.
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Farb-Aliase → Laufzeit-Custom-Properties (theme-fähig)
+// -----------------------------------------------------------------------------
+$c-bg: var(--c-bg);
+$c-bg-subtle: var(--c-bg-subtle);
+$c-surface: var(--c-surface);
+$c-line: var(--c-line);
+$c-line-strong: var(--c-line-strong);
+
+$c-ink: var(--c-ink);
+$c-ink-2: var(--c-ink-2);
+$c-ink-3: var(--c-ink-3);
+
+$c-accent: var(--c-accent);
+$c-accent-hover: var(--c-accent-hover);
+$c-accent-soft: var(--c-accent-soft);
+
+$c-positive: var(--c-positive);
+$c-positive-soft: var(--c-positive-soft);
+$c-negative: var(--c-negative);
+$c-negative-soft: var(--c-negative-soft);
+$c-warning: var(--c-warning);
+$c-warning-soft: var(--c-warning-soft);
+
+$shadow-card: var(--shadow-card);
+
+// Kategorie-Palette — deckt alle 13 Kategorien aus `Category.java` ab.
+// Im Komponenten-Port wird daraus eine `[class]`-Bindung auf den Kategorie-Slug.
+$categories: (
+  'wohnen': var(--cat-wohnen),
+  'lebensmittel': var(--cat-lebensmittel),
+  'transport': var(--cat-transport),
+  'versicherung': var(--cat-versicherung),
+  'telekom': var(--cat-telekom),
+  'gesundheit': var(--cat-gesundheit),
+  'freizeit': var(--cat-freizeit),
+  'restaurant': var(--cat-restaurant),
+  'shopping': var(--cat-shopping),
+  'bildung': var(--cat-bildung),
+  'einkommen': var(--cat-einkommen),
+  'sparen': var(--cat-sparen),
+  'sonstiges': var(--cat-sonstiges),
+);
+
+// -----------------------------------------------------------------------------
+// Typografie-Skala — 6 Stufen, 1.25er-Verhältnis, bewusst knapp gehalten.
+// -----------------------------------------------------------------------------
+$fs-xs: 0.75rem; // 12px  Labels, Meta
+$fs-sm: 0.875rem; // 14px  Sekundärtext
+$fs-md: 1rem; // 16px  Fliesstext
+$fs-lg: 1.25rem; // 20px  Card-Titel
+$fs-xl: 2rem; // 32px  Screen-Titel
+$fs-hero: 2.75rem; // 44px  Safe-to-Spend-Betrag
+
+$ff-base:
+  system-ui,
+  -apple-system,
+  'Segoe UI',
+  roboto,
+  sans-serif;
+
+// -----------------------------------------------------------------------------
+// Spacing — 4px-Raster.
+// -----------------------------------------------------------------------------
+$sp-1: 0.25rem;
+$sp-2: 0.5rem;
+$sp-3: 0.75rem;
+$sp-4: 1rem;
+$sp-5: 1.5rem;
+$sp-6: 2rem;
+$sp-7: 3rem;
+
+// -----------------------------------------------------------------------------
+// Radien — klein und einheitlich; die Ruhe kommt aus Weissraum, nicht aus Rundung.
+// -----------------------------------------------------------------------------
+$r-sm: 4px;
+$r-md: 8px;
+$r-pill: 999px;
+
+// -----------------------------------------------------------------------------
+// Breakpoints & Mixins
+// -----------------------------------------------------------------------------
+// Mobile-First: Basis-Regeln gelten für den Smartphone-Viewport, Desktop kommt
+// ausschliesslich über `min-width`-Queries dazu.
+$bp-desktop: 900px;
+
+@mixin desktop {
+  @media (min-width: $bp-desktop) {
+    @content;
+  }
+}
+
+// Beträge immer mit gleichbreiten Ziffern — sonst springen die Spalten.
+@mixin tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
