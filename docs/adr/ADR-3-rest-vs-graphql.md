@@ -21,7 +21,7 @@ Wir nutzen **REST API via Spring Web MVC + OpenAPI 3.0**:
 
 - **Style:** RESTful Convention (HTTP Verbs auf Ressourcen)
 - **Versionierung:** URL path-based (`/api/v1/...`)
-- **Authentication:** JWT Bearer Token im Authorization Header
+- **Authentication:** JWT als httpOnly-Cookie (SameSite=Strict); kein Bearer-Header (ADR-7)
 - **Dokumentation:** Springdoc OpenAPI 3.0 mit Auto-generated Swagger UI
 - **Format:** JSON
 - **Error Handling:** Standard HTTP Status Codes (400, 401, 404, 500) + JSON Payload

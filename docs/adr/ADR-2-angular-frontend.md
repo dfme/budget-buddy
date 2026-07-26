@@ -26,7 +26,7 @@ Wir nutzen **Angular 21.x** mit folgender Konfiguration:
 - **State:** Angular Signals + RxJS Services (kein NgRx für MVP)
 - **Forms:** Reactive Forms (FormGroup, FormBuilder)
 - **Change Detection:** OnPush überall (Signals-kompatibel)
-- **HTTP:** Functional HTTP Interceptors (JWT Bearer Token)
+- **HTTP:** `HttpClient` mit `withCredentials: true`; JWT als httpOnly-Cookie (SameSite=Strict). Kein Bearer-Header und kein Token-Interceptor — ein schlanker `credentialsInterceptor` setzt nur `withCredentials` (Angular hat keine globale Option); ADR-7.
 - **Charts:** Chart.js + ng2-charts (leichtgewichtig)
 - **Build:** Angular CLI (esbuild-basiert)
 
