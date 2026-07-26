@@ -24,10 +24,13 @@ Gehört zu der User-Story: <!-- z.B. [US-03](../../docs/requirements/US-03-fixko
 
 ## Abhängigkeiten
 
-<!-- Welche Tasks müssen vorher abgeschlossen sein? -->
+> Abhängigkeiten werden über die native **Relationships**-Funktion im rechten
+> Seitenbereich des Issues gesetzt („Blocked by" / „Blocking"), **nicht** als
+> Freitext hier. So bleiben sie bidirektional, für das Board sichtbar und als
+> **eine** Quelle gepflegt — analog dazu, dass die Metadaten im Board liegen
+> (vgl. INFRA-13). Kein zweites Datenhaltungs-Silo im Issue-Text.
 
-- Depends on: <!-- z.B. #12, #15 -->
-- Blocked by: <!-- leer lassen wenn keine Blocker -->
+- [ ] Falls dieser Task auf anderen wartet: **Blocked by** im Relationships-Panel gesetzt
 
 ## Metadaten
 
