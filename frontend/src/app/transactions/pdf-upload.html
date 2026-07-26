@@ -1,0 +1,48 @@
+<section class="upload">
+  <h1 class="page-title">Import</h1>
+  <p class="page-sub">
+    Kontoauszug als PDF hochladen — die Transaktionen werden automatisch eingelesen.
+  </p>
+
+  <app-card>
+    <div
+      class="dropzone"
+      [class.dropzone--active]="dragActive()"
+      [attr.aria-busy]="uploading()"
+      (dragover)="onDragOver($event)"
+      (dragleave)="onDragLeave()"
+      (drop)="onDrop($event)"
+    >
+      @if (uploading()) {
+        <span class="spinner" aria-hidden="true"></span>
+        <p class="dropzone__hint" role="status">Kontoauszug wird importiert …</p>
+      } @else {
+        <span class="dropzone__icon" aria-hidden="true">↑</span>
+        <p class="dropzone__hint">PDF-Datei hierhin ziehen oder</p>
+        <button appButton type="button" (click)="fileInput.click()">Datei wählen</button>
+        <p class="dropzone__meta">Nur .pdf · maximal 10 MB</p>
+      }
+    </div>
+  </app-card>
+
+  <input
+    #fileInput
+    hidden
+    type="file"
+    accept="application/pdf,.pdf"
+    aria-label="Kontoauszug als PDF wählen"
+    (change)="onFilePicked($event)"
+  />
+
+  @if (errorMessage(); as message) {
+    <app-notice class="upload__notice">{{ message }}</app-notice>
+  } @else if (importOutcome() === 'success') {
+    <app-notice class="upload__notice" variant="info"
+      >Kontoauszug erfolgreich importiert.</app-notice
+    >
+  } @else if (importOutcome() === 'error') {
+    <app-notice class="upload__notice"
+      >Der Import ist fehlgeschlagen — bitte versuche es erneut.</app-notice
+    >
+  }
+</section>

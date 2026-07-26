@@ -20,6 +20,11 @@ export const routes: Routes = [
     loadComponent: () => import('./transactions/category-overview').then((m) => m.CategoryOverview),
   },
   {
+    path: 'import',
+    canActivate: [authGuard],
+    loadComponent: () => import('./transactions/pdf-upload').then((m) => m.PdfUpload),
+  },
+  {
     path: 'login',
     loadComponent: () => import('./auth/login').then((m) => m.Login),
   },
