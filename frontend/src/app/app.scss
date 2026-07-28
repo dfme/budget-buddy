@@ -1,41 +1,6 @@
-// Provisorische Shell-Styles auf Token-Basis (FE-UI-02). Die vollständige
-// App-Shell (Topbar/Nav/Sidebar aus Variante A) folgt in FE-UI-04.
-@use 'tokens' as *;
-
-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: $sp-4;
-  padding: $sp-4;
-  background: $c-bg;
-  border-bottom: 1px solid $c-line;
-}
-
-nav {
-  display: flex;
-  gap: $sp-4;
-}
-
-nav a {
-  color: $c-ink-2;
-  text-decoration: none;
-
-  &.active {
-    color: $c-accent;
-    font-weight: 600;
-  }
-}
-
-.logout {
-  padding: $sp-2 $sp-4;
-  border: 1px solid $c-line-strong;
-  border-radius: $r-md;
-  background: transparent;
-  color: $c-ink;
-  font-size: $fs-sm;
-
-  &:hover {
-    background: $c-bg-subtle;
-  }
+// Das Root-Element ist von sich aus inline. Als Block gibt es der App-Shell
+// (FE-UI-04, `core/layout/shell.scss`) die volle Breite; alles Weitere zum
+// Layout steht dort.
+:host {
+  display: block;
 }

@@ -1,0 +1,294 @@
+// =============================================================================
+// App-Shell — Variante A «Klarheit» (FE-UI-04)
+//
+// Portiert aus `design/variant-a/styles.scss`, Abschnitt «3. Layout / App-Shell».
+// Alle Werte kommen aus dem Token-Fundament (FE-UI-02); hier stehen keine
+// Rohfarben und keine Rohabstände.
+// =============================================================================
+
+@use 'tokens' as *;
+
+:host {
+  // `100vh` ist der grosse Viewport — mit eingeblendeter Browser-UI auf Mobile
+  // wird die Seite dadurch zu hoch und erzeugt einen überflüssigen Scroll.
+  // `100dvh` folgt der tatsächlich sichtbaren Höhe; `100vh` bleibt als Fallback
+  // für Browser ohne `dvh` stehen.
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+
+  @include desktop {
+    flex-direction: row;
+    max-width: 1180px;
+    margin: 0 auto;
+    background: $c-bg;
+  }
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $sp-3;
+  padding: $sp-4;
+  background: $c-bg;
+  border-bottom: 1px solid $c-line;
+
+  &__brand {
+    display: flex;
+    align-items: center;
+    gap: $sp-2;
+    font-size: $fs-sm;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  // Wortmarke: offener Ring mit Kern — greift den Donut des Dashboards auf.
+  &__mark {
+    width: 1.75rem;
+    height: 1.75rem;
+    flex: none;
+    color: $c-accent;
+
+    svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+  }
+
+  &__avatar {
+    width: 2rem;
+    height: 2rem;
+    border-radius: $r-pill;
+    background: $c-accent-soft;
+    color: $c-accent;
+    border: none;
+    font-size: $fs-xs;
+    font-weight: 700;
+    display: grid;
+    place-items: center;
+  }
+
+  // Auf Desktop übernimmt die Sidebar die Navigation samt Konto-Block.
+  @include desktop {
+    display: none;
+  }
+}
+
+// Konto-Popover unter dem Avatar. Existiert nur auf Mobile — auf Desktop ist
+// die Topbar ausgeblendet und der Konto-Block steht am Fuss der Sidebar.
+.account-menu {
+  position: absolute;
+  top: 100%;
+  right: $sp-4;
+  z-index: 20;
+  min-width: 12rem;
+  // Verhindert, dass eine lange E-Mail das Popover über den Viewport-Rand
+  // hinausschiebt und horizontales Scrollen erzeugt.
+  max-width: calc(100vw - #{$sp-4} * 2);
+  padding: $sp-2;
+  background: $c-surface;
+  border: 1px solid $c-line;
+  border-radius: $r-md;
+  box-shadow: $shadow-card;
+
+  &__mail {
+    padding: $sp-2 $sp-3;
+    font-size: $fs-xs;
+    color: $c-ink-3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: $sp-3;
+    width: 100%;
+    padding: $sp-3;
+    border: none;
+    border-top: 1px solid $c-line;
+    border-radius: 0 0 $r-sm $r-sm;
+    background: transparent;
+    font-size: $fs-sm;
+    color: $c-ink-2;
+    text-align: left;
+
+    &:hover {
+      background: $c-bg-subtle;
+      color: $c-ink;
+    }
+  }
+}
+
+.main {
+  flex: 1;
+  padding: $sp-5 $sp-4 $sp-7;
+
+  @include desktop {
+    padding: $sp-6 $sp-6 $sp-7;
+    min-width: 0; // verhindert, dass breite Inhalte das Grid aufblähen
+  }
+}
+
+// Mobile: Tab-Bar unten (Daumenzone). Desktop: vertikale Sidebar links.
+//
+// `order: 1` schiebt die Bar ans Ende der Spalte, ohne sie im DOM hinter
+// <main> zu verschieben — die Navigation bleibt für Screenreader und Tastatur
+// vor dem Inhalt. Ohne das bliebe `position: sticky; bottom: 0` wirkungslos,
+// weil das Element oben im Fluss steht und nie nach unten klebt.
+.nav {
+  order: 1;
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  background: $c-bg;
+  border-top: 1px solid $c-line;
+
+  &__item {
+    flex: 1;
+    // `min-width: 0` erlaubt das Schrumpfen unter die Textbreite — sonst
+    // erzwingt «Transaktionen» bei 375px horizontales Scrollen.
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: $sp-1;
+    padding: $sp-3 $sp-1;
+    font-size: $fs-xs;
+    color: $c-ink-3;
+    text-decoration: none;
+    text-align: center;
+
+    &--active {
+      color: $c-accent;
+      font-weight: 600;
+    }
+  }
+
+  &__icon {
+    font-size: $fs-md;
+    line-height: 1;
+  }
+
+  @include desktop {
+    // Zurück in die Ausgangsreihenfolge: als Sidebar steht sie wieder links.
+    order: 0;
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+    // Auch hier `dvh`: bei ≥ 900px im Querformat mit Browser-UI würde `100vh`
+    // die Sidebar höher als sichtbar machen und den Konto-Block am Fuss
+    // (`margin-top: auto`) unter die Kante schieben.
+    height: 100vh;
+    height: 100dvh;
+    width: 15rem;
+    flex: none;
+    flex-direction: column;
+    gap: $sp-1;
+    padding: $sp-6 $sp-3;
+    border-top: none;
+    border-right: 1px solid $c-line;
+
+    &__item {
+      flex: 0 0 auto;
+      flex-direction: row;
+      justify-content: flex-start;
+      gap: $sp-3;
+      padding: $sp-3;
+      border-radius: $r-md;
+      font-size: $fs-sm;
+      text-align: left;
+
+      &--active {
+        background: $c-accent-soft;
+      }
+    }
+  }
+}
+
+.nav__brand {
+  display: none;
+
+  @include desktop {
+    display: flex;
+    align-items: center;
+    gap: $sp-2;
+    padding: 0 $sp-3 $sp-5;
+    font-size: $fs-md;
+    font-weight: 600;
+  }
+}
+
+// Konto-Block am Fuss der Sidebar. Auf Mobile übernimmt der Avatar in der
+// Topbar diese Rolle — dort ist in der Tab-Bar kein Platz dafür, und die Bar
+// gehört den Hauptzielen.
+.nav__account {
+  display: none;
+
+  @include desktop {
+    display: block;
+    // Schiebt den Block an den unteren Rand der 100vh hohen Sidebar.
+    margin-top: auto;
+    padding-top: $sp-4;
+    border-top: 1px solid $c-line;
+  }
+}
+
+.nav__user {
+  display: flex;
+  align-items: center;
+  gap: $sp-3;
+  padding: $sp-2 $sp-3;
+  min-width: 0;
+}
+
+.nav__user-mail {
+  display: block;
+  min-width: 0;
+  font-size: $fs-xs;
+  color: $c-ink-3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav__avatar {
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  border-radius: $r-pill;
+  background: $c-accent-soft;
+  color: $c-accent;
+  font-size: $fs-xs;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+
+.nav__logout {
+  display: flex;
+  align-items: center;
+  gap: $sp-3;
+  width: 100%;
+  margin-top: $sp-1;
+  padding: $sp-3;
+  border: none;
+  border-radius: $r-md;
+  background: transparent;
+  font-size: $fs-sm;
+  color: $c-ink-2;
+  text-align: left;
+
+  &:hover {
+    background: $c-bg-subtle;
+    color: $c-ink;
+  }
+}

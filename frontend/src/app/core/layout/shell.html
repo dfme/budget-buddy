@@ -1,0 +1,97 @@
+@if (isAuthenticated()) {
+  <!-- Mobile: Topbar. Desktop: durch die Sidebar ersetzt (siehe shell.scss). -->
+  <header class="topbar">
+    <div class="topbar__brand">
+      <span class="topbar__mark" aria-hidden="true">
+        <ng-container [ngTemplateOutlet]="wordmark" />
+      </span>
+      BudgetBuddy
+    </div>
+
+    <!-- Die Tab-Bar gehört den Hauptzielen; der Konto-Block hat dort keinen
+         Platz. Auf Mobile führt deshalb dieser Button zu Konto und Logout. -->
+    <button
+      #avatarButton
+      type="button"
+      class="topbar__avatar"
+      aria-label="Konto"
+      aria-controls="account-menu"
+      [attr.aria-expanded]="accountMenuOpen()"
+      (click)="toggleAccountMenu()"
+    >
+      {{ initials() }}
+    </button>
+
+    <!-- Disclosure, kein WAI-ARIA-Menu: `role="menu"` würde Pfeiltasten-Navigation
+         und Fokus-Sprung aufs erste Item versprechen, und es liesse die E-Mail-Zeile
+         als unzulässiges Kind zu — Screenreader dürfen sie dann überspringen.
+         `aria-expanded` + `aria-controls` beschreiben das tatsächliche Verhalten. -->
+    @if (accountMenuOpen()) {
+      <div class="account-menu" id="account-menu">
+        <p class="account-menu__mail">{{ email() }}</p>
+        <button type="button" class="account-menu__item" (click)="logout()">
+          <span class="nav__icon" aria-hidden="true">⏻</span>
+          Abmelden
+        </button>
+      </div>
+    }
+  </header>
+
+  <!-- Mobile: Tab-Bar unten in der Daumenzone. Desktop: Sidebar links. -->
+  <nav class="nav" aria-label="Hauptnavigation">
+    <div class="nav__brand">
+      <span class="topbar__mark" aria-hidden="true">
+        <ng-container [ngTemplateOutlet]="wordmark" />
+      </span>
+      BudgetBuddy
+    </div>
+
+    @for (item of navItems; track item.path) {
+      <a
+        class="nav__item"
+        [routerLink]="item.path"
+        routerLinkActive="nav__item--active"
+        ariaCurrentWhenActive="page"
+      >
+        <span class="nav__icon" aria-hidden="true">{{ item.icon }}</span>
+        {{ item.label }}
+      </a>
+    }
+
+    <div class="nav__account">
+      <div class="nav__user">
+        <span class="nav__avatar" aria-hidden="true">{{ initials() }}</span>
+        <span class="nav__user-mail">{{ email() }}</span>
+      </div>
+      <button type="button" class="nav__logout" (click)="logout()">
+        <span class="nav__icon" aria-hidden="true">⏻</span>
+        Abmelden
+      </button>
+    </div>
+  </nav>
+}
+
+<!-- Immer gerendert, mit und ohne Shell-Chrome: auch Login und Registrierung
+     sind zentrierte Karten und brauchen die Polsterung von `.main`. -->
+<main class="main">
+  <ng-content />
+</main>
+
+<!-- Wortmarke: offener Ring mit Kern — greift den Donut des Dashboards auf.
+     `pathLength="100"` macht die Lücke unabhängig vom Radius exakt steuerbar. -->
+<ng-template #wordmark>
+  <svg viewBox="0 0 24 24" fill="none">
+    <circle
+      cx="12"
+      cy="12"
+      r="9"
+      pathLength="100"
+      stroke="currentColor"
+      stroke-width="2.5"
+      stroke-linecap="round"
+      stroke-dasharray="76 24"
+      transform="rotate(-90 12 12)"
+    />
+    <circle cx="12" cy="12" r="3.25" fill="currentColor" />
+  </svg>
+</ng-template>

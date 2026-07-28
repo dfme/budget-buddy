@@ -1,40 +1,22 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { RouterOutlet } from '@angular/router';
 
-import { AuthService } from './auth/auth.service';
+import { Shell } from './core/layout/shell';
 
 /**
- * App-Shell mit Header/Nav und Router-Outlet. Der Header trägt den Logout-Button
- * (US-01, FE-AUTH-05), der nur im eingeloggten Zustand sichtbar ist.
+ * Root-Component. Hält nur noch den Router-Outlet und reicht ihn als Inhalt in
+ * die App-Shell (FE-UI-04) — Navigation, Topbar und Konto/Logout leben dort.
+ *
+ * <p>Bewusst genau ein Outlet: die Shell blendet ihre Chrome selbst aus,
+ * solange niemand eingeloggt ist. Ihn stattdessen je Auth-Zustand zu
+ * duplizieren würde die aktive Route-Komponente beim Login zerstören und neu
+ * aufbauen.
  */
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [RouterOutlet, Shell],
   templateUrl: './app.html',
   styleUrl: './app.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class App {
-  private readonly auth = inject(AuthService);
-  private readonly router = inject(Router);
-
-  protected readonly title = signal('BudgetBuddy');
-
-  /** Steuert die Sichtbarkeit des Logout-Buttons. */
-  protected readonly isAuthenticated = this.auth.isAuthenticated;
-
-  /**
-   * Loggt aus (`POST /auth/logout`), leert den Auth-State und leitet auf `/login`.
-   * Auch bei einem fehlgeschlagenen Backend-Call wird der lokale State geleert und
-   * umgeleitet — so bleibt der Nutzer nie in einem scheinbar eingeloggten Zustand.
-   */
-  logout(): void {
-    this.auth.logout().subscribe({
-      next: () => this.router.navigate(['/login']),
-      error: () => {
-        this.auth.resetState();
-        this.router.navigate(['/login']);
-      },
-    });
-  }
-}
+export class App {}
