@@ -10,8 +10,8 @@
 // Custom Properties direkt hier und werden nur einmal (global) emittiert.
 //
 // Bewusst NICHT hier: Komponentenklassen (.card/.badge/.btn → FE-UI-03) und die
-// App-Shell (.topbar/.nav → FE-UI-04). Dieses Fundament liefert nur Tokens,
-// Reset und Basis-Regeln.
+// App-Shell (.topbar/.nav → `app/core/layout/shell.scss`, FE-UI-04). Dieses
+// Fundament liefert nur Tokens, Reset und Basis-Regeln.
 // =============================================================================
 
 @use 'tokens' as *;
