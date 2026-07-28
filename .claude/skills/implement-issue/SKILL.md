@@ -23,10 +23,24 @@ Run `gh issue view <issue-number>` and read title, body, labels, and assignees i
 - Extract the Task-ID from the issue title — it is always in square brackets, e.g. `[BE-FC-01]`
 - Identify affected and new files
 - Understand requirements and acceptance criteria
+- **Check how each AC is verified, don't just read what it demands.** When an AC names a search
+  (grep, search string) as its proof, run that search twice: once **narrow, exactly as the AC
+  words it**, and once **broad over the underlying concept**. Compare the hit sets. Anything the
+  broad search finds that the AC does not list means the AC is incomplete — the AC's wording is
+  too narrow, not the implementation.
+
+  Example (#115): the AC's grep `kein manueller (Http)?Interceptor` matched 3 spots,
+  `grep -ri interceptor docs/adr CLAUDE.md` matched 8. That difference was the actual work —
+  `CLAUDE.md:161` said "kein HttpInterceptor" without "manueller" and slipped the AC's grep.
 - Mark any unclear or ambiguous points
 
 ### 3. FRAGEN (when needed)
 If anything is unclear, ask the user before proceeding. Do not make assumptions on blocking decisions — ask. Only continue once all open points are resolved.
+
+If the broad search from step 2 turned up hits outside the ACs, put that delta to the user
+**before** presenting the plan, with three options: (a) fix them along and declare the scope
+extension in the PR body, (b) follow-up issue, (c) deliberately leave them, with a reason.
+Never decide this alone — scope is a team call.
 
 ### 4. PLAN PRÄSENTIEREN
 Present the full plan to the user:
@@ -62,9 +76,19 @@ Implement code and tests according to the confirmed plan. Follow all conventions
 - Claude API always behind `CategorizationPort` interface
 - Timeouts + fallback to `"Sonstiges"` for all external calls
 
+For documentation changes:
+- Back every statement about the code with `file:line`. Documentation describes the state that
+  is, never the one that is planned — `8fb4dab` wrote "kein manueller `HttpInterceptor` nötig"
+  months before the Angular frontend existed, and it took three rounds (#103, #115, plus the
+  original commit) to walk it back.
+- Do not replace one unqualified simplification with the next one.
+
 ### 8. LOKALER REVIEW
 Review all changes before creating a PR:
 - Run `git diff main` and check for correctness, security issues, and convention violations
+- List every AC individually with its concrete proof — command plus result, or `file:line`
+- Flag ACs whose only proof is the same search the issue itself proposed: those are unverified,
+  not confirmed
 - Present review findings to the user
 - Wait for explicit user confirmation that the PR may be created
 
