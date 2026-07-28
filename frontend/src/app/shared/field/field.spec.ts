@@ -43,14 +43,30 @@ describe('Field', () => {
 
   it('zeigt keine Fehlermeldung, solange error null ist', () => {
     expect(el('.field__error')).toBeNull();
+    expect(el('input')!.hasAttribute('aria-describedby')).toBe(false);
+    expect(el('input')!.hasAttribute('aria-invalid')).toBe(false);
   });
 
-  it('zeigt die Fehlermeldung als alert, sobald error gesetzt ist', () => {
+  it('verknüpft die Fehlermeldung per aria-describedby mit der Eingabe (a11y)', () => {
     fixture.componentInstance.error.set('E-Mail ist erforderlich.');
     fixture.detectChanges();
 
     const error = el('.field__error')!;
+    const input = el('input')!;
     expect(error.textContent?.trim()).toBe('E-Mail ist erforderlich.');
-    expect(error.getAttribute('role')).toBe('alert');
+    expect(error.id).toBe('email-error');
+    expect(input.getAttribute('aria-describedby')).toBe('email-error');
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+  });
+
+  it('räumt die a11y-Verknüpfung wieder ab, sobald der Fehler behoben ist', () => {
+    fixture.componentInstance.error.set('E-Mail ist erforderlich.');
+    fixture.detectChanges();
+    fixture.componentInstance.error.set(null);
+    fixture.detectChanges();
+
+    expect(el('.field__error')).toBeNull();
+    expect(el('input')!.hasAttribute('aria-describedby')).toBe(false);
+    expect(el('input')!.hasAttribute('aria-invalid')).toBe(false);
   });
 });
