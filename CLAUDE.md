@@ -134,7 +134,7 @@ BudgetBuddy is a web app for students and young professionals living in Switzerl
 | Package Manager  | npm                                    | (bundled) | Bundled mit Node.js; kein Mehraufwand gegenüber pnpm/yarn für MVP-Scope      |
 | State            | Angular Signals + Services             | (bundled) | No NgRx needed for MVP scope                                                 |
 | Forms            | Reactive Forms (FormGroup)             | (bundled) | Stable; Signal Forms still experimental                                      |
-| HTTP auth        | `withCredentials: true` auf HttpClient | (bundled) | Cookie automatisch mitgesendet; kein manueller HttpInterceptor nötig (ADR-7) |
+| HTTP auth        | `withCredentials: true` auf HttpClient | (bundled) | Cookie automatisch mitgesendet; kein Token-Interceptor — `credentialsInterceptor` setzt nur `withCredentials` (ADR-7) |
 | Charts           | Chart.js + ng2-charts                  | 4.x / 8.x | Lightweight, Angular-native wrapper for pie/bar                              |
 | Change detection | OnPush everywhere                      | (bundled) | Required for Signals to work correctly                                       |
 | Design-System    | Custom SCSS, Variante A «Klarheit»     | (n/a)     | Design-Entscheid FE-UI-01 / ADR-11; Baseline `design/variant-a/`. Komponenten-Unterbau (Custom SCSS vs. `@angular/cdk`) offen bis FE-UI-02 (#99) |
@@ -158,7 +158,7 @@ BudgetBuddy is a web app for students and young professionals living in Switzerl
 | Factor                  | JWT (stateless)                                                 | Session (server-side)                        |
 | ----------------------- | --------------------------------------------------------------- | -------------------------------------------- |
 | SQLite write pressure   | None — no session table                                         | Every login/request writes to sessions table |
-| Angular SPA integration | httpOnly Cookie + `withCredentials: true`; kein HttpInterceptor | Requires cookie + CORS + SameSite config     |
+| Angular SPA integration | httpOnly Cookie + `withCredentials: true`; kein Token-Interceptor im Client | Requires cookie + CORS + SameSite config     |
 | Spring Security support | JWT in Cookie; Spring Security liest Token aus Cookie           | Also supported but adds Spring Session dep   |
 | Logout invalidation     | Backend setzt `Max-Age=0` → sofort invalidiert                  | Instant server-side invalidation             |
 | MVP scope fit           | Excellent                                                       | Overengineered                               |

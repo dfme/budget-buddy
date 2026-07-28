@@ -19,7 +19,7 @@ Wir implementieren eine **Single Page App (SPA) + REST API Architektur**:
 - **Frontend:** Angular 21.x (TypeScript), lädt im Browser
 - **Backend:** Java 25 + Spring Boot 3.5.x; exponiert REST API via OpenAPI 3.0
 - **Kommunikation:** Stateless JWT, Token als `httpOnly; Secure; SameSite=Strict` Cookie (kein Bearer-Header, kein localStorage)
-- **Angular:** Requests mit `withCredentials: true`; Browser sendet Cookie automatisch — kein manueller `HttpInterceptor` nötig
+- **Angular:** Requests mit `withCredentials: true`; Browser sendet Cookie automatisch — clientseitig kein Token-Interceptor nötig. Ein schlanker `credentialsInterceptor` setzt lediglich `withCredentials` (Angular hat dafür keine globale Option).
 - **CORS:** Explizit konfiguriert für Entwicklung (`http://localhost:4200`); in Produktion entfällt CORS (SPA gebündelt im JAR, gleicher Origin)
 
 ## Consequences
