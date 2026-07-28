@@ -139,7 +139,7 @@ describe('Shell', () => {
       login();
 
       expect(avatarButton().getAttribute('aria-expanded')).toBe('false');
-      expect(avatarButton().getAttribute('aria-haspopup')).toBe('menu');
+      expect(avatarButton().getAttribute('aria-controls')).toBe('account-menu');
       expect(query('#account-menu')).toBeNull();
     });
 
@@ -153,6 +153,19 @@ describe('Shell', () => {
       expect(query('#account-menu')).not.toBeNull();
       expect(query('.account-menu__mail')?.textContent?.trim()).toBe(LARA.email);
       expect(query('.account-menu__item')?.textContent).toContain('Abmelden');
+    });
+
+    // Das Popover ist ein Disclosure. `role="menu"` verspricht Pfeiltasten und
+    // erlaubt kein <p> als Kind — die E-Mail-Zeile wäre dann für Screenreader
+    // überspringbar. Dieser Test hält die Rollen draussen.
+    it('ist als Disclosure ausgezeichnet, nicht als WAI-ARIA-Menu', () => {
+      login();
+      avatarButton().click();
+      fixture.detectChanges();
+
+      expect(avatarButton().getAttribute('aria-haspopup')).toBeNull();
+      expect(query('[role="menu"]')).toBeNull();
+      expect(query('[role="menuitem"]')).toBeNull();
     });
 
     it('schliesst auf Escape und gibt den Fokus an den Avatar zurück', () => {

@@ -9,7 +9,12 @@
 @use 'tokens' as *;
 
 :host {
+  // `100vh` ist der grosse Viewport — mit eingeblendeter Browser-UI auf Mobile
+  // wird die Seite dadurch zu hoch und erzeugt einen überflüssigen Scroll.
+  // `100dvh` folgt der tatsächlich sichtbaren Höhe; `100vh` bleibt als Fallback
+  // für Browser ohne `dvh` stehen.
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
 
@@ -179,7 +184,11 @@
     position: sticky;
     top: 0;
     align-self: flex-start;
+    // Auch hier `dvh`: bei ≥ 900px im Querformat mit Browser-UI würde `100vh`
+    // die Sidebar höher als sichtbar machen und den Konto-Block am Fuss
+    // (`margin-top: auto`) unter die Kante schieben.
     height: 100vh;
+    height: 100dvh;
     width: 15rem;
     flex: none;
     flex-direction: column;

@@ -15,7 +15,6 @@
       type="button"
       class="topbar__avatar"
       aria-label="Konto"
-      aria-haspopup="menu"
       aria-controls="account-menu"
       [attr.aria-expanded]="accountMenuOpen()"
       (click)="toggleAccountMenu()"
@@ -23,10 +22,14 @@
       {{ initials() }}
     </button>
 
+    <!-- Disclosure, kein WAI-ARIA-Menu: `role="menu"` würde Pfeiltasten-Navigation
+         und Fokus-Sprung aufs erste Item versprechen, und es liesse die E-Mail-Zeile
+         als unzulässiges Kind zu — Screenreader dürfen sie dann überspringen.
+         `aria-expanded` + `aria-controls` beschreiben das tatsächliche Verhalten. -->
     @if (accountMenuOpen()) {
-      <div class="account-menu" id="account-menu" role="menu">
+      <div class="account-menu" id="account-menu">
         <p class="account-menu__mail">{{ email() }}</p>
-        <button type="button" class="account-menu__item" role="menuitem" (click)="logout()">
+        <button type="button" class="account-menu__item" (click)="logout()">
           <span class="nav__icon" aria-hidden="true">⏻</span>
           Abmelden
         </button>
