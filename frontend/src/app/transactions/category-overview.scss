@@ -1,6 +1,6 @@
-// Nachweis, dass die Design-Tokens (FE-UI-02) in Komponenten-SCSS greifen:
-// die zuvor hartkodierten Hex-Farben sind durch Tokens ersetzt, Spacing/Typo
-// nutzen die Token-Skala, Beträge die `tabular`-Mixin. Struktur unverändert.
+// Migration auf das Variante-A-Fundament (FE-UI-06): Month-Nav, Badge und Card kommen aus den
+// Shared-Basiskomponenten (FE-UI-03); hier bleiben nur Layout und die Tabellen-/Status-Styles,
+// vollständig auf Tokens (FE-UI-02) — kein hartcodierter Farbwert mehr.
 @use 'tokens' as *;
 
 :host {
@@ -13,24 +13,8 @@
 }
 
 .month-selector {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: $sp-4;
+  display: block;
   margin: $sp-4 0 $sp-5;
-}
-
-.month-label {
-  min-width: 10rem;
-  text-align: center;
-  font-weight: 600;
-}
-
-.nav {
-  padding: $sp-1 $sp-3;
-  font-size: $fs-lg;
-  line-height: 1;
-  cursor: pointer;
 }
 
 table {

@@ -1,0 +1,20 @@
+@use 'tokens' as *;
+
+:host {
+  width: 100%;
+  padding: $sp-3;
+  border: 1px solid $c-line-strong;
+  border-radius: $r-md;
+  background: $c-surface;
+  color: $c-ink;
+  font: inherit;
+}
+
+:host::placeholder {
+  color: $c-ink-3;
+}
+
+// Angular markiert ungültige, bereits berührte Felder mit diesen Klassen.
+:host(.ng-invalid.ng-touched) {
+  border-color: $c-negative;
+}

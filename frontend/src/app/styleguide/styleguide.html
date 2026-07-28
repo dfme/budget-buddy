@@ -27,6 +27,16 @@
     <button appButton block>Block</button>
   </div>
 
+  <h2 class="sg-label">Field</h2>
+  <div class="sg-stack">
+    <app-field label="E-Mail" inputId="sg-email">
+      <input appInput id="sg-email" type="email" placeholder="name@example.ch" />
+    </app-field>
+    <app-field label="Passwort" inputId="sg-pw" error="Passwort ist erforderlich.">
+      <input appInput id="sg-pw" type="password" />
+    </app-field>
+  </div>
+
   <h2 class="sg-label">Card</h2>
   <app-card title="Ausgaben nach Kategorie" meta="Juli 2026">
     <p>Inhalt der Karte — beliebig projizierbar.</p>
@@ -64,6 +74,7 @@
   <div class="sg-stack">
     <app-notice>Diese Buchung ist unsicher kategorisiert.</app-notice>
     <app-notice variant="info">Dein Kontoauszug wurde importiert.</app-notice>
+    <app-notice variant="error">E-Mail oder Passwort falsch</app-notice>
   </div>
 
   <h2 class="sg-label">Chip</h2>

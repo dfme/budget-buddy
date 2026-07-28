@@ -1,10 +1,11 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 
 /**
- * Hinweis-Banner der Design-Variante A (FE-UI-03).
+ * Hinweis-Banner der Design-Variante A (FE-UI-03). Der Inhalt kommt per Content-Projection.
  *
- * <p>`role="status"` meldet den Text Screenreadern höflich (nicht unterbrechend). Der
- * Inhalt kommt per Content-Projection.
+ * <p>Die Rolle leitet sich aus der Variante ab: `error` meldet sich als `role="alert"`
+ * (assertiv — unterbricht den Screenreader, richtig für einen fehlgeschlagenen Submit),
+ * `warning` und `info` als `role="status"` (höflich, nicht unterbrechend).
  */
 @Component({
   selector: 'app-notice',
@@ -12,11 +13,12 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
   styleUrl: './notice.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
-    role: 'status',
+    '[attr.role]': "variant() === 'error' ? 'alert' : 'status'",
     '[class.notice--info]': "variant() === 'info'",
+    '[class.notice--error]': "variant() === 'error'",
   },
 })
 export class Notice {
-  /** `warning` (Default, warm) oder `info` (Akzent). */
-  readonly variant = input<'warning' | 'info'>('warning');
+  /** `warning` (Default, warm), `info` (Akzent) oder `error` (rot, assertiv). */
+  readonly variant = input<'warning' | 'info' | 'error'>('warning');
 }

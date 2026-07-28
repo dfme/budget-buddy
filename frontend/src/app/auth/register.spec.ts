@@ -81,4 +81,18 @@ describe('Register', () => {
     expect(navigate).not.toHaveBeenCalled();
     expect(component.submitting()).toBe(false);
   });
+
+  // Deckt den gerenderten Fehler ab, nicht nur das Signal: ein Umbau auf eine Komponente
+  // mit `role="status"` liesse den Screenreader-Fehler sonst still verschwinden.
+  it('kündigt den Formular-Fehler assertiv an (role=alert)', () => {
+    component.form.setValue({ email: 'lara@example.ch', password: 'supersecret' });
+
+    component.submit();
+    httpMock.expectOne('/auth/register').flush(null, { status: 409, statusText: 'Conflict' });
+    fixture.detectChanges();
+
+    const notice: HTMLElement = fixture.nativeElement.querySelector('app-notice');
+    expect(notice.textContent?.trim()).toBe('E-Mail bereits vergeben');
+    expect(notice.getAttribute('role')).toBe('alert');
+  });
 });

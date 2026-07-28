@@ -14,3 +14,9 @@
   background: $c-accent-soft;
   color: $c-accent;
 }
+
+:host(.notice--error) {
+  background: $c-negative-soft;
+  color: $c-negative;
+  font-weight: 600;
+}

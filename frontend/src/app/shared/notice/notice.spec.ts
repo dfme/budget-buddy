@@ -8,7 +8,7 @@ import { Notice } from './notice';
   template: `<app-notice [variant]="variant()">Achtung</app-notice>`,
 })
 class Host {
-  readonly variant = signal<'warning' | 'info'>('warning');
+  readonly variant = signal<'warning' | 'info' | 'error'>('warning');
 }
 
 describe('Notice', () => {
@@ -34,5 +34,20 @@ describe('Notice', () => {
     fixture.componentInstance.variant.set('info');
     fixture.detectChanges();
     expect(notice().classList).toContain('notice--info');
+  });
+
+  it('meldet sich bei variant=error assertiv als alert und färbt als Fehler', () => {
+    fixture.componentInstance.variant.set('error');
+    fixture.detectChanges();
+
+    expect(notice().getAttribute('role')).toBe('alert');
+    expect(notice().classList).toContain('notice--error');
+  });
+
+  it('bleibt bei variant=info höflich (status)', () => {
+    fixture.componentInstance.variant.set('info');
+    fixture.detectChanges();
+
+    expect(notice().getAttribute('role')).toBe('status');
   });
 });

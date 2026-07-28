@@ -3,6 +3,11 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 
+import { Button } from '../shared/button/button';
+import { Card } from '../shared/card/card';
+import { Field } from '../shared/field/field';
+import { Input } from '../shared/input/input';
+import { Notice } from '../shared/notice/notice';
 import { AuthService } from './auth.service';
 
 /**
@@ -16,7 +21,7 @@ import { AuthService } from './auth.service';
  */
 @Component({
   selector: 'app-register',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, Card, Field, Input, Notice, Button],
   templateUrl: './register.html',
   styleUrl: './register.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -36,6 +41,36 @@ export class Register {
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(8)]],
   });
+
+  /** Fehlermeldung fürs E-Mail-Feld oder `null`, solange es gültig oder unberührt ist. */
+  emailError(): string | null {
+    const control = this.form.controls.email;
+    if (!control.touched || control.valid) {
+      return null;
+    }
+    if (control.hasError('required')) {
+      return 'E-Mail ist erforderlich.';
+    }
+    if (control.hasError('email')) {
+      return 'Bitte eine gültige E-Mail-Adresse eingeben.';
+    }
+    return null;
+  }
+
+  /** Fehlermeldung fürs Passwort-Feld oder `null`, solange es gültig oder unberührt ist. */
+  passwordError(): string | null {
+    const control = this.form.controls.password;
+    if (!control.touched || control.valid) {
+      return null;
+    }
+    if (control.hasError('required')) {
+      return 'Passwort ist erforderlich.';
+    }
+    if (control.hasError('minlength')) {
+      return 'Passwort muss mindestens 8 Zeichen lang sein.';
+    }
+    return null;
+  }
 
   submit(): void {
     if (this.form.invalid) {

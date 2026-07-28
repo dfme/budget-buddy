@@ -3,6 +3,11 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 
+import { Button } from '../shared/button/button';
+import { Card } from '../shared/card/card';
+import { Field } from '../shared/field/field';
+import { Input } from '../shared/input/input';
+import { Notice } from '../shared/notice/notice';
 import { AuthService } from './auth.service';
 
 /**
@@ -16,7 +21,7 @@ import { AuthService } from './auth.service';
  */
 @Component({
   selector: 'app-login',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, Card, Field, Input, Notice, Button],
   templateUrl: './login.html',
   styleUrl: './login.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -36,6 +41,30 @@ export class Login {
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required]],
   });
+
+  /** Fehlermeldung fürs E-Mail-Feld oder `null`, solange es gültig oder unberührt ist. */
+  emailError(): string | null {
+    const control = this.form.controls.email;
+    if (!control.touched || control.valid) {
+      return null;
+    }
+    if (control.hasError('required')) {
+      return 'E-Mail ist erforderlich.';
+    }
+    if (control.hasError('email')) {
+      return 'Bitte eine gültige E-Mail-Adresse eingeben.';
+    }
+    return null;
+  }
+
+  /** Fehlermeldung fürs Passwort-Feld oder `null`, solange es gültig oder unberührt ist. */
+  passwordError(): string | null {
+    const control = this.form.controls.password;
+    if (!control.touched || control.valid) {
+      return null;
+    }
+    return 'Passwort ist erforderlich.';
+  }
 
   submit(): void {
     if (this.form.invalid) {
