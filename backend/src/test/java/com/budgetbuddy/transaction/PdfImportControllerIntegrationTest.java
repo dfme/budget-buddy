@@ -204,20 +204,23 @@ class PdfImportControllerIntegrationTest {
     }
 
     @Test
-    void invalidPdfReturns400() throws Exception {
+    void invalidPdfReturns400WithUnsupportedFormatReason() throws Exception {
         byte[] notAPdf = "Dies ist kein PDF".getBytes(StandardCharsets.UTF_8);
 
+        // Der reason macht die beiden 400er für das Frontend unterscheidbar (FE-PDF-02).
         mockMvc.perform(multipart("/import/pdf").file(pdfPart(notAPdf)).cookie(jwtCookie(userId)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.reason").value("UNSUPPORTED_FORMAT"));
     }
 
     @Test
-    void passwordProtectedPdfReturns400() throws Exception {
+    void passwordProtectedPdfReturns400WithPasswordProtectedReason() throws Exception {
         // Führt den PasswordProtectedPdfException-Zweig des PdfImportExceptionHandler am Endpoint
         // aus. Verschlüsselung wird vor dem Parsen erkannt, der Inhalt ist daher belanglos.
         mockMvc.perform(multipart("/import/pdf")
                         .file(pdfPart(passwordProtectedPdf())).cookie(jwtCookie(userId)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.reason").value("PASSWORD_PROTECTED"));
     }
 
     @Test

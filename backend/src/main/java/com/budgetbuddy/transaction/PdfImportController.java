@@ -1,9 +1,11 @@
 package com.budgetbuddy.transaction;
 
+import com.budgetbuddy.transaction.dto.ImportErrorResponse;
 import com.budgetbuddy.transaction.dto.ImportResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -53,7 +55,9 @@ public class PdfImportController {
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Import erfolgreich; Anzahl Transaktionen"),
         @ApiResponse(responseCode = "400",
-                description = "Ungültiges oder passwortgeschütztes PDF", content = @Content),
+                description = "Ungültiges oder passwortgeschütztes PDF; der Body unterscheidet "
+                        + "die beiden Fälle über den maschinenlesbaren reason",
+                content = @Content(schema = @Schema(implementation = ImportErrorResponse.class))),
         @ApiResponse(responseCode = "401", description = "Nicht authentifiziert", content = @Content),
         @ApiResponse(responseCode = "408",
                 description = "Import-Timeout (Zeitbudget überschritten)", content = @Content),
