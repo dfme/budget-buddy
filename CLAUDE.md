@@ -158,7 +158,7 @@ BudgetBuddy is a web app for students and young professionals living in Switzerl
 | Factor                  | JWT (stateless)                                                 | Session (server-side)                        |
 | ----------------------- | --------------------------------------------------------------- | -------------------------------------------- |
 | SQLite write pressure   | None — no session table                                         | Every login/request writes to sessions table |
-| Angular SPA integration | httpOnly Cookie + `withCredentials: true`; kein Token-Interceptor im Client (ADR-2) | Requires cookie + CORS + SameSite config     |
+| Angular SPA integration | httpOnly Cookie + `withCredentials: true`; kein Token-Interceptor im Client (Interceptor-Details: ADR-2) | Requires cookie + CORS + SameSite config |
 | Spring Security support | JWT in Cookie; Spring Security liest Token aus Cookie           | Also supported but adds Spring Session dep   |
 | Logout invalidation     | Backend setzt `Max-Age=0` → sofort invalidiert                  | Instant server-side invalidation             |
 | MVP scope fit           | Excellent                                                       | Overengineered                               |
