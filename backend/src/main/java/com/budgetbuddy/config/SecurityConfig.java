@@ -2,6 +2,8 @@ package com.budgetbuddy.config;
 
 import com.budgetbuddy.auth.JwtCookieAuthenticationFilter;
 import com.budgetbuddy.auth.JwtService;
+import java.util.Arrays;
+import java.util.stream.Stream;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -32,8 +34,9 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  * öffentlich per GET ausgeliefert (INFRA-05, ADR-10 Single-Artifact). Da die API keinen
  * gemeinsamen Prefix hat (z.B. {@code /users/me}), bleiben die freigegebenen Pfade bewusst
  * eng gefasst (Default-Deny), statt GET pauschal zu öffnen — versehentliche Exposition wäre
- * bei Transaktionsdaten Risiko #2 (Datenleck). SPA-Routen werden in {@code SPA_GET_PATHS}
- * gepflegt; neue Frontend-Routen müssen hier UND in {@code SpaForwardController} ergänzt werden.
+ * bei Transaktionsdaten Risiko #2 (Datenleck). Neue Frontend-Routen werden ausschliesslich in
+ * {@link SpaForwardController#CLIENT_ROUTE_PATTERNS} gepflegt; diese Klasse leitet ihre
+ * Freigabe daraus ab.
  */
 @Configuration
 public class SecurityConfig {
@@ -48,25 +51,30 @@ public class SecurityConfig {
     };
 
     /**
-     * Öffentlich per GET erreichbare Pfade für die Auslieferung der SPA: die statischen
-     * Build-Artefakte (flach unter {@code static/}: {@code main-*.js}, {@code styles-*.css},
-     * {@code favicon.ico}, {@code 3rdpartylicenses.txt}, optional {@code assets/**}), die
-     * Einstiegsseite {@code /} bzw. {@code /index.html} sowie die client-seitigen
-     * Angular-Routen (Deep-Link/Hard-Reload → {@code SpaForwardController}).
-     *
-     * <p>Bei neuen Frontend-Routen: hier und in {@code SpaForwardController} ergänzen.
+     * Öffentlich per GET erreichbare statische Build-Artefakte der SPA (flach unter
+     * {@code static/}: {@code main-*.js}, {@code styles-*.css}, {@code favicon.ico},
+     * {@code 3rdpartylicenses.txt}, optional {@code assets/**}) plus die Einstiegsseite
+     * {@code /} bzw. {@code /index.html}.
      */
-    private static final String[] SPA_GET_PATHS = {
-        "/",
-        "/index.html",
-        "/favicon.ico",
-        "/*.js",
-        "/*.css",
-        "/*.txt",
-        "/assets/**",
-        "/dashboard/**",
-        "/login/**"
+    private static final String[] SPA_ASSET_GET_PATHS = {
+        "/", "/index.html", "/favicon.ico", "/*.js", "/*.css", "/*.txt", "/assets/**"
     };
+
+    /**
+     * Statische Assets plus die client-seitigen Angular-Routen (Deep-Link/Hard-Reload →
+     * {@link SpaForwardController}).
+     *
+     * <p>Die Routen-Patterns kommen aus {@link SpaForwardController#CLIENT_ROUTE_PATTERNS}
+     * statt aus einer zweiten Liste: die frühere Duplizierung war die Ursache dafür, dass
+     * {@code /register}, {@code /categories} und {@code /import} in Produktion mit 401
+     * geantwortet haben — sie standen im Angular-Router, aber in keiner der beiden
+     * Backend-Listen (INFRA-14).
+     */
+    private static final String[] SPA_GET_PATHS =
+            Stream.concat(
+                            Arrays.stream(SPA_ASSET_GET_PATHS),
+                            Arrays.stream(SpaForwardController.CLIENT_ROUTE_PATTERNS))
+                    .toArray(String[]::new);
 
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http, JwtService jwtService) throws Exception {

@@ -308,10 +308,14 @@ Playwright-Tests in eigenem Verzeichnis ausserhalb von `backend/` und `frontend/
 
 ```
 e2e/
-  └── tests/   (1 Testfall pro Must-Have User Story: US-03, US-04, US-05, US-06)
+  ├── tests/      (1 Testfall pro Must-Have User Story: US-03, US-04, US-05, US-06)
+  ├── fixtures/   (auth.fixture.ts — eingeloggte Session als Vorbedingung)
+  └── support/    (Port, Pfade, JAR-Auflösung, DB-Reset der Testinstanz)
 ```
 
 Regel: Pro Must-Have Story je 1 Happy Path + 1 Fehlerpfad (siehe Testing: Frameworks).
+
+Getestet wird gegen **ein** JAR aus dem Maven-Profil `prod` auf Port 8081 (nicht 8080 — der gehört dem Dev-Backend): es liefert SPA und API vom selben Origin, also die Konstellation, die auf Render läuft. Nur so verhält sich das `SameSite=Strict`-JWT-Cookie im Test wie in Produktion (ADR-7). Setup, Fixture-Nutzung und CI-Einbindung: [e2e/README.md](e2e/README.md).
 
 ### Backend: Claude API hinter Interface
 
