@@ -228,6 +228,7 @@ Issue-Titel folgen dem Format `[TASK-ID] Kurzbeschreibung`. Die Task-ID kodiert 
 | `FE-PDF-XX` | Frontend — PDF-Upload | `FE-PDF-01` |
 | `FE-CAT-XX` | Frontend — Kategorisierung | `FE-CAT-01` |
 | `FE-STS-XX` | Frontend — Safe-to-Spend | `FE-STS-01` |
+| `E2E-XX-XX` | End-to-End-Tests (Frontend + Backend gemeinsam) | `E2E-AUTH-01`, `E2E-PDF-01` |
 
 Die Task-ID im Issue-Titel wird direkt als `<TASK-ID>` in der Branch-Namenskonvention verwendet (siehe Branching-Strategie oben).
 
