@@ -44,7 +44,14 @@ public class SecurityConfig {
         "/swagger-ui/**",
         "/swagger-ui.html",
         "/actuator/health",
-        "/actuator/info"
+        "/actuator/info",
+        // Springs ERROR-Dispatch: @ResponseStatus auf einer Exception (z.B. 408 Timeout,
+        // 409 Duplikat beim PDF-Import) läuft über response.sendError() und wird intern auf
+        // /error weitergeleitet. Der JwtCookieAuthenticationFilter überspringt den
+        // ERROR-Dispatch (OncePerRequestFilter-Default) — ohne diese Freigabe antwortet
+        // anyRequest().authenticated() dort mit 401 und überschreibt den echten Status. /error
+        // liefert nur Status und Standard-Fehlerattribute, nie Nutzdaten (Risiko #2 unberührt).
+        "/error"
     };
 
     /**

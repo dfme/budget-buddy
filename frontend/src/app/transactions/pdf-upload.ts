@@ -121,8 +121,20 @@ export class PdfUpload {
       });
   }
 
-  /** Erfolgsmeldung mit Anzahl — «42 Transaktionen erkannt», Singular bei genau einer. */
+  /**
+   * Erfolgsmeldung mit Anzahl — «42 Transaktionen erkannt», Singular bei genau einer.
+   *
+   * <p>Der Nullfall (BE-PDF-05: erkannter Auszug ohne Buchungen → `200 {count: 0}`) bekommt
+   * eine eigene Formulierung: ein blosses «0 Transaktionen erkannt.» liesse offen, ob das
+   * Konto ohne Bewegung war oder das falsche PDF hochgeladen wurde.
+   */
   successMessage(count: number): string {
+    if (count === 0) {
+      return (
+        'Keine Transaktionen erkannt. Der Kontoauszug wurde gelesen, enthält aber keine ' +
+        'Buchungen — falls du Bewegungen erwartest, prüfe, ob es das richtige PDF ist.'
+      );
+    }
     return count === 1 ? '1 Transaktion erkannt.' : `${count} Transaktionen erkannt.`;
   }
 

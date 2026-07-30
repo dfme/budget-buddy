@@ -73,6 +73,19 @@ describe('PdfUpload', () => {
     expect(notice?.getAttribute('role')).toBe('status');
   });
 
+  it('explains the zero-transaction case instead of showing a bare count', () => {
+    // BE-PDF-05: erkannter Auszug ohne Buchungen liefert 200 {count: 0}. Die Meldung muss
+    // einordnen (Konto ohne Bewegung vs. falsches PDF), bleibt aber ein freundliches info-Notice.
+    component.onDrop(dropEvent([pdfFile()]));
+    httpMock.expectOne('/import/pdf').flush({ count: 0 });
+    fixture.detectChanges();
+
+    const notice = fixture.nativeElement.querySelector('app-notice');
+    expect(notice?.textContent).toContain('Keine Transaktionen erkannt.');
+    expect(notice?.textContent).toContain('prüfe, ob es das richtige PDF ist');
+    expect(notice?.getAttribute('role')).toBe('status');
+  });
+
   it('uses the singular for exactly one imported transaction', () => {
     component.onDrop(dropEvent([pdfFile()]));
     httpMock.expectOne('/import/pdf').flush({ count: 1 });

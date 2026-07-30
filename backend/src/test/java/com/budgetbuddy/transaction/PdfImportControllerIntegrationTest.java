@@ -54,6 +54,11 @@ import org.springframework.test.web.servlet.MockMvc;
  *
  * <p>Temp-File-DB statt {@code jdbc:sqlite::memory:} und {@code @DirtiesContext} analog zu den
  * übrigen transaction-Integrationstests.
+ *
+ * <p><b>Grenze von MockMvc:</b> Der ERROR-Dispatch auf {@code /error} (via {@code
+ * @ResponseStatus} → {@code sendError()}) wird hier nicht ausgeführt — 408/409 waren unter
+ * MockMvc grün, kamen real aber als 401 an. Diese Seite deckt
+ * {@link PdfImportErrorDispatchIntegrationTest} über einen echten Container ab.
  */
 @SpringBootTest
 @AutoConfigureMockMvc

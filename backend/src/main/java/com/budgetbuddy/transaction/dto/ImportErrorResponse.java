@@ -6,8 +6,10 @@ package com.budgetbuddy.transaction.dto;
  *
  * <p>Beide 400-Fälle — passwortgeschütztes und nicht lesbares PDF — tragen denselben HTTP-Status;
  * erst der {@code reason} macht sie für das Frontend unterscheidbar, das daraus zwei getrennte
- * Nutzermeldungen formuliert. Die übrigen Fehlerstatus (408/409/413) bleiben body-los, weil der
- * Status dort bereits eindeutig ist.
+ * Nutzermeldungen formuliert. Die übrigen Fehlerstatus (408/409/413) tragen keinen
+ * {@code reason}, weil der Status dort bereits eindeutig ist (408/409 antworten über Springs
+ * ERROR-Dispatch mit dem Standard-Fehlerbody, 413 ohne Body — das Frontend wertet nur den
+ * Status aus).
  *
  * @param reason maschinenlesbarer Fehlergrund des 400ers.
  */

@@ -22,8 +22,11 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
  * <p>Die beiden 400er tragen einen {@link ImportErrorResponse}-Body mit maschinenlesbarem
  * {@code reason}: Passwort- und Format-Fehler teilen sich den Status und wären sonst für das
  * Frontend nicht unterscheidbar, das daraus zwei getrennte Nutzermeldungen formuliert (FE-PDF-02).
- * 408/409/413 bleiben body-los (analog {@link TransactionExceptionHandler}) — dort ist der Status
- * allein eindeutig.
+ * 408/409/413 tragen keinen {@code reason} — dort ist der Status allein eindeutig. Body-los sind
+ * sie deshalb aber nicht alle: 408/409 laufen via {@code @ResponseStatus} über Springs
+ * ERROR-Dispatch und antworten mit dem Standard-Fehlerbody ({@code timestamp}/{@code status}/…);
+ * nur 413 aus dem {@code void}-Handler unten bleibt tatsächlich ohne Body. Der Client-Contract
+ * hängt allein am Status plus — bei 400 — am {@code reason}.
  */
 @RestControllerAdvice(assignableTypes = PdfImportController.class)
 public class PdfImportExceptionHandler {
