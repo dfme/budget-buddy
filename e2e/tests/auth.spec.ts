@@ -87,7 +87,9 @@ test.describe('Auth-Flow', () => {
     // geschützte Route nicht doch die Shell zeigt.
     await page.goto('/dashboard');
 
-    await expect(page).toHaveURL(/\/login$/);
+    // TEMPORÄR GEBROCHEN — Nachweis für AC 5 (CI wird rot bei Fehlschlag). Wird direkt
+    // nach dem roten Run per Revert zurückgenommen.
+    await expect(page).toHaveURL(/\/absichtlich-falsch$/);
     await expect(page.getByRole('heading', { name: 'Login' })).toBeVisible();
   });
 
