@@ -37,7 +37,7 @@ Wir nutzen **JWT (JSON Web Token) mit HS256 Signing, bcrypt Password Hashing und
 - **XSS-sicher:** httpOnly Cookie ist für JavaScript nicht lesbar — Token kann nicht via XSS gestohlen werden
 - **Sofort-Logout:** Server setzt Cookie auf abgelaufen → kein "Logout Delay" wie bei clientseitigem Löschen
 - **Spring Native:** Spring Boot 3.5 hat erste Klasse JWT-Support
-- **Kein manueller Interceptor:** Angular sendet Cookie automatisch mit `withCredentials: true`
+- **Kein Token-Handling im Client:** Browser sendet das Cookie automatisch; der `credentialsInterceptor` setzt nur `withCredentials: true`, ein `authErrorInterceptor` leitet bei 401 zentral auf `/login` um — ausgenommen die Auth-/Bootstrap-Endpoints `/auth/login`, `/auth/register` und `/users/me`, deren 401 der jeweilige Aufrufer selbst behandelt. Serverseitig liest der `JwtCookieAuthenticationFilter` das Cookie.
 
 ### Negative
 
