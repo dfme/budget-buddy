@@ -25,7 +25,7 @@ Wir nutzen **JWT (JSON Web Token) mit HS256 Signing, bcrypt Password Hashing und
 - **Password Storage:** bcrypt (12 Rounds = ~100ms Hashing)
 - **Logout:** Backend setzt Cookie mit abgelaufenem Datum (`Max-Age=0`) — sofort invalidiert
 
-**Angular:** Requests mit `withCredentials: true` senden; kein manueller `HttpInterceptor` für Token-Handling nötig.
+**Angular:** Requests mit `withCredentials: true` senden; clientseitig kein Token-Handling nötig — die Frontend-Interceptor führt ADR-2.
 
 **CSRF-Mitigation:** `SameSite=Strict` verhindert Cross-Site-Requests in modernen Browsern. Zusätzlich Double-Submit-Cookie-Pattern oder Spring Security CSRF-Token für ältere Browser.
 
@@ -37,7 +37,7 @@ Wir nutzen **JWT (JSON Web Token) mit HS256 Signing, bcrypt Password Hashing und
 - **XSS-sicher:** httpOnly Cookie ist für JavaScript nicht lesbar — Token kann nicht via XSS gestohlen werden
 - **Sofort-Logout:** Server setzt Cookie auf abgelaufen → kein "Logout Delay" wie bei clientseitigem Löschen
 - **Spring Native:** Spring Boot 3.5 hat erste Klasse JWT-Support
-- **Kein Token-Handling im Client:** Browser sendet das Cookie automatisch; der `credentialsInterceptor` setzt nur `withCredentials: true`, ein `authErrorInterceptor` leitet bei 401 zentral auf `/login` um — ausgenommen die Auth-/Bootstrap-Endpoints `/auth/login`, `/auth/register` und `/users/me`, deren 401 der jeweilige Aufrufer selbst behandelt. Serverseitig liest der `JwtCookieAuthenticationFilter` das Cookie.
+- **Kein Token-Handling im Client:** Browser sendet das Cookie automatisch; serverseitig liest der `JwtCookieAuthenticationFilter` das Cookie. Die Frontend-Interceptor führt ADR-2.
 
 ### Negative
 
@@ -68,4 +68,4 @@ Wir nutzen **JWT (JSON Web Token) mit HS256 Signing, bcrypt Password Hashing und
 
 - **ADR-0:** Frontend-Backend-Trennung (JWT perfekt für Stateless SPA)
 - **ADR-1:** Java + Spring Boot (OAuth2ResourceServer Native Support)
-- **ADR-2:** Angular Frontend (`withCredentials: true` auf HttpClient, kein manueller Interceptor für Token)
+- **ADR-2:** Angular Frontend (`withCredentials: true` auf HttpClient; führt die Interceptor-Details)

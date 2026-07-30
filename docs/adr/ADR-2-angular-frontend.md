@@ -26,7 +26,7 @@ Wir nutzen **Angular 21.x** mit folgender Konfiguration:
 - **State:** Angular Signals + RxJS Services (kein NgRx für MVP)
 - **Forms:** Reactive Forms (FormGroup, FormBuilder)
 - **Change Detection:** OnPush überall (Signals-kompatibel)
-- **HTTP:** `HttpClient` mit `withCredentials: true`; JWT als httpOnly-Cookie (SameSite=Strict). Kein Bearer-Header und kein Token-Interceptor — ein schlanker `credentialsInterceptor` setzt nur `withCredentials` (Angular hat keine globale Option); ADR-7.
+- **HTTP:** `HttpClient` mit `withCredentials: true`; JWT als httpOnly-Cookie (SameSite=Strict). Kein Bearer-Header und kein Token-Interceptor. Registriert sind zwei funktionale Interceptor (`frontend/src/app/app.config.ts`): `credentialsInterceptor` setzt nur `withCredentials` (Angular hat dafür keine globale Option), `authErrorInterceptor` leitet bei 401 zentral auf `/login` um — die davon ausgenommenen Auth-/Bootstrap-Endpoints führt `auth-error.interceptor.ts`. ADR-7.
 - **Charts:** Chart.js + ng2-charts (leichtgewichtig)
 - **Build:** Angular CLI (esbuild-basiert)
 
