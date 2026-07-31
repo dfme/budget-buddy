@@ -316,7 +316,7 @@ e2e/
 
 Regel: Pro Must-Have Story je 1 Happy Path + 1 Fehlerpfad (siehe Testing: Frameworks).
 
-Getestet wird gegen **ein** JAR aus dem Maven-Profil `prod` auf Port 8081 (nicht 8080 — der gehört dem Dev-Backend): es liefert SPA und API vom selben Origin, also die Konstellation, die auf Render läuft. Nur so verhält sich das `SameSite=Strict`-JWT-Cookie im Test wie in Produktion (ADR-7). Setup, Fixture-Nutzung und CI-Einbindung: [e2e/README.md](e2e/README.md).
+Getestet wird gegen **ein** JAR aus dem Maven-Profil `prod` auf Port 8081 (nicht 8080 — der gehört dem Dev-Backend): es liefert SPA und API vom selben Origin und ist damit dasselbe Artefakt, das auf Render deployt wird. Nur so verhält sich das `SameSite=Strict`-JWT-Cookie im Test wie in Produktion (ADR-7). Identisch ist das Artefakt, nicht die Laufzeitkonfiguration: die Testinstanz läuft ohne `SPRING_PROFILES_ACTIVE=prod` und damit ohne `app.cookie.secure=true` — das `Secure`-Flag ist über `JwtCookieFactoryTest` abgedeckt, nicht über E2E. Setup, Fixture-Nutzung und CI-Einbindung: [e2e/README.md](e2e/README.md).
 
 ### Backend: Claude API hinter Interface
 

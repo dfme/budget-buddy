@@ -48,6 +48,11 @@ export const LOCAL_TEST_JWT_SECRET = 'e2e-local-test-secret-not-a-production-cre
 /**
  * Findet das gebaute Backend-JAR. Wirft mit Bau-Anweisung, wenn keines existiert — ohne diese
  * Meldung würde Playwright nur einen unverständlichen webServer-Timeout zeigen.
+ *
+ * Bei mehreren Treffern wird ebenfalls geworfen, statt eines zu wählen: `readdirSync` liefert
+ * keine definierte Reihenfolge, ein stiller Griff ins Verzeichnis könnte also nach einem
+ * Versionswechsel ohne `mvn clean` das alte Artefakt testen. Ein grüner Lauf gegen ein veraltetes
+ * JAR ist schlimmer als ein Abbruch — man sucht den Fehler garantiert an der falschen Stelle.
  */
 export function resolveBackendJar(): string {
   const targetDir = resolve(__dirname, '..', '..', 'backend', 'target');
@@ -60,6 +65,15 @@ export function resolveBackendJar(): string {
       `Kein Backend-JAR in ${targetDir} gefunden.\n` +
         'Vorher bauen (das prod-Profil bündelt die Angular-SPA ins JAR):\n' +
         '  cd backend && ./mvnw -Pprod -DskipTests package',
+    );
+  }
+
+  if (jars.length > 1) {
+    throw new Error(
+      `Mehrere Backend-JARs in ${targetDir} gefunden:\n` +
+        jars.map((jar) => `  - ${jar}`).join('\n') +
+        '\nWelches gemeint ist, lässt sich nicht zuverlässig bestimmen. Aufräumen und neu bauen:\n' +
+        '  cd backend && ./mvnw -Pprod -DskipTests clean package',
     );
   }
 

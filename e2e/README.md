@@ -19,6 +19,17 @@ Same-Origin ist hier nicht bloss bequem: nur so verhält sich das `SameSite=Stri
 Test wie in Produktion (ADR-7). Ein `ng serve` mit Dev-Proxy davor würde diese Semantik verdecken
 — und hätte die 401-Lücke bei `/register` nicht gefunden, die dieses Setup aufgedeckt hat.
 
+**Identisch ist das Artefakt, nicht die Laufzeitkonfiguration.** Die Testinstanz startet ohne
+`SPRING_PROFILES_ACTIVE=prod`; auf Render setzt dieses Profil zusätzlich `app.cookie.secure=true`
+(`application-prod.properties`). Von den drei Cookie-Eigenschaften prüfen die E2E-Tests deshalb
+nur `HttpOnly` und `SameSite=Strict`.
+
+Das `Secure`-Flag lässt sich hier grundsätzlich nicht prüfen: ein `Secure`-Cookie über
+`http://localhost` würde der Browser gar nicht erst speichern — der Test wäre nicht strenger,
+sondern kaputt. Abgedeckt ist es stattdessen als Unit-Test in
+`backend/src/test/java/com/budgetbuddy/auth/JwtCookieFactoryTest.java`, der die Factory direkt mit
+beiden Konfigurationswerten prüft.
+
 **Port 8081, nicht 8080.** 8080 gehört dem Dev-Backend. Die Suite setzt die Datenbank vor jedem
 Lauf zurück und darf deshalb nie an einer fremden Instanz hängen. Aus demselben Grund ist
 `reuseExistingServer` auch lokal `false`: ein besetzter Port soll ein lauter Startfehler sein,
@@ -28,6 +39,11 @@ Die Testinstanz benutzt eine eigene SQLite-Datei unter `.tmp/e2e.db` (gitignored
 Dev-Datenbank im Repo-Root wird nicht angefasst.
 
 ## Lokal ausführen
+
+**Voraussetzung: Java 25 im `PATH`.** Playwright startet das JAR mit `java -jar`, also mit der
+Standard-JVM der Shell — nicht mit der, die Maven benutzt. Mit einem älteren Default-JDK bricht
+der Start mit `UnsupportedClassVersionError` ab (im Playwright-Output sichtbar, weil das
+Backend-Log durchgereicht wird). Prüfen mit `java -version`.
 
 ```bash
 # 1. Backend-JAR mit gebündelter SPA bauen (nur nach Code-Änderungen nötig)
