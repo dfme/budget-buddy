@@ -228,6 +228,7 @@ Issue-Titel folgen dem Format `[TASK-ID] Kurzbeschreibung`. Die Task-ID kodiert 
 | `FE-PDF-XX` | Frontend — PDF-Upload | `FE-PDF-01` |
 | `FE-CAT-XX` | Frontend — Kategorisierung | `FE-CAT-01` |
 | `FE-STS-XX` | Frontend — Safe-to-Spend | `FE-STS-01` |
+| `E2E-XX-XX` | End-to-End-Tests (Frontend + Backend gemeinsam) | `E2E-AUTH-01`, `E2E-PDF-01` |
 
 Die Task-ID im Issue-Titel wird direkt als `<TASK-ID>` in der Branch-Namenskonvention verwendet (siehe Branching-Strategie oben).
 
@@ -308,10 +309,14 @@ Playwright-Tests in eigenem Verzeichnis ausserhalb von `backend/` und `frontend/
 
 ```
 e2e/
-  └── tests/   (1 Testfall pro Must-Have User Story: US-03, US-04, US-05, US-06)
+  ├── tests/      (1 Testfall pro Must-Have User Story: US-03, US-04, US-05, US-06)
+  ├── fixtures/   (auth.fixture.ts — eingeloggte Session als Vorbedingung)
+  └── support/    (Port, Pfade, JAR-Auflösung, DB-Reset der Testinstanz)
 ```
 
 Regel: Pro Must-Have Story je 1 Happy Path + 1 Fehlerpfad (siehe Testing: Frameworks).
+
+Getestet wird gegen **ein** JAR aus dem Maven-Profil `prod` auf Port 8081 (nicht 8080 — der gehört dem Dev-Backend): es liefert SPA und API vom selben Origin und ist damit dasselbe Artefakt, das auf Render deployt wird. Nur so verhält sich das `SameSite=Strict`-JWT-Cookie im Test wie in Produktion (ADR-7). Identisch ist das Artefakt, nicht die Laufzeitkonfiguration: die Testinstanz läuft ohne `SPRING_PROFILES_ACTIVE=prod` und damit ohne `app.cookie.secure=true` — das `Secure`-Flag ist über `JwtCookieFactoryTest` abgedeckt, nicht über E2E. Setup, Fixture-Nutzung und CI-Einbindung: [e2e/README.md](e2e/README.md).
 
 ### Backend: Claude API hinter Interface
 

@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    // DOM: `page.evaluate()`-Callbacks werden im Browser ausgeführt und greifen dort auf
+    // `document` zu — ohne diese lib kennt der Compiler die Browser-Globals nicht.
+    "lib": ["ES2022", "DOM"],
+    // Node16 statt CommonJS/node10: letzteres ist deprecated und fällt in TypeScript 7 weg.
+    // Ohne `"type"` in der package.json behandelt Node16 die Dateien als CommonJS — das ist,
+    // was Playwright beim Transpilieren erzeugt.
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "types": ["node"],
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": ["**/*.ts"]
+}

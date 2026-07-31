@@ -1,8 +1,10 @@
 name: Build
 
-# Wiederverwendbarer Build/Test-Workflow (INFRA-06): Backend (mvn verify) und
-# Frontend (unit test + prod build). Single Source of Truth — aufgerufen von
-# ci.yml (Pull Requests) und cd.yml (Push auf main, vor dem Render-Deploy).
+# Wiederverwendbarer Build/Test-Workflow (INFRA-06): Backend (mvn verify),
+# Frontend (unit test + prod build) und E2E (Playwright, INFRA-14). Single Source
+# of Truth — aufgerufen von ci.yml (Pull Requests) und cd.yml (Push auf main, vor
+# dem Render-Deploy). Der E2E-Job hängt hier und nicht in einem eigenen
+# PR-Workflow, damit auch ein Push auf main nicht ohne E2E deployt.
 on:
   workflow_call:
 
@@ -50,3 +52,70 @@ jobs:
 
       - name: Production build
         run: npx ng build --configuration production
+
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    # Playwright startet das JAR selbst und wartet auf /actuator/health (webServer-Timeout
+    # 120s). Das Limit hier ist der Airbag für einen hängenden Browser, nicht die Regel.
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 25 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      # Signiert ausschliesslich Tokens gegen die Wegwerf-SQLite-Datei dieses Runs. Bewusst
+      # zufällig erzeugt statt als Repo-Secret hinterlegt: ein Secret würde suggerieren, der Wert
+      # wäre schützenswert oder gar mit Produktion geteilt. JwtProperties verlangt >= 32 Zeichen,
+      # `rand -hex 32` liefert 64. Kein Job-`env`-Default daneben — ein Platzhalter wäre lang
+      # genug zum Starten und würde einen Fehlschlag dieses Schritts still überdecken.
+      - name: Generate throwaway JWT secret
+        run: echo "JWT_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+
+      # -Pprod bündelt die Angular-SPA ins JAR (BOOT-INF/static). Ohne das Profil liefert das
+      # JAR keine SPA und die Tests scheitern am ersten goto. Tests sind hier übersprungen —
+      # den Backend-Testlauf macht der `backend`-Job.
+      - name: Build backend JAR with bundled SPA
+        working-directory: backend
+        run: ./mvnw -B -Pprod -DskipTests package
+
+      - name: Install E2E dependencies
+        working-directory: e2e
+        run: npm ci
+
+      # Playwright transpiliert TypeScript, prüft aber keine Typen. Ohne diesen Schritt fällt ein
+      # Typfehler erst als Laufzeit-Fehlschlag auf — oder gar nicht, wenn der Pfad nicht läuft.
+      - name: Typecheck
+        working-directory: e2e
+        run: npm run typecheck
+
+      # Nur chromium: die Tests prüfen Flows und Cookie-Handling, nicht Rendering-Unterschiede.
+      # --with-deps zieht die Systembibliotheken, die der Runner nicht mitbringt.
+      - name: Install Playwright browser
+        working-directory: e2e
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        working-directory: e2e
+        run: npm test
+
+      # if: failure() — bei grünem Lauf gibt es keine Traces/Screenshots, ein Upload wäre leer.
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: e2e/playwright-report/
+          retention-days: 7

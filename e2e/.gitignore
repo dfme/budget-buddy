@@ -1,0 +1,11 @@
+# Node
+/node_modules
+
+# Playwright-Artefakte
+/test-results
+/playwright-report
+/blob-report
+/.cache
+
+# Laufzeit-Artefakte der Testinstanz (SQLite-DB des E2E-Backends)
+/.tmp
