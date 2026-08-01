@@ -1,0 +1,16 @@
+@use 'tokens' as *;
+
+:host {
+  display: block;
+}
+
+// Feste Höhe + `position: relative`: Chart.js braucht einen Container mit definierter
+// Höhe, sonst wächst das Canvas bei `responsive: true` endlos.
+.chart {
+  position: relative;
+  height: 220px;
+
+  @include desktop {
+    height: 260px;
+  }
+}

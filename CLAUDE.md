@@ -135,7 +135,7 @@ BudgetBuddy is a web app for students and young professionals living in Switzerl
 | State            | Angular Signals + Services             | (bundled) | No NgRx needed for MVP scope                                                 |
 | Forms            | Reactive Forms (FormGroup)             | (bundled) | Stable; Signal Forms still experimental                                      |
 | HTTP auth        | `withCredentials: true` auf HttpClient | (bundled) | Cookie automatisch mitgesendet; kein Token-Interceptor im Client (ADR-7; Interceptor-Details: ADR-2) |
-| Charts           | Chart.js + ng2-charts                  | 4.x / 8.x | Lightweight, Angular-native wrapper for pie/bar                              |
+| Charts           | Chart.js + ng2-charts                  | 4.x / 10.x | Lightweight, Angular-native wrapper for pie/bar. ng2-charts 10 ist die gegen Angular 21 gebaute Linie (Peer `@angular/core >=21.0.0`); 8.x zielt auf Angular 19 |
 | Change detection | OnPush everywhere                      | (bundled) | Required for Signals to work correctly                                       |
 | Design-System    | Custom SCSS, Variante A «Klarheit»     | (n/a)     | Design-Entscheid FE-UI-01 / ADR-11; Baseline `design/variant-a/`. Komponenten-Unterbau (Custom SCSS vs. `@angular/cdk`) offen bis FE-UI-02 (#99) |
 

@@ -87,6 +87,16 @@
     </button>
   </div>
 
+  <h2 class="sg-label">Charts</h2>
+  <div class="sg-charts">
+    <app-card title="Ausgaben nach Kategorie" meta="Juli 2026">
+      <app-donut-chart [data]="demoSpending" />
+    </app-card>
+    <app-card title="Ausgabenverlauf" meta="letzte 6 Monate">
+      <app-bar-chart [data]="demoMonths" />
+    </app-card>
+  </div>
+
   <h2 class="sg-label">Meter</h2>
   <div class="sg-stack">
     <app-meter [value]="50" labelStart="Woche 2" labelEnd="von 4" ariaLabel="Woche im Monat" />
