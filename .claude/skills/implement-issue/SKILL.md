@@ -58,7 +58,43 @@ Wait for explicit user confirmation before continuing. If the user requests chan
 After the user confirms the plan, persist it as markdown under `docs/plans/` before creating the branch:
 
 - File path: `docs/plans/<TASK-ID>-<kurztext>.md` (same `<kurztext>` as the branch name, e.g. `docs/plans/INFRA-01-spring-boot-skeleton.md`)
-- Content: the confirmed plan — issue reference, Task-ID, branch name, decisions, affected/new files, implementation steps, test strategy, and the acceptance criteria from the issue.
+- The directory stays **flat** — no subdirectories. Sprint membership is a property of the board,
+  not of the file, and it changes on carryover (#13 and #16 were planned in Sprint 2 and finished
+  in Sprint 3). A folder per sprint would force `git mv` and break the file history. Sprint, area
+  and story are columns in the index instead, which a directory tree cannot express at once.
+- Start the file with this header — **exactly these fields, in this order.** Two competing formats
+  grew in the existing 45 plans (bullet list vs. table); new plans use the bullet form:
+
+  ```markdown
+  # [<TASK-ID>] <Titel>
+
+  - **Issue:** [#<nr>](https://github.com/dfme/budget-buddy/issues/<nr>)
+  - **Task-ID:** `<TASK-ID>`
+  - **Branch:** `feature/<TASK-ID>-<kurztext>`
+  - **Story:** US-XX — <Titel>   <!-- oder: — (kein us-*-Label) -->
+  - **Sprint:** <Sprint aus dem Board zum Zeitpunkt der Planung>
+  - **Bestätigt am:** <YYYY-MM-DD>
+  ```
+
+  The `Sprint` line records the sprint the plan was *written* in. Do not update it later when an
+  issue carries over — the board holds the current truth, the plan holds the historical one.
+- Content after the header: the confirmed plan — decisions, affected/new files, implementation
+  steps, test strategy, and the acceptance criteria from the issue.
+
+Then add one row to the index in `docs/plans/README.md`, in the table's existing sort order
+(by Task-ID) — same values you just wrote into the header:
+
+```markdown
+| `<TASK-ID>` | [<Titel>](<TASK-ID>-<kurztext>.md) | [#<nr>](https://github.com/dfme/budget-buddy/issues/<nr>) | US-XX | Sprint N |
+```
+
+Commit `docs/plans/README.md` together with the plan.
+
+The index deliberately carries only columns that do not change after the plan is written.
+**Do not add Status or Story Points** — those live on the board, change constantly, and a copy
+of them would be stale from the moment it is written. If the index ever gets out of sync (missing
+rows, hand edits), `scripts/plans-index.sh` rebuilds it completely from files plus board;
+`--check` verifies without writing. That script is a repair tool, not a step in this workflow.
 
 `docs/plans/` is listed in `.claudeignore`, so these files stay out of Claude's automatic context/search. They serve as a human-readable artifact and git history; do not rely on reading them back in later runs.
 
