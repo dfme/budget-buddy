@@ -3,7 +3,7 @@ import { ChartData, ChartOptions } from 'chart.js';
 import { BaseChartDirective } from 'ng2-charts';
 
 import { formatSwissAmount } from '../format';
-import { chartFont, chfTooltip, tooltipOptions } from './chart-options';
+import { chfTooltip, tooltipOptions } from './chart-options';
 import { CHART_PROVIDERS } from './chart-providers';
 import { ChartTheme } from './chart-theme';
 
@@ -96,7 +96,9 @@ export class DonutChart {
       maintainAspectRatio: false,
       // Dünner Ring — die Kategorie-Verteilung ist die Aussage, nicht die Fläche.
       cutout: '72%',
-      font: chartFont(palette),
+      // Keine Schrift auf Chart-Ebene: der Donut hat keine Skalen, die Chart.js-Legende
+      // ist aus, und die Tooltip-Schrift setzt `tooltipOptions` selbst — ein `font` hier
+      // hätte keinen Konsumenten.
       plugins: {
         legend: { display: false },
         tooltip: {

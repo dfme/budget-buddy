@@ -10,11 +10,23 @@
 export function setTokens(tokens: Readonly<Record<string, string>>): void {
   for (const [name, value] of Object.entries(tokens)) {
     document.documentElement.style.setProperty(name, value);
+    setProperties.add(name);
   }
 }
 
-/** Entfernt alle per {@link setTokens} gesetzten Werte und das `data-theme`-Attribut. */
+/** Namen aller in diesem Testlauf gesetzten Properties — Grundlage für {@link clearTokens}. */
+const setProperties = new Set<string>();
+
+/**
+ * Entfernt die per {@link setTokens} gesetzten Werte und das `data-theme`-Attribut.
+ *
+ * <p>Bewusst eigenschaftsweise statt `removeAttribute('style')`: das Attribut komplett zu
+ * löschen würde auch Inline-Styles mitnehmen, die der Test gar nicht gesetzt hat.
+ */
 export function clearTokens(): void {
-  document.documentElement.removeAttribute('style');
+  for (const name of setProperties) {
+    document.documentElement.style.removeProperty(name);
+  }
+  setProperties.clear();
   document.documentElement.removeAttribute('data-theme');
 }
