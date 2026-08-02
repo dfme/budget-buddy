@@ -1,5 +1,6 @@
 package com.budgetbuddy.transaction;
 
+import com.budgetbuddy.transaction.dto.ImportErrorResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -18,22 +19,30 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
  * {@link PdfImportTimeoutException} (408) tragen ihr Status-Mapping bereits als
  * {@code @ResponseStatus}, ein fehlender {@code file}-Part liefert Spring als 400.
  *
- * <p>Bewusst kein Body (analog {@link TransactionExceptionHandler}): Der Status genügt; die
- * nutzerseitige Meldung formuliert das Frontend (FE-PDF-02).
+ * <p>Die beiden 400er tragen einen {@link ImportErrorResponse}-Body mit maschinenlesbarem
+ * {@code reason}: Passwort- und Format-Fehler teilen sich den Status und wären sonst für das
+ * Frontend nicht unterscheidbar, das daraus zwei getrennte Nutzermeldungen formuliert (FE-PDF-02).
+ * 408/409/413 tragen keinen {@code reason} — dort ist der Status allein eindeutig. Body-los sind
+ * sie deshalb aber nicht alle: 408/409 laufen via {@code @ResponseStatus} über Springs
+ * ERROR-Dispatch und antworten mit dem Standard-Fehlerbody ({@code timestamp}/{@code status}/…);
+ * nur 413 aus dem {@code void}-Handler unten bleibt tatsächlich ohne Body. Der Client-Contract
+ * hängt allein am Status plus — bei 400 — am {@code reason}.
  */
 @RestControllerAdvice(assignableTypes = PdfImportController.class)
 public class PdfImportExceptionHandler {
 
     @ExceptionHandler(PdfParseException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public void handlePdfParse(PdfParseException ex) {
-        // Kein Body: 400 für ein nicht lesbares/unbekanntes PDF-Format (inkl. Subtypen).
+    public ImportErrorResponse handlePdfParse(PdfParseException ex) {
+        // 400 für ein nicht lesbares/unbekanntes PDF-Format (inkl. Subtypen).
+        return new ImportErrorResponse(ImportErrorResponse.Reason.UNSUPPORTED_FORMAT);
     }
 
     @ExceptionHandler(PasswordProtectedPdfException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public void handlePasswordProtected(PasswordProtectedPdfException ex) {
-        // Kein Body: 400 für ein verschlüsseltes PDF.
+    public ImportErrorResponse handlePasswordProtected(PasswordProtectedPdfException ex) {
+        // 400 für ein verschlüsseltes PDF.
+        return new ImportErrorResponse(ImportErrorResponse.Reason.PASSWORD_PROTECTED);
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
