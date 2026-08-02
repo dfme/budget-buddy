@@ -35,14 +35,16 @@
   />
 
   @if (errorMessage(); as message) {
-    <app-notice class="upload__notice">{{ message }}</app-notice>
-  } @else if (importOutcome() === 'success') {
-    <app-notice class="upload__notice" variant="info"
-      >Kontoauszug erfolgreich importiert.</app-notice
-    >
-  } @else if (importOutcome() === 'error') {
-    <app-notice class="upload__notice"
-      >Der Import ist fehlgeschlagen — bitte versuche es erneut.</app-notice
-    >
+    <!-- Client-Validierung lehnt die Datei ab — ein Fehler, daher assertiv (rot, role="alert"). -->
+    <app-notice class="upload__notice" variant="error">{{ message }}</app-notice>
+  } @else if (importOutcome(); as outcome) {
+    @if (outcome.kind === 'success') {
+      <!-- Erfolg bleibt höflich: variant="info" meldet sich als role="status". -->
+      <app-notice class="upload__notice" variant="info">{{
+        successMessage(outcome.count)
+      }}</app-notice>
+    } @else {
+      <app-notice class="upload__notice" variant="error">{{ outcome.message }}</app-notice>
+    }
   }
 </section>
