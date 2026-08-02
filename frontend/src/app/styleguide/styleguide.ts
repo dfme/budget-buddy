@@ -6,6 +6,8 @@ import { Amount } from '../shared/amount/amount';
 import { Badge } from '../shared/badge/badge';
 import { Button } from '../shared/button/button';
 import { Card } from '../shared/card/card';
+import { BarChart, BarPoint } from '../shared/chart/bar-chart';
+import { DonutChart, DonutSlice } from '../shared/chart/donut-chart';
 import { Chip } from '../shared/chip/chip';
 import { Field } from '../shared/field/field';
 import { Input } from '../shared/input/input';
@@ -23,7 +25,21 @@ import { Segment, SegmentOption } from '../shared/segment/segment';
  */
 @Component({
   selector: 'app-styleguide',
-  imports: [Amount, Badge, Button, Card, Chip, Field, Input, Meter, MonthNav, Notice, Segment],
+  imports: [
+    Amount,
+    Badge,
+    BarChart,
+    Button,
+    Card,
+    Chip,
+    DonutChart,
+    Field,
+    Input,
+    Meter,
+    MonthNav,
+    Notice,
+    Segment,
+  ],
   templateUrl: './styleguide.html',
   styleUrl: './styleguide.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -48,6 +64,32 @@ export class Styleguide {
     this.document.documentElement.setAttribute('data-theme', next);
     this.theme.set(next);
   }
+
+  /**
+   * Demo-Daten für die Charts (FE-UI-05), übernommen aus `design/variant-a/charts.js` —
+   * damit sich der Angular-Port direkt mit dem Prototyp vergleichen lässt.
+   */
+  readonly demoSpending: readonly DonutSlice[] = [
+    { slug: 'wohnen', label: 'Wohnen', value: 980.0 },
+    { slug: 'lebensmittel', label: 'Lebensmittel', value: 412.65 },
+    { slug: 'transport', label: 'Transport', value: 185.0 },
+    { slug: 'versicherung', label: 'Versicherung', value: 168.4 },
+    { slug: 'restaurant', label: 'Restaurant', value: 142.8 },
+    { slug: 'gesundheit', label: 'Gesundheit', value: 108.0 },
+    { slug: 'freizeit', label: 'Freizeit', value: 96.5 },
+    { slug: 'shopping', label: 'Shopping', value: 78.9 },
+    { slug: 'telekom', label: 'Telekom', value: 59.0 },
+    { slug: 'sonstiges', label: 'Sonstiges', value: 34.15 },
+  ];
+
+  readonly demoMonths: readonly BarPoint[] = [
+    { label: 'Feb', value: 2340.1 },
+    { label: 'Mär', value: 2512.75 },
+    { label: 'Apr', value: 2198.4 },
+    { label: 'Mai', value: 2640.2 },
+    { label: 'Jun', value: 2405.6 },
+    { label: 'Jul', value: 2265.4 },
+  ];
 
   readonly segmentOptions: readonly SegmentOption[] = [
     { value: 'all', label: 'Alle' },

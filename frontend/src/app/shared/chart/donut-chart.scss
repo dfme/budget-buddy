@@ -1,0 +1,64 @@
+@use 'tokens' as *;
+
+:host {
+  display: block;
+}
+
+// Feste Höhe + `position: relative`: Chart.js braucht einen Container mit definierter
+// Höhe, sonst wächst das Canvas bei `responsive: true` endlos.
+.chart {
+  position: relative;
+  height: 220px;
+
+  @include desktop {
+    height: 260px;
+  }
+}
+
+.legend {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: $sp-2 $sp-4;
+  margin: $sp-4 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.legend__item {
+  display: flex;
+  align-items: center;
+  gap: $sp-2;
+  font-size: $fs-xs;
+  color: $c-ink-2;
+  min-width: 0;
+}
+
+.legend__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: $r-pill;
+  flex: none;
+  // Fallback für unbekannte/fehlende Kategorie — gleiche Farbe wie das Segment.
+  background: $c-line-strong;
+}
+
+.legend__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.legend__value {
+  @include tabular;
+
+  margin-left: auto;
+  color: $c-ink;
+  font-weight: 600;
+}
+
+// Einzige Quelle der Kategorie-Farben: die $categories-Map (→ --cat-<slug>-Tokens).
+@each $name, $color in $categories {
+  .legend__dot[data-cat='#{$name}'] {
+    background: $color;
+  }
+}

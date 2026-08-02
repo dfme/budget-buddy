@@ -1,11 +1,15 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
+import { installCanvasStub, restoreCanvasStub } from '../../testing/canvas';
 import { Styleguide } from './styleguide';
 
 describe('Styleguide', () => {
   let fixture: ComponentFixture<Styleguide>;
 
   beforeEach(async () => {
+    // Der Showcase enthält seit FE-UI-05 echte Charts — ohne Canvas-Kontext käme
+    // Chart.js in jsdom nicht hoch (die Registerables bringen die Chart-Komponenten mit).
+    installCanvasStub();
     await TestBed.configureTestingModule({ imports: [Styleguide] }).compileComponents();
     fixture = TestBed.createComponent(Styleguide);
     fixture.detectChanges();
@@ -13,7 +17,11 @@ describe('Styleguide', () => {
 
   // Der Theme-Toggle schreibt data-theme auf <html> — nach jedem Test entfernen,
   // damit der Zustand nicht in andere Tests leakt.
-  afterEach(() => document.documentElement.removeAttribute('data-theme'));
+  afterEach(() => {
+    fixture.destroy();
+    restoreCanvasStub();
+    document.documentElement.removeAttribute('data-theme');
+  });
 
   it('rendert alle 13 Kategorie-Badges', () => {
     const badges = fixture.nativeElement.querySelectorAll('app-badge');
@@ -29,6 +37,18 @@ describe('Styleguide', () => {
 
     fixture.componentInstance.toggleTheme();
     expect(document.documentElement.getAttribute('data-theme')).toBe('light');
+  });
+
+  it('zeigt Donut und Bar mit zugänglicher Beschreibung', () => {
+    const charts: HTMLCanvasElement[] = Array.from(
+      fixture.nativeElement.querySelectorAll('app-donut-chart canvas, app-bar-chart canvas'),
+    );
+
+    expect(charts).toHaveLength(2);
+    for (const chart of charts) {
+      expect(chart.getAttribute('role')).toBe('img');
+      expect(chart.getAttribute('aria-label')).toBeTruthy();
+    }
   });
 
   it('aktualisiert den Segment-Zustand bei Klick', () => {

@@ -1,0 +1,22 @@
+<div class="chart">
+  <canvas
+    baseChart
+    type="doughnut"
+    role="img"
+    [attr.aria-label]="description()"
+    [data]="chartData()"
+    [options]="chartOptions()"
+  ></canvas>
+</div>
+
+@if (showLegend()) {
+  <ul class="legend">
+    @for (slice of data(); track slice.slug) {
+      <li class="legend__item">
+        <span class="legend__dot" [attr.data-cat]="slice.slug" aria-hidden="true"></span>
+        <span class="legend__name">{{ slice.label }}</span>
+        <span class="legend__value">{{ format(slice.value) }}</span>
+      </li>
+    }
+  </ul>
+}

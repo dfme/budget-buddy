@@ -57,6 +57,13 @@
   gap: $sp-3;
 }
 
+// Charts liegen je in einer Karte untereinander — im Styleguide reicht die
+// Einspaltigkeit, das Grid der echten Screens kommt mit US-06/US-10.
+.sg-charts {
+  display: grid;
+  gap: $sp-4;
+}
+
 .sg-note {
   margin-top: $sp-2;
   font-size: $fs-xs;
