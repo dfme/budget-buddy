@@ -46,6 +46,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `FE-AUTH-05` | [Logout-Button + Nav-Anbindung](FE-AUTH-05-logout-button.md) | [#57](https://github.com/dfme/budget-buddy/issues/57) | US-01 | Sprint 2 |
 | `FE-CAT-01` | [FE-CAT-01 — Kategorie-Übersicht](FE-CAT-01-kategorie-uebersicht.md) | [#30](https://github.com/dfme/budget-buddy/issues/30) | US-05 | Sprint 3 |
 | `FE-PDF-01` | [Plan: FE-PDF-01 — PDF-Upload Component](FE-PDF-01-pdf-upload-component.md) | [#27](https://github.com/dfme/budget-buddy/issues/27) | US-04 | Sprint 3 |
+| `FE-PDF-02` | [FE-PDF-02 — Ergebnis-Anzeige nach PDF-Import](FE-PDF-02-import-ergebnis-anzeige.md) | [#28](https://github.com/dfme/budget-buddy/issues/28) | US-04 | Sprint 3 |
 | `FE-UI-01` | [UI-Design definieren: 3 klickbare Varianten](FE-UI-01-design-varianten.md) | [#80](https://github.com/dfme/budget-buddy/issues/80) | US-05, US-06 | Sprint 3 |
 | `FE-UI-02` | [Design-Token-Fundament (Variante A, theme-fähig)](FE-UI-02-design-token-fundament.md) | [#99](https://github.com/dfme/budget-buddy/issues/99) | — | Sprint 3 |
 | `FE-UI-03` | [Shared-Basiskomponenten (Variante A)](FE-UI-03-shared-basiskomponenten.md) | [#100](https://github.com/dfme/budget-buddy/issues/100) | — | Sprint 3 |
