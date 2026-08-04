@@ -16,6 +16,18 @@ Implement a GitHub Issue end-to-end: read the issue, ask clarifying questions if
 
 ## Workflow
 
+### 0. PREFLIGHT
+
+```bash
+gh auth status
+gh api repos/dfme/budget-buddy --jq '.permissions.push'   # erwartet: true
+```
+
+Nötig ist der Scope `repo` **und** Write-Zugriff aufs Repo — anders als beim Reviewen genügt
+Lesezugriff hier nicht, weil Schritt 6 einen Branch pusht und Schritt 9 via `gh pr create` einen
+PR öffnet. Steht `push` auf `false`, hier stoppen und das melden, statt die Arbeit zu machen und
+erst am Push zu scheitern. Setup und Fehlerbilder: [.claude/skills/README.md](../README.md).
+
 ### 1. EINLESEN
 Run `gh issue view <issue-number>` and read title, body, labels, and assignees in full.
 

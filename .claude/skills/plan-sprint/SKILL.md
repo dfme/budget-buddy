@@ -38,6 +38,19 @@ raten:
 gh project field-list 4 --owner dfme --format json
 ```
 
+Dieser Aufruf ist zugleich der Preflight. Scheitert er, hier stoppen und melden, statt mit
+unvollständigen Board-Daten weiterzuplanen. Zwei Ursachen, die auseinandergehalten werden
+müssen — `gh auth status` unterscheidet sie:
+
+- **Scope `project` fehlt** (steht nicht in der Scope-Liste): `repo` allein genügt für Boards
+  nicht. Fix: `gh auth refresh -h github.com -s repo,project`.
+- **Scope ist da, Aufruf scheitert trotzdem:** dann fehlt die Freigabe am Board selbst. Es ist
+  ein privates User-Project — Repo-Zugriff vererbt keinen Board-Zugriff, und die Berechtigung
+  ist über keine API abfragbar. Der Board-Owner (dfme) muss die Person unter
+  *Settings → Manage access* eintragen; am Token schrauben hilft hier nicht.
+
+Details in [.claude/skills/README.md](../README.md).
+
 Relevante Felder: `Status`, `Priority`, `Area`, `Story Points` (Number), `Sprint` (Iteration).
 
 ## Workflow

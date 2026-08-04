@@ -9,6 +9,9 @@ Weitere Details zu Projektidee, Personas, Architektur und Tech-Stack: siehe [CLA
 **Voraussetzungen:** Java 25 (JDK), Node.js 20+ mit npm. Maven kommt über den
 Wrapper (`./mvnw`) mit, Angular CLI über `npx` — global muss nichts installiert sein.
 
+Für die Claude-Code-Skills (`/implement-issue`, `/review-pr`, `/plan-sprint`) kommt eine
+angemeldete GitHub CLI dazu — Setup und Vorbedingungen: [.claude/skills/README.md](.claude/skills/README.md).
+
 Frontend und Backend laufen im Dev-Betrieb als **zwei getrennte Prozesse**. Die SPA
 ruft ihre API relativ auf; ein Angular-Dev-Proxy (`frontend/proxy.conf.json`) leitet
 diese Pfade an das Backend auf `:8080` weiter — der Browser bleibt same-origin auf
