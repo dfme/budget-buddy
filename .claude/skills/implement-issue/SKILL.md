@@ -1,12 +1,12 @@
 ---
 name: implement-issue
-description: GitHub Issue end-to-end umsetzen — Issue einlesen, Fragen klären, Plan präsentieren (mit Bestätigung), Branch erstellen, Code + Tests implementieren, lokalen Review durchführen (mit Bestätigung), PR öffnen. Auslösen via /implement-issue <issue-number>.
+description: GitHub Issue end-to-end umsetzen — Issue einlesen, Fragen klären, Plan präsentieren (mit Bestätigung), Branch erstellen, Code + Tests implementieren, Security-Review und lokalen Review durchführen (mit Bestätigung), PR öffnen. Auslösen via /implement-issue <issue-number>.
 argument-hint: "<issue-number>"
 ---
 
 # implement-issue
 
-Implement a GitHub Issue end-to-end: read the issue, ask clarifying questions if needed, present a plan for confirmation, implement with tests, do a local review, then open a PR.
+Implement a GitHub Issue end-to-end: read the issue, ask clarifying questions if needed, present a plan for confirmation, implement with tests, run a security review and a local review, then open a PR.
 
 ## Usage
 
@@ -24,7 +24,7 @@ gh api repos/dfme/budget-buddy --jq '.permissions.push'   # erwartet: true
 ```
 
 Nötig ist der Scope `repo` **und** Write-Zugriff aufs Repo — anders als beim Reviewen genügt
-Lesezugriff hier nicht, weil Schritt 6 einen Branch pusht und Schritt 9 via `gh pr create` einen
+Lesezugriff hier nicht, weil Schritt 6 einen Branch pusht und Schritt 10 via `gh pr create` einen
 PR öffnet. Steht `push` auf `false`, hier stoppen und das melden, statt die Arbeit zu machen und
 erst am Push zu scheitern. Setup und Fehlerbilder: [.claude/skills/README.md](../README.md).
 
@@ -131,16 +131,154 @@ For documentation changes:
   original commit) to walk it back.
 - Do not replace one unqualified simplification with the next one.
 
-### 8. LOKALER REVIEW
+### 8. SECURITY-REVIEW
+
+Läuft **vor** dem allgemeinen Review, weil ein Sicherheitsbefund die Implementierung ändert und
+nicht nur den PR-Text. Der Grund steht in CLAUDE.md als Risiko #2: die App hält Kontoauszüge, ein
+Datenleck ist existenzbedrohend. Ein Bug in der Safe-to-Spend-Rechnung zeigt eine falsche Zahl; ein
+Bug in der Mandantentrennung zeigt Laras Kontoauszug an Marc.
+
+**Nur prüfen, was der Diff berührt.** Ein Doku-PR braucht keinen Upload-Check. Die Matrix
+entscheidet, nicht das Gefühl:
+
+| Berührt der Diff … | dann prüfen |
+| ------------------ | ----------- |
+| Repository- oder Service-Zugriff auf Nutzerdaten | 1 Mandantentrennung |
+| einen Controller-Endpoint oder `SecurityConfig` | 2 Endpoint-Exposition |
+| Auth, JWT, Cookie, Passwörter | 3 ADR-7-Invarianten |
+| `application*.properties`, `render.yaml`, CI-Workflow, `pom.xml`, Doku mit Beispielwerten | 4 Secrets |
+| Datei-Upload oder PDF-Parsing | 5 Upload-Grenzen |
+| Claude-Call oder Prompt-Text | 6 Datenminimierung + Prompt-Injection |
+| Fehlerbehandlung oder Logging | 7 Ausgabe-Hygiene |
+| Kontolöschung oder Consent (US-02, US-14) | 8 nDSG-Pfade |
+| nur Markdown/Doku | nur 4 |
+
+Jeder Punkt braucht einen **Nachweis**: Kommando plus Ergebnis oder `file:line`. „Sieht sauber aus"
+ist kein Nachweis — dieselbe Regel wie bei den ACs in Schritt 9.
+
+**1. Mandantentrennung** — die wahrscheinlichste echte Lücke in dieser App. Jede Query auf
+Nutzerdaten muss auf den authentifizierten User eingeschränkt sein. Ein `findById(id)` auf einer
+Entity mit User-Bezug ist praktisch immer ein IDOR: wer die ID kennt oder hochzählt, liest fremde
+Transaktionen.
+
+```bash
+git diff main -- 'backend/**/*.java' | grep -nE 'findById|findAll|getReferenceById|deleteById|@Query'
+```
+
+Für jeden Treffer belegen, **wo** die User-Einschränkung passiert. „Der Controller prüft das schon"
+genügt nicht, wenn der Service auch von anderswo aufrufbar ist — die Einschränkung gehört dorthin,
+wo die Query steht. Gegenprobe im Test: User B greift auf die Ressource von User A zu und bekommt
+404 oder 403. Fehlt dieser Test, ist die Trennung **unbelegt** — ein grüner Happy-Path beweist sie
+nicht.
+
+**2. Endpoint-Exposition** — steht ein neuer oder geänderter Endpoint hinter der
+Authentifizierung? `permitAll`-Listen wachsen unauffällig:
+
+```bash
+grep -rn 'permitAll\|requestMatchers' backend/src/main/java --include='*.java'
+```
+
+`--include` muss gequotet sein: unter zsh versucht die Shell `*.java` sonst selbst zu expandieren
+und bricht mit `no matches found` ab, bevor `grep` überhaupt startet.
+
+Freigaben wirken in beide Richtungen: `2c07cba` musste `/error` freigeben, damit 408/409 den Client
+erreichen statt ihn als 401 auszuloggen. Eine Freigabe ist deshalb nie „nur eine Zeile" — begründen,
+warum genau dieser Pfad ohne Auth auskommt.
+
+**3. ADR-7-Invarianten** — vier Aussagen, die der Code nicht aufweichen darf:
+
+- JWT ausschliesslich im httpOnly-Cookie mit `SameSite=Strict`; **kein** Token in `localStorage`
+  oder `sessionStorage`, **kein** Bearer-Header im Client
+- `app.cookie.secure=true` im prod-Profil (abgedeckt durch `JwtCookieFactoryTest`, nicht durch E2E)
+- Passwörter bcrypt-gehasht, nie im Log, nie in einer Response
+- JWT-Secret und `ANTHROPIC_API_KEY` nur aus Umgebungsvariablen
+
+```bash
+git diff main | grep -inE 'localStorage|sessionStorage|Bearer |Authorization'
+```
+
+Jeder Treffer im Frontend widerspricht ADR-7 und ist blockierend. Diese Aussage stand in ADR-0,
+ADR-2 und CLAUDE.md schon dreimal falsch da und brauchte drei Runden zum Zurückdrehen (#103, #115,
+#117) — der Code darf sie nicht ein viertes Mal aufweichen.
+
+**4. Secrets** — der einzige Check, der immer läuft, auch bei reinen Doku-Änderungen:
+
+```bash
+git diff main | grep -inE 'sk-ant-|password *=|secret *=|api[_-]?key *=|token *='
+git diff main --name-only | grep -E '\.env|\.properties$|\.ya?ml$'
+```
+
+Ein Klartext-Treffer ist blockierend **und** löst nach CLAUDE.md („Keine Secrets im Git") sofortige
+Key-Rotation plus Incident-Assessment nach nDSG aus — das gilt schon beim Commit auf dem Feature-
+Branch, nicht erst beim Merge. Beispielwerte in Doku mitprüfen: ein realistisch aussehender Key wird
+kopiert.
+
+Bekannter Selbsttreffer: berührt ein PR diese Datei, matcht das Suchmuster **sich selbst**. Ein
+Treffer, der auf die Musterdefinition oben zeigt, ist kein Befund — jeder andere schon.
+
+**5. Upload-Grenzen** — nur wenn der PR den PDF-Pfad berührt:
+
+- Grössenlimit steht in `application.properties` (`max-file-size=10MB`, `max-request-size=11MB`).
+  Der Check ist damit eine **Regressionsbremse**, keine Lückensuche: lockert ein PR diese Werte
+  oder umgeht sie, ist das begründungspflichtig. Der Import läuft laut CLAUDE.md synchron — ohne
+  Limit ist er ein DoS-Hebel, keine Komfortlücke.
+- Endung und `Content-Type` sind keine Beweise für den Inhalt. Was zählt, ist das Verhalten von
+  PDFBox: `Loader.loadPDF()` in try-with-resources, `ParseException` als Fehler an den Caller
+  (CLAUDE.md), passwortgeschützte PDFs mit klarer Meldung statt Stacktrace.
+- Upload nie in einen vom Nutzer beeinflussbaren Pfad schreiben.
+
+**6. Datenminimierung und Prompt-Injection** — beim Claude-Call:
+
+- Es geht **nur** der Transaktionstext raus — nie Kontonummer, Saldo, Name, E-Mail oder User-ID.
+  Genau das ist der offene Punkt aus #134 (BE-CAT-06). Solange der auf `P3` liegt, ist ein neuer
+  Call, der *mehr* mitschickt, eine Verschlechterung und blockierend.
+- Der Transaktionstext ist Fremdeingabe im Prompt: ein Händlername kann Anweisungen enthalten. Die
+  Antwort deshalb **gegen die feste Kategorienliste validieren** und alles ausserhalb auf
+  `Sonstiges` abbilden — nie ungeprüft persistieren.
+- Timeout gesetzt, Fallback `Sonstiges`, Circuit Breaker (BE-CAT-02) nicht umgangen.
+
+**7. Ausgabe-Hygiene**:
+
+- Keine Stacktraces, SQL-Fragmente oder Dateipfade in einer Response
+- Keine Transaktionstexte, Beträge, Tokens, Passwörter oder E-Mail-Adressen im Log. Render-Logs sind
+  nicht Teil der Datenbank, aber sie enthalten dann dieselben Daten — mit anderer Zugriffskontrolle.
+
+```bash
+git diff main | grep -inE 'printStackTrace|log\.(info|debug|warn).*(amount|betrag|token|password|email)'
+```
+
+**8. nDSG-Pfade** — bei US-02/US-14: Kontolöschung muss wirklich löschen, über alle abhängigen
+Tabellen (`transactions`, `fixed_costs`, `savings_goals`, `category_lookup`-Korrekturen,
+`import_jobs`). Nachweis ist ein Test, der nach dem Löschen die abhängigen Zeilen zählt — nicht die
+Annahme, dass ein Cascade greift.
+
+#### Befunde einsortieren
+
+**🔴 Blockierend, wenn der eigene Diff es verursacht** → **kein PR.** Zurück zu Schritt 7, fixen,
+Security-Review wiederholen. Ein Blocker, der als „bekannt" im PR-Body steht, ist trotzdem ein
+Blocker.
+
+**Vorbestehende Lücken, die der Diff nicht verursacht hat** → Folge-Issue nach CLAUDE.md-Konvention
+(neue freie ID im betroffenen Bereich, Label `bug`, ohne Milestone und ohne Sprint), und im PR-Body
+benennen. **Nicht stillschweigend mitfixen:** wer beim Umsetzen von BE-FC-01 nebenbei die Auth
+härtet, liefert einen PR, den niemand mehr sinnvoll reviewen kann. Und nicht gegen die eigene Arbeit
+als Blocker werten — sonst hält man den Falschen auf.
+
+Das Ergebnis geht in den PR-Body (Schritt 10): pro zutreffender Matrix-Zeile ein Satz mit Nachweis,
+plus jede bewusste Auslassung mit Begründung.
+
+### 9. LOKALER REVIEW
 Review all changes before creating a PR:
-- Run `git diff main` and check for correctness, security issues, and convention violations
+- Run `git diff main` and check for correctness and convention violations — security is covered
+  separately in step 8, so do not re-do it here
 - List every AC individually with its concrete proof — command plus result, or `file:line`
 - Flag ACs whose only proof is the same search the issue itself proposed: those are unverified,
   not confirmed
-- Present review findings to the user
+- Present the findings from **both** step 8 and step 9 to the user in one go — two separate
+  confirmation gates for one PR are friction without gain
 - Wait for explicit user confirmation that the PR may be created
 
-### 9. PR ERSTELLEN
+### 10. PR ERSTELLEN
 ```bash
 gh pr create \
   --title "[<TASK-ID>] <concise title>" \
@@ -153,8 +291,12 @@ PR body must include:
   auto-closes the issue when the PR is merged.
 - Summary (2–3 bullet points)
 - Test plan (checklist)
+- **Security-Review** — the result from step 8: one line per applicable row of the trigger matrix
+  with its proof, plus any deliberate omission with a reason. Rows the diff does not touch are left
+  out; do not pad the section with "n/a". If the review produced follow-up issues for pre-existing
+  gaps, link them here.
 
-### 10. ISSUE VERLINKEN (Rückrichtung)
+### 11. ISSUE VERLINKEN (Rückrichtung)
 `gh pr create` prints the new PR URL. Post a backlink comment on the issue so the link is
 also explicit in the issue timeline:
 
