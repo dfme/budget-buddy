@@ -438,6 +438,12 @@ Vollständige ADRs: [docs/adr/README.md](docs/adr/README.md)
 
 ## Project Skills
 
+Vorbedingungen (gh-Scopes, Repo-Rechte, Toolchain) je Skill und Fehlerbilder:
+[.claude/skills/README.md](.claude/skills/README.md). Sie sind **nicht** für alle drei gleich:
+`implement-issue` braucht Write-Zugriff aufs Repo, `plan-sprint` den Scope `project` **plus** eine
+eigene Freigabe am Sprint Board — das ist ein privates User-Project und vererbt sich nicht aus
+den Repo-Rechten. `review-pr` kommt mit Lesezugriff aus.
+
 | Skill | Befehl | Beschreibung |
 |-------|--------|--------------|
 | plan-sprint | `/plan-sprint` | Sprint planen: Backlog-Hygiene prüfen (Priority aus MoSCoW, fehlende Story Points/Area), Velocity und Carryover aus dem Board ableiten, Abhängigkeiten kreuzprüfen, Vorschlag als `docs/plans/sprints/SPRINT-NN.md` ablegen. Das Board wird erst auf ausdrücklichen Zuruf geschrieben — die Einplanung bleibt eine Kapazitätsentscheidung des Teams. |

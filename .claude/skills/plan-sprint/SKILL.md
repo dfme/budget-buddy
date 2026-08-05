@@ -38,6 +38,27 @@ raten:
 gh project field-list 4 --owner dfme --format json
 ```
 
+Dieser Aufruf ist zugleich der Preflight. Scheitert er, hier stoppen und melden, statt mit
+unvollständigen Board-Daten weiterzuplanen. Zwei Ursachen, die auseinandergehalten werden
+müssen — `gh auth status` unterscheidet sie:
+
+- **Projects-Scope fehlt** — die Meldung nennt ihn beim Namen
+  (`missing required scopes [read:project]`). `repo` allein genügt für Boards nicht. Fix:
+  `gh auth refresh -h github.com -s repo,project`. Zum Lesen reicht `read:project`; Schritt 5
+  („Board schreiben") braucht `project`.
+- **Scope ist da, Aufruf scheitert trotzdem** — dann fehlt die Freigabe am Board selbst. Es ist
+  ein privates User-Project; Repo-Zugriff vererbt keinen Board-Zugriff. Der Board-Owner (dfme)
+  muss die Person unter *Settings → Manage access* eintragen; am Token schrauben hilft nicht.
+
+Welcher der beiden Fälle vorliegt, beantwortet dieser Aufruf direkt — auflösender Node bedeutet
+Lesezugriff, `viewerCanUpdate: true` deckt zusätzlich Schritt 5:
+
+```bash
+gh api graphql -f query='{ user(login:"dfme"){ projectV2(number:4){ viewerCanUpdate } } }'
+```
+
+Details in [.claude/skills/README.md](../README.md).
+
 Relevante Felder: `Status`, `Priority`, `Area`, `Story Points` (Number), `Sprint` (Iteration).
 
 ## Workflow
