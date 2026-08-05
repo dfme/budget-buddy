@@ -35,31 +35,40 @@ hätte gereicht.
 
 | Achse | Stufe | |
 | --- | --- | --- |
-| Surface | 3 | Agent darf in GitHub handeln (Issues) |
+| **Surface** | **3** | **Agent darf in GitHub handeln (Issues)** |
 | Data | 2 | Nur synthetische Test-PDFs |
 | Autonomy | 2 | Plan Mode · PR-Approval durch Dev |
 | Exposure | 3 | Gratis-Tiers: GitHub, Render, Anthropic |
 
-**Zwei Red Lines gesetzt:**
+**Die Überraschung: Surface 3 — höher als im Produkt.**
+
+Im Produkt klassifiziert Claude nur Text (Surface 2). Im Prozess darf er in GitHub *handeln*.
+Über die Angriffsfläche der eigenen Werkzeugkette denkt man zuletzt nach.
+
+**Eine Red Line gesetzt:**
 
 - [x] Code oder Daten an einen Dienst ohne geklärte Verarbeitung
-- [x] **Etwas wurde gemergt oder deployt, das niemand gelesen hat**
+- [ ] ~~Etwas wurde gemergt oder deployt, das niemand gelesen hat~~
 
-> Die Regel dagegen stand längst geschrieben — in `CLAUDE.md`:
-> *„Niemals direkt auf `main` committen. Merge nur durch einen Dev."*
-> **Vorhanden ≠ erzwungen.**
+> Die Merge-Red-Line bleibt leer — aber nicht von selbst: Plan Mode (`implement-issue`),
+> Review durch einen Dev (`review-pr`), Merge nur durch einen Dev.
+> **Das ist die Disziplin, die Autonomy auf 2 hält.**
 
 **Sprechnotiz**
 
-Beim Prozess — also wie wir *mit* KI entwickeln — sahen die Achsen zunächst gut aus. Data nur 2,
-weil wir ausschliesslich synthetische Testdaten verwenden. Autonomy 2, weil wir im Plan Mode
-arbeiten und jeder PR von einem Dev approved und gemerged wird. Trotzdem stehen bei uns zwei
-Red Lines. Die erste: Gratis-Dienste ohne geklärte Verarbeitung. Die zweite war die eigentliche
-Überraschung — es wurde schon etwas gemergt oder deployt, das niemand gelesen hat. Und zwar
-*obwohl* die Regel bei uns schriftlich existiert: In CLAUDE.md steht ausdrücklich, dass Claude
-nie auf `main` committet und der Merge immer durch einen Dev läuft. Die Regel war da. Technisch
-erzwungen war sie nicht. Das ist der Unterschied zwischen einer Konvention und einer Kontrolle,
-und genau den hat das Instrument sichtbar gemacht.
+Beim Prozess — also wie wir *mit* KI entwickeln — sieht vieles gut aus. Data nur 2, weil wir
+ausschliesslich synthetische Testdaten verwenden. Autonomy 2, weil wir im Plan Mode arbeiten:
+Claude legt einen Plan vor, ein Dev gibt frei, jeder PR wird mit dem Skill `review-pr` geprüft
+und von einem Dev gemerged. Genau diese Disziplin hält die Red Line zum ungelesenen Merge leer.
+
+Die Überraschung liegt woanders. Erstens: Unser Entwicklungsprozess gibt dem Agenten *mehr*
+Handlungsspielraum als das Produkt. Surface 3 gegen 2 — im Produkt klassifiziert Claude nur
+Text, im Prozess darf er Issues anlegen und ändern. Über die Angriffsfläche der eigenen
+Werkzeugkette denkt man zuerst gar nicht nach.
+
+Zweitens bleibt eine Red Line stehen: Wir arbeiten durchgehend mit Gratis-Diensten — GitHub,
+Render, Anthropic — ohne geklärte Verarbeitung. Für ein Kursprojekt vertretbar, aber es muss
+eine bewusste Entscheidung sein und kein Versehen.
 
 ---
 
