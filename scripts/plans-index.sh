@@ -37,10 +37,13 @@ command -v gh >/dev/null || { echo "gh CLI nicht gefunden" >&2; exit 1; }
 command -v jq >/dev/null || { echo "jq nicht gefunden" >&2; exit 1; }
 
 # --- Board einmal abfragen: Issue-Nr -> Sprint, Stories -------------------------------------
+# Die Pagination-Variable MUSS `$endCursor` heissen: `gh api graphql --paginate` injiziert den
+# Cursor unter genau diesem festen Namen. Bei jedem anderen Namen kommt er nie an, `after` bleibt
+# null, und dieselbe erste Seite wird endlos wiederholt — das Skript terminiert dann nicht.
 board_data="$(gh api graphql -f query='
-query($org:String!, $num:Int!, $cursor:String) {
+query($org:String!, $num:Int!, $endCursor:String) {
   user(login:$org) { projectV2(number:$num) {
-    items(first:100, after:$cursor) {
+    items(first:100, after:$endCursor) {
       pageInfo { hasNextPage endCursor }
       nodes {
         sprint: fieldValueByName(name:"Sprint") { ... on ProjectV2ItemFieldIterationValue { title } }
