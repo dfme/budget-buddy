@@ -93,4 +93,4 @@ Für jede Achse: höchste Stufe wählen, die ehrlich zutrifft
 - [ ] Echte Kunden- oder Produktionsdaten sind schon einmal in einem Prompt gelandet
 - [ ] Secrets, Tokens oder Zugangsdaten waren im Kontext (auch versehentlich, auch kurz)
 - [x] Code oder Daten gingen an einen Dienst ohne Vertrag / ohne geklärte Verarbeitung
-- [x] Etwas wurde gemergt oder deployt, das niemand gelesen hat
+- [ ] Etwas wurde gemergt oder deployt, das niemand gelesen hat

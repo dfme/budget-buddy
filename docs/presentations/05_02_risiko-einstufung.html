@@ -202,6 +202,9 @@
     font-size: .92rem;
   }
   .check.fired { border-color: rgba(248,113,113,.5); }
+  .check.fired .box { color: var(--warn); }
+  .check.clear { border-color: rgba(74,222,128,.35); color: var(--muted); }
+  .check.clear .box { color: var(--accent); }
   .check .box { font-size: 1.1rem; flex-shrink: 0; }
 
   /* Before / after */
@@ -344,10 +347,10 @@
     <div class="label red">Prozess-Einstufung</div>
     <h2>Die Überraschung</h2>
     <table class="axis-table" style="max-width:820px">
-      <tr>
+      <tr class="hot">
         <td style="width:130px">Surface</td>
-        <td style="width:60px"><span class="sp-badge">3</span></td>
-        <td>Agent darf in GitHub handeln (Issues)</td>
+        <td style="width:60px"><span class="sp-badge hot">3</span></td>
+        <td>Agent darf in GitHub <strong>handeln</strong> (Issues) — im Produkt nur Text lesen (2)</td>
       </tr>
       <tr>
         <td>Data</td>
@@ -370,15 +373,16 @@
         <span class="box">☑</span>
         <span>Code oder Daten an einen Dienst ohne geklärte Verarbeitung</span>
       </div>
-      <div class="check fired">
-        <span class="box">☑</span>
-        <span><strong>Etwas wurde gemergt oder deployt, das niemand gelesen hat</strong></span>
+      <div class="check clear">
+        <span class="box">☐</span>
+        <span>Etwas wurde gemergt oder deployt, das niemand gelesen hat</span>
       </div>
     </div>
     <div class="principle">
-      Die Regel dagegen stand längst geschrieben — in <code>CLAUDE.md</code>:
-      „Niemals direkt auf <code>main</code> committen. Merge nur durch einen Dev."<br>
-      <strong>Vorhanden ≠ erzwungen.</strong>
+      Die Merge-Red-Line bleibt leer — aber nicht von selbst: Plan Mode
+      (<code>implement-issue</code>), Review durch einen Dev (<code>review-pr</code>),
+      Merge nur durch einen Dev.<br>
+      <strong>Das ist die Disziplin, die Autonomy auf 2 hält.</strong>
     </div>
   </div>
 
