@@ -11,30 +11,42 @@ im Repo eingecheckt — sie kommen also mit `git pull` und müssen nicht install
 
 Was ein Skill braucht, unterscheidet sich pro Skill. Hinter „das Skill geht bei mir nicht"
 stecken fast immer zwei Dinge: ein fehlender **gh-Scope** oder eine fehlende **Freigabe am
-Sprint Board**. Beide melden sich mit Fehlern, die nicht nach einem Rechteproblem aussehen.
+Sprint Board**. Der Scope-Fall meldet sich deutlich und nennt den Fix gleich mit; der
+Board-Fall tarnt sich als „gibt es nicht".
 
 ## Was jedes Skill braucht
 
 | | `review-pr` | `implement-issue` | `plan-sprint` |
 | --- | --- | --- | --- |
-| gh-Scopes | `repo` | `repo` | `repo` **+ `project`** |
-| Rechte am Repo | Lesen genügt | **Write** (Collaborator) | Lesen |
+| gh-Scopes | `repo` | `repo` | `repo` **+ `read:project`**, zum Schreiben `project` |
+| Rechte am Repo | Lesen genügt | **Write** (Collaborator) | Lesen; **Write**, sobald der Vorschlag ins Repo soll |
 | Rechte am Board | — | — | **eigene Freigabe** (s. u.) |
-| Toolchain | JDK 25, Node, `python3` | JDK 25, Node | — |
-| Typische Fehlermeldung | `HTTP 422` beim Absetzen | `permission denied` beim Push | `Could not resolve to a ProjectV2` |
+| Toolchain | JDK 25, Node, Python | JDK 25, Node | `bash`, `jq` |
+| Typische Fehlermeldung | `HTTP 422` beim Absetzen | `permission denied` beim Push | `missing required scopes [read:project]` (Scope) bzw. `Could not resolve to a ProjectV2` (Freigabe) |
 
 Erläuterungen zu den nicht offensichtlichen Zeilen:
 
-- **`plan-sprint` braucht `project` — und eine Freigabe am Board.** Das Skill liest das
+- **`plan-sprint` braucht `read:project` — und eine Freigabe am Board.** Das Skill liest das
   [Sprint Board](https://github.com/users/dfme/projects/4) über `gh project field-list`. Der
   Scope ist die eine Hälfte (wer sich mit den Defaults von `gh auth login` angemeldet hat, hat
-  `repo`, aber nicht `project`), der Board-Zugriff die andere — siehe nächster Abschnitt.
+  `repo`, aber keinen Projects-Scope), der Board-Zugriff die andere — siehe nächster Abschnitt.
+  Zum **Lesen** genügt `read:project`; Schritt 5 („Board schreiben", nur auf Zuruf) braucht das
+  umfassendere `project`. Der Setup-Befehl unten setzt deshalb gleich `project`.
+- **`plan-sprint` braucht `bash` und `jq`** — die Zelle ist nicht leer. Schritt 2c ruft
+  `scripts/plans-index.sh --check`; das Skript ist Bash und bricht ohne `jq` mit
+  `jq nicht gefunden` ab. `jq` kommt weder mit `gh` noch mit Node oder dem JDK mit — der
+  eingebaute Filter `gh --jq` ist ein anderes Ding als das Binary.
+- **`plan-sprint` und Repo-Rechte:** Zum Lesen und für den Vorschlag als lokale Datei genügt
+  Lesezugriff. Soll der Vorschlag in `docs/plans/sprints/` tatsächlich ins Repo, geht das nach
+  CLAUDE.md nur über Branch + PR — dafür braucht es dann Write wie bei `implement-issue`.
 - **`implement-issue` braucht Write-Zugriff**, weil es einen Branch pusht und via `gh pr create`
   einen PR öffnet. Ein reiner Lesezugriff reicht hier — anders als bei `review-pr` — nicht.
 - **`review-pr` kommt mit Lesezugriff aus.** Das Repo ist public; auch der Ruleset-Check in
-  Schritt 2 ist ohne Sonderrechte lesbar. Admin-Rechte sind ausdrücklich **nicht** nötig.
-- **`python3`** braucht nur `review-pr`: die Review-Payload wird als JSON-Datei geschrieben, weil
-  Markdown mit Code-Fences und Umlauten am Shell-Quoting zerbricht.
+  Schritt 2 ist ohne Sonderrechte lesbar (`GET /repos/dfme/budget-buddy/rulesets` antwortet auch
+  mit `"admin": false`). Admin-Rechte sind ausdrücklich **nicht** nötig.
+- **Python** braucht nur `review-pr`: die Review-Payload wird als JSON-Datei geschrieben, weil
+  Markdown mit Code-Fences und Umlauten am Shell-Quoting zerbricht. Achtung beim Aufruf — unter
+  Windows heisst der Interpreter `python`, `python3` ist dort der Microsoft-Store-Stub.
 
 ## Board-Zugriff für `plan-sprint` (nicht über das Repo geregelt)
 
@@ -52,15 +64,24 @@ Die Freigabe vergibt der Board-Owner (**dfme**) separat: Board öffnen → *Sett
 | **Read** | den Sprint-Vorschlag — das Skill liest Felder, Velocity und Carryover |
 | **Write** | zusätzlich das Zurückschreiben ins Board, wenn das Team den Vorschlag annimmt |
 
-Es gibt **keinen API-Weg**, die eigene Board-Berechtigung abzufragen — das GraphQL-Objekt
-`ProjectV2` hat kein `collaborators`-Feld. Der praktische Test ist der Aufruf selbst:
+Die **eigene** Berechtigung ist abfragbar — `ProjectV2` hat zwar kein `collaborators`-Feld (die
+Rechte *anderer* sieht man also nicht), aber `viewerCanUpdate`:
 
 ```bash
-gh project field-list 4 --owner dfme --format json
+gh api graphql -f query='{ user(login:"dfme"){ projectV2(number:4){ title viewerCanUpdate } } }'
 ```
 
-Läuft er durch, passt beides. Scheitert er, **obwohl** `gh auth status` den Scope `project`
-ausweist, fehlt die Freigabe am Board — dann bei dfme melden, nicht am Token schrauben.
+Vier Ausgänge, die die Ursachen sauber trennen:
+
+| Ausgabe | Bedeutung |
+| ------- | --------- |
+| `"viewerCanUpdate": true` | Lesen **und** Schreiben gedeckt — auch Schritt 5 des Skills |
+| `"viewerCanUpdate": false` | Lesezugriff da, Schreibrechte fehlen → Rolle **Write** anfragen |
+| `Could not resolve to a ProjectV2` | Board nicht sichtbar → **Freigabe fehlt** (bei vorhandenem Scope) |
+| `missing required scopes` | kein Rechteproblem am Board, sondern am Token → `gh auth refresh` |
+
+Scheitert der Aufruf, **obwohl** `gh auth status` einen Projects-Scope ausweist, fehlt die
+Freigabe am Board — dann bei dfme melden, nicht am Token schrauben.
 
 ## Einmaliges Setup
 
@@ -77,10 +98,12 @@ gh auth login --hostname github.com --git-protocol https --scopes repo,project
 # Bereits angemeldet? Scopes nachziehen statt neu anmelden:
 gh auth refresh -h github.com -s repo,project
 
-# 2. Toolchain (identisch zu ../../README.md → "Lokal starten")
-java -version    # JDK 25
-node -v          # Node 20+
-python3 -V
+# 2. Toolchain — Java und Node wie in ../../README.md → "Lokal starten";
+#    Python und jq kommen für die Skills dazu und stehen dort nicht.
+java -version           # JDK 25
+node -v                 # Node 20+
+python3 -V || python -V # review-pr; unter Windows heisst es "python"
+jq --version            # plan-sprint (scripts/plans-index.sh)
 
 # 3. Frontend-Dependencies — sonst scheitert der Testlauf im Review
 cd frontend && npm ci
@@ -93,14 +116,18 @@ von `dfme/budget-buddy` sein — kein Fork. Die Skills adressieren das Repo teil
 
 ## Wenn es klemmt
 
-Diese fünf Zeilen der Reihe nach ausführen — die erste, die bricht, benennt die Ursache:
+Diese Zeilen der Reihe nach ausführen — bewusst **ohne** `&&`, damit eine fehlschlagende Prüfung
+die folgenden nicht verschluckt:
 
 ```bash
-gh --version && git --version && python3 -V && java -version && node -v
+gh --version; git --version; java -version; node -v
+python3 -V || python -V    # Windows: python3 ist der Store-Stub, nicht der Interpreter
+jq --version               # nur plan-sprint
+
 gh auth status                                        # Scopes stehen in der Ausgabe
 gh api repos/dfme/budget-buddy --jq '.permissions'    # push:true für implement-issue
-gh project field-list 4 --owner dfme --format json    # nur plan-sprint
 gh pr view <pr-number> --json number,title            # nur review-pr
+gh api graphql -f query='{ user(login:"dfme"){ projectV2(number:4){ viewerCanUpdate } } }'
 ```
 
 Bekannte Stolpersteine:
@@ -124,11 +151,18 @@ wenn der Schlüsselbund partout nicht mitspielt. Dann auf github.com unter *Sett
 settings → Personal access tokens* ein Token erzeugen und in die Umgebung legen:
 
 ```bash
-export GH_TOKEN="<token>"   # z. B. in ~/.zshrc; hat Vorrang vor gespeicherten Credentials
+export GH_TOKEN="<token>"        # macOS/Linux, z. B. in ~/.zshrc
+$env:GH_TOKEN = "<token>"        # Windows PowerShell (dauerhaft: setx GH_TOKEN "<token>")
 ```
 
-Scopes wie oben (`repo`, `project`). Bei einem Fine-grained Token entsprechen sie
-*Pull requests: Read & Write*, *Contents: Read & Write*, *Metadata: Read* und *Projects: Read*.
+Die Variable hat Vorrang vor gespeicherten Credentials. Scopes wie oben — dafür ein **classic**
+Token nehmen (`repo`, `project`).
+
+Ein **Fine-grained** Token ist für `plan-sprint` der falsche Weg: dessen `Projects`-Berechtigung
+ist eine *Account*-Berechtigung und deckt die Projects des Token-Inhabers ab, nicht das private
+Board einer anderen Person. Für `implement-issue` und `review-pr` funktioniert ein Fine-grained
+Token dagegen — nötig sind *Contents: Read & Write*, *Pull requests: Read & Write* und
+*Metadata: Read*.
 
 Ein solcher Token ist ein Secret wie jedes andere: **nie ins Repo**, weder in `.env` noch
 sonstwo — es gilt CLAUDE.md → „Sicherheit: Keine Secrets im Git". Bei versehentlichem Commit

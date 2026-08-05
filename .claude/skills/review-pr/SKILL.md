@@ -42,17 +42,20 @@ PR ungewollt. Die Klassifikation ist deshalb eine echte Entscheidung, kein Forma
 
 ```bash
 gh auth status
+gh api user --jq .login
+gh pr view <pr-number> --json author --jq .author.login
 ```
 
-Bricht der Befehl ab, hier stoppen und die Ursache melden statt in Schritt 1 an einem
+Bricht `gh auth status` ab, hier stoppen und die Ursache melden statt in Schritt 1 an einem
 `gh`-Fehler zu stranden — nötig ist der Scope `repo`. Setup und die häufigen Fehlerbilder:
 [.claude/skills/README.md](../README.md). Ein Timeout allein ist kein Befund: `gh auth status`
 validiert das Token per API-Call und schlägt bei schlechter Verbindung fehl, obwohl die
 Anmeldung intakt ist — einmal wiederholen.
 
-Ist der User selbst Autor des PR, hier abbrechen: GitHub lehnt `REQUEST_CHANGES` am eigenen PR
-mit `HTTP 422` ab, und `COMMENT` blockiert nicht (siehe Schritt 8). Ein Review, der nicht
-blockieren kann, verfehlt den Zweck dieses Skills.
+**Sind die beiden Logins identisch, hier abbrechen.** GitHub lehnt `REQUEST_CHANGES` am eigenen
+PR mit `HTTP 422` ab, und `COMMENT` blockiert nicht (siehe Schritt 8). Ein Review, der nicht
+blockieren kann, verfehlt den Zweck dieses Skills — das muss vor der Arbeit feststehen, nicht
+erst beim Absetzen.
 
 ### 1. EINLESEN
 
