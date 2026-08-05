@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BudgetBuddy — AI Agent Risk Classification</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:      #0f1117;
+    --surface: #1a1d27;
+    --border:  #2a2d3e;
+    --accent:  #4ade80;
+    --accent2: #60a5fa;
+    --warn:    #f87171;
+    --text:    #e2e8f0;
+    --muted:   #64748b;
+  }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* Progress bar */
+  #progress-bar {
+    position: fixed;
+    top: 0; left: 0;
+    height: 3px;
+    background: var(--accent);
+    transition: width 1s linear;
+    z-index: 100;
+  }
+
+  /* Slide counter */
+  #counter {
+    position: fixed;
+    bottom: 20px; right: 24px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  /* Nav hint */
+  #hint {
+    position: fixed;
+    bottom: 20px; left: 24px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  /* Slides */
+  .slides { width: 100vw; height: 100vh; position: relative; }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 60px 80px;
+    opacity: 0;
+    transform: translateX(40px);
+    transition: opacity .35s ease, transform .35s ease;
+    pointer-events: none;
+  }
+  .slide.active {
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: all;
+  }
+  .slide.exit {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+
+  /* Typography */
+  .label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 16px;
+  }
+  .label.red { color: var(--warn); }
+  h1 { font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 700; line-height: 1.1; text-align: center; }
+  h2 { font-size: clamp(1.4rem, 3vw, 2rem); font-weight: 600; line-height: 1.2; margin-bottom: 32px; text-align: center; }
+  .subtitle { color: var(--muted); font-size: 1.1rem; margin-top: 16px; text-align: center; }
+
+  /* Tier badge */
+  .tier {
+    display: inline-block;
+    background: rgba(248,113,113,.15);
+    border: 1px solid var(--warn);
+    color: var(--warn);
+    font-weight: 700;
+    letter-spacing: .08em;
+    font-size: 1.05rem;
+    padding: 10px 26px;
+    border-radius: 8px;
+    margin-top: 28px;
+  }
+
+  /* Axis table */
+  .axis-table {
+    width: 100%;
+    max-width: 820px;
+    border-collapse: collapse;
+    font-size: .92rem;
+  }
+  .axis-table th {
+    text-align: left;
+    padding: 10px 14px;
+    color: var(--muted);
+    font-weight: 500;
+    font-size: .78rem;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+  .axis-table td {
+    padding: 11px 14px;
+    border-bottom: 1px solid rgba(42,45,62,.6);
+    vertical-align: middle;
+  }
+  .axis-table tr:last-child td { border-bottom: none; }
+  .axis-table tr.hot td { background: rgba(248,113,113,.07); }
+  .axis-table tr.hot td:first-child { font-weight: 700; color: var(--warn); }
+  .sp-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    background: var(--border);
+    font-weight: 700;
+    font-size: .82rem;
+  }
+  .sp-badge.hot { background: rgba(248,113,113,.2); color: var(--warn); }
+
+  /* Red-line / quote box */
+  .redline {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--warn);
+    border-radius: 12px;
+    padding: 22px 30px;
+    max-width: 820px;
+    width: 100%;
+    margin-top: 26px;
+    font-size: 1rem;
+    line-height: 1.65;
+  }
+  .redline .quote { color: var(--warn); font-weight: 600; font-style: italic; }
+  .redline .note  { color: var(--muted); font-size: .88rem; margin-top: 8px; }
+
+  .goal-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: 12px;
+    padding: 22px 30px;
+    max-width: 820px;
+    width: 100%;
+    margin-top: 24px;
+    font-size: 1rem;
+    line-height: 1.65;
+    text-align: center;
+  }
+  .goal-box strong { color: var(--accent); }
+  code {
+    background: rgba(96,165,250,.12);
+    color: var(--accent2);
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: .92em;
+  }
+
+  /* Checked red lines */
+  .checks {
+    max-width: 820px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 24px;
+  }
+  .check {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 20px;
+    font-size: .92rem;
+  }
+  .check.fired { border-color: rgba(248,113,113,.5); }
+  .check .box { font-size: 1.1rem; flex-shrink: 0; }
+
+  /* Before / after */
+  .flow {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    max-width: 880px;
+    width: 100%;
+  }
+  .flow-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px 26px;
+  }
+  .flow-card.before { border-top: 3px solid var(--warn); }
+  .flow-card.after  { border-top: 3px solid var(--accent); }
+  .flow-card h3 {
+    font-size: .78rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    font-weight: 600;
+  }
+  .flow-card.before h3 { color: var(--warn); }
+  .flow-card.after  h3 { color: var(--accent); }
+  .flow-card ul { list-style: none; display: flex; flex-direction: column; gap: 9px; }
+  .flow-card li { font-size: .88rem; line-height: 1.5; display: flex; gap: 9px; }
+  .flow-card li .icon { flex-shrink: 0; }
+
+  /* Status strip */
+  .status {
+    margin-top: 22px;
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+    font-size: .9rem;
+    color: var(--muted);
+    text-align: center;
+    max-width: 880px;
+  }
+  .status strong { color: var(--accent2); }
+  .status .open  { color: var(--warn); font-weight: 600; }
+
+  /* Comparison */
+  .compare {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    max-width: 860px;
+    width: 100%;
+    margin-top: 8px;
+  }
+  .compare-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 28px;
+    text-align: center;
+  }
+  .compare-card .who {
+    font-size: .76rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .compare-card .what { font-size: 1.05rem; font-weight: 600; line-height: 1.4; margin-bottom: 10px; }
+  .compare-card .fix  { font-size: .85rem; color: var(--muted); line-height: 1.5; }
+  .compare-card.ours .what { color: var(--accent); }
+  .compare-card.theirs .what { color: var(--warn); }
+
+  .principle {
+    margin-top: 24px;
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+    font-size: .95rem;
+    color: var(--muted);
+    text-align: center;
+    max-width: 820px;
+    line-height: 1.6;
+  }
+  .principle strong { color: var(--text); }
+</style>
+</head>
+<body>
+
+<div id="progress-bar"></div>
+<div id="counter">1 / 5</div>
+<div id="hint">← → oder Leertaste</div>
+
+<div class="slides">
+
+  <!-- Slide 1: Title -->
+  <div class="slide active" id="s1">
+    <div class="label">CAS ADAI 2026 · BFH Biel</div>
+    <h1>BudgetBuddy<br><span style="color:var(--warn)">AI Agent Risk Classification</span></h1>
+    <p class="subtitle">Produkt · Prozess · Massnahme · Grenzen des Instruments</p>
+    <div class="tier">RISK TIER: CRITICAL</div>
+  </div>
+
+  <!-- Slide 2: Produkt-Einstufung -->
+  <div class="slide" id="s2">
+    <div class="label red">Produkt-Einstufung</div>
+    <h2>Nicht die Rechnung hat entschieden</h2>
+    <table class="axis-table">
+      <tr>
+        <td style="width:130px">Surface</td>
+        <td style="width:60px"><span class="sp-badge">2</span></td>
+        <td>Statische Prompts, kein Nutzereinfluss</td>
+      </tr>
+      <tr class="hot">
+        <td>Data</td>
+        <td><span class="sp-badge hot">4</span></td>
+        <td>Kontoauszüge von Kunden</td>
+      </tr>
+      <tr>
+        <td>Autonomy</td>
+        <td><span class="sp-badge">3</span></td>
+        <td>Claude als Fallback der Kategorisierung</td>
+      </tr>
+      <tr>
+        <td>Exposure</td>
+        <td><span class="sp-badge">3</span></td>
+        <td>Anthropic — USA</td>
+      </tr>
+    </table>
+    <div class="redline">
+      <div class="quote">„Payment or card data is put into the model's context."</div>
+      <div class="note">
+        Die Achsen ergeben Stufe 4. Auf CRITICAL kommen wir über die Red Line — sie überstimmt
+        die Arithmetik. Wir übergeben den kompletten Buchungstext an Claude: Gegenpartei-Namen,
+        IBAN, Referenznummern.
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 3: Prozess-Einstufung -->
+  <div class="slide" id="s3">
+    <div class="label red">Prozess-Einstufung</div>
+    <h2>Die Überraschung</h2>
+    <table class="axis-table" style="max-width:820px">
+      <tr>
+        <td style="width:130px">Surface</td>
+        <td style="width:60px"><span class="sp-badge">3</span></td>
+        <td>Agent darf in GitHub handeln (Issues)</td>
+      </tr>
+      <tr>
+        <td>Data</td>
+        <td><span class="sp-badge">2</span></td>
+        <td>Nur synthetische Test-PDFs</td>
+      </tr>
+      <tr>
+        <td>Autonomy</td>
+        <td><span class="sp-badge">2</span></td>
+        <td>Plan Mode · PR-Approval durch Dev</td>
+      </tr>
+      <tr>
+        <td>Exposure</td>
+        <td><span class="sp-badge">3</span></td>
+        <td>Gratis-Tiers: GitHub, Render, Anthropic</td>
+      </tr>
+    </table>
+    <div class="checks">
+      <div class="check fired">
+        <span class="box">☑</span>
+        <span>Code oder Daten an einen Dienst ohne geklärte Verarbeitung</span>
+      </div>
+      <div class="check fired">
+        <span class="box">☑</span>
+        <span><strong>Etwas wurde gemergt oder deployt, das niemand gelesen hat</strong></span>
+      </div>
+    </div>
+    <div class="principle">
+      Die Regel dagegen stand längst geschrieben — in <code>CLAUDE.md</code>:
+      „Niemals direkt auf <code>main</code> committen. Merge nur durch einen Dev."<br>
+      <strong>Vorhanden ≠ erzwungen.</strong>
+    </div>
+  </div>
+
+  <!-- Slide 4: Massnahme -->
+  <div class="slide" id="s4">
+    <div class="label">Massnahme</div>
+    <h2>Datenminimierung an der Port-Grenze</h2>
+    <div class="flow">
+      <div class="flow-card before">
+        <h3>Heute</h3>
+        <ul>
+          <li><span class="icon">→</span><span><code>PdfImportService</code> übergibt <code>tx.fullText()</code></span></li>
+          <li><span class="icon">→</span><span>Der ganze Buchungstext landet im Prompt</span></li>
+          <li><span class="icon">→</span><span>Derselbe Text unmaskiert in 4 Log-Statements</span></li>
+        </ul>
+      </div>
+      <div class="flow-card after">
+        <h3>Sanitizer vor dem Claude-Call</h3>
+        <ul>
+          <li><span class="icon">✓</span><span>IBAN, Karten-/Kontonummern, Referenzen maskiert</span></li>
+          <li><span class="icon">✓</span><span><strong>Betrag geht gar nicht raus</strong> — nicht gebraucht</span></li>
+          <li><span class="icon">✓</span><span>Gleiche Maskierung im Logging</span></li>
+        </ul>
+      </div>
+    </div>
+    <div class="goal-box">
+      Der <code>CategorizationPort</code> ist der <strong>einzige Engpass</strong> (ADR-6) —
+      genau eine Stelle ist dichtzumachen.
+    </div>
+    <div class="status">
+      <strong>BE-CAT-06 · Issue #134 · 3 Story Points</strong> —
+      geschnitten und geschätzt, <span class="open">noch nicht umgesetzt</span>
+    </div>
+  </div>
+
+  <!-- Slide 5: Grenzen des Instruments -->
+  <div class="slide" id="s5">
+    <div class="label">Kritik</div>
+    <h2>Wo das Instrument nicht passte</h2>
+    <div class="redline" style="margin-top:0">
+      <div class="quote">„Base level 3 (highest axis = 3)"</div>
+      <div class="note">— unsere Data-Achse steht auf 4. Die Herleitung widerspricht den eigenen Werten.</div>
+    </div>
+    <div class="compare">
+      <div class="compare-card ours">
+        <div class="who">Unser Agent</div>
+        <div class="what">beschriftet eine Transaktion falsch</div>
+        <div class="fix">Korrektur: ein Klick des Nutzers (US-05)</div>
+      </div>
+      <div class="compare-card theirs">
+        <div class="who">Gleiche Einstufung</div>
+        <div class="what">löst Zahlungen aus</div>
+        <div class="fix">Korrektur: irreversibel</div>
+      </div>
+    </div>
+    <div class="principle">
+      Es fehlt eine Achse für die <strong>Tragweite</strong>. „Payment data" ist binär — ob der
+      Agent Geld <strong>bewegt</strong> oder eine Zeile <strong>beschriftet</strong>,
+      unterscheidet das Instrument nicht.
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const slides = Array.from(document.querySelectorAll('.slide'));
+  let current = 0;
+
+  const progressBar = document.getElementById('progress-bar');
+  const counterEl   = document.getElementById('counter');
+
+  function showSlide(n) {
+    const next = Math.max(0, Math.min(n, slides.length - 1));
+    if (next === current) return;
+    slides[current].classList.remove('active');
+    slides[current].classList.add('exit');
+    const leaving = slides[current];
+    setTimeout(() => leaving.classList.remove('exit'), 350);
+    current = next;
+    slides[current].classList.remove('exit');
+    slides[current].classList.add('active');
+    counterEl.textContent = `${current + 1} / ${slides.length}`;
+    progressBar.style.width = `${((current + 1) / slides.length) * 100}%`;
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); showSlide(current + 1); }
+    if (e.key === 'ArrowLeft')                    { e.preventDefault(); showSlide(current - 1); }
+  });
+
+  // Swipe support
+  let touchX = null;
+  document.addEventListener('touchstart', e => { touchX = e.touches[0].clientX; });
+  document.addEventListener('touchend',   e => {
+    if (touchX === null) return;
+    const dx = e.changedTouches[0].clientX - touchX;
+    if (Math.abs(dx) > 40) showSlide(current + (dx < 0 ? 1 : -1));
+    touchX = null;
+  });
+
+  // Init progress bar
+  progressBar.style.width = `${(1 / slides.length) * 100}%`;
+</script>
+</body>
+</html>
