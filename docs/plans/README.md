@@ -30,6 +30,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `BE-CAT-03` | [HybridCategorizationService](BE-CAT-03-hybrid-categorization.md) | [#16](https://github.com/dfme/budget-buddy/issues/16) | US-05 | Sprint 3 |
 | `BE-CAT-04` | [PUT /transactions/{id}/category](BE-CAT-04-update-transaction-category.md) | [#19](https://github.com/dfme/budget-buddy/issues/19) | US-05 | Sprint 3 |
 | `BE-CAT-05` | [GET /transactions/summary](BE-CAT-05-transactions-summary.md) | [#20](https://github.com/dfme/budget-buddy/issues/20) | US-05 | Sprint 3 |
+| `BE-FC-01` | [FixedCost Entity und Repository](BE-FC-01-fixedcost-entity.md) | [#10](https://github.com/dfme/budget-buddy/issues/10) | US-03 | Sprint 4 |
 | `BE-PDF-01` | [PDFBox-Parser für Schweizer Bank-PDFs](BE-PDF-01-swiss-bank-parser.md) | [#13](https://github.com/dfme/budget-buddy/issues/13) | US-04 | Sprint 3 |
 | `BE-PDF-02` | [PdfImportService](BE-PDF-02-pdf-import-service.md) | [#17](https://github.com/dfme/budget-buddy/issues/17) | US-04 | Sprint 3 |
 | `BE-PDF-03` | [POST /import/pdf Endpoint](BE-PDF-03-pdf-upload-endpoint.md) | [#18](https://github.com/dfme/budget-buddy/issues/18) | US-04 | Sprint 3 |
