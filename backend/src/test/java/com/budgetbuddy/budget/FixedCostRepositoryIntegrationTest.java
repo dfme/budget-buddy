@@ -111,20 +111,49 @@ class FixedCostRepositoryIntegrationTest {
     }
 
     @Test
-    void betragKeepsValuesThatBinaryFloatingPointCannotRepresent() {
+    void sumOfBetraegeStaysRappenExactInJavaDespiteRealStorage() {
         Long userId = insertUser("rappen@example.com");
-        // 0.07 und 0.10 sind als double nicht exakt darstellbar; die Summe muss trotzdem
-        // rappengenau 0.17 ergeben (ADR-9).
-        repository.save(new FixedCost(userId, "Klein A", new BigDecimal("0.07"),
-                Intervall.MONATLICH));
+        FixedCost kleinA = repository.save(
+                new FixedCost(userId, "Klein A", new BigDecimal("0.07"), Intervall.MONATLICH));
         repository.save(new FixedCost(userId, "Klein B", new BigDecimal("0.10"),
                 Intervall.MONATLICH));
 
+        // Die Spalte ist DECIMAL(10,2), SQLite behandelt das aber als *Affinität*: der Wert liegt
+        // physisch als REAL in der Datei und läuft damit sehr wohl durch Binär-Fliesskomma (#141).
+        // Diese Assertion hält den Kommentar ehrlich — driftet die Storage-Klasse, wird sie rot.
+        assertThat(jdbcTemplate.queryForObject(
+                        "SELECT typeof(betrag) FROM fixed_costs WHERE id = ?", String.class,
+                        kleinA.getId()))
+                .isEqualTo("real");
+
+        // Belegt wird deshalb nicht «CHF laufen nie durch double», sondern: der sqlite-jdbc-Pfad
+        // rekonstruiert die Dezimaldarstellung, sodass die Addition in Java rappen-genau bleibt.
         BigDecimal sum = repository.findByUserIdOrderByIdAsc(userId).stream()
                 .map(FixedCost::getBetrag)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         assertThat(sum).isEqualByComparingTo("0.17");
+    }
+
+    @Test
+    void betragScaleIsNotPreservedByTheDatabase() {
+        Long userId = insertUser("skala@example.com");
+        FixedCost ganzzahlig = repository.save(
+                new FixedCost(userId, "Serafe", new BigDecimal("335.00"), Intervall.JAEHRLICH));
+        FixedCost nachkomma = repository.save(
+                new FixedCost(userId, "Klein", new BigDecimal("0.10"), Intervall.MONATLICH));
+
+        // Charakterisierungstest: hält das *tatsächliche* Verhalten fest, nicht das gewünschte.
+        // isEqualByComparingTo ist skalenblind und würde das hier verdecken — für #11/#12 ist es
+        // aber relevant, weil JSON sonst 335 statt 335.00 liefert und ein DTO-equals gegen
+        // new BigDecimal("335.00") unerwartet fehlschlägt. Der Fix gehört als setScale(2) an die
+        // DTO-Grenze in #11, nicht in die Persistenzschicht.
+        assertThat(repository.findByIdAndUserId(ganzzahlig.getId(), userId).orElseThrow()
+                        .getBetrag().scale())
+                .isZero();
+        assertThat(repository.findByIdAndUserId(nachkomma.getId(), userId).orElseThrow()
+                        .getBetrag().scale())
+                .isEqualTo(1);
     }
 
     // --- AC3: Repository-Queries filtern nach user_id ---

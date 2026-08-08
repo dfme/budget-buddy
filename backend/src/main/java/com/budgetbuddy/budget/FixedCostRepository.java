@@ -14,6 +14,13 @@ import org.springframework.transaction.annotation.Transactional;
  * fremde ID kennt oder hochzählt, läse oder löschte fremde Fixkosten. Die Einschränkung steht
  * deshalb dort, wo die Query steht — nicht in einem Service, der auch von anderswo aufrufbar ist.
  * Aufrufer verwenden die Methoden dieses Interfaces und nicht die geerbten ID-Varianten.
+ *
+ * <p><strong>Keine Summierung in SQL.</strong> {@code SUM(betrag)} über SQLite liefert
+ * Fliesskomma und ist für rappen-genaue Beträge ungeeignet (ADR-9, gleiche Warnung wie in
+ * {@code TransactionRepository}). {@code fixed_costs.betrag} liegt trotz {@code DECIMAL(10,2)}
+ * physisch als {@code REAL} bzw. {@code INTEGER} in der Datei — {@code DECIMAL} ist in SQLite
+ * eine Affinität, keine Dezimalarithmetik (#141). Die Fixkosten-Summe aus US-03 wird deshalb in
+ * Java über {@link java.math.BigDecimal} gebildet, nicht per {@code @Query}.
  */
 public interface FixedCostRepository extends JpaRepository<FixedCost, Long> {
 

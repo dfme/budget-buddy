@@ -81,7 +81,15 @@ public class FixedCost {
         this.bezeichnung = bezeichnung;
     }
 
-    /** Betrag in CHF pro {@link #getIntervall()} — nicht der normalisierte Monatsbetrag. */
+    /**
+     * Betrag in CHF pro {@link #getIntervall()} — nicht der normalisierte Monatsbetrag.
+     *
+     * <p><strong>Die Skala des gelesenen Werts ist nicht garantiert 2.</strong> SQLite behandelt
+     * {@code DECIMAL(10,2)} als Affinität und speichert je nach Wert als {@code INTEGER} oder
+     * {@code REAL}; gemessen kommt {@code 335.00} als Skala 0 und {@code 0.10} als Skala 1 zurück
+     * (#141). Der Wert ist rappen-genau, seine Darstellung aber nicht normalisiert — wer ihn in
+     * ein DTO oder JSON gibt, setzt vorher {@code setScale(2, RoundingMode.UNNECESSARY)}.
+     */
     public BigDecimal getBetrag() {
         return betrag;
     }
