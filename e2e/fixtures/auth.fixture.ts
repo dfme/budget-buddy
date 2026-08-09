@@ -11,7 +11,7 @@ export interface TestUser {
 /**
  * Erzeugt Credentials, die innerhalb eines Laufs garantiert frei sind.
  *
- * Die E-Mail ist unique, weil alle Tests eines Laufs dieselbe SQLite-Datei teilen (ein Backend,
+ * Die E-Mail ist unique, weil alle Tests eines Laufs dieselbe Datenbank teilen (ein Backend,
  * ein Schema) und `POST /auth/register` auf eine vergebene Adresse mit 409 antwortet. Eine feste
  * Adresse würde den zweiten Test im Lauf reissen lassen.
  *

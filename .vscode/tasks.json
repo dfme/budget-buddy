@@ -1,9 +1,10 @@
 {
   // VS-Code-Pendant zu IntelliJ "Run Configurations".
   //
-  // "Dev: Full Stack" startet Backend (:8080) und Frontend (:4200) parallel und ist
-  // als Default-Build-Task hinterlegt → Cmd+Shift+B (macOS) / Ctrl+Shift+B startet
-  // beide auf einen Schlag. Alternativ: Cmd+Shift+P → "Tasks: Run Task".
+  // "Dev: Full Stack" startet Datenbank (:5432), Backend (:8080) und Frontend (:4200)
+  // und ist als Default-Build-Task hinterlegt → Cmd+Shift+B (macOS) / Ctrl+Shift+B
+  // startet alles auf einen Schlag. Alternativ: Cmd+Shift+P → "Tasks: Run Task".
+  // Voraussetzung: Docker läuft (ADR-12).
   //
   // Kein Secret im Git: die Backend-Task erzeugt beim Start ein Wegwerf-JWT_SECRET
   // (openssl). Es wechselt bei jedem Neustart — d. h. eine bestehende Login-Session
@@ -13,12 +14,35 @@
   "version": "2.0.0",
   "tasks": [
     {
+      // Seit DB-05 (ADR-12) läuft die Datenbank als Container. Ohne sie startet das
+      // Backend nicht — deshalb hängt die Backend-Task davor, statt sich auf einen
+      // manuellen `docker compose up -d` im Terminal zu verlassen.
+      //
+      // `--wait` blockiert bis zum Healthcheck aus docker-compose.yml. Ohne das Flag
+      // gilt der Container als gestartet, während Postgres noch initialisiert, und das
+      // Backend liefe in einen Verbindungsfehler.
+      "label": "Datenbank: docker compose up",
+      "type": "shell",
+      "command": "docker compose up -d --wait",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated",
+        "group": "dev",
+        // Läuft durch und beendet sich — bei Erfolg kein Grund, das Panel aufzuziehen.
+        "reveal": "silent"
+      }
+    },
+    {
       "label": "Backend: spring-boot:run",
       "type": "shell",
       "command": "JWT_SECRET=\"$(openssl rand -base64 48)\" ./mvnw spring-boot:run",
       "options": {
         "cwd": "${workspaceFolder}/backend"
       },
+      "dependsOn": ["Datenbank: docker compose up"],
       "isBackground": true,
       "problemMatcher": [],
       "presentation": {

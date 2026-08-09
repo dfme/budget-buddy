@@ -84,11 +84,12 @@ public class FixedCost {
     /**
      * Betrag in CHF pro {@link #getIntervall()} — nicht der normalisierte Monatsbetrag.
      *
-     * <p><strong>Die Skala des gelesenen Werts ist nicht garantiert 2.</strong> SQLite behandelt
-     * {@code DECIMAL(10,2)} als Affinität und speichert je nach Wert als {@code INTEGER} oder
-     * {@code REAL}; gemessen kommt {@code 335.00} als Skala 0 und {@code 0.10} als Skala 1 zurück
-     * (#141). Der Wert ist rappen-genau, seine Darstellung aber nicht normalisiert — wer ihn in
-     * ein DTO oder JSON gibt, setzt vorher {@code setScale(2, RoundingMode.UNNECESSARY)}.
+     * <p>Der gelesene Wert hat Skala 2. PostgreSQL speichert {@code numeric(10,2)} exakt und
+     * liefert die Skala über den Round-Trip zurück (DB-05, ADR-12). Unter SQLite war das anders:
+     * dort war {@code DECIMAL(10,2)} bloss eine Affinität, {@code 335.00} kam mit Skala 0 und
+     * {@code 0.10} mit Skala 1 zurück (#141). Ein {@code setScale(2, RoundingMode.UNNECESSARY)}
+     * an der DTO-Grenze bleibt trotzdem sinnvoll — es macht die Zusage unabhängig davon, welche
+     * Datenbank darunter liegt.
      */
     public BigDecimal getBetrag() {
         return betrag;

@@ -23,8 +23,12 @@
   `org.flywaydb:flyway-database-postgresql` nötig.
 - `org.postgresql:postgresql` **42.7.7** und `org.testcontainers` **1.21.2** sind bereits
   Spring-Boot-managed → keine eigenen `<version>`-Angaben im `pom.xml`.
-- Postgres-Version durchgängig **17** (Neon-Default): `postgres:17-alpine` lokal, CI-Service-Container,
-  Testcontainers.
+- Postgres-Version durchgängig **18**: `postgres:18-alpine` lokal, CI-Service-Container,
+  Testcontainers. 18 ist laut
+  [Neon Version Support Policy](https://neon.com/docs/postgresql/postgres-version-policy) der
+  Default für neue Projekte (unterstützt: 14–18); eine ältere Version wäre nur über
+  `--pg-version` erzwingbar. Entscheidend ist, dass lokal, CI und Neon dieselbe Major-Version
+  fahren — sonst ist der Dialect-Mismatch nur verschoben statt beseitigt.
 
 ## Betroffene Files
 
@@ -97,7 +101,7 @@ gelöscht. Neue Checksummen sind daher folgenlos.
 2. Flyway `V01`–`V04` auf Postgres-Syntax umschreiben
 3. `application.properties`, `-prod`, `-test` umstellen
 4. `CategoryLearningService`: Pattern-Normalisierung als NOCASE-Ersatz
-5. `docker-compose.yml` mit Postgres 17 + benanntem Volume
+5. `docker-compose.yml` mit Postgres 18 + benanntem Volume
 6. `PostgresTestDatabase` (Singleton-Container, DB pro Testklasse) + alle 21 Testklassen umstellen
 7. Migrationstests auf `information_schema` umschreiben
 8. E2E: `backend.ts`, `playwright.config.ts`, `pg`-Dependency, README
@@ -132,17 +136,24 @@ Identischer Text landet in `README.md` und ADR-12, damit er auffindbar bleibt.
 1. neon.tech → Sign up → New Project
    · Name:    budget-buddy
    · Region:  Europe (Frankfurt)   ← nicht US, trägt die nDSG-Argumentation aus ADR-10
-   · Postgres 17, Free Plan
+   · Postgres 18, Free Plan
 2. Datenbank "budgetbuddy" anlegen (oder die Default-DB "neondb" verwenden)
-3. Dashboard → Connect → Snippet-Typ "Java / JDBC" wählen. Ergibt:
-   jdbc:postgresql://<host>.eu-central-1.aws.neon.tech/<db>?sslmode=require
-   Username und Passwort separat notieren.
+3. Dashboard → Connect. Neon zeigt eine URI der Form
+   postgresql://<user>:<password>@<host>.eu-central-1.aws.neon.tech/<db>?sslmode=require
+   Ein Java-/JDBC-Snippet bietet Neon nicht an; die Umformung ist mechanisch (Schritt 5).
+   `npx neonctl@latest init` ist dafür NICHT nötig — es scaffoldet JS-Projekte und legt
+   .env-Dateien an, die in einem Spring-Boot-Repo nichts zu suchen haben.
 4. Neon → Project settings → Members: mind. eine zweite Person einladen
    (der Render-Workspace bleibt auf Hobby = 1 Admin; dieser Engpass soll sich nicht verdoppeln)
-5. Render → Service budgetbuddy → Environment → drei Variablen anlegen:
-   SPRING_DATASOURCE_URL       = jdbc:postgresql://…?sslmode=require
+5. Render → Service budgetbuddy → Environment → die URI aus Schritt 3 auf drei Variablen
+   aufteilen:
+   SPRING_DATASOURCE_URL       = jdbc:postgresql://<host>/<db>?sslmode=require
    SPRING_DATASOURCE_USERNAME  = <user>
-   SPRING_DATASOURCE_PASSWORD  = <passwort>
+   SPRING_DATASOURCE_PASSWORD  = <password>
+   · "jdbc:" muss davor — die nackte postgresql://-URI nimmt der JDBC-Treiber nicht an.
+   · User und Passwort gehören AUS der URL heraus in eigene Variablen: eingebettet landen
+     sie in jedem Log, das die Datasource-URL ausgibt.
+   · ?sslmode=require bleibt dran — Neon nimmt nur TLS-Verbindungen an.
    → NICHT ins Repo; render.yaml führt sie nur mit sync:false
 6. Nach dem Merge: Deploy abwarten, User registrieren, "Manual Deploy → Clear build cache"
    auslösen, danach einloggen. Zweiter Test: 6 Min warten (Neon Scale-to-Zero) und erneut

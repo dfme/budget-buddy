@@ -7,7 +7,7 @@ package com.budgetbuddy.budget;
  * <p>Das {@code label} ist der Wert, der in der Spalte {@code fixed_costs.intervall} persistiert
  * wird — bewusst ASCII und kleingeschrieben, wie im Kommentar der Migration V03 festgehalten. Der
  * Anzeigetext «jährlich» mit Umlaut ist Sache des Frontends; ein Umlaut im DB-Wert und im späteren
- * API-Contract würde Encoding-Fallen über SQLite-Datei, JSON und E2E-Assertions hinweg eröffnen.
+ * API-Contract würde Encoding-Fallen über Datenbank, JSON und E2E-Assertions hinweg eröffnen.
  *
  * <p>Die Umrechnung auf einen Monatsbetrag (÷ 1, ÷ 3, ÷ 12) steht bewusst <em>nicht</em> hier,
  * sondern im {@code FixedCostService} (BE-FC-02) — sie ist Fachlogik der Safe-to-Spend-Rechnung,

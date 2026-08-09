@@ -58,9 +58,9 @@ Spring Boot liefert die Angular-App als statische Ressourcen aus. Ein einziges D
 - **Render Spin-Down:** Free-Services spinnen nach **15 Minuten** ohne Traffic herunter, das Hochfahren dauert laut [Render-Doku](https://render.com/docs/free) *"about one minute"*
   - Mitigation für die Latenz: Für MVP akzeptabel; bezahlter Instance-Type behebt den Spin-Down vollständig
   - **Achtung:** Der Spin-Down ist nicht nur ein Latenz-, sondern ein **Datenthema** — siehe nächster Punkt
-- **SQLite-Persistenz — ungelöst:** Render Free-Services haben ein ephemeres Filesystem. Daten gehen verloren *"every time the service redeploys, restarts, or **spins down**"* — also auch nach jeder 15-minütigen Inaktivitätsphase, nicht nur beim Deploy
-  - **Keine Mitigation verfügbar.** Free Web Services können keinen Persistent Disk anhängen; das setzt ein Upgrade des Instance-Types voraus
-  - Der Entscheid ist offen und wird in [Issue #78](https://github.com/dfme/budget-buddy/issues/78) vorbereitet. Optionen und Kosten: siehe [ADR-5, "Offene Frage: Persistenz in Produktion"](ADR-5-sqlite-mvp-database.md#offene-frage-persistenz-in-produktion)
+- **Persistenz — gelöst durch eine externe Datenbank:** Render Free-Services haben ein ephemeres Filesystem. Alles, was der Service selbst auf Platte schreibt, geht verloren *"every time the service redeploys, restarts, or **spins down**"* — also auch nach jeder 15-minütigen Inaktivitätsphase, nicht nur beim Deploy
+  - Free Web Services können keinen Persistent Disk anhängen; das setzt ein Upgrade des Instance-Types voraus
+  - Deshalb liegen die Daten seit [ADR-12](ADR-12-datenpersistenz-produktion.md) **ausserhalb** von Render, in PostgreSQL bei Neon (Frankfurt/EU). Der Spin-Down kostet damit nur noch Latenz, keine Daten. Die Variantenanalyse dazu steht in [ADR-5, "Offene Frage: Persistenz in Produktion"](ADR-5-sqlite-mvp-database.md#offene-frage-persistenz-in-produktion)
 - **750 Free Instance Hours/Monat:** Ein durchgehend laufender Service benötigt ~720 h — der Puffer ist praktisch null. Bei Überschreitung suspendiert Render alle Free Web Services bis zum Monatsbeginn
 
 ## Alternatives
@@ -84,5 +84,5 @@ Spring Boot liefert die Angular-App als statische Ressourcen aus. Ein einziges D
 
 - **ADR-0:** Frontend-Backend-Trennung (Dev-CORS konfiguriert für `localhost:4200`)
 - **ADR-4:** Modular Monolith (Single JAR als Deploy-Artefakt)
-- **ADR-5:** SQLite (Datenpersistenz auf dem Free-Plan ungelöst — Entscheid offen, siehe #78)
+- **ADR-12:** PostgreSQL bei Neon (Frankfurt/EU) — löst die Datenpersistenz, die auf Renders Free-Plan nicht erreichbar war; supersedet ADR-5 (SQLite)
 - **ADR-7:** JWT httpOnly Cookie (`SameSite=Strict` funktioniert korrekt bei Same-Origin in Prod)
