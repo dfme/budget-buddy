@@ -84,8 +84,10 @@ die im JAR gebündelte SPA aus«) schlägt dann als Einziger fehl und nennt gena
 | `tests/auth.spec.ts` | Register → Login → geschützte Route, Cookie-Flags, Fehlerpfad |
 | `tests/spa-routing.spec.ts` | Deep-Link-Status-Codes des Artefakts (SPA offen, API geschützt) |
 | `fixtures/auth.fixture.ts` | Auth-Fixture: eingeloggte Session als Vorbedingung |
-| `support/backend.ts` | Port, Pfade, JAR-Auflösung, DB-Reset der Testinstanz |
-| `playwright.config.ts` | Runner-Konfiguration inkl. `webServer` |
+| `support/backend.ts` | Port, Basis-URL, JAR-Auflösung, Test-JWT-Secret |
+| `support/database.ts` | Verbindungsdaten der E2E-Datenbank und `resetDatabase()` |
+| `global-setup.ts` | Ruft `resetDatabase()` einmal pro Lauf auf, nach dem Start der Instanz |
+| `playwright.config.ts` | Runner-Konfiguration inkl. `webServer` und `globalSetup` |
 
 ## Die Auth-Fixture benutzen
 

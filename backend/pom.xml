@@ -128,15 +128,15 @@
 
         <!-- Testcontainers (DB-05): Integrationstests laufen gegen dieselbe Postgres-Version
              wie Produktion. Voraussetzung ist ein laufender Docker-Daemon — lokal wie in CI
-             (GitHub-hosted Runner bringen ihn mit). Versionen von Spring Boot gemanaged. -->
+             (GitHub-hosted Runner bringen ihn mit). Version von Spring Boot gemanaged.
+
+             Bewusst OHNE org.testcontainers:junit-jupiter: dessen @Testcontainers/@Container
+             starten einen Container pro Testklasse. PostgresTestDatabase hält stattdessen einen
+             einzigen Container für die ganze JVM und isoliert über eine Datenbank je Klasse.
+             Fehlt die Abhängigkeit, greift niemand versehentlich zur teureren Variante. -->
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>postgresql</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

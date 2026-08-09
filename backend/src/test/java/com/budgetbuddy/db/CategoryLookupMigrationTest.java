@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.budgetbuddy.support.PostgresTestDatabase;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -90,8 +91,12 @@ class CategoryLookupMigrationTest {
         List<String> patterns = jdbcTemplate.queryForList(
                 "SELECT empfaenger_pattern FROM category_lookup", String.class);
 
+        // Locale.ROOT wie im Produktionscode (CategoryLearningService): mit der Default-Locale
+        // prüfte der Test eine andere Abbildung, als er absichert — unter tr-TR wird aus "i" ein
+        // "İ". Praktisch harmlos bei diesen Seeds, als Vorbild aber falsch.
         assertThat(patterns).isNotEmpty()
-                .allSatisfy(pattern -> assertThat(pattern).isEqualTo(pattern.toUpperCase()));
+                .allSatisfy(pattern ->
+                        assertThat(pattern).isEqualTo(pattern.toUpperCase(Locale.ROOT)));
     }
 
     @Test

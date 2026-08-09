@@ -19,6 +19,11 @@ import org.springframework.test.context.DynamicPropertySource;
  * enthält seit DB-05 (ADR-12) selbst keine Verbindungsdaten mehr, die kommen in Produktion
  * ausschliesslich aus der Render-Umgebung. Der Test belegt damit, dass das Profil startfähig
  * ist — nicht, dass eine bestimmte Neon-Instanz erreichbar wäre.
+ *
+ * <p>Geprüft werden ausschliesslich Werte, die das prod-Profil selbst setzt. Eine Assertion auf
+ * {@code spring.datasource.url} stand hier früher, prüfte aber den Wert, den der Test zwei
+ * Methoden weiter oben selbst registriert — sie konnte nicht fehlschlagen und suggerierte eine
+ * Absicherung, die es nicht gab.
  */
 @SpringBootTest
 @ActiveProfiles("prod")
@@ -37,6 +42,11 @@ class ProdProfileSmokeTest {
         assertThat(environment.getActiveProfiles()).contains("prod");
         // Prod-spezifische Überschreibungen greifen.
         assertThat(environment.getProperty("logging.level.com.budgetbuddy")).isEqualTo("INFO");
-        assertThat(environment.getProperty("spring.datasource.url")).startsWith("jdbc:postgresql://");
+
+        // ADR-7-Invariante: In Produktion läuft alles über HTTPS, das jwt-Cookie darf deshalb nur
+        // über sichere Verbindungen gehen. Der Default in application.properties ist false (Dev
+        // über HTTP); dass application-prod.properties ihn auf true zieht, prüft sonst niemand —
+        // JwtCookieFactoryTest testet die Factory mit beiden Werten, nicht die Profil-Zuordnung.
+        assertThat(environment.getProperty("app.cookie.secure", Boolean.class)).isTrue();
     }
 }

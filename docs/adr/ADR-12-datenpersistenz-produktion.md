@@ -101,6 +101,13 @@ Dazu kommen:
   echtes Backup-Fenster kostet Geld (ADR-5, Variante 7).
 - **Grenzen des Free-Plans:** 0,5 GB Storage und 100 CU-h pro Projekt. Für MVP-Scale
   (~1.000 User × ~1.000 Transaktionen) unkritisch, aber keine Wachstumsreserve.
+- **`sslmode=require` verschlüsselt, authentifiziert den Server aber nicht.** Die Verbindung ist
+  gegen Mitlesen geschützt, nicht gegen einen aktiven Man-in-the-Middle: pgjdbc prüft in diesem
+  Modus weder Zertifikatskette noch Hostname. Dagegen hülfe nur `sslmode=verify-full`, und das ist
+  spürbarer Aufwand — pgjdbc zieht dafür `sslrootcert` heran statt des JVM-Truststores, das
+  Zertifikat müsste also ins Deployment. Für ein Kursprojekt mit Testdaten ist das Restrisiko
+  akzeptiert; es steht hier, weil Risiko #2 aus `CLAUDE.md` (Datenleck, nDSG) es sonst
+  stillschweigend unterschlüge. Vor echten Nutzerdaten ist `verify-full` nachzuholen.
 - **`COLLATE NOCASE` hat keine Entsprechung.** Die case-insensitive Zuordnung in
   `category_lookup` liegt jetzt in der Anwendung: `CategoryLearningService` normalisiert Patterns
   auf Grossschreibung, `CategoryLookupRepository#findMatching` vergleicht über `upper()`.
