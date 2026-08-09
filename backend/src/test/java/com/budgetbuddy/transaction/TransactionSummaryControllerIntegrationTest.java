@@ -4,13 +4,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.budgetbuddy.support.PostgresTestDatabase;
 import com.budgetbuddy.auth.JwtService;
 import jakarta.servlet.http.Cookie;
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.math.BigDecimal;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.LocalDate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,35 +21,22 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
- * Integrationstest von {@code GET /transactions/summary} (BE-CAT-05) gegen echtes SQLite + Flyway.
+ * Integrationstest von {@code GET /transactions/summary} (BE-CAT-05) gegen echtes PostgreSQL +
+ * Flyway.
  *
  * <p>Seeding der Transaktionen über das {@link TransactionRepository} (nicht per Raw-SQL), damit das
- * {@link LocalDate}-Mapping identisch zum Lesepfad round-trippt. Temp-File-DB statt
- * {@code jdbc:sqlite::memory:} und {@code @DirtiesContext} analog zu {@code UserControllerTest}
- * (Begründung dort dokumentiert).
+ * {@link LocalDate}-Mapping identisch zum Lesepfad round-trippt. Eigene Datenbank auf dem
+ * gemeinsamen Testcontainer und {@code @DirtiesContext} analog zu {@code UserControllerTest}
+ * (Begründung in {@code PostgresTestDatabase}).
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class TransactionSummaryControllerIntegrationTest {
 
-    private static final Path DB_FILE = createTempDbFile();
-
-    private static Path createTempDbFile() {
-        try {
-            Path file = Files.createTempFile("be-cat-05-summary-it", ".db");
-            Files.deleteIfExists(file); // Flyway/SQLite legt die Datei selbst an
-            file.toFile().deleteOnExit();
-            return file;
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
     @DynamicPropertySource
     static void datasourceProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", () -> "jdbc:sqlite:" + DB_FILE);
-        registry.add("spring.flyway.enabled", () -> "true");
+        PostgresTestDatabase.register(registry, "transaction_summary");
     }
 
     @Autowired

@@ -2,13 +2,8 @@ package com.budgetbuddy.db;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.List;
+import com.budgetbuddy.support.PostgresTestDatabase;
 import java.util.Map;
-import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -18,99 +13,76 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 /**
- * Verifiziert die Flyway-Migration V01 (users-Tabelle) gegen eine echte SQLite-Datenbank.
+ * Verifiziert die Flyway-Migration V01 (users-Tabelle) gegen eine echte PostgreSQL-Datenbank.
  *
- * <p>Bewusst eine Temp-File-DB statt {@code jdbc:sqlite::memory:}: In-Memory-SQLite legt pro
- * Connection eine eigene DB an, wodurch die Flyway-Connection und die Test-Query-Connection
- * unterschiedliche Datenbanken sähen. Eine Datei wird vom gesamten Connection-Pool geteilt.
+ * <p>Seit DB-05 (ADR-12) läuft der Test gegen einen Testcontainers-Postgres in derselben
+ * Major-Version wie Produktion, mit einer eigenen Datenbank für diese Klasse (siehe
+ * {@link PostgresTestDatabase}). Vorher war es eine SQLite-Temp-Datei — eine andere Engine als
+ * Produktion und damit genau der Dialekt-Mismatch, den die Migration beseitigt hat.
  *
- * <p>{@code @DirtiesContext} schliesst den Kontext (und damit den Hikari-Pool) nach der Klasse,
- * sodass das SQLite-File-Handle freigegeben wird, bevor {@code deleteOnExit} die Datei entfernt
- * (auf Windows hält ein offener Pool die Datei sonst gesperrt).
+ * <p>{@code @DirtiesContext} schliesst den Kontext und damit den Hikari-Pool nach der Klasse, statt
+ * die Verbindungen bis zum Ende des Testlaufs offen zu halten.
  */
 @SpringBootTest
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class UsersMigrationTest {
 
-    private static final Path DB_FILE = createTempDbFile();
-
-    private static Path createTempDbFile() {
-        try {
-            Path file = Files.createTempFile("db-01-migration-test", ".db");
-            Files.deleteIfExists(file); // SQLite/Flyway legt die Datei selbst frisch an
-            file.toFile().deleteOnExit();
-            return file;
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
+    private static final String TABLE = "users";
 
     @DynamicPropertySource
     static void datasourceProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", () -> "jdbc:sqlite:" + DB_FILE);
-        registry.add("spring.flyway.enabled", () -> "true");
+        PostgresTestDatabase.register(registry, "users_migration");
     }
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    private SchemaInspector schema() {
+        return new SchemaInspector(jdbcTemplate);
+    }
+
     @Test
     void migrationRunsSuccessfully() {
         Integer successfulMigrations = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM flyway_schema_history WHERE success = 1", Integer.class);
+                "SELECT COUNT(*) FROM flyway_schema_history WHERE success = true", Integer.class);
 
         assertThat(successfulMigrations).isGreaterThanOrEqualTo(1);
     }
 
     @Test
     void usersTableHasAllColumnsWithCorrectTypes() {
-        Map<String, String> typeByColumn = columnTypes();
+        Map<String, String> typeByColumn = schema().columnTypes(TABLE);
 
         assertThat(typeByColumn).containsOnlyKeys(
                 "id", "email", "password_hash", "monthly_income", "onboarding_completed");
 
-        assertThat(typeByColumn.get("id")).isEqualTo("INTEGER");
-        assertThat(typeByColumn.get("email")).isEqualTo("TEXT");
-        assertThat(typeByColumn.get("password_hash")).isEqualTo("TEXT");
-        assertThat(typeByColumn.get("onboarding_completed")).isEqualTo("BOOLEAN");
+        assertThat(typeByColumn.get("id")).isEqualTo("bigint");
+        assertThat(typeByColumn.get("email")).isEqualTo("text");
+        assertThat(typeByColumn.get("password_hash")).isEqualTo("text");
+        assertThat(typeByColumn.get("onboarding_completed")).isEqualTo("boolean");
+    }
+
+    @Test
+    void idIsIdentityPrimaryKey() {
+        // Ersatz für SQLites AUTOINCREMENT: ohne Identity-Spalte müsste jeder Insert die ID selbst
+        // mitliefern, und GenerationType.IDENTITY in der User-Entity liefe ins Leere.
+        assertThat(schema().primaryKeyColumns(TABLE)).containsExactly("id");
+        assertThat(schema().isIdentity(TABLE, "id")).isTrue();
     }
 
     @Test
     void monthlyIncomeIsDecimalNotFloat() {
-        assertThat(columnTypes().get("monthly_income"))
-                .isEqualTo("DECIMAL(10,2)")
-                .doesNotContainIgnoringCase("float")
+        assertThat(schema().columnTypes(TABLE).get("monthly_income"))
+                .isEqualTo("numeric")
+                .doesNotContainIgnoringCase("double")
                 .doesNotContainIgnoringCase("real");
+
+        assertThat(schema().numericPrecisionAndScale(TABLE, "monthly_income")).isEqualTo("10,2");
     }
 
     @Test
     void emailIsNotNullAndUnique() {
-        Integer emailNotNull = jdbcTemplate.queryForObject(
-                "SELECT \"notnull\" FROM pragma_table_info('users') WHERE name = 'email'",
-                Integer.class);
-        assertThat(emailNotNull).isEqualTo(1);
-
-        // pragma_index_list: 'unique' = 1 für einen UNIQUE-Index; mind. ein Index muss die
-        // Spalte email abdecken (von der UNIQUE-Constraint automatisch erzeugt).
-        boolean emailHasUniqueIndex = jdbcTemplate.queryForList("PRAGMA index_list('users')")
-                .stream()
-                .filter(idx -> ((Number) idx.get("unique")).intValue() == 1)
-                .anyMatch(idx -> {
-                    String indexName = (String) idx.get("name");
-                    return jdbcTemplate.queryForList("PRAGMA index_info('" + indexName + "')")
-                            .stream()
-                            .anyMatch(col -> "email".equals(col.get("name")));
-                });
-
-        assertThat(emailHasUniqueIndex).isTrue();
-    }
-
-    // PRAGMA table_info liefert pro Spalte u.a.: name, type, notnull, dflt_value, pk
-    private Map<String, String> columnTypes() {
-        List<Map<String, Object>> columns = jdbcTemplate.queryForList("PRAGMA table_info(users)");
-        return columns.stream()
-                .collect(Collectors.toMap(
-                        c -> ((String) c.get("name")),
-                        c -> ((String) c.get("type"))));
+        assertThat(schema().notNullFlags(TABLE).get("email")).isTrue();
+        assertThat(schema().hasUniqueConstraintOn(TABLE, "email")).isTrue();
     }
 }

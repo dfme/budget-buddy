@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
+import com.budgetbuddy.support.PostgresTestDatabase;
 import com.budgetbuddy.auth.JwtService;
 import com.budgetbuddy.categorization.CategorizationPort;
 import com.budgetbuddy.categorization.Category;
@@ -11,8 +12,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -57,23 +56,9 @@ import org.springframework.util.LinkedMultiValueMap;
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class PdfImportErrorDispatchIntegrationTest {
 
-    private static final Path DB_FILE = createTempDbFile();
-
-    private static Path createTempDbFile() {
-        try {
-            Path file = Files.createTempFile("fe-pdf-02-error-dispatch-it", ".db");
-            Files.deleteIfExists(file); // Flyway/SQLite legt die Datei selbst an
-            file.toFile().deleteOnExit();
-            return file;
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
     @DynamicPropertySource
     static void datasourceProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", () -> "jdbc:sqlite:" + DB_FILE);
-        registry.add("spring.flyway.enabled", () -> "true");
+        PostgresTestDatabase.register(registry, "pdf_import_error_dispatch");
     }
 
     @Autowired private TestRestTemplate restTemplate;

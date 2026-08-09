@@ -2,9 +2,7 @@ package com.budgetbuddy.categorization;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.file.Files;
+import com.budgetbuddy.support.PostgresTestDatabase;
 import java.nio.file.Path;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -15,34 +13,21 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 /**
- * Integrationstest der {@link LookupTableService} gegen eine echte SQLite-DB mit den Flyway-V04-
- * Seed-Daten. Prüft den Happy Path (DoD) end-to-end: Substring-Matching gegen realen
+ * Integrationstest der {@link LookupTableService} gegen eine echte PostgreSQL-DB mit den
+ * Flyway-V04-Seed-Daten. Prüft den Happy Path (DoD) end-to-end: Substring-Matching gegen realen
  * Transaktionstext und case-insensitives Matching.
  *
- * <p>Temp-File-DB statt {@code jdbc:sqlite::memory:} und {@code @DirtiesContext} analog zu
- * {@link com.budgetbuddy.db.CategoryLookupMigrationTest} (Begründung dort dokumentiert).
+ * <p>Eigene Datenbank auf dem gemeinsamen Testcontainer und {@code @DirtiesContext} analog zu
+ * {@link com.budgetbuddy.db.CategoryLookupMigrationTest} (Begründung in
+ * {@code PostgresTestDatabase}).
  */
 @SpringBootTest
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class LookupTableServiceIntegrationTest {
 
-    private static final Path DB_FILE = createTempDbFile();
-
-    private static Path createTempDbFile() {
-        try {
-            Path file = Files.createTempFile("be-cat-01-lookup-it", ".db");
-            Files.deleteIfExists(file); // SQLite/Flyway legt die Datei selbst frisch an
-            file.toFile().deleteOnExit();
-            return file;
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
     @DynamicPropertySource
     static void datasourceProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", () -> "jdbc:sqlite:" + DB_FILE);
-        registry.add("spring.flyway.enabled", () -> "true");
+        PostgresTestDatabase.register(registry, "lookup_table");
     }
 
     @Autowired private LookupTableService lookupTableService;

@@ -1,5 +1,6 @@
 package com.budgetbuddy.categorization;
 
+import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -11,8 +12,13 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>{@code empfaenger_pattern} ist der Primärschlüssel — {@code save} wirkt daher als Upsert:
  * Ein neues Pattern wird eingefügt, ein bereits vorhandenes in seiner Kategorie aktualisiert.
- * Die Spalte ist mit {@code COLLATE NOCASE} angelegt (Flyway V04), sodass Patterns, die sich nur
- * in der Gross-/Kleinschreibung unterscheiden, denselben Eintrag treffen.
+ *
+ * <p>Damit Patterns, die sich nur in der Gross-/Kleinschreibung unterscheiden, denselben Eintrag
+ * treffen, wird vor dem Speichern auf Grossschreibung normalisiert. Unter SQLite übernahm das die
+ * Spalten-Collation {@code COLLATE NOCASE} (Flyway V04); PostgreSQL kennt sie nicht, und ein
+ * case-sensitiver Primärschlüssel würde aus {@code migros} und {@code MIGROS} zwei konkurrierende
+ * Zeilen machen (DB-05, ADR-12). Die Normalisierung ersetzt die Collation dialektunabhängig und
+ * passt zu den durchgängig grossgeschriebenen Seeds aus V04.
  */
 @Service
 public class CategoryLearningService implements CategoryLearningPort {
@@ -35,7 +41,9 @@ public class CategoryLearningService implements CategoryLearningPort {
             return;
         }
 
-        String pattern = merchantPattern.trim();
+        // Locale.ROOT statt Default-Locale: unter tr-TR würde "i" sonst zu "İ" und ein gelerntes
+        // Pattern liesse sich mit derselben Eingabe nicht wiederfinden.
+        String pattern = merchantPattern.trim().toUpperCase(Locale.ROOT);
         categoryLookupRepository.save(new CategoryLookup(pattern, category.getLabel()));
         log.debug("Lookup gelernt: '{}' → '{}'.", pattern, category.getLabel());
     }

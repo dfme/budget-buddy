@@ -2,14 +2,10 @@ package com.budgetbuddy.db;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import com.budgetbuddy.support.PostgresTestDatabase;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -20,85 +16,60 @@ import org.springframework.test.context.DynamicPropertySource;
 
 /**
  * Verifiziert die Flyway-Migration V04 (category_lookup-Tabelle inkl. Seed-Daten) gegen eine echte
- * SQLite-Datenbank.
+ * PostgreSQL-Datenbank.
  *
- * <p>Bewusst eine Temp-File-DB statt {@code jdbc:sqlite::memory:}: In-Memory-SQLite legt pro
- * Connection eine eigene DB an, wodurch die Flyway-Connection und die Test-Query-Connection
- * unterschiedliche Datenbanken sähen. Eine Datei wird vom gesamten Connection-Pool geteilt.
- *
- * <p>{@code @DirtiesContext} schliesst den Kontext (und damit den Hikari-Pool) nach der Klasse,
- * sodass das SQLite-File-Handle freigegeben wird, bevor {@code deleteOnExit} die Datei entfernt
- * (auf Windows hält ein offener Pool die Datei sonst gesperrt).
+ * <p>Seit DB-05 (ADR-12) gegen Testcontainers-Postgres in derselben Major-Version wie Produktion,
+ * mit einer eigenen Datenbank für diese Klasse (siehe {@link PostgresTestDatabase}).
  */
 @SpringBootTest
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class CategoryLookupMigrationTest {
+
+    private static final String TABLE = "category_lookup";
 
     // Fixe Kategorienliste aus CLAUDE.md — Seed-Daten dürfen nur diese Werte verwenden.
     private static final Set<String> ALLOWED_CATEGORIES = Set.of(
             "Wohnen", "Lebensmittel", "Transport", "Versicherung", "Telekom", "Gesundheit",
             "Freizeit", "Restaurant", "Shopping", "Bildung", "Einkommen", "Sparen", "Sonstiges");
 
-    private static final Path DB_FILE = createTempDbFile();
-
-    private static Path createTempDbFile() {
-        try {
-            Path file = Files.createTempFile("db-04-migration-test", ".db");
-            Files.deleteIfExists(file); // SQLite/Flyway legt die Datei selbst frisch an
-            file.toFile().deleteOnExit();
-            return file;
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
     @DynamicPropertySource
     static void datasourceProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", () -> "jdbc:sqlite:" + DB_FILE);
-        registry.add("spring.flyway.enabled", () -> "true");
+        PostgresTestDatabase.register(registry, "category_lookup_migration");
     }
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    private SchemaInspector schema() {
+        return new SchemaInspector(jdbcTemplate);
+    }
+
     @Test
     void migrationsRunSuccessfullyAfterV3() {
         // V01..V04 müssen alle erfolgreich gelaufen sein.
         Integer successfulMigrations = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM flyway_schema_history WHERE success = 1", Integer.class);
+                "SELECT COUNT(*) FROM flyway_schema_history WHERE success = true", Integer.class);
 
         assertThat(successfulMigrations).isGreaterThanOrEqualTo(4);
     }
 
     @Test
     void categoryLookupTableHasExactlyExpectedColumns() {
-        Map<String, String> typeByColumn = columnTypes();
+        Map<String, String> typeByColumn = schema().columnTypes(TABLE);
 
         assertThat(typeByColumn).containsOnlyKeys("empfaenger_pattern", "category");
-        assertThat(typeByColumn.get("empfaenger_pattern")).isEqualTo("VARCHAR");
-        assertThat(typeByColumn.get("category")).isEqualTo("VARCHAR");
+        assertThat(typeByColumn.get("empfaenger_pattern")).isEqualTo("text");
+        assertThat(typeByColumn.get("category")).isEqualTo("text");
     }
 
     @Test
     void empfaengerPatternIsPrimaryKey() {
-        // PRAGMA table_info: pk-Flag > 0 markiert die PK-Spalte(n).
-        Map<String, Integer> pkFlagByColumn = tableInfo().stream()
-                .collect(Collectors.toMap(
-                        c -> ((String) c.get("name")),
-                        c -> ((Number) c.get("pk")).intValue()));
-
-        assertThat(pkFlagByColumn.get("empfaenger_pattern")).isGreaterThan(0);
-        assertThat(pkFlagByColumn.get("category")).isEqualTo(0);
+        assertThat(schema().primaryKeyColumns(TABLE)).containsExactly("empfaenger_pattern");
     }
 
     @Test
     void categoryColumnIsNotNull() {
-        Map<String, Integer> notNullByColumn = tableInfo().stream()
-                .collect(Collectors.toMap(
-                        c -> ((String) c.get("name")),
-                        c -> ((Number) c.get("notnull")).intValue()));
-
-        assertThat(notNullByColumn.get("category")).isEqualTo(1);
+        assertThat(schema().notNullFlags(TABLE).get("category")).isTrue();
     }
 
     @Test
@@ -110,10 +81,26 @@ class CategoryLookupMigrationTest {
     }
 
     @Test
+    void allSeededPatternsAreStoredInUpperCase() {
+        // Trägt seit DB-05 die case-insensitive Zuordnung: SQLites COLLATE NOCASE hat unter
+        // PostgreSQL keine Entsprechung. Stattdessen liegen Patterns ausschliesslich in
+        // Grossschreibung vor (CategoryLearningService normalisiert vor dem Speichern), und das
+        // Matching vergleicht über upper() auf beiden Seiten. Bricht diese Invariante, wären
+        // 'migros' und 'MIGROS' zwei konkurrierende Zeilen.
+        List<String> patterns = jdbcTemplate.queryForList(
+                "SELECT empfaenger_pattern FROM category_lookup", String.class);
+
+        assertThat(patterns).isNotEmpty()
+                .allSatisfy(pattern -> assertThat(pattern).isEqualTo(pattern.toUpperCase()));
+    }
+
+    @Test
     void lookupIsCaseInsensitive() {
-        // AC: case-insensitive Lookup — kleingeschriebenes Pattern matcht den grossgeschriebenen Seed.
+        // AC aus DB-04: kleingeschriebene Eingabe findet den grossgeschriebenen Seed. Die
+        // Gross-/Kleinschreib-Unabhängigkeit liegt in der Query (upper() auf beiden Seiten,
+        // vgl. CategoryLookupRepository#findMatching), nicht mehr in der Spalten-Collation.
         String category = jdbcTemplate.queryForObject(
-                "SELECT category FROM category_lookup WHERE empfaenger_pattern = ?",
+                "SELECT category FROM category_lookup WHERE upper(empfaenger_pattern) = upper(?)",
                 String.class, "migros");
 
         assertThat(category).isEqualTo("Lebensmittel");
@@ -125,17 +112,5 @@ class CategoryLookupMigrationTest {
                 "SELECT DISTINCT category FROM category_lookup", String.class);
 
         assertThat(categories).isNotEmpty().allMatch(ALLOWED_CATEGORIES::contains);
-    }
-
-    // PRAGMA table_info liefert pro Spalte u.a.: name, type, notnull, dflt_value, pk
-    private Map<String, String> columnTypes() {
-        return tableInfo().stream()
-                .collect(Collectors.toMap(
-                        c -> ((String) c.get("name")),
-                        c -> ((String) c.get("type"))));
-    }
-
-    private List<Map<String, Object>> tableInfo() {
-        return jdbcTemplate.queryForList("PRAGMA table_info(category_lookup)");
     }
 }

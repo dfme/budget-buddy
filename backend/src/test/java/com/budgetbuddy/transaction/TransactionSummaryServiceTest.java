@@ -20,7 +20,7 @@ import org.mockito.ArgumentCaptor;
  * Unit-Test der Aggregations- und Prozentlogik von {@link TransactionSummaryService} (BE-CAT-05).
  *
  * <p>Das Repository wird gemockt; die Monats-Filterung selbst ist Repository-Zuständigkeit und wird
- * im Integrationstest gegen echtes SQLite geprüft. Hier steht der rechnerische Kern im Fokus:
+ * im Integrationstest gegen echtes PostgreSQL geprüft. Hier steht der rechnerische Kern im Fokus:
  * Aggregation, BigDecimal-Genauigkeit und die Largest-Remainder-Prozente (Summe exakt 100.00).
  */
 class TransactionSummaryServiceTest {

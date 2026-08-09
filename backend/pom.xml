@@ -19,7 +19,6 @@
 
     <properties>
         <java.version>25</java.version>
-        <sqlite-jdbc.version>3.49.1.0</sqlite-jdbc.version>
         <jjwt.version>0.12.6</jjwt.version>
         <springdoc.version>2.8.17</springdoc.version>
         <anthropic.version>2.31.0</anthropic.version>
@@ -48,22 +47,25 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
+        <!-- PostgreSQL-Treiber (DB-05, ADR-12). Kein hibernate-community-dialects mehr:
+             Hibernate bringt den PostgreSQLDialect selbst mit und erkennt ihn über die
+             JDBC-Metadaten — deshalb steht auch keine dialect-Property in den Properties. -->
         <dependency>
-            <groupId>org.xerial</groupId>
-            <artifactId>sqlite-jdbc</artifactId>
-            <version>${sqlite-jdbc.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.hibernate.orm</groupId>
-            <artifactId>hibernate-community-dialects</artifactId>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
-        <!-- Migrations (DB-01): Flyway-Version von Spring Boot gemanaged. SQLite-Support
-             benötigt nur den JDBC-Treiber org.xerial:sqlite-jdbc (siehe oben); Spring Boot
-             aktiviert die Startup-Migration via spring.flyway.enabled=true. -->
+        <!-- Migrations (DB-01): Flyway-Version von Spring Boot gemanaged (11.x). Seit Flyway 10
+             liegt der Datenbank-Support in eigenen Modulen — flyway-core allein kennt Postgres
+             nicht und bricht beim Start mit "Unsupported Database" ab. -->
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
         </dependency>
 
         <!-- Monitoring -->
@@ -123,6 +125,20 @@
             <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <!-- Testcontainers (DB-05): Integrationstests laufen gegen dieselbe Postgres-Version
+             wie Produktion. Voraussetzung ist ein laufender Docker-Daemon — lokal wie in CI
+             (GitHub-hosted Runner bringen ihn mit). Versionen von Spring Boot gemanaged. -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -142,6 +158,20 @@
                     <environmentVariables>
                         <JWT_SECRET>test-only-secret-not-for-production-0123456789</JWT_SECRET>
                     </environmentVariables>
+                    <systemPropertyVariables>
+                        <!--
+                            Docker-API-Version für Testcontainers (DB-05). Das in Testcontainers
+                            1.21.x gebündelte docker-java handelt ohne diese Angabe API 1.32 aus.
+                            Docker Engine 29 meldet MinAPIVersion 1.40 und beantwortet 1.32 mit
+                            HTTP 400 — Testcontainers meldet das als "Could not find a valid Docker
+                            environment" und verdeckt damit die eigentliche Ursache.
+
+                            1.44 entspricht Docker Engine 25 (Januar 2024) und liegt damit unter
+                            allem, was Docker Desktop oder GitHub-Runner heute ausliefern. Beim
+                            Anheben von Testcontainers prüfen, ob die Zeile entbehrlich wird.
+                        -->
+                        <api.version>1.44</api.version>
+                    </systemPropertyVariables>
                 </configuration>
             </plugin>
         </plugins>

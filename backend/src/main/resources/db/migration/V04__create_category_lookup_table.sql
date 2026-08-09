@@ -1,10 +1,16 @@
 -- DB-04: category_lookup-Tabelle (Hybrid-Kategorisierung, Schritt 1 — siehe ADR-6).
--- empfaenger_pattern ist PK mit COLLATE NOCASE, damit der Lookup case-insensitive ist:
--- WHERE empfaenger_pattern = 'migros' matcht den Seed 'MIGROS'.
+-- Postgres-Syntax seit DB-05 / ADR-12.
+--
+-- empfaenger_pattern ist PK. Unter SQLite trug die Spalte COLLATE NOCASE, damit
+-- 'migros' und 'MIGROS' denselben Eintrag treffen; Postgres kennt diese Collation nicht.
+-- Ersatz ohne DB-Extension: Patterns werden ausschliesslich in Grossschreibung gespeichert
+-- (CategoryLearningService normalisiert vor dem Save), und das Matching in
+-- CategoryLookupRepository.findMatching ist über upper(...) auf beiden Seiten ohnehin
+-- collation-unabhängig. Die Seeds unten sind deshalb durchgängig upper-case.
 -- category enthält ausschliesslich Werte aus der fixen Kategorienliste (siehe CLAUDE.md).
 CREATE TABLE category_lookup (
-    empfaenger_pattern VARCHAR COLLATE NOCASE PRIMARY KEY,
-    category           VARCHAR NOT NULL
+    empfaenger_pattern TEXT PRIMARY KEY,
+    category           TEXT NOT NULL
 );
 
 -- Seed-Daten für bekannte Schweizer Händler (~70-80% der Transaktionen, ADR-6).
