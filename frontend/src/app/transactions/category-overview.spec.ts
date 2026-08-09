@@ -180,9 +180,13 @@ describe('CategoryOverview', () => {
     ) as HTMLCanvasElement;
     expect(canvas).not.toBeNull();
     expect(canvas.getAttribute('role')).toBe('img');
+    // Kurzbeschreibung statt der generierten Aufzählung — die Beträge stehen auf dieser Seite
+    // schon in Legende und Tabelle. Die Aufzählung selbst ist in donut-chart.spec.ts abgedeckt.
     expect(canvas.getAttribute('aria-label')).toBe(
-      "Donut-Diagramm der Ausgaben nach Kategorie: Wohnen CHF 1'000.00, Lebensmittel CHF 350.50.",
+      'Donut-Diagramm der Ausgabenverteilung nach Kategorie. Die einzelnen Beträge stehen in ' +
+        'der Legende und in der Tabelle darunter.',
     );
+    expect(canvas.getAttribute('aria-label')).not.toContain('350.50');
 
     // Ein vorhandenes <canvas> beweist noch nicht, dass Chart.js hochgekommen ist — die
     // Instanz an der Direktive tut es. Sie existiert nur, wenn der Aufbau ohne Fehler lief.
