@@ -43,6 +43,7 @@ Diese Dokumentation hält die **wichtigsten Architektur-Entscheidungen** für Bu
 - **ADR-1:** Java 25 + Spring Boot (Backend)
 - **ADR-2:** Angular 21 (Frontend)
 - **ADR-5:** SQLite (Datenbank) — superseded durch ADR-12
+- **ADR-12:** PostgreSQL bei Neon, Frankfurt/EU (Datenbank)
 - **ADR-7:** JWT (Authentication)
 - **ADR-8:** Apache PDFBox (PDF-Verarbeitung)
 - **ADR-9:** BigDecimal (Geldbeträge)
@@ -55,7 +56,6 @@ Diese Dokumentation hält die **wichtigsten Architektur-Entscheidungen** für Bu
 ### Frontend UI / Design
 
 - **ADR-11:** UI-Design-Richtung «Klarheit» (Variante A); Komponenten-Unterbau offen (FE-UI-02)
-- **ADR-12:** PostgreSQL bei Neon, Frankfurt/EU (Datenbank)
 
 ---
 
