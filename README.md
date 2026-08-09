@@ -100,14 +100,33 @@ der Build erfolgt über das [`Dockerfile`](Dockerfile) (`./mvnw -Pprod package`)
 `ANTHROPIC_API_KEY` und `JWT_SECRET` werden im Render-Dashboard gesetzt (in `render.yaml`
 mit `sync: false` markiert, damit kein Wert im Blueprint landet).
 
+Der Web-Service läuft auf dem **Starter**-Plan ($7/Mt) und damit durchgehend — kein Spin-Down
+nach 15 Minuten, keine Begrenzung auf 750 Instanzstunden.
+
 Die Datenbank liegt **ausserhalb** von Render: PostgreSQL 18 bei [Neon](https://neon.com),
-Region Frankfurt/EU, Free-Plan (ADR-12). Das ist nötig, weil Renders Free-Tier ein ephemeres
-Filesystem hat — alles, was der Service selbst auf Platte schreibt, verschwindet bei jedem
-Redeploy, Restart und Spin-Down. Der Spin-Down kostet damit nur noch Latenz, keine Daten.
+Region Frankfurt/EU, Free-Plan (ADR-12). Renders Filesystem ist ephemer — alles, was der Service
+selbst auf Platte schreibt, verschwindet bei jedem Redeploy und Restart. Der einzige verbleibende
+Cold Start kommt von Neon: nach 5 Minuten ohne Zugriff skaliert es auf null und wacht beim
+nächsten Request automatisch wieder auf. Das kostet Latenz, keine Daten.
 
 Die drei Verbindungsvariablen werden im Render-Dashboard gesetzt (in `render.yaml` nur mit
-`sync: false` deklariert). Anleitung zum Anlegen des Neon-Projekts und zum Aufteilen des
-Connection-Strings: [ADR-12, Abschnitt „Setup"](docs/adr/ADR-12-datenpersistenz-produktion.md#setup-neon-projekt-und-render-variablen).
+`sync: false` deklariert). Neons Connection-String lässt sich dabei **nicht unverändert**
+übernehmen — er wird auf drei Variablen aufgeteilt:
+
+```
+Neon liefert:
+postgresql://<USER>:<PASSWORT>@<HOST>.eu-central-1.aws.neon.tech/<DB>?sslmode=require
+
+Daraus wird:
+SPRING_DATASOURCE_URL       jdbc:postgresql://<HOST>.eu-central-1.aws.neon.tech/<DB>?sslmode=require
+SPRING_DATASOURCE_USERNAME  <USER>
+SPRING_DATASOURCE_PASSWORD  <PASSWORT>
+```
+
+Der Wert von `SPRING_DATASOURCE_URL` muss mit `jdbc:postgresql://` beginnen und darf **kein `@`**
+enthalten; sonst startet der Container nicht (`'url' must start with "jdbc"` bzw.
+`UnknownHostException`). Vollständige Anleitung inklusive Anlegen des Neon-Projekts und
+Fehlersignaturen: [ADR-12, Abschnitt „Setup"](docs/adr/ADR-12-datenpersistenz-produktion.md#setup-neon-projekt-und-render-variablen).
 
 ### Prod-Build lokal
 
