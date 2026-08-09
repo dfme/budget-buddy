@@ -14,6 +14,11 @@
     "secure": false,
     "changeOrigin": true
   },
+  "/transactions": {
+    "target": "http://localhost:8080",
+    "secure": false,
+    "changeOrigin": true
+  },
   "/fixed-costs": {
     "target": "http://localhost:8080",
     "secure": false,

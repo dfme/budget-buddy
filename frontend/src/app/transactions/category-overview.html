@@ -16,6 +16,18 @@
   } @else if (isEmpty()) {
     <p class="status empty">Keine Ausgaben in diesem Monat.</p>
   } @else if (summary(); as data) {
+    <app-card class="chart-card" title="Ausgaben nach Kategorie" [meta]="monthLabel()">
+      <!--
+        Kurzbeschreibung statt der generierten Aufzählung: die Beträge stehen auf dieser Seite
+        schon in der Legende und in der Tabelle darunter. Ohne ariaLabel läse ein Screenreader
+        sie dreimal.
+      -->
+      <app-donut-chart
+        [data]="slices()"
+        ariaLabel="Donut-Diagramm der Ausgabenverteilung nach Kategorie. Die einzelnen Beträge stehen in der Legende und in der Tabelle darunter."
+      />
+    </app-card>
+
     <app-card>
       <table>
         <thead>
@@ -29,7 +41,9 @@
         <tbody>
           @for (item of data.categories; track item.category) {
             <tr>
-              <td><app-badge [category]="categorySlug(item.category)" [label]="item.category" /></td>
+              <td>
+                <app-badge [category]="categorySlug(item.category)" [label]="item.category" />
+              </td>
               <td class="numeric">{{ item.amount | currency: 'CHF' : 'symbol' : '1.2-2' }}</td>
               <td class="numeric">{{ item.count }}</td>
               <td class="numeric">{{ item.percentage | number: '1.2-2' }}%</td>
