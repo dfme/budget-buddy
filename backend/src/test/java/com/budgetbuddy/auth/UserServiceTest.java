@@ -70,6 +70,33 @@ class UserServiceTest {
                 .isInstanceOf(UserNotFoundException.class);
     }
 
+    // --- UserIncomePort (BE-FC-02): Einkommen über die Modulgrenze ---
+
+    @Test
+    void findMonthlyIncomeReturnsTheAmount() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        assertThat(userService.findMonthlyIncome(1L)).get()
+                .isEqualTo(new BigDecimal("4200.00"));
+    }
+
+    @Test
+    void findMonthlyIncomeIsEmptyWhenIncomeIsNull() {
+        when(userRepository.findById(1L))
+                .thenReturn(Optional.of(newUser(1L, "lara@example.ch", null, false)));
+
+        assertThat(userService.findMonthlyIncome(1L)).isEmpty();
+    }
+
+    @Test
+    void findMonthlyIncomeIsEmptyForUnknownUserInsteadOfThrowing() {
+        when(userRepository.findById(anyLong())).thenReturn(Optional.empty());
+
+        // Bewusst keine UserNotFoundException: für die Fixkosten-Warnung ist «kein Vergleichswert»
+        // ein Ergebnis, kein Fehler, der den Aufrufer abbricht.
+        assertThat(userService.findMonthlyIncome(99L)).isEmpty();
+    }
+
     // User hat bewusst keine Setter für id/email/passwordHash (Entity-Kapselung); im Unit-Test
     // werden die Felder daher via Reflection gesetzt.
     private static User newUser(long id, String email, BigDecimal income, boolean onboarded) {

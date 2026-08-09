@@ -2,12 +2,19 @@ package com.budgetbuddy.auth;
 
 import com.budgetbuddy.auth.dto.UserProfileResponse;
 import java.math.BigDecimal;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Profil-Lese- und Einkommens-Update-Logik für das auth-Modul (BE-AUTH-02). */
+/**
+ * Profil-Lese- und Einkommens-Update-Logik für das auth-Modul (BE-AUTH-02).
+ *
+ * <p>Implementiert zusätzlich den {@link UserIncomePort}, über den das {@code budget}-Modul das
+ * Einkommen für die Fixkosten-Warnung liest (BE-FC-02) — ohne Zugriff auf {@link UserRepository}
+ * oder die {@link User}-Entity über die Modulgrenze hinweg.
+ */
 @Service
-public class UserService {
+public class UserService implements UserIncomePort {
 
     private final UserRepository userRepository;
 
@@ -35,6 +42,19 @@ public class UserService {
         User user = findUser(userId);
         user.setMonthlyIncome(betrag);
         return toResponse(user);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Wirft bewusst <em>keine</em> {@link UserNotFoundException} bei unbekannter ID: der Port
+     * dient der Fixkosten-Warnung, und dort ist «kein Vergleichswert vorhanden» das Ergebnis —
+     * nicht ein Fehler, der den Aufrufer abbricht.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<BigDecimal> findMonthlyIncome(long userId) {
+        return userRepository.findById(userId).map(User::getMonthlyIncome);
     }
 
     private User findUser(long userId) {
