@@ -4,11 +4,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.anthropic.client.AnthropicClient;
 import com.budgetbuddy.categorization.AnthropicProperties;
+import com.budgetbuddy.support.PostgresTestDatabase;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
 
 /**
@@ -21,9 +24,19 @@ import org.springframework.test.context.TestPropertySource;
  */
 class AnthropicConfigTest {
 
+    /**
+     * Gilt für alle {@code @Nested}-Kontexte dieser Klasse (Spring wertet
+     * {@code @DynamicPropertySource} der umschliessenden Klasse mit aus). Die Tests prüfen die
+     * Client-Konstruktion und fassen kein Schema an — daher ohne Flyway.
+     */
+    @DynamicPropertySource
+    static void datasourceProperties(DynamicPropertyRegistry registry) {
+        PostgresTestDatabase.registerWithoutFlyway(registry, "anthropic_config");
+    }
+
     @Nested
     @SpringBootTest
-    @TestPropertySource(properties = {"anthropic.api.key=", "SQLITE_DB_PATH=:memory:"})
+    @TestPropertySource(properties = {"anthropic.api.key="})
     class WithoutApiKey {
 
         @Autowired private ObjectProvider<AnthropicClient> clientProvider;
@@ -45,7 +58,7 @@ class AnthropicConfigTest {
     @Nested
     @SpringBootTest
     @TestPropertySource(
-            properties = {"anthropic.api.key=sk-ant-test-key-not-real", "SQLITE_DB_PATH=:memory:"})
+            properties = {"anthropic.api.key=sk-ant-test-key-not-real"})
     class WithApiKey {
 
         @Autowired private ObjectProvider<AnthropicClient> clientProvider;
@@ -69,7 +82,7 @@ class AnthropicConfigTest {
     @Nested
     @SpringBootTest
     @TestPropertySource(
-            properties = {"ANTHROPIC_API_MODEL=claude-sonnet-5", "SQLITE_DB_PATH=:memory:"})
+            properties = {"ANTHROPIC_API_MODEL=claude-sonnet-5"})
     class WithModelOverride {
 
         @Autowired private AnthropicProperties properties;

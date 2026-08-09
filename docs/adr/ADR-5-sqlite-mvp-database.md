@@ -1,7 +1,14 @@
 # ADR-5: SQLite als MVP-Datenbank
 
-**Status:** Accepted  
-**Date:** 2026-05-27
+**Status:** Superseded by [ADR-12](ADR-12-datenpersistenz-produktion.md)  
+**Date:** 2026-05-27  
+**Superseded:** 2026-08-09
+
+> **Dieses ADR beschreibt nicht mehr den aktuellen Stand.** Die unten offen gelassene Frage der
+> Produktionspersistenz ist mit [ADR-12](ADR-12-datenpersistenz-produktion.md) entschieden:
+> PostgreSQL bei Neon (Frankfurt/EU). Der Abschnitt *Offene Frage: Persistenz in Produktion*
+> bleibt als Entscheidungsgrundlage erhalten — die dortige Variantenanalyse ist die Begründung
+> für ADR-12, nicht eine Beschreibung des heutigen Systems.
 
 ## Context
 

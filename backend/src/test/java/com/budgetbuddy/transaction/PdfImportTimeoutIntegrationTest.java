@@ -3,14 +3,13 @@ package com.budgetbuddy.transaction;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.budgetbuddy.support.PostgresTestDatabase;
 import com.budgetbuddy.auth.JwtService;
 import com.budgetbuddy.categorization.CategorizationPort;
 import jakarta.servlet.http.Cookie;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -37,23 +36,9 @@ import org.springframework.test.web.servlet.MockMvc;
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class PdfImportTimeoutIntegrationTest {
 
-    private static final Path DB_FILE = createTempDbFile();
-
-    private static Path createTempDbFile() {
-        try {
-            Path file = Files.createTempFile("be-pdf-03-timeout-it", ".db");
-            Files.deleteIfExists(file);
-            file.toFile().deleteOnExit();
-            return file;
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", () -> "jdbc:sqlite:" + DB_FILE);
-        registry.add("spring.flyway.enabled", () -> "true");
+        PostgresTestDatabase.register(registry, "pdf_import_timeout");
         // Zeitbudget 0 → jeder Import läuft sofort in den Timeout.
         registry.add("budgetbuddy.import.timeout-seconds", () -> "0");
     }

@@ -2,12 +2,11 @@ package com.budgetbuddy.transaction;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.budgetbuddy.support.PostgresTestDatabase;
 import com.budgetbuddy.auth.JwtService;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -38,23 +37,9 @@ import org.springframework.util.MultiValueMap;
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class PdfImportOversizeIntegrationTest {
 
-    private static final Path DB_FILE = createTempDbFile();
-
-    private static Path createTempDbFile() {
-        try {
-            Path file = Files.createTempFile("be-pdf-03-oversize-it", ".db");
-            Files.deleteIfExists(file);
-            file.toFile().deleteOnExit();
-            return file;
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", () -> "jdbc:sqlite:" + DB_FILE);
-        registry.add("spring.flyway.enabled", () -> "true");
+        PostgresTestDatabase.register(registry, "pdf_import_oversize");
         // Limit für den Test auf 1 KB gesenkt; das 5-KB-Fixture überschreitet es.
         registry.add("spring.servlet.multipart.max-file-size", () -> "1KB");
         registry.add("spring.servlet.multipart.max-request-size", () -> "1KB");

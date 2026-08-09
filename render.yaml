@@ -8,8 +8,9 @@ services:
     runtime: docker
     # Frankfurt (EU) — nächster Render-Standort zur Schweiz, EU-DSGVO (ADR-10).
     region: frankfurt
-    # Free-Tier: kein Persistent Disk. SQLite liegt auf dem ephemeren Filesystem
-    # und geht bei jedem Redeploy verloren — für das MVP bewusst akzeptiert.
+    # Free-Tier: kein Persistent Disk. Das ist unkritisch, seit die Daten ausserhalb
+    # von Render liegen (PostgreSQL bei Neon, Frankfurt/EU — ADR-12). Der Spin-Down
+    # kostet nur noch Latenz.
     plan: free
     dockerfilePath: ./Dockerfile
     # Health-Check über den Actuator-Endpoint (in application.properties freigegeben).
@@ -23,4 +24,14 @@ services:
       - key: ANTHROPIC_API_KEY
         sync: false
       - key: JWT_SECRET
+        sync: false
+      # Neon-Verbindung (ADR-12). Aufteilen des Connection-Strings und Anlegen des
+      # Projekts: siehe docs/adr/ADR-12-datenpersistenz-produktion.md, Abschnitt "Setup".
+      # Benutzer und Passwort gehören bewusst NICHT in die URL: eingebettet landen sie
+      # in jeder Logzeile, die die Datasource-URL ausgibt.
+      - key: SPRING_DATASOURCE_URL
+        sync: false
+      - key: SPRING_DATASOURCE_USERNAME
+        sync: false
+      - key: SPRING_DATASOURCE_PASSWORD
         sync: false

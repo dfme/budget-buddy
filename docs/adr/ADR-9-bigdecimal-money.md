@@ -29,7 +29,7 @@ Alternative: double, float, long (Cents), Money Library
 
 Wir nutzen **BigDecimal für alle Geldbeträge**:
 
-- **Column Definition:** `DECIMAL(10,2)` in SQLite
+- **Column Definition:** `DECIMAL(10,2)` — seit ADR-12 als echtes PostgreSQL-`numeric(10,2)`, davor als SQLite-Affinität (#141)
 - **Java Type:** `BigDecimal` (nicht double/float)
 - **Rounding:** Explicit `RoundingMode.HALF_UP` für Division
 - **Database:** JPA `@Column(columnDefinition="DECIMAL(10,2)")`
@@ -80,5 +80,5 @@ Wir nutzen **BigDecimal für alle Geldbeträge**:
 
 ## Related Decisions
 
-- **ADR-5:** SQLite Datenbank (DECIMAL Column Type)
+- **ADR-12:** PostgreSQL bei Neon — löst `DECIMAL(10,2)` erstmals als echte Dezimalarithmetik ein
 - **ADR-6:** Hybrid Kategorisierung (Amount Parameter)

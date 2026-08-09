@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.budgetbuddy.support.PostgresTestDatabase;
 import com.budgetbuddy.auth.JwtService;
 import com.budgetbuddy.categorization.CategorizationPort;
 import com.budgetbuddy.categorization.Category;
@@ -17,8 +18,6 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -43,7 +42,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
- * Integrationstest von {@code POST /import/pdf} (BE-PDF-03) gegen echtes SQLite + Flyway und das
+ * Integrationstest von {@code POST /import/pdf} (BE-PDF-03) gegen echtes PostgreSQL + Flyway und das
  * echte UBS-Fixture. Deckt die Acceptance Criteria am Endpoint ab: 200 mit Anzahl, 409 Duplikat,
  * 400 ungültiges PDF, 408 Timeout, 401 ohne Auth.
  *
@@ -52,7 +51,7 @@ import org.springframework.test.web.servlet.MockMvc;
  * {@link PdfImportServiceIntegrationTest}). Der 413-Fall (Oversize) braucht ein eigenes
  * Multipart-Limit und liegt daher in {@link PdfImportOversizeIntegrationTest}.
  *
- * <p>Temp-File-DB statt {@code jdbc:sqlite::memory:} und {@code @DirtiesContext} analog zu den
+ * <p>Eigene Datenbank auf dem gemeinsamen Testcontainer und {@code @DirtiesContext} analog zu den
  * übrigen transaction-Integrationstests.
  *
  * <p><b>Grenze von MockMvc:</b> Der ERROR-Dispatch auf {@code /error} (via {@code
@@ -65,23 +64,9 @@ import org.springframework.test.web.servlet.MockMvc;
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class PdfImportControllerIntegrationTest {
 
-    private static final Path DB_FILE = createTempDbFile();
-
-    private static Path createTempDbFile() {
-        try {
-            Path file = Files.createTempFile("be-pdf-03-import-it", ".db");
-            Files.deleteIfExists(file); // Flyway/SQLite legt die Datei selbst an
-            file.toFile().deleteOnExit();
-            return file;
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
     @DynamicPropertySource
     static void datasourceProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", () -> "jdbc:sqlite:" + DB_FILE);
-        registry.add("spring.flyway.enabled", () -> "true");
+        PostgresTestDatabase.register(registry, "pdf_import_controller");
     }
 
     @Autowired private MockMvc mockMvc;

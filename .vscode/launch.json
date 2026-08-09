@@ -4,6 +4,7 @@
   //
   // "Debug: Full Stack" startet Backend (mit Java-Breakpoints) UND Frontend
   // (Chrome-Debugger gegen :4200) zusammen. Voraussetzungen:
+  //   - Docker läuft: die Backend-Config startet die Datenbank per preLaunchTask (ADR-12).
   //   - Backend-Debug: "Extension Pack for Java" installiert.
   //   - JWT_SECRET muss in der Umgebung gesetzt sein (Fail-fast) — anders als die
   //     Task generiert eine Launch-Config kein Wegwerf-Secret. Einmalig im
@@ -20,6 +21,10 @@
       "mainClass": "com.budgetbuddy.BudgetBuddyApplication",
       "cwd": "${workspaceFolder}/backend",
       "console": "integratedTerminal",
+      // Bringt die Datenbank hoch und wartet auf ihren Healthcheck, bevor die JVM
+      // startet (ADR-12). Ohne das schlägt der Start mit einem Verbindungsfehler fehl,
+      // der wie ein Code-Problem aussieht.
+      "preLaunchTask": "Datenbank: docker compose up",
       "env": {
         "JWT_SECRET": "${env:JWT_SECRET}"
       }

@@ -1,0 +1,53 @@
+# Lokale Entwicklungsdatenbank (DB-05, ADR-12).
+#
+# Produktion läuft auf Neon PostgreSQL. Damit lokal, in CI und in Produktion dieselbe
+# Datenbank-Engine läuft, bringt dieser Compose-File einen Postgres im selben Major-Release
+# mit — sonst wäre genau der Dialect-Mismatch zurück, den die Migration beseitigen sollte.
+#
+#   docker compose up -d      # starten (einmal pro Arbeitstag genügt)
+#   docker compose down       # stoppen, Daten bleiben im Volume
+#   docker compose down -v    # stoppen UND Daten verwerfen (Flyway baut beim nächsten
+#                             # Start wieder von V01 auf)
+#
+# Die Zugangsdaten unten sind KEIN Secret im Sinne von CLAUDE.md ("Keine Secrets im Git"):
+# sie gelten für einen Container, der ausschliesslich auf localhost lauscht und Wegwerf-Daten
+# hält. Sie stimmen mit den Defaults in application.properties überein, damit
+# `./mvnw spring-boot:run` ohne zusätzliche Umgebungsvariablen funktioniert.
+services:
+  postgres:
+    # 18 = Default-Version für neue Neon-Projekte. Beim Anheben hier auch Testcontainers
+    # (backend/src/test/.../PostgresTestDatabase.java), den CI-Service-Container in
+    # .github/workflows/build.yml und das Neon-Projekt mitziehen.
+    image: postgres:18-alpine
+    container_name: budgetbuddy-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: budgetbuddy
+      POSTGRES_USER: budgetbuddy
+      POSTGRES_PASSWORD: budgetbuddy
+    ports:
+      # Nur an localhost gebunden: ohne die 127.0.0.1-Präfix wäre die Datenbank im
+      # gesamten lokalen Netz erreichbar (Docker öffnet die Portfreigabe sonst auf 0.0.0.0
+      # und umgeht dabei die Host-Firewall).
+      - "127.0.0.1:5432:5432"
+    volumes:
+      # Benanntes Volume: die Daten überleben `docker compose down` und Container-Neubauten.
+      #
+      # Mountpunkt ist /var/lib/postgresql, NICHT das früher übliche .../data: seit dem
+      # Postgres-18-Image liegen die Daten in einem versionsbenannten Unterverzeichnis. Ein Mount
+      # direkt auf .../data lässt den Container beim Start abbrechen ("unused mount/volume") und
+      # in eine Restart-Schleife laufen.
+      - budgetbuddy-postgres-data:/var/lib/postgresql
+      # Legt beim ersten Start zusätzlich die E2E-Datenbank an (siehe Skript). Nur beim
+      # Initialisieren eines leeren Volumes wirksam.
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # Ohne Healthcheck meldet `up -d` "started", während Postgres noch initialisiert —
+      # ein sofort nachgestartetes Backend liefe dann in einen Verbindungsfehler.
+      test: ["CMD-SHELL", "pg_isready -U budgetbuddy -d budgetbuddy"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  budgetbuddy-postgres-data:

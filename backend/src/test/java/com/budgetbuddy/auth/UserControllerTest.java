@@ -5,11 +5,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.budgetbuddy.support.PostgresTestDatabase;
 import jakarta.servlet.http.Cookie;
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,35 +20,20 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
- * Integrationstest der {@code /users/me}-Endpoints (BE-AUTH-02) gegen echtes SQLite + Flyway.
+ * Integrationstest der {@code /users/me}-Endpoints (BE-AUTH-02) gegen echtes PostgreSQL + Flyway.
  *
- * <p>Bewusst Temp-File-DB statt {@code jdbc:sqlite::memory:} und Flyway aktiv (analog
- * {@code UsersMigrationTest}): die {@code users}-Tabelle muss real existieren, und In-Memory-SQLite
- * legt pro Connection eine eigene DB an. {@code @DirtiesContext} gibt das File-Handle nach der
- * Klasse frei (Windows).
+ * <p>Flyway ist aktiv (analog {@code UsersMigrationTest}): die {@code users}-Tabelle muss real
+ * existieren. Die Datenbank gehört dieser Klasse allein (siehe {@code PostgresTestDatabase});
+ * {@code @DirtiesContext} schliesst den Hikari-Pool nach der Klasse.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class UserControllerTest {
 
-    private static final Path DB_FILE = createTempDbFile();
-
-    private static Path createTempDbFile() {
-        try {
-            Path file = Files.createTempFile("be-auth-02-test", ".db");
-            Files.deleteIfExists(file); // Flyway/SQLite legt die Datei selbst an
-            file.toFile().deleteOnExit();
-            return file;
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
     @DynamicPropertySource
     static void datasourceProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", () -> "jdbc:sqlite:" + DB_FILE);
-        registry.add("spring.flyway.enabled", () -> "true");
+        PostgresTestDatabase.register(registry, "user_controller");
     }
 
     @Autowired

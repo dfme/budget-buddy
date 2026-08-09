@@ -1,5 +1,5 @@
-import { existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { existsSync, readdirSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 
 /**
  * Gemeinsame Angaben zur Backend-Instanz, gegen die die E2E-Tests laufen (INFRA-14).
@@ -28,20 +28,13 @@ export const BACKEND_PORT = 8081;
 export const BASE_URL = `http://localhost:${BACKEND_PORT}`;
 
 /**
- * SQLite-Datei der Testinstanz, via `SQLITE_DB_PATH` gesetzt. Liegt unter `.tmp/` (gitignored)
- * statt im Repo-Root, damit sie nicht mit der Dev-Datenbank kollidiert; {@link resetDatabase}
- * löscht sie vor jedem Lauf.
- */
-export const DB_PATH = resolve(__dirname, '..', '.tmp', 'e2e.db');
-
-/**
  * Signier-Secret der Testinstanz. In CI wird `JWT_SECRET` zufällig erzeugt (siehe
  * `.github/workflows/build.yml`); dieser Fallback existiert nur, damit ein lokaler Lauf ohne
  * Env-Setup funktioniert.
  *
  * Das ist kein Credential im Sinne von CLAUDE.md ("Keine Secrets im Git"): es signiert
- * ausschliesslich Tokens gegen die Wegwerf-SQLite-Datei oben und ist in keiner Umgebung
- * gültig, die echte Daten hält. `JwtProperties` verlangt mindestens 32 Zeichen.
+ * ausschliesslich Tokens gegen die Wegwerf-Datenbank aus `support/database.ts` und ist in keiner
+ * Umgebung gültig, die echte Daten hält. `JwtProperties` verlangt mindestens 32 Zeichen.
  */
 export const LOCAL_TEST_JWT_SECRET = 'e2e-local-test-secret-not-a-production-credential';
 
@@ -79,33 +72,3 @@ export function resolveBackendJar(): string {
 
   return join(targetDir, jars[0]);
 }
-
-/**
- * Startet den Lauf mit einer leeren SQLite-Datei.
- *
- * Die Tests sind nicht auf einen leeren Zustand angewiesen — jeder erzeugt seinen User mit einer
- * eindeutigen E-Mail. Eine mitgeschleppte Datei liesse Läufe aber voneinander abhängen und würde
- * lokal eine andere Ausgangslage erzeugen als in CI (dort ist sie immer frisch).
- *
- * Muss aus dem Playwright-Hauptprozess aufgerufen werden, BEVOR die Instanz startet — deshalb
- * nicht als `globalSetup`: der `webServer` ist als Plugin implementiert und wird vor `globalSetup`
- * gestartet. Die Datei dann zu löschen würde bloss den Inode unter dem laufenden Backend
- * weg-unlinken statt den Zustand zurückzusetzen.
- *
- * `-journal`/`-wal`/`-shm` mit löschen: eine zurückgebliebene Journal-Datei ohne die zugehörige
- * DB bringt SQLite beim Öffnen aus dem Tritt.
- */
-export function resetDatabase(): void {
-  mkdirSync(dirname(DB_PATH), { recursive: true });
-
-  for (const suffix of ['', '-journal', '-wal', '-shm']) {
-    rmSync(`${DB_PATH}${suffix}`, { force: true });
-  }
-}
-
-/**
- * `true` im Playwright-Hauptprozess, `false` in den Test-Workern. Playwright lädt die Config in
- * jedem Worker erneut; Nebeneffekte wie {@link resetDatabase} dürfen dort nicht laufen, sonst
- * würde ein startender Worker die DB des bereits laufenden Backends unter ihm wegziehen.
- */
-export const isPlaywrightMainProcess = process.env.TEST_WORKER_INDEX === undefined;

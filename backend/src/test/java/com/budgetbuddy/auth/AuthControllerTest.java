@@ -6,10 +6,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import com.budgetbuddy.support.PostgresTestDatabase;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,33 +22,19 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
- * Integrationstest der {@code /auth}-Endpoints (BE-AUTH-03) gegen echtes SQLite + Flyway.
+ * Integrationstest der {@code /auth}-Endpoints (BE-AUTH-03) gegen echtes PostgreSQL + Flyway.
  *
- * <p>Aufbau analog {@code UserControllerTest}: Temp-File-DB (kein {@code :memory:}, da Flyway die
- * Tabelle real anlegen muss) und {@code @DirtiesContext} zum Freigeben des File-Handles.
+ * <p>Aufbau analog {@code UserControllerTest}: eigene Datenbank auf dem gemeinsamen Testcontainer
+ * (Flyway muss die Tabelle real anlegen) und {@code @DirtiesContext} zum Schliessen des Pools.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class AuthControllerTest {
 
-    private static final Path DB_FILE = createTempDbFile();
-
-    private static Path createTempDbFile() {
-        try {
-            Path file = Files.createTempFile("be-auth-03-test", ".db");
-            Files.deleteIfExists(file);
-            file.toFile().deleteOnExit();
-            return file;
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
     @DynamicPropertySource
     static void datasourceProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", () -> "jdbc:sqlite:" + DB_FILE);
-        registry.add("spring.flyway.enabled", () -> "true");
+        PostgresTestDatabase.register(registry, "auth_controller");
     }
 
     @Autowired

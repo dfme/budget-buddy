@@ -13,8 +13,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
      * Lädt alle <em>Ausgaben</em> ({@code is_income = false}) eines Users, deren Buchungsdatum in
      * das Intervall {@code [von, bis]} fällt — beide Grenzen inklusive. Für das Kategorie-Summary
      * (BE-CAT-05) werden die Monatsgrenzen im Service berechnet und die Aggregation in Java mit
-     * {@link java.math.BigDecimal} vorgenommen (SQLite {@code SUM} über NUMERIC-Affinität liefert
-     * Fliesskomma — für rappen-genaue Beträge ungeeignet, ADR-9).
+     * {@link java.math.BigDecimal} vorgenommen — dieselbe Begründung wie in
+     * {@code FixedCostRepository}: ADR-9 wird an einer Stelle durchgesetzt statt an zweien.
      */
     List<Transaction> findByUserIdAndIncomeFalseAndBuchungsdatumBetween(
             Long userId, LocalDate von, LocalDate bis);

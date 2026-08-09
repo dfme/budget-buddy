@@ -15,12 +15,13 @@ import org.springframework.transaction.annotation.Transactional;
  * deshalb dort, wo die Query steht — nicht in einem Service, der auch von anderswo aufrufbar ist.
  * Aufrufer verwenden die Methoden dieses Interfaces und nicht die geerbten ID-Varianten.
  *
- * <p><strong>Keine Summierung in SQL.</strong> {@code SUM(betrag)} über SQLite liefert
- * Fliesskomma und ist für rappen-genaue Beträge ungeeignet (ADR-9, gleiche Warnung wie in
- * {@code TransactionRepository}). {@code fixed_costs.betrag} liegt trotz {@code DECIMAL(10,2)}
- * physisch als {@code REAL} bzw. {@code INTEGER} in der Datei — {@code DECIMAL} ist in SQLite
- * eine Affinität, keine Dezimalarithmetik (#141). Die Fixkosten-Summe aus US-03 wird deshalb in
- * Java über {@link java.math.BigDecimal} gebildet, nicht per {@code @Query}.
+ * <p><strong>Keine Summierung in SQL.</strong> Die Fixkosten-Summe aus US-03 wird in Java über
+ * {@link java.math.BigDecimal} gebildet, nicht per {@code @Query} (gleiches Vorgehen wie in
+ * {@code TransactionRepository}). Unter SQLite war das zwingend, weil {@code DECIMAL(10,2)} dort
+ * nur eine Affinität war und {@code SUM} Fliesskomma lieferte (#141). Seit DB-05 (ADR-12) könnte
+ * PostgreSQL exakt summieren; die Aggregation bleibt trotzdem in Java, weil die Umrechnung auf
+ * Monatsbeträge (÷ 1, ÷ 3, ÷ 12) ohnehin dort stattfindet und ADR-9 damit an einer Stelle
+ * durchgesetzt wird statt an zweien.
  */
 public interface FixedCostRepository extends JpaRepository<FixedCost, Long> {
 

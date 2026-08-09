@@ -2,11 +2,8 @@ package com.budgetbuddy.budget;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
+import com.budgetbuddy.support.PostgresTestDatabase;
 import java.math.BigDecimal;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -18,13 +15,13 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 /**
- * Integrationstest von {@link FixedCost} und {@link FixedCostRepository} gegen echte SQLite +
+ * Integrationstest von {@link FixedCost} und {@link FixedCostRepository} gegen echtes PostgreSQL +
  * Flyway (BE-FC-01). Belegt die drei Acceptance Criteria von #10: Spalten-Mapping,
  * {@link BigDecimal}-Betrag und user-gebundene Queries — letztere mit Gegenprobe aus Sicht eines
  * fremden Users, weil ein grüner Happy Path die Mandantentrennung nicht beweist.
  *
- * <p>Temp-File-DB statt {@code jdbc:sqlite::memory:} und {@code @DirtiesContext} analog zu
- * {@link com.budgetbuddy.db.FixedCostsMigrationTest} (Begründung dort dokumentiert).
+ * <p>Eigene Datenbank auf dem gemeinsamen Testcontainer und {@code @DirtiesContext} analog zu
+ * {@link com.budgetbuddy.db.FixedCostsMigrationTest} (Begründung in {@code PostgresTestDatabase}).
  *
  * <p>Die Test-User werden per {@link JdbcTemplate} eingefügt statt über das {@code UserRepository}:
  * der FK {@code fixed_costs.user_id → users.id} braucht echte Zeilen, ein Repository-Zugriff über
@@ -34,23 +31,9 @@ import org.springframework.test.context.DynamicPropertySource;
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class FixedCostRepositoryIntegrationTest {
 
-    private static final Path DB_FILE = createTempDbFile();
-
-    private static Path createTempDbFile() {
-        try {
-            Path file = Files.createTempFile("be-fc-01-repository-it", ".db");
-            Files.deleteIfExists(file); // SQLite/Flyway legt die Datei selbst frisch an
-            file.toFile().deleteOnExit();
-            return file;
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
     @DynamicPropertySource
     static void datasourceProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", () -> "jdbc:sqlite:" + DB_FILE);
-        registry.add("spring.flyway.enabled", () -> "true");
+        PostgresTestDatabase.register(registry, "fixed_cost_repository");
     }
 
     @Autowired private FixedCostRepository repository;
@@ -111,23 +94,22 @@ class FixedCostRepositoryIntegrationTest {
     }
 
     @Test
-    void sumOfBetraegeStaysRappenExactInJavaDespiteRealStorage() {
+    void betragIsStoredAsExactDecimalNotFloatingPoint() {
         Long userId = insertUser("rappen@example.com");
         FixedCost kleinA = repository.save(
                 new FixedCost(userId, "Klein A", new BigDecimal("0.07"), Intervall.MONATLICH));
         repository.save(new FixedCost(userId, "Klein B", new BigDecimal("0.10"),
                 Intervall.MONATLICH));
 
-        // Die Spalte ist DECIMAL(10,2), SQLite behandelt das aber als *Affinität*: der Wert liegt
-        // physisch als REAL in der Datei und läuft damit sehr wohl durch Binär-Fliesskomma (#141).
-        // Diese Assertion hält den Kommentar ehrlich — driftet die Storage-Klasse, wird sie rot.
+        // Unter SQLite war DECIMAL(10,2) bloss eine *Affinität*: der Wert lag physisch als REAL in
+        // der Datei und lief damit sehr wohl durch Binär-Fliesskomma (#141). Seit DB-05 (ADR-12)
+        // ist der Spaltentyp echtes numeric — ADR-9 gilt jetzt in der Datenbank, nicht nur in Java.
+        // Bricht das weg, wird diese Assertion rot statt der Rundungsfehler still zurückzukommen.
         assertThat(jdbcTemplate.queryForObject(
-                        "SELECT typeof(betrag) FROM fixed_costs WHERE id = ?", String.class,
-                        kleinA.getId()))
-                .isEqualTo("real");
+                        "SELECT pg_typeof(betrag)::text FROM fixed_costs WHERE id = ?",
+                        String.class, kleinA.getId()))
+                .isEqualTo("numeric");
 
-        // Belegt wird deshalb nicht «CHF laufen nie durch double», sondern: der sqlite-jdbc-Pfad
-        // rekonstruiert die Dezimaldarstellung, sodass die Addition in Java rappen-genau bleibt.
         BigDecimal sum = repository.findByUserIdOrderByIdAsc(userId).stream()
                 .map(FixedCost::getBetrag)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -136,24 +118,28 @@ class FixedCostRepositoryIntegrationTest {
     }
 
     @Test
-    void betragScaleIsNotPreservedByTheDatabase() {
+    void betragScaleIsPreservedByTheDatabase() {
         Long userId = insertUser("skala@example.com");
         FixedCost ganzzahlig = repository.save(
                 new FixedCost(userId, "Serafe", new BigDecimal("335.00"), Intervall.JAEHRLICH));
         FixedCost nachkomma = repository.save(
                 new FixedCost(userId, "Klein", new BigDecimal("0.10"), Intervall.MONATLICH));
 
-        // Charakterisierungstest: hält das *tatsächliche* Verhalten fest, nicht das gewünschte.
-        // isEqualByComparingTo ist skalenblind und würde das hier verdecken — für #11/#12 ist es
-        // aber relevant, weil JSON sonst 335 statt 335.00 liefert und ein DTO-equals gegen
-        // new BigDecimal("335.00") unerwartet fehlschlägt. Der Fix gehört als setScale(2) an die
-        // DTO-Grenze in #11, nicht in die Persistenzschicht.
+        // Verhaltensänderung durch DB-05 (ADR-12), bewusst festgehalten: unter SQLite ging die
+        // Skala beim Round-Trip verloren (335.00 kam als 335 zurück, 0.10 als 0.1), weil die
+        // Spalte nur eine Affinität war. numeric(10,2) in PostgreSQL rundet dagegen auf genau zwei
+        // Nachkommastellen und liefert sie auch so zurück.
+        //
+        // Für #11/#12 heisst das: das JSON zeigt jetzt von sich aus 335.00, und ein DTO-equals
+        // gegen new BigDecimal("335.00") schlägt nicht mehr unerwartet fehl. Ein setScale(2) an
+        // der DTO-Grenze bleibt trotzdem sinnvoll — es macht die Zusage unabhängig davon, welche
+        // Datenbank darunter liegt.
         assertThat(repository.findByIdAndUserId(ganzzahlig.getId(), userId).orElseThrow()
                         .getBetrag().scale())
-                .isZero();
+                .isEqualTo(2);
         assertThat(repository.findByIdAndUserId(nachkomma.getId(), userId).orElseThrow()
                         .getBetrag().scale())
-                .isEqualTo(1);
+                .isEqualTo(2);
     }
 
     // --- AC3: Repository-Queries filtern nach user_id ---

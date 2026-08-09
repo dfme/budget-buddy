@@ -32,7 +32,7 @@ com.budgetbuddy
 
 **Import Flow (MVP):** PDF-Uploads laufen synchron — der Endpoint blockiert bis Import und Kategorisierung abgeschlossen sind. Timeout + Fallback zu `"Sonstiges"` verhindern, dass ein hängender Claude-Call den Import blockiert.
 
-- **Database:** Shared SQLite (`budget-buddy.db`), WAL-Modus, HikariCP max 1 Writer
+- **Database:** eine gemeinsame Datenbank für alle Module (seit ADR-12: PostgreSQL bei Neon)
 - **Deployment:** Single JAR → Docker → Cloud Run / VPS
 - **Scaling:** Vertikal initial; später Horizontal mit Read Replicas
 
@@ -42,7 +42,7 @@ com.budgetbuddy
 
 - **Development Speed:** Eine Codebase, ein Deployment, ein Database-Schema
 - **Simple Transactions:** ACID-Transaktionen über Schichten (Auth → PDF → Kategorization → DB)
-- **Testing:** Integration Tests sind einfach — SQLite in-memory (`jdbc:sqlite::memory:`) ohne TestContainers oder DB-Server
+- **Testing:** Integration Tests laufen gegen eine einzige Anwendung statt gegen ein Dienstgeflecht. Die Datenbank stellt seit ADR-12 Testcontainers bereit
 - **Debugging:** Single Process → Stack Traces enthalten ganzen Call Stack
 - **Deployment:** `java -jar app.jar` — fertig
 - **Team:** 2-3 Entwickler können alles deployen (kein separates Ops-Team)
@@ -52,7 +52,7 @@ com.budgetbuddy
 - **Horizontal Scaling:** Später schwieriger (braucht Load Balancer + Read Replicas)
 - **Deployment Risk:** Bug in Feature X = ganze App offline (mitigiert durch Tests)
 - **Large Dependency Graphs:** Größere Spring Boot Boot-Zeit
-- **Database Bottleneck:** Shared SQLite ist Single Point of Failure (ok für MVP)
+- **Database Bottleneck:** Die gemeinsame Datenbank ist ein Single Point of Failure (ok für MVP)
 - **Moduldisziplin:** Ohne konsequente Durchsetzung der Modulgrenzen entsteht ein Big Ball of Mud — muss im Code-Review aktiv geprüft werden
 
 ## Alternatives
@@ -91,5 +91,5 @@ com.budgetbuddy
 - **ADR-0:** Frontend-Backend-Trennung
 - **ADR-1:** Java + Spring Boot
 - **ADR-3:** REST API (Monolith-freundlich)
-- **ADR-5:** SQLite (Shared Database)
+- **ADR-12:** PostgreSQL bei Neon (gemeinsame Datenbank; supersedet ADR-5)
 - **ADR-10:** Hosting auf Render — Single JAR als Deploy-Artefakt
