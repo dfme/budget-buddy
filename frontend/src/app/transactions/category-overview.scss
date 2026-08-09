@@ -17,6 +17,12 @@
   margin: $sp-4 0 $sp-5;
 }
 
+// Chart-Karte (FE-CAT-02) steht über der Tabellen-Karte; der Abstand kommt von hier,
+// nicht aus der Card selbst — die Card kennt ihren Kontext nicht.
+.chart-card {
+  margin-bottom: $sp-5;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;

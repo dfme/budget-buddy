@@ -6,6 +6,7 @@ import { Subscription } from 'rxjs';
 import { Badge } from '../shared/badge/badge';
 import { Card } from '../shared/card/card';
 import { CATEGORIES } from '../shared/category';
+import { DonutChart, DonutSlice } from '../shared/chart/donut-chart';
 import { MonthNav } from '../shared/month-nav/month-nav';
 import { CategorySummary } from './category-summary.model';
 import { TransactionSummaryService } from './transaction-summary.service';
@@ -17,12 +18,15 @@ import { TransactionSummaryService } from './transaction-summary.service';
  * Monat. Ein Prev/Next-Selector navigiert zwischen Monaten; jeder Wechsel lädt neu.
  * Ist der Monat leer, erscheint ein Leerzustand statt einer leeren Tabelle.
  *
+ * <p>Über der Tabelle visualisiert ein {@link DonutChart} dieselben Zahlen als
+ * Ausgabenverteilung (FE-CAT-02).
+ *
  * <p>OnPush + Signals wie im übrigen Frontend; der HTTP-Zugriff liegt im
  * zustandslosen {@link TransactionSummaryService}.
  */
 @Component({
   selector: 'app-category-overview',
-  imports: [CurrencyPipe, DecimalPipe, MonthNav, Card, Badge],
+  imports: [CurrencyPipe, DecimalPipe, MonthNav, Card, Badge, DonutChart],
   templateUrl: './category-overview.html',
   styleUrl: './category-overview.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -47,6 +51,25 @@ export class CategoryOverview {
 
   /** Menschlich lesbares Monatslabel, z. B. `"Juli 2026"`. */
   readonly monthLabel = computed(() => CategoryOverview.formatMonth(this.month()));
+
+  /**
+   * Segmente des Donut-Charts (FE-CAT-02) — dieselben Zahlen wie die Tabelle, in der
+   * Reihenfolge der API-Antwort (absteigend nach Betrag).
+   *
+   * <p>Der Slug kommt aus derselben {@link SLUG_BY_LABEL}-Map wie das Badge der
+   * Tabellenzeile: Segment, Legendenpunkt und Badge einer Kategorie ziehen damit
+   * zwangsläufig dieselbe `--cat-<slug>`-Farbe. Ein unbekanntes Label fällt auf sich
+   * selbst zurück — es trifft kein Token, die Komponente rendert das Segment darum
+   * neutral grau statt in einer fremden Kategorie-Farbe.
+   */
+  readonly slices = computed<readonly DonutSlice[]>(
+    () =>
+      this.summary()?.categories.map((item) => ({
+        slug: CategoryOverview.SLUG_BY_LABEL.get(item.category) ?? item.category,
+        label: item.category,
+        value: item.amount,
+      })) ?? [],
+  );
 
   /** `true`, wenn geladen wurde und der Monat keine Ausgaben enthält. */
   readonly isEmpty = computed(() => {
