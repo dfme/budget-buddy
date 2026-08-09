@@ -1,0 +1,204 @@
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+
+import { FixedCostWizard } from './fixed-cost-wizard';
+import { FixedCost, INTERVALL_OPTIONS } from './fixed-cost.model';
+
+const MIETE: FixedCost = {
+  id: 1,
+  bezeichnung: 'Miete',
+  betrag: 1200,
+  intervall: 'monatlich',
+};
+
+describe('FixedCostWizard', () => {
+  let fixture: ComponentFixture<FixedCostWizard>;
+  let component: FixedCostWizard;
+  let httpMock: HttpTestingController;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [FixedCostWizard],
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(FixedCostWizard);
+    component = fixture.componentInstance;
+    httpMock = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+  });
+
+  afterEach(() => httpMock.verify());
+
+  // --- AC1: Validierungsfehler inline ---
+
+  it('sendet nichts und zeigt alle Feldfehler, wenn das Formular leer ist', () => {
+    component.submit();
+    fixture.detectChanges();
+
+    httpMock.expectNone('/fixed-costs');
+    expect(component.form.controls.bezeichnung.touched).toBe(true);
+    expect(component.form.controls.betrag.touched).toBe(true);
+    expect(component.bezeichnungError()).toBe('Bezeichnung ist erforderlich.');
+    expect(component.betragError()).toBe('Betrag ist erforderlich.');
+  });
+
+  it('haelt Feldfehler zurueck, solange das Feld unberuehrt ist', () => {
+    // Ohne diese Zusicherung wuerde das Formular den Nutzer beim ersten Rendern anschreien.
+    expect(component.bezeichnungError()).toBeNull();
+    expect(component.betragError()).toBeNull();
+    expect(component.form.invalid).toBe(true);
+  });
+
+  it('rendert die Fehlermeldung sichtbar unter dem Feld', () => {
+    component.submit();
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Bezeichnung ist erforderlich.');
+    expect(text).toContain('Betrag ist erforderlich.');
+  });
+
+  // --- AC2: Betrag nur positiv ---
+
+  it.each([0, -5, -0.01])('lehnt den Betrag %s ab und sendet nicht', (betrag) => {
+    component.form.setValue({ bezeichnung: 'Miete', betrag, intervall: 'monatlich' });
+
+    component.submit();
+
+    httpMock.expectNone('/fixed-costs');
+    expect(component.form.controls.betrag.hasError('min')).toBe(true);
+    expect(component.betragError()).toBe('Betrag muss grösser als 0 sein.');
+  });
+
+  it('akzeptiert den kleinsten rappengenauen Betrag', () => {
+    component.form.setValue({ bezeichnung: 'Kleinkram', betrag: 0.01, intervall: 'monatlich' });
+
+    expect(component.form.valid).toBe(true);
+    expect(component.form.controls.betrag.hasError('min')).toBe(false);
+  });
+
+  // --- AC3: Intervall-Dropdown ---
+
+  it('bietet genau die drei Intervalle des Backends an', () => {
+    expect(INTERVALL_OPTIONS.map((option) => option.value)).toEqual([
+      'monatlich',
+      'quartalsweise',
+      'jaehrlich',
+    ]);
+  });
+
+  it('rendert drei Optionen und zeigt «jährlich» mit Umlaut an', () => {
+    const options = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('#intervall option'),
+    );
+
+    expect(options).toHaveLength(3);
+    expect(options.map((option) => (option as HTMLOptionElement).value)).toEqual([
+      'monatlich',
+      'quartalsweise',
+      'jaehrlich',
+    ]);
+    // Der Umlaut gehoert ins Template, der ASCII-Wert auf die Leitung (Intervall.java).
+    expect(options.map((option) => option.textContent?.trim())).toEqual([
+      'monatlich',
+      'quartalsweise',
+      'jährlich',
+    ]);
+  });
+
+  it('steht per Default auf monatlich', () => {
+    expect(component.form.controls.intervall.value).toBe('monatlich');
+  });
+
+  // --- AC4: Submit + Erfolgs-Feedback ---
+
+  it('sendet POST /fixed-costs und zeigt Erfolgs-Feedback', () => {
+    component.form.setValue({ bezeichnung: 'Miete', betrag: 1200, intervall: 'monatlich' });
+
+    component.submit();
+
+    const req = httpMock.expectOne('/fixed-costs');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({
+      bezeichnung: 'Miete',
+      betrag: 1200,
+      intervall: 'monatlich',
+    });
+    req.flush(MIETE, { status: 201, statusText: 'Created' });
+    fixture.detectChanges();
+
+    expect(component.savedBezeichnung()).toBe('Miete');
+    expect(component.errorMessage()).toBeNull();
+    expect(component.submitting()).toBe(false);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      '«Miete» wurde gespeichert.',
+    );
+  });
+
+  it('leert das Formular nach dem Speichern und setzt das Intervall zurueck', () => {
+    component.form.setValue({ bezeichnung: 'Serafe', betrag: 335, intervall: 'jaehrlich' });
+
+    component.submit();
+    httpMock
+      .expectOne('/fixed-costs')
+      .flush({ id: 2, bezeichnung: 'Serafe', betrag: 335, intervall: 'jaehrlich' });
+
+    // Mehrere Positionen am Stueck erfassbar: das Formular bleibt stehen, aber leer.
+    expect(component.form.controls.bezeichnung.value).toBe('');
+    expect(component.form.controls.betrag.value).toBeNull();
+    expect(component.form.controls.intervall.value).toBe('monatlich');
+  });
+
+  it('schneidet Leerraum aus der Bezeichnung', () => {
+    component.form.setValue({ bezeichnung: '  Miete  ', betrag: 1200, intervall: 'monatlich' });
+
+    component.submit();
+
+    const req = httpMock.expectOne('/fixed-costs');
+    expect(req.request.body.bezeichnung).toBe('Miete');
+    req.flush(MIETE);
+  });
+
+  it('meldet einen Serverfehler und zeigt kein Erfolgs-Feedback', () => {
+    component.form.setValue({ bezeichnung: 'Miete', betrag: 1200, intervall: 'monatlich' });
+
+    component.submit();
+    httpMock
+      .expectOne('/fixed-costs')
+      .flush('boom', { status: 500, statusText: 'Internal Server Error' });
+    fixture.detectChanges();
+
+    expect(component.savedBezeichnung()).toBeNull();
+    expect(component.errorMessage()).toBe(
+      'Speichern fehlgeschlagen. Bitte versuche es später erneut.',
+    );
+    expect(component.submitting()).toBe(false);
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('wurde gespeichert');
+  });
+
+  it('unterscheidet die Ablehnung durch den Server (400) vom generischen Fehler', () => {
+    component.form.setValue({ bezeichnung: 'Miete', betrag: 1200, intervall: 'monatlich' });
+
+    component.submit();
+    httpMock.expectOne('/fixed-costs').flush('bad', { status: 400, statusText: 'Bad Request' });
+
+    expect(component.errorMessage()).toContain('vom Server abgelehnt');
+  });
+
+  it('raeumt die alte Erfolgsmeldung weg, bevor der naechste Versuch laeuft', () => {
+    component.form.setValue({ bezeichnung: 'Miete', betrag: 1200, intervall: 'monatlich' });
+    component.submit();
+    httpMock.expectOne('/fixed-costs').flush(MIETE);
+    expect(component.savedBezeichnung()).toBe('Miete');
+
+    component.form.setValue({ bezeichnung: 'Handy', betrag: 40, intervall: 'monatlich' });
+    component.submit();
+
+    // Waehrend der zweite Request laeuft, darf die Meldung des ersten nicht stehen bleiben.
+    expect(component.savedBezeichnung()).toBeNull();
+    expect(component.submitting()).toBe(true);
+    httpMock.expectOne('/fixed-costs').flush({ ...MIETE, id: 3, bezeichnung: 'Handy', betrag: 40 });
+  });
+});

@@ -11,14 +11,17 @@ import angularJson from '../angular.json';
 describe('Dev-Proxy Konfiguration', () => {
   const backend = 'http://localhost:8080';
 
-  it.each(['/auth', '/users'])('leitet %s an das Backend auf :8080 weiter', (prefix) => {
-    const entry = (proxyConfig as Record<string, { target: string; changeOrigin: boolean }>)[
-      prefix
-    ];
-    expect(entry).toBeDefined();
-    expect(entry.target).toBe(backend);
-    expect(entry.changeOrigin).toBe(true);
-  });
+  it.each(['/auth', '/users', '/fixed-costs'])(
+    'leitet %s an das Backend auf :8080 weiter',
+    (prefix) => {
+      const entry = (proxyConfig as Record<string, { target: string; changeOrigin: boolean }>)[
+        prefix
+      ];
+      expect(entry).toBeDefined();
+      expect(entry.target).toBe(backend);
+      expect(entry.changeOrigin).toBe(true);
+    },
+  );
 
   it('verdrahtet proxy.conf.json in der serve-Konfiguration von angular.json', () => {
     const serveOptions =

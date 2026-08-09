@@ -1,0 +1,55 @@
+<section class="wizard">
+  <h1>Fixkosten erfassen</h1>
+  <p class="lead">
+    Trage deine wiederkehrenden Kosten ein — Miete, Krankenkasse, Handy. Sie werden vom
+    Safe-to-Spend abgezogen.
+  </p>
+
+  <app-card>
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <app-field label="Bezeichnung" inputId="bezeichnung" [error]="bezeichnungError()">
+        <input
+          appInput
+          id="bezeichnung"
+          type="text"
+          formControlName="bezeichnung"
+          autocomplete="off"
+          required
+        />
+      </app-field>
+
+      <app-field label="Betrag (CHF)" inputId="betrag" [error]="betragError()">
+        <input
+          appInput
+          id="betrag"
+          type="number"
+          formControlName="betrag"
+          inputmode="decimal"
+          min="0.01"
+          step="0.01"
+          required
+        />
+      </app-field>
+
+      <app-field label="Intervall" inputId="intervall" [error]="intervallError()">
+        <select appInput id="intervall" formControlName="intervall" required>
+          @for (option of intervallOptions; track option.value) {
+            <option [value]="option.value">{{ option.label }}</option>
+          }
+        </select>
+      </app-field>
+
+      @if (savedBezeichnung(); as bezeichnung) {
+        <app-notice variant="info">«{{ bezeichnung }}» wurde gespeichert.</app-notice>
+      }
+
+      @if (errorMessage(); as message) {
+        <app-notice variant="error">{{ message }}</app-notice>
+      }
+
+      <button appButton block type="submit" [disabled]="submitting()">
+        {{ submitting() ? 'Wird gespeichert…' : 'Fixkosten speichern' }}
+      </button>
+    </form>
+  </app-card>
+</section>
