@@ -1,0 +1,25 @@
+@use 'tokens' as *;
+
+:host {
+  display: block;
+}
+
+.wizard {
+  max-width: 28rem;
+  margin: 0 auto;
+}
+
+h1 {
+  margin-bottom: $sp-3;
+}
+
+.lead {
+  margin-bottom: $sp-5;
+  color: $c-ink-2;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: $sp-4;
+}

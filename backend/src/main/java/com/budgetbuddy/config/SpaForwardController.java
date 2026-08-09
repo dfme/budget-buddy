@@ -48,7 +48,7 @@ public class SpaForwardController {
      * API-Prefix.
      */
     static final String[] CLIENT_ROUTE_PATTERNS = {
-        "/dashboard", "/login", "/register", "/categories", "/import"
+        "/dashboard", "/login", "/register", "/categories", "/import", "/onboarding"
     };
 
     /**
@@ -56,7 +56,7 @@ public class SpaForwardController {
      * beschränkt sind und ein Array-Feld keiner ist. {@code SpaRoutingTest} hält die beiden
      * Listen per Assertion zusammen.
      */
-    @GetMapping({"/dashboard", "/login", "/register", "/categories", "/import"})
+    @GetMapping({"/dashboard", "/login", "/register", "/categories", "/import", "/onboarding"})
     public String forwardToSpa() {
         return "forward:/index.html";
     }

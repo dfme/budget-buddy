@@ -25,6 +25,11 @@ export const routes: Routes = [
     loadComponent: () => import('./transactions/pdf-upload').then((m) => m.PdfUpload),
   },
   {
+    path: 'onboarding',
+    canActivate: [authGuard],
+    loadComponent: () => import('./onboarding/fixed-cost-wizard').then((m) => m.FixedCostWizard),
+  },
+  {
     path: 'login',
     loadComponent: () => import('./auth/login').then((m) => m.Login),
   },
