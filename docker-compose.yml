@@ -32,7 +32,15 @@ services:
       - "127.0.0.1:5432:5432"
     volumes:
       # Benanntes Volume: die Daten überleben `docker compose down` und Container-Neubauten.
-      - budgetbuddy-postgres-data:/var/lib/postgresql/data
+      #
+      # Mountpunkt ist /var/lib/postgresql, NICHT das früher übliche .../data: seit dem
+      # Postgres-18-Image liegen die Daten in einem versionsbenannten Unterverzeichnis. Ein Mount
+      # direkt auf .../data lässt den Container beim Start abbrechen ("unused mount/volume") und
+      # in eine Restart-Schleife laufen.
+      - budgetbuddy-postgres-data:/var/lib/postgresql
+      # Legt beim ersten Start zusätzlich die E2E-Datenbank an (siehe Skript). Nur beim
+      # Initialisieren eines leeren Volumes wirksam.
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       # Ohne Healthcheck meldet `up -d` "started", während Postgres noch initialisiert —
       # ein sofort nachgestartetes Backend liefe dann in einen Verbindungsfehler.

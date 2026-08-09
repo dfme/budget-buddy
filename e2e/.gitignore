@@ -7,5 +7,7 @@
 /blob-report
 /.cache
 
-# Laufzeit-Artefakte der Testinstanz (SQLite-DB des E2E-Backends)
+# Laufzeit-Artefakte der Testinstanz. Seit DB-05 liegen deren Daten in PostgreSQL
+# (Datenbank budgetbuddy_e2e), nicht mehr in einer Datei — der Eintrag bleibt für
+# Arbeitskopien, die noch eine alte e2e.db enthalten.
 /.tmp

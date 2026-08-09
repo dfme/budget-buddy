@@ -59,6 +59,30 @@ jobs:
     # Playwright startet das JAR selbst und wartet auf /actuator/health (webServer-Timeout
     # 120s). Das Limit hier ist der Airbag für einen hängenden Browser, nicht die Regel.
     timeout-minutes: 25
+
+    # Die Testinstanz ist das echte prod-JAR und braucht deshalb eine echte Datenbank (DB-05,
+    # ADR-12). Anders als im backend-Job genügt Testcontainers hier nicht: der Container müsste
+    # aus der JVM heraus gestartet werden, das JAR startet aber Playwright.
+    #
+    # POSTGRES_DB heisst budgetbuddy_e2e, damit die Defaults aus e2e/support/database.ts ohne
+    # zusätzliche Variablen greifen. Zugangsdaten sind Wegwerf-Werte für einen Container, der
+    # nur für diesen Job existiert — kein Secret im Sinne von CLAUDE.md.
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: budgetbuddy_e2e
+          POSTGRES_USER: budgetbuddy
+          POSTGRES_PASSWORD: budgetbuddy
+        ports:
+          - 5432:5432
+        # Ohne Healthcheck gilt der Service als bereit, sobald der Container läuft — das JAR
+        # liefe dann in einen Verbindungsfehler, während Postgres noch initialisiert.
+        options: >-
+          --health-cmd "pg_isready -U budgetbuddy -d budgetbuddy_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
 
@@ -76,7 +100,7 @@ jobs:
           cache: npm
           cache-dependency-path: e2e/package-lock.json
 
-      # Signiert ausschliesslich Tokens gegen die Wegwerf-SQLite-Datei dieses Runs. Bewusst
+      # Signiert ausschliesslich Tokens gegen die Wegwerf-Datenbank dieses Runs. Bewusst
       # zufällig erzeugt statt als Repo-Secret hinterlegt: ein Secret würde suggerieren, der Wert
       # wäre schützenswert oder gar mit Produktion geteilt. JwtProperties verlangt >= 32 Zeichen,
       # `rand -hex 32` liefert 64. Kein Job-`env`-Default daneben — ein Platzhalter wäre lang

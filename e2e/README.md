@@ -35,8 +35,11 @@ Lauf zurück und darf deshalb nie an einer fremden Instanz hängen. Aus demselbe
 `reuseExistingServer` auch lokal `false`: ein besetzter Port soll ein lauter Startfehler sein,
 keine stille Kontamination.
 
-Die Testinstanz benutzt eine eigene SQLite-Datei unter `.tmp/e2e.db` (gitignored) — die
-Dev-Datenbank im Repo-Root wird nicht angefasst.
+Die Testinstanz benutzt eine eigene PostgreSQL-Datenbank `budgetbuddy_e2e` auf demselben
+lokalen Server wie die Entwicklung — die Dev-Datenbank `budgetbuddy` wird nicht angefasst.
+`globalSetup` leert vor jedem Lauf die Nutzertabellen (`transactions`, `fixed_costs`, `users`);
+`category_lookup` bleibt stehen, weil ihr Inhalt aus der Migration V04 stammt und zum Schema
+gehört, nicht zum Zustand eines Laufs.
 
 ## Lokal ausführen
 
@@ -45,7 +48,15 @@ Standard-JVM der Shell — nicht mit der, die Maven benutzt. Mit einem älteren 
 der Start mit `UnsupportedClassVersionError` ab (im Playwright-Output sichtbar, weil das
 Backend-Log durchgereicht wird). Prüfen mit `java -version`.
 
+**Voraussetzung: PostgreSQL läuft.** Seit DB-05 (ADR-12) braucht die Testinstanz eine Datenbank,
+die der Compose-Stack im Repo-Root mitbringt — inklusive der E2E-Datenbank `budgetbuddy_e2e`.
+Meldet der Start »database "budgetbuddy_e2e" does not exist«, stammt das Volume von vor DB-05:
+einmalig `docker compose down -v && docker compose up -d`.
+
 ```bash
+# 0. Datenbank starten (einmal pro Arbeitstag)
+docker compose up -d
+
 # 1. Backend-JAR mit gebündelter SPA bauen (nur nach Code-Änderungen nötig)
 cd backend && ./mvnw -Pprod -DskipTests package
 
