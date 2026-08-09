@@ -6,11 +6,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.budgetbuddy.budget.dto.FixedCostRequest;
 import com.budgetbuddy.budget.dto.FixedCostResponse;
 import com.budgetbuddy.budget.dto.FixedCostSummaryResponse;
-import java.io.IOException;
-import java.io.UncheckedIOException;
+import com.budgetbuddy.support.PostgresTestDatabase;
 import java.math.BigDecimal;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -20,16 +17,16 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 /**
- * Integrationstest des {@link FixedCostService} gegen echte SQLite + Flyway (BE-FC-02).
+ * Integrationstest des {@link FixedCostService} gegen echtes PostgreSQL + Flyway (BE-FC-02).
  *
  * <p>Belegt drei Dinge, die der Unit-Test mit gemocktem Repository nicht belegen kann: die
- * <strong>Mandantentrennung</strong> aus Sicht eines fremden Users, die Skala der Beträge nach
- * einem echten DB-Round-Trip (#141) und die Verdrahtung des {@code UserIncomePort} über die
- * Modulgrenze hinweg.
+ * <strong>Mandantentrennung</strong> aus Sicht eines fremden Users, das Verhalten der Beträge nach
+ * einem echten DB-Round-Trip und die Verdrahtung des {@code UserIncomePort} über die Modulgrenze
+ * hinweg.
  *
- * <p>Temp-File-DB statt {@code jdbc:sqlite::memory:} und {@code @DirtiesContext} analog zu
- * {@link FixedCostRepositoryIntegrationTest} (Begründung dort dokumentiert). Die Test-User werden
- * aus demselben Grund per {@link JdbcTemplate} eingefügt: der FK {@code fixed_costs.user_id →
+ * <p>Eigene Datenbank auf dem gemeinsamen Testcontainer und {@code @DirtiesContext} analog zu
+ * {@link FixedCostRepositoryIntegrationTest} (Begründung in {@code PostgresTestDatabase}). Die
+ * Test-User werden per {@link JdbcTemplate} eingefügt: der FK {@code fixed_costs.user_id →
  * users.id} braucht echte Zeilen, ein {@code UserRepository}-Zugriff wäre aber genau der
  * modulübergreifende Zugriff, den CLAUDE.md untersagt.
  */
@@ -37,23 +34,9 @@ import org.springframework.test.context.DynamicPropertySource;
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class FixedCostServiceIntegrationTest {
 
-    private static final Path DB_FILE = createTempDbFile();
-
-    private static Path createTempDbFile() {
-        try {
-            Path file = Files.createTempFile("be-fc-02-service-it", ".db");
-            Files.deleteIfExists(file); // SQLite/Flyway legt die Datei selbst frisch an
-            file.toFile().deleteOnExit();
-            return file;
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
     @DynamicPropertySource
     static void datasourceProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", () -> "jdbc:sqlite:" + DB_FILE);
-        registry.add("spring.flyway.enabled", () -> "true");
+        PostgresTestDatabase.register(registry, "fixed_cost_service");
     }
 
     @Autowired private FixedCostService service;
@@ -106,15 +89,16 @@ class FixedCostServiceIntegrationTest {
                 "quartalsweise"));
         service.create(userId, new FixedCostRequest("Serafe", new BigDecimal("335.00"),
                 "jaehrlich"));
-        // 39.90 liegt als REAL 39.9 in der Datei und kommt mit Skala 1 zurück — der zweite Fall
-        // aus #141. Ohne diese Position hätten alle Beträge hier Skala 0 und der Test liefe an
-        // der halben Fehlerklasse vorbei, die er absichern soll.
+        // Betrag mit von null verschiedenen Rappen — hält die Summe unten nicht-trivial und deckt
+        // ab, dass beim Round-Trip keine Nachkommastelle verloren geht.
         service.create(userId, new FixedCostRequest("Handy", new BigDecimal("39.90"),
                 "monatlich"));
 
         FixedCostSummaryResponse summary = service.list(userId);
 
-        // Aus SQLite kommt betrag mit Skala 0 oder 1 zurück (#141) — die Antwort normalisiert auf 2.
+        // Seit DB-05 (ADR-12) liefert numeric(10,2) die Skala selbst — unter SQLite kam 335.00 noch
+        // als Skala 0 zurück (#141). Die Assertion prüft deshalb nicht mehr eine Reparatur, sondern
+        // die Zusage des DTO: Skala 2, unabhängig davon, welche Datenbank darunter liegt.
         assertThat(summary.fixedCosts()).allSatisfy(item -> {
             assertThat(item.betrag().scale()).isEqualTo(2);
             assertThat(item.monatsbetrag().scale()).isEqualTo(2);

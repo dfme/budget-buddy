@@ -24,7 +24,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Unit-Test des {@link FixedCostService} (BE-FC-02). Repository und {@link UserIncomePort} sind
- * gemockt; der Pfad über echte SQLite inklusive Mandantentrennungs-Gegenprobe liegt im
+ * gemockt; der Pfad über echtes PostgreSQL inklusive Mandantentrennungs-Gegenprobe liegt im
  * {@link FixedCostServiceIntegrationTest}.
  *
  * <p>{@link MockitoExtension} statt manuellem {@code mock(...)}: die Strict-Stub-Prüfung lässt
@@ -74,7 +74,10 @@ class FixedCostServiceTest {
 
     @Test
     void monatsbetragAlwaysHasScaleTwo() {
-        // Das Repository liefert aus SQLite Skala 0 zurück (#141) — die Antwort trotzdem Skala 2.
+        // Skala 0 am Entity ist seit DB-05 nicht mehr das, was die Datenbank liefert — numeric(10,2)
+        // gibt Skala 2 zurück. Der Fall bleibt als Contract-Test stehen: was auch immer am Entity
+        // hängt, die Antwort hat Skala 2. Genau das ist die Zusage, die vom DTO kommt und nicht
+        // von der Datenbank geliehen ist.
         givenEntries(entry(1L, "Serafe", new BigDecimal("335"), Intervall.JAEHRLICH));
 
         FixedCostResponse item = service.list(USER_ID).fixedCosts().getFirst();
@@ -154,9 +157,12 @@ class FixedCostServiceTest {
     }
 
     @Test
-    void comparesAgainstTheUnroundedIncomeButReportsItWithScaleTwo() {
+    void comparesAgainstTheReadIncomeButReportsItWithScaleTwo() {
         givenEntries(entry(1L, "Miete", new BigDecimal("4200.00"), Intervall.MONATLICH));
-        // PUT /users/me/income prüft nur > 0, nicht auf Rappen — mehr als zwei Stellen sind möglich.
+        // Seit DB-05 rundet numeric(10,2) schon beim Schreiben — über die Datenbank kommt ein
+        // solcher Wert nicht mehr an. Der Fall steht hier trotzdem, weil der Port ein Interface
+        // ist: er pinnt, wie der Service reagiert, wenn eine Implementierung mehr Stellen liefert.
+        // Ohne diesen Test wäre das eine unbelegte Annahme über fremden Code.
         givenIncome("4200.004");
 
         FixedCostSummaryResponse summary = service.list(USER_ID);

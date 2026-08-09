@@ -58,11 +58,17 @@ US-03: «Summe aller Fixkosten (auf Monatsbasis) ≥ Monatseinkommen».
 
 ### Skala 2 an der DTO-Grenze
 
-`FixedCostRepositoryIntegrationTest:146-150` hält als Charakterisierungstest fest, dass die aus
-SQLite gelesene `BigDecimal` **keine garantierte Skala 2** hat (`335.00` kommt als Skala 0,
-`0.10` als Skala 1 zurück, #141) — und delegiert den Fix ausdrücklich an #11: «Der Fix gehört als
+`FixedCostRepositoryIntegrationTest` hielt als Charakterisierungstest fest, dass die aus SQLite
+gelesene `BigDecimal` **keine garantierte Skala 2** hat (`335.00` kam als Skala 0, `0.10` als
+Skala 1 zurück, #141) — und delegierte den Fix ausdrücklich an #11: «Der Fix gehört als
 `setScale(2)` an die DTO-Grenze in #11, nicht in die Persistenzschicht.» Genau dort passiert er:
 `FixedCostService.toResponse(...)` setzt `setScale(2, RoundingMode.UNNECESSARY)`.
+
+> **Nachtrag nach dem Merge von DB-05 (#89, ADR-12):** Die Prämisse ist weggefallen — `numeric(10,2)`
+> unter PostgreSQL liefert die Skala selbst, `betragScaleIsPreservedByTheDatabase` auf `main` hält
+> jetzt genau das fest. Das `setScale(2)` bleibt trotzdem, aus dem Grund, den DB-05 selbst
+> notiert: es macht «Skala 2 nach aussen» zu einer Eigenschaft des API-Contracts statt zu einer
+> geliehenen Eigenschaft der Datenbank. Geändert hat sich die Begründung, nicht der Code.
 
 Das Mapping liegt im Service und nicht als `FixedCostResponse.from(FixedCost)` im DTO, weil es die
 Normalisierung auf den Monatsbetrag mitträgt — und die gehört laut `Intervall.java:12-14`
@@ -132,9 +138,11 @@ Coverage-Ziel für `budget/` ist 90 %+ (CLAUDE.md).
   `deleteByIdAndUserId == 0`
 - `betrag` im DTO hat Skala 2, auch wenn das Repository Skala 0 liefert
 
-### `FixedCostServiceIntegrationTest` — `@SpringBootTest`, echte SQLite + Flyway
+### `FixedCostServiceIntegrationTest` — `@SpringBootTest`, echtes PostgreSQL + Flyway
 
-Muster (Temp-File-DB, `@DirtiesContext`) von `FixedCostRepositoryIntegrationTest` übernommen.
+Muster von `FixedCostRepositoryIntegrationTest` übernommen: seit DB-05 eine eigene Datenbank je
+Testklasse auf dem gemeinsamen Testcontainer (`PostgresTestDatabase.register`), vorher eine
+Temp-File-SQLite-DB.
 
 - **Mandantentrennungs-Gegenprobe:** User B ruft `get`, `update` und `delete` auf einer Position
   von User A auf → `FixedCostNotFoundException`, und die Zeile von User A bleibt unverändert bzw.

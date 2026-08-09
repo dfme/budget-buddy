@@ -75,9 +75,14 @@ public class FixedCostService {
             summeMonatlich = summeMonatlich.add(item.monatsbetrag());
         }
 
-        // Verglichen wird gegen das ungerundete Einkommen; gerundet wird erst für die Antwort.
-        // users.monthly_income ist nur auf > 0 geprüft (UpdateIncomeRequest), nicht auf Rappen —
-        // eine Rundung vor dem Vergleich könnte das Flag kippen.
+        // Verglichen wird gegen den gelesenen Wert, gerundet wird erst für die Antwort. Seit DB-05
+        // rundet numeric(10,2) schon beim Schreiben, beides ist hier also derselbe Wert; die
+        // Trennung bleibt als Absicherung gegen ein Einkommen, das nicht rappen-genau ankommt.
+        //
+        // HALF_UP statt UNNECESSARY wie bei betrag — bewusst: fixed_costs.betrag schreibt dieser
+        // Service selbst und validiert dabei auf zwei Nachkommastellen, users.monthly_income
+        // schreibt das auth-Modul (UpdateIncomeRequest prüft nur @NotNull @Positive). Ein fremder
+        // Schreibpfad darf diese Antwort nicht mit einer ArithmeticException umbringen.
         BigDecimal monthlyIncome = userIncomePort.findMonthlyIncome(userId).orElse(null);
         boolean exceedsIncome = monthlyIncome != null && summeMonatlich.compareTo(monthlyIncome) >= 0;
 
@@ -154,10 +159,14 @@ public class FixedCostService {
     /**
      * Mappt eine Entity auf die Antwort und setzt beide Beträge auf Skala 2.
      *
-     * <p>{@link RoundingMode#UNNECESSARY} auf {@code betrag} ist Absicht: aus SQLite kommt der Wert
-     * mit Skala 0 oder 1 zurück (#141), und Aufrunden ist dort nie nötig. Läge doch je ein Wert mit
-     * mehr als zwei Nachkommastellen in der Spalte {@code DECIMAL(10,2)}, wäre das ein
-     * Datendefekt — der soll laut scheitern und nicht still gerundet werden.
+     * <p>Seit DB-05 (ADR-12) liefert {@code numeric(10,2)} die Skala bereits selbst; unter SQLite
+     * war {@code DECIMAL} nur eine Affinität und der Wert kam mit Skala 0 oder 1 zurück (#141).
+     * Das {@code setScale} bleibt trotzdem: es macht die Zusage «Skala 2 nach aussen» zu einer
+     * Eigenschaft dieser Schicht statt zu einer geliehenen Eigenschaft der jeweiligen Datenbank.
+     *
+     * <p>{@link RoundingMode#UNNECESSARY} ist dabei Absicht. Läge je ein Wert mit mehr als zwei
+     * Nachkommastellen in der Spalte, wäre das ein Datendefekt — der soll laut scheitern und nicht
+     * still gerundet werden.
      */
     private static FixedCostResponse toResponse(FixedCost entry) {
         return new FixedCostResponse(

@@ -5,10 +5,11 @@ import java.math.BigDecimal;
 /**
  * Eine Fixkosten-Position in der API-Antwort (BE-FC-02, US-03).
  *
- * <p>{@code betrag} und {@code monatsbetrag} haben beide garantiert Skala 2. Das ist nicht
- * selbstverständlich: SQLite behandelt {@code DECIMAL(10,2)} als Affinität, gelesene Werte kommen
- * mit Skala 0 oder 1 zurück (#141). Ohne die Normalisierung hier lieferte JSON {@code 335} statt
- * {@code 335.00}. Der Fix gehört genau an diese Grenze — nicht in die Persistenzschicht.
+ * <p>{@code betrag} und {@code monatsbetrag} haben beide garantiert Skala 2 — JSON zeigt also
+ * {@code 335.00} und nicht {@code 335}. Seit DB-05 (ADR-12) liefert {@code numeric(10,2)} diese
+ * Skala bereits selbst; unter SQLite war {@code DECIMAL} nur eine Affinität und der Wert kam mit
+ * Skala 0 oder 1 zurück (#141). Die Zusage steht trotzdem hier und nicht in der Persistenzschicht:
+ * so hängt sie am API-Contract und nicht daran, welche Datenbank gerade darunter liegt.
  *
  * @param id ID der Position.
  * @param bezeichnung Anzeigename, z. B. {@code "Miete"}.
