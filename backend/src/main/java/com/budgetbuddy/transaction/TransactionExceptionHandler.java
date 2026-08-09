@@ -15,7 +15,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  */
 @RestControllerAdvice(assignableTypes = {
     TransactionSummaryController.class,
-    TransactionCategoryController.class
+    TransactionCategoryController.class,
+    TransactionListController.class
 })
 public class TransactionExceptionHandler {
 
