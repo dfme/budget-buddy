@@ -62,7 +62,11 @@ US-03: «Summe aller Fixkosten (auf Monatsbasis) ≥ Monatseinkommen».
 SQLite gelesene `BigDecimal` **keine garantierte Skala 2** hat (`335.00` kommt als Skala 0,
 `0.10` als Skala 1 zurück, #141) — und delegiert den Fix ausdrücklich an #11: «Der Fix gehört als
 `setScale(2)` an die DTO-Grenze in #11, nicht in die Persistenzschicht.» Genau dort passiert er:
-`FixedCostResponse.from()` setzt `setScale(2, RoundingMode.UNNECESSARY)`.
+`FixedCostService.toResponse(...)` setzt `setScale(2, RoundingMode.UNNECESSARY)`.
+
+Das Mapping liegt im Service und nicht als `FixedCostResponse.from(FixedCost)` im DTO, weil es die
+Normalisierung auf den Monatsbetrag mitträgt — und die gehört laut `Intervall.java:12-14`
+ausdrücklich in den Service, nicht in die Persistenz-Abbildung.
 
 ### Validierung im Service
 
@@ -106,7 +110,7 @@ Die 100-Zeichen-Grenze ist eine Setzung dieses Tasks, keine Vorgabe aus Issue od
 ## Implementierungsschritte
 
 1. `UserIncomePort` in `auth` definieren, `UserService` implementieren lassen.
-2. DTO-Records in `budget/dto` anlegen; `FixedCostResponse.from(FixedCost)` setzt `setScale(2)` und
+2. DTO-Records in `budget/dto` anlegen; `FixedCostService.toResponse(...)` setzt `setScale(2)` und
    rechnet den `monatsbetrag`.
 3. `FixedCostNotFoundException` und `InvalidFixedCostException` anlegen.
 4. `FixedCostService`: Validierung → Normalisierung → CRUD ausschliesslich über die

@@ -106,18 +106,24 @@ class FixedCostServiceIntegrationTest {
                 "quartalsweise"));
         service.create(userId, new FixedCostRequest("Serafe", new BigDecimal("335.00"),
                 "jaehrlich"));
+        // 39.90 liegt als REAL 39.9 in der Datei und kommt mit Skala 1 zurück — der zweite Fall
+        // aus #141. Ohne diese Position hätten alle Beträge hier Skala 0 und der Test liefe an
+        // der halben Fehlerklasse vorbei, die er absichern soll.
+        service.create(userId, new FixedCostRequest("Handy", new BigDecimal("39.90"),
+                "monatlich"));
 
         FixedCostSummaryResponse summary = service.list(userId);
 
-        // Aus SQLite kommt betrag mit Skala 0 zurück (#141) — die Antwort normalisiert auf 2.
+        // Aus SQLite kommt betrag mit Skala 0 oder 1 zurück (#141) — die Antwort normalisiert auf 2.
         assertThat(summary.fixedCosts()).allSatisfy(item -> {
             assertThat(item.betrag().scale()).isEqualTo(2);
             assertThat(item.monatsbetrag().scale()).isEqualTo(2);
         });
         assertThat(summary.fixedCosts()).extracting(FixedCostResponse::monatsbetrag)
                 .containsExactly(
-                        new BigDecimal("1200.00"), new BigDecimal("33.33"), new BigDecimal("27.92"));
-        assertThat(summary.summeMonatlich()).isEqualByComparingTo("1261.25");
+                        new BigDecimal("1200.00"), new BigDecimal("33.33"), new BigDecimal("27.92"),
+                        new BigDecimal("39.90"));
+        assertThat(summary.summeMonatlich()).isEqualByComparingTo("1301.15");
     }
 
     @Test

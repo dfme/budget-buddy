@@ -3,7 +3,6 @@ package com.budgetbuddy.budget;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -17,22 +16,32 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Unit-Test des {@link FixedCostService} (BE-FC-02). Repository und {@link UserIncomePort} sind
  * gemockt; der Pfad über echte SQLite inklusive Mandantentrennungs-Gegenprobe liegt im
  * {@link FixedCostServiceIntegrationTest}.
+ *
+ * <p>{@link MockitoExtension} statt manuellem {@code mock(...)}: die Strict-Stub-Prüfung lässt
+ * einen Stub, den der getestete Pfad gar nicht mehr aufruft, rot werden statt still ins Leere
+ * laufen. Bei einem Test mit zentralen {@code given…}-Helfern ist genau das die Fehlerklasse, die
+ * sonst unbemerkt bleibt.
  */
+@ExtendWith(MockitoExtension.class)
 class FixedCostServiceTest {
 
     private static final long USER_ID = 42L;
     private static final long FIXED_COST_ID = 7L;
 
-    private final FixedCostRepository repository = mock(FixedCostRepository.class);
-    private final UserIncomePort userIncomePort = mock(UserIncomePort.class);
+    @Mock private FixedCostRepository repository;
+    @Mock private UserIncomePort userIncomePort;
 
-    private final FixedCostService service = new FixedCostService(repository, userIncomePort);
+    @InjectMocks private FixedCostService service;
 
     // --- AC1/AC2: Normalisierung quartalsweise ÷ 3 und jährlich ÷ 12 ---
 
