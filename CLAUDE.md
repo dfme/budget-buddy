@@ -100,7 +100,7 @@ Vollständige Acceptance Criteria: [docs/requirements/](docs/requirements/)
 
 **BudgetBuddy**
 
-BudgetBuddy is a web app for students and young professionals living in Switzerland that ingests bank statement PDFs, automatically categorizes transactions, and displays a weekly "Safe-to-Spend" budget — so users always know how much they can spend without worry. Built with Angular (frontend), Spring Boot 3.x (backend), SQLite (database), and Claude API (AI categorization + monthly reports).
+BudgetBuddy is a web app for students and young professionals living in Switzerland that ingests bank statement PDFs, automatically categorizes transactions, and displays a weekly "Safe-to-Spend" budget — so users always know how much they can spend without worry. Built with Angular (frontend), Spring Boot 3.x (backend), PostgreSQL at Neon (database), and Claude API (AI categorization + monthly reports).
 
 **Core Value:** A weekly Safe-to-Spend number users can trust — calculated from real transaction data, not manual entry.
 
@@ -113,13 +113,12 @@ BudgetBuddy is a web app for students and young professionals living in Switzerl
 | Runtime     | Java                                           | 25 (LTS)            | Project-locked                                          |
 | Framework   | Spring Boot                                    | 3.5.3               | Project-locked; latest 3.x stable                       |
 | Build Tool  | Maven                                          | 3.9.x               | Project-locked; via Maven Wrapper (`mvnw`)              |
-| Web layer   | Spring Web MVC                                 | (bundled)           | Synchronous; correct for blocking SQLite JDBC           |
+| Web layer   | Spring Web MVC                                 | (bundled)           | Synchronous; correct for blocking JDBC                  |
 | Security    | Spring Security                                | 6.5.x               | Stateless JWT resource server pattern                   |
-| ORM         | Spring Data JPA + Hibernate                    | (bundled)           | Repository pattern; needs community dialect for SQLite  |
-| DB          | SQLite                                         | 3.x                 | Project-locked for MVP                                  |
-| JDBC driver | org.xerial:sqlite-jdbc                         | 3.49.x              | Only production JDBC driver for SQLite                  |
-| Dialect     | org.hibernate.orm:hibernate-community-dialects | (Hibernate version) | Provides `SQLiteDialect`                                |
-| Migrations  | Flyway                                         | 10.x                | SQLite-confirmed; essential for team schema sync        |
+| ORM         | Spring Data JPA + Hibernate                    | (bundled)           | Repository pattern; dialect auto-detected, no extra dependency |
+| DB          | PostgreSQL (Neon, Frankfurt/EU)                | 18                  | ADR-12; lokal via `docker compose up -d`                |
+| JDBC driver | org.postgresql:postgresql                      | 42.7.x              | Spring-Boot-managed                                     |
+| Migrations  | Flyway + `flyway-database-postgresql`          | 11.x                | Seit Flyway 10 liegt der DB-Support in eigenen Modulen  |
 | JWT         | io.jsonwebtoken:jjwt-\*                        | 0.12.x              | HS256 signing, fluent builder API                       |
 | API docs    | Springdoc OpenAPI                              | 2.8.17              | Spring Boot 3.5 compatible; zero-config Swagger UI      |
 | AI          | com.anthropic:anthropic-java                   | 2.31.0              | Official Anthropic SDK                                  |
@@ -157,13 +156,28 @@ BudgetBuddy is a web app for students and young professionals living in Switzerl
 
 | Factor                  | JWT (stateless)                                                 | Session (server-side)                        |
 | ----------------------- | --------------------------------------------------------------- | -------------------------------------------- |
-| SQLite write pressure   | None — no session table                                         | Every login/request writes to sessions table |
+| DB write pressure       | None — no session table                                         | Every login/request writes to sessions table |
 | Angular SPA integration | httpOnly Cookie + `withCredentials: true`; kein Token-Interceptor im Client (Interceptor-Details: ADR-2) | Requires cookie + CORS + SameSite config |
 | Spring Security support | JWT in Cookie; Spring Security liest Token aus Cookie           | Also supported but adds Spring Session dep   |
 | Logout invalidation     | Backend setzt `Max-Age=0` → sofort invalidiert                  | Instant server-side invalidation             |
 | MVP scope fit           | Excellent                                                       | Overengineered                               |
 
-## SQLite + Spring Boot Gotchas (Critical)
+## PostgreSQL + Neon Gotchas (Critical)
+
+- **Flyway braucht `flyway-database-postgresql`.** `flyway-core` allein kennt Postgres seit
+  Flyway 10 nicht mehr und bricht beim Start mit *Unsupported Database* ab.
+- **Neon nimmt nur TLS an** — `?sslmode=require` gehört an die JDBC-URL.
+- **Benutzer und Passwort gehören nicht in die URL.** Eingebettet landen sie in jeder Logzeile,
+  die die Datasource-URL ausgibt. Getrennt als `SPRING_DATASOURCE_USERNAME` / `_PASSWORD` setzen.
+- **Scale-to-Zero nach 5 Min** (Neon Free): der erste Request danach ist langsam, die Daten
+  bleiben. Zusammen mit Renders Spin-Down (15 Min) gibt es zwei unabhängige Cold Starts.
+- **`COLLATE NOCASE` gibt es nicht.** Case-insensitive Zuordnung liegt in der Anwendung:
+  Patterns werden grossgeschrieben gespeichert, Vergleiche laufen über `upper()`.
+- **Testcontainers braucht `-Dapi.version=1.44`** (in `pom.xml` gesetzt): das gebündelte
+  docker-java handelt sonst API 1.32 aus, die Docker Engine 29 ablehnt — sichtbar als
+  irreführendes *Could not find a valid Docker environment*.
+- **Volume-Mount ist `/var/lib/postgresql`**, nicht `.../data`: das Postgres-18-Image legt die
+  Daten in einem versionsbenannten Unterverzeichnis ab.
 
 ## What NOT to Use
 
@@ -171,14 +185,14 @@ BudgetBuddy is a web app for students and young professionals living in Switzerl
 | -------------------------- | ------------------------------------------------------------------------------- |
 | Spring Boot 4              | Explicit project risk decision — milestone releases only                        |
 | Gradle                     | Maven ist Build-Tool-Entscheid; Team-Konsistenz mit Standard-Spring-Boot-Setup  |
-| Spring WebFlux             | SQLite JDBC is blocking; reactive wrapping adds complexity with no benefit      |
+| Spring WebFlux             | JDBC is blocking; reactive wrapping adds complexity with no benefit             |
 | iText 7                    | AGPL license — requires open-sourcing or commercial license                     |
 | Tabula-java                | Designed for scanned PDFs; Swiss bank PDFs have a text layer                    |
 | NgRx                       | Over-engineered for 2-3 person course project with simple state                 |
 | D3.js                      | Steep learning curve, no Angular integration, overkill for pie + bar            |
 | Highcharts                 | Commercial license for non-personal projects                                    |
 | Redis + Spring Session     | Unnecessary infrastructure when using stateless JWT                             |
-| H2 in-memory (for testing) | Dialect mismatch vs SQLite; use `jdbc:sqlite::memory:` in tests instead         |
+| H2 / SQLite (for testing)  | Dialect mismatch vs PostgreSQL in prod; use Testcontainers PostgreSQL instead   |
 | PDFBox 2.x                 | Deprecated API (`PDDocument.load()`); use 3.x `Loader.loadPDF()` from the start |
 | `double`/`float` for money | Binary floating point cannot represent CHF amounts exactly                      |
 
@@ -218,7 +232,7 @@ Issue-Titel folgen dem Format `[TASK-ID] Kurzbeschreibung`. Die Task-ID kodiert 
 | Präfix | Bereich | Beispiel |
 | ------ | ------- | -------- |
 | `INFRA-XX` | Infrastruktur / DevOps | `INFRA-01`, `INFRA-05` |
-| `DB-XX` | Datenbank / Flyway-Migrationen | `DB-01`, `DB-04` |
+| `DB-XX` | Datenbank / Flyway-Migrationen | `DB-01`, `DB-05` |
 | `BE-AUTH-XX` | Backend — Authentifizierung | `BE-AUTH-01` |
 | `BE-FC-XX` | Backend — Fixkosten | `BE-FC-01` |
 | `BE-PDF-XX` | Backend — PDF-Import | `BE-PDF-01` |
@@ -334,7 +348,7 @@ Das erlaubt Mock in Tests und Austausch des Modells ohne Refactoring im Rest der
 
 MVP: synchron — der Upload-Endpoint blockiert bis Import und Kategorisierung abgeschlossen sind.
 
-Upgrade-Pfad (wenn Wartezeiten zu Churn führen): Spring `@Async` + `ImportJob`-Entity in SQLite + Status-Polling `GET /import/{jobId}/status`. Kein Kafka, kein Redis nötig.
+Upgrade-Pfad (wenn Wartezeiten zu Churn führen): Spring `@Async` + `ImportJob`-Entity in der Datenbank + Status-Polling `GET /import/{jobId}/status`. Kein Kafka, kein Redis nötig.
 
 ### Sicherheit: Keine Secrets im Git
 
@@ -362,7 +376,7 @@ Ein fehlgeschlagener Claude-Call darf nie den gesamten Import-Flow blockieren (C
 | Stufe       | Backend                                                                                 | Frontend        | Coverage-Ziel |
 | ----------- | ---------------------------------------------------------------------------------------- | ---------------- | -------------- |
 | Unit        | JUnit 5 + Mockito + AssertJ                                                               | Vitest            | Backend 80% (90%+ für `budget/`, `categorization/`); Frontend 70–75% |
-| Integration | Spring Boot Test (`@DataJpaTest`, `@WebMvcTest`, `@SpringBootTest`) mit `jdbc:sqlite::memory:` | Angular TestBed | Keine eigene %-Zahl — jeder Endpoint und jede Migration mind. 1× getestet |
+| Integration | Spring Boot Test (`@DataJpaTest`, `@WebMvcTest`, `@SpringBootTest`) gegen Testcontainers PostgreSQL (`PostgresTestDatabase`, eine DB pro Testklasse) | Angular TestBed | Keine eigene %-Zahl — jeder Endpoint und jede Migration mind. 1× getestet |
 | E2E         | Playwright                                                                                 | Playwright        | Keine Coverage-Metrik — alle Must-Have User Stories (US-03/04/05/06): 1 Happy Path + 1 Fehlerpfad |
 
 ## Architecture
@@ -394,18 +408,19 @@ Browser (Lara, Marc)
 │                                                     │  Sonnet: Monatsbericht
 │  ImportJob-Status: GET /import/{jobId}/status       │
 └──────────────────┬──────────────────────────────────┘
-                   │ JDBC in-process · JPA/Hibernate
+                   │ JDBC über TLS · JPA/Hibernate
                    │ BigDecimal für alle CHF-Beträge
                    ▼
 ┌─────────────────────────────────────────────────────┐
-│  Database  [SQLite 3.x + Flyway]                    │
+│  Database  [PostgreSQL 18 + Flyway]                 │
+│  Neon, Frankfurt/EU — ausserhalb von Render         │
 │  users · transactions · fixed_costs ·               │
 │  savings_goals · category_lookup · import_jobs      │
 └─────────────────────────────────────────────────────┘
 ```
 
 **Deployment:** Single JAR auf Render (Frankfurt/EU) — Angular-Build als statische Assets in `BOOT-INF/static/`.  
-**Dev:** Angular Dev-Server `localhost:4200` + Spring Boot `localhost:8080`, CORS für `localhost:4200` konfiguriert.
+**Dev:** Angular Dev-Server `localhost:4200` + Spring Boot `localhost:8080` + PostgreSQL aus `docker-compose.yml`, CORS für `localhost:4200` konfiguriert.
 
 ### Container-Verantwortlichkeiten
 
@@ -413,7 +428,7 @@ Browser (Lara, Marc)
 | --------------- | ------------------------------------ | ----------------------------------------------------------------------- |
 | Web SPA         | Angular 21, Signals, Reactive Forms  | UI: Onboarding, PDF-Upload, Dashboard, Korrekturen                      |
 | API Application | Spring Boot 3.5, Java 25, Single JAR | Auth, PDF-Parsing, Kategorisierung, Berechnungen, KI-Bericht            |
-| Database        | SQLite 3.x + Flyway                  | Persistenz: User, Transaktionen, Fixkosten, Lookup-Tabelle, Import-Jobs |
+| Database        | PostgreSQL 18 (Neon) + Flyway        | Persistenz: User, Transaktionen, Fixkosten, Lookup-Tabelle, Import-Jobs |
 
 **Bewusst weggelassen:** Redis/Cache, Message Queue, CDN, Microservices, eigener KI-Worker — alles Overengineering für 3 Devs / 3 Monate.
 
@@ -428,13 +443,14 @@ Vollständige ADRs: [docs/adr/README.md](docs/adr/README.md)
 | [ADR-2](docs/adr/ADR-2-angular-frontend.md)            | Angular 21.x (Standalone Components, Signals, Reactive Forms)                        | React, Vue 3, Svelte, Astro                                                         |
 | [ADR-3](docs/adr/ADR-3-rest-vs-graphql.md)             | REST API + OpenAPI 3 (Springdoc)                                                     | GraphQL (Overkill, kein nativer File-Upload), gRPC                                  |
 | [ADR-4](docs/adr/ADR-4-monolith-vs-microservices.md)   | Single Spring Boot JAR (Monolith)                                                    | Microservices/K8s (zu komplex), Serverless (JVM Cold-Start)                         |
-| [ADR-5](docs/adr/ADR-5-sqlite-mvp-database.md)         | SQLite für MVP; Migration zu PostgreSQL möglich                                      | PostgreSQL from Day One (Overkill), MongoDB (nicht relational)                      |
+| [ADR-5](docs/adr/ADR-5-sqlite-mvp-database.md)         | ~~SQLite für MVP~~ — superseded by ADR-12                                            | PostgreSQL from Day One (damals Overkill), MongoDB (nicht relational)               |
 | [ADR-6](docs/adr/ADR-6-hybrid-categorization.md)       | Hybrid: Lookup-Tabelle zuerst, Claude API nur für unbekannte Tx                      | LLM-Only ($750/Monat, zu teuer), Fine-tuned ML Model (kein Trainingsdata)           |
 | [ADR-7](docs/adr/ADR-7-jwt-authentication.md)          | JWT HS256, bcrypt-Passwörter, httpOnly Cookie (XSS-sicher), CSRF via SameSite=Strict | Server-Side Sessions (DB-Schreibdruck), OAuth 2.0 (Overkill für MVP)                |
 | [ADR-8](docs/adr/ADR-8-apache-pdfbox.md)               | Apache PDFBox 3.x (`Loader.loadPDF()`)                                               | iText 7 (AGPL-Lizenz!), Tabula-java (langsam, kein Text-Layer), pdfplumber (Python) |
 | [ADR-9](docs/adr/ADR-9-bigdecimal-money.md)            | `BigDecimal` für alle CHF-Beträge, `DECIMAL(10,2)` in DB                             | `double`/`float` (Rundungsfehler!), `long` (Cent-Speicherung), Joda-Money           |
 | [ADR-10](docs/adr/ADR-10-hosting-plattform.md)         | Render (Frankfurt/EU), SPA gebündelt im JAR, nDSG-Risiko akzeptiert                  | Exoscale/Nine.ch (CH, teurer), SPA auf CDN (zwei Pipelines)                         |
 | [ADR-11](docs/adr/ADR-11-ui-design-system.md)          | UI-Design-Richtung «Klarheit» (Variante A); Komponenten-Unterbau offen bis FE-UI-02 | Variante B (0 Stimmen), Variante C «Ledger» (starker Zweiter, Elemente übernehmbar) |
+| [ADR-12](docs/adr/ADR-12-datenpersistenz-produktion.md) | PostgreSQL 18 bei Neon (Frankfurt/EU, Free); supersedet ADR-5                       | SQLite auf Persistent Disk ($7.25/Mt), Render Postgres Free (läuft nach 30 Tagen ab), Supabase (pausiert nach 7 Tagen) |
 
 ## Project Skills
 

@@ -9,9 +9,10 @@ import jakarta.persistence.Table;
  * JPA-Entity der {@code category_lookup}-Tabelle (Flyway V04, DB-04).
  *
  * <p>Bildet ein bekanntes Händler-Pattern ({@code empfaenger_pattern}, zugleich PK) auf einen
- * Kategorie-Label ({@code category}) ab. Die Spalte {@code empfaenger_pattern} ist in der Migration
- * mit {@code COLLATE NOCASE} angelegt; das case-insensitive Matching übernimmt aber die Query im
- * {@link CategoryLookupRepository} explizit via {@code upper(...)}, damit es dialekt-unabhängig ist.
+ * Kategorie-Label ({@code category}) ab. Das case-insensitive Matching übernimmt die Query im
+ * {@link CategoryLookupRepository} explizit via {@code upper(...)}, damit es dialekt-unabhängig ist;
+ * gespeichert werden Patterns ausschliesslich in Grossschreibung ({@link CategoryLearningService}
+ * normalisiert, die Seeds aus Flyway V04 sind es bereits).
  */
 @Entity
 @Table(name = "category_lookup")

@@ -5,14 +5,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
+import com.budgetbuddy.support.PostgresTestDatabase;
 import com.budgetbuddy.categorization.CategorizationPort;
 import com.budgetbuddy.categorization.Category;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,36 +25,22 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 /**
- * Integrationstest des PDF-Import-Flows (BE-PDF-02) gegen echtes SQLite + Flyway und ein echtes
+ * Integrationstest des PDF-Import-Flows (BE-PDF-02) gegen echtes PostgreSQL + Flyway und ein echtes
  * Fixture-PDF (UBS, 28 Transaktionen): Parse → Kategorisierung → Persistierung inkl.
  * Duplikatcheck.
  *
  * <p>Die Kategorisierung ist per {@link MockitoBean} auf dem {@code hybridCategorizationService}
  * (dem {@code @Primary}-Port) gemockt — kein Claude-Call im Test; die Kette selbst ist in
- * {@code HybridCategorizationServiceTest} abgedeckt. Temp-File-DB + {@code @DirtiesContext}
- * analog {@code TransactionSummaryControllerIntegrationTest}.
+ * {@code HybridCategorizationServiceTest} abgedeckt. Eigene Datenbank auf dem gemeinsamen
+ * Testcontainer + {@code @DirtiesContext} analog {@code TransactionSummaryControllerIntegrationTest}.
  */
 @SpringBootTest
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class PdfImportServiceIntegrationTest {
 
-    private static final Path DB_FILE = createTempDbFile();
-
-    private static Path createTempDbFile() {
-        try {
-            Path file = Files.createTempFile("be-pdf-02-import-it", ".db");
-            Files.deleteIfExists(file); // Flyway/SQLite legt die Datei selbst an
-            file.toFile().deleteOnExit();
-            return file;
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
     @DynamicPropertySource
     static void datasourceProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", () -> "jdbc:sqlite:" + DB_FILE);
-        registry.add("spring.flyway.enabled", () -> "true");
+        PostgresTestDatabase.register(registry, "pdf_import_service");
     }
 
     @Autowired
@@ -155,8 +140,10 @@ class PdfImportServiceIntegrationTest {
 
         // AC: keine PDF-Binärdaten in der DB — das Schema (Flyway V02) hat keine Blob-Spalte,
         // und die einzige PDF-Spur ist der 64-Zeichen-Hash.
-        List<String> columns = jdbcTemplate.queryForList(
-                "SELECT name FROM pragma_table_info('transactions')", String.class);
+        List<String> columns = jdbcTemplate.queryForList("""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_schema = current_schema() AND table_name = 'transactions'
+                """, String.class);
         assertThat(columns).containsExactlyInAnyOrder(
                 "id", "user_id", "buchungsdatum", "buchungstext", "betrag", "is_income",
                 "category", "pdf_sha256");

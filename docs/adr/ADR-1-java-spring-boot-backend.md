@@ -22,7 +22,7 @@ Wir nutzen **Java 25 LTS + Spring Boot 3.5.3** mit folgenden Dependencies:
 
 - **Web Layer:** Spring Web MVC (synchron, korrekt für blocking JDBC)
 - **Security:** Spring Security 6.5.x (stateless JWT)
-- **ORM:** Spring Data JPA + Hibernate mit SQLiteDialect
+- **ORM:** Spring Data JPA + Hibernate (Dialekt seit ADR-12 automatisch erkannt: PostgreSQL)
 - **Migrations:** Flyway 10.x
 - **API Docs:** Springdoc OpenAPI 2.8.17
 - **PDF Parser:** Apache PDFBox 3.0.x
@@ -88,6 +88,6 @@ Wir nutzen **Java 25 LTS + Spring Boot 3.5.3** mit folgenden Dependencies:
 ## Related Decisions
 
 - **ADR-0:** Frontend-Backend-Trennung (SPA + REST)
-- **ADR-5:** SQLite als MVP-Datenbank
+- **ADR-12:** PostgreSQL bei Neon als Produktionsdatenbank (supersedet ADR-5, SQLite)
 - **ADR-7:** JWT für Authentifizierung
 - **ADR-8:** Apache PDFBox für PDF-Verarbeitung

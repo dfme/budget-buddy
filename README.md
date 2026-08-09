@@ -6,8 +6,9 @@ Weitere Details zu Projektidee, Personas, Architektur und Tech-Stack: siehe [CLA
 
 ## Lokal starten (Dev)
 
-**Voraussetzungen:** Java 25 (JDK), Node.js 20+ mit npm. Maven kommt über den
-Wrapper (`./mvnw`) mit, Angular CLI über `npx` — global muss nichts installiert sein.
+**Voraussetzungen:** Java 25 (JDK), Node.js 20+ mit npm, **Docker** (für die lokale
+PostgreSQL-Datenbank und die Integrationstests, ADR-12). Maven kommt über den Wrapper
+(`./mvnw`) mit, Angular CLI über `npx` — global muss nichts installiert sein.
 
 Für die Claude-Code-Skills (`/implement-issue`, `/review-pr`, `/plan-sprint`) kommt eine
 angemeldete GitHub CLI dazu — Setup und Vorbedingungen: [.claude/skills/README.md](.claude/skills/README.md).
@@ -19,11 +20,17 @@ diese Pfade an das Backend auf `:8080` weiter — der Browser bleibt same-origin
 CORS-Konfiguration nötig.
 
 ```bash
-# Terminal 1 — Backend auf :8080
+# Terminal 1 — Datenbank + Backend auf :8080
+docker compose up -d                             # Postgres 18, Daten im benannten Volume
 cd backend
 export JWT_SECRET="$(openssl rand -base64 48)"   # Pflicht: sonst Fail-fast beim Start
 ./mvnw spring-boot:run
 ```
+
+`docker compose up -d` genügt einmal pro Arbeitstag; `docker compose down` stoppt die
+Datenbank und behält die Daten, `docker compose down -v` verwirft sie (Flyway baut beim
+nächsten Start wieder von V01 auf). Der Compose-Stack legt neben `budgetbuddy` auch die
+E2E-Datenbank `budgetbuddy_e2e` an.
 
 ```bash
 # Terminal 2 — Frontend Dev-Server auf :4200
@@ -49,13 +56,16 @@ Für VS Code liegen fertige Konfigurationen unter [`.vscode/`](.vscode/) im Repo
 manuelles Setup nötig.
 
 **Starten (ohne Debugger):** `Cmd+Shift+B` (macOS) bzw. `Ctrl+Shift+B` startet die Task
-_Dev: Full Stack_ — Backend und Frontend parallel, jeweils im eigenen Terminal. Das
-`JWT_SECRET` wird dabei automatisch als Wegwerf-Wert generiert; es ist kein Setup nötig.
+_Dev: Full Stack_ — Datenbank, Backend und Frontend. Die Datenbank kommt per
+`docker compose up -d --wait` hoch, bevor das Backend startet; ein manuelles
+`docker compose up` ist also nicht nötig (Docker muss laufen). Das `JWT_SECRET` wird
+automatisch als Wegwerf-Wert generiert; es ist kein weiteres Setup nötig.
 Alternativ: `Cmd+Shift+P` → _Tasks: Run Task_ → _Dev: Full Stack_.
 
 **Debuggen (mit Breakpoints):** Im _Run and Debug_-Panel (`Cmd+Shift+D`) die Compound
 _Debug: Full Stack_ wählen und `F5` drücken — startet das Backend mit Java-Breakpoints und
-das Frontend im Chrome-Debugger. `Cmd+F5` startet dieselbe Config ohne Debugger.
+das Frontend im Chrome-Debugger. `Cmd+F5` startet dieselbe Config ohne Debugger. Die
+Datenbank bringt auch hier ein `preLaunchTask` hoch.
 Voraussetzungen: das **Extension Pack for Java** ist installiert, und `JWT_SECRET` ist in
 der Umgebung gesetzt (Launch-Configs generieren — anders als die Task — kein Secret; einmalig
 z. B. in `~/.zshrc`: `export JWT_SECRET="$(openssl rand -base64 48)"`, dann VS Code neu
@@ -72,7 +82,10 @@ Git-Repository, in `application.properties` oder im Code hardcodiert (siehe CLAU
 | `JWT_SECRET`        | ✅ ja    | Secret für die HS256-Signatur der JWTs (Auth, ab BE-AUTH-01). Fehlt er, startet die App nicht. |
 | `ANTHROPIC_API_KEY` | prod: ja | API-Key für die Claude-API (Kategorisierung + KI-Monatsbericht). Lokal optional: ohne Key startet die App normal, unbekannte Transaktionen werden dann als `Sonstiges` kategorisiert (BE-CAT-02). |
 | `ANTHROPIC_API_MODEL` | optional | Überschreibt das Kategorisierungs-Modell. Default: `claude-haiku-4-5`. |
-| `SQLITE_DB_PATH`    | optional | Pfad zur SQLite-Datei. Default: `budgetbuddy.db` im Arbeitsverzeichnis. |
+| `SPRING_DATASOURCE_URL` | prod: ja | JDBC-URL der Datenbank, z. B. `jdbc:postgresql://<host>/<db>?sslmode=require`. Lokal nicht nötig — der Default zeigt auf den Compose-Postgres. |
+| `SPRING_DATASOURCE_USERNAME` | prod: ja | Datenbank-Benutzer. Lokal Default `budgetbuddy`. |
+| `SPRING_DATASOURCE_PASSWORD` | prod: ja | Datenbank-Passwort. Lokal Default `budgetbuddy`. |
+| `POSTGRES_HOST` / `POSTGRES_PORT` / `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | optional | Einzeln überschreibbare Bestandteile der lokalen Verbindung, falls der Compose-Postgres woanders läuft. |
 | `PORT`              | optional | Port, auf dem die App bindet (von Render gesetzt). Default: `8080`. |
 
 Lokal können die Secrets z. B. über eine `.env`-Datei (bereits in `.gitignore`) oder
@@ -87,8 +100,14 @@ der Build erfolgt über das [`Dockerfile`](Dockerfile) (`./mvnw -Pprod package`)
 `ANTHROPIC_API_KEY` und `JWT_SECRET` werden im Render-Dashboard gesetzt (in `render.yaml`
 mit `sync: false` markiert, damit kein Wert im Blueprint landet).
 
-**Hinweis:** Der Free-Tier hat kein Persistent Disk — die SQLite-Datei liegt auf dem
-ephemeren Filesystem und geht bei jedem Redeploy verloren. Für das MVP bewusst akzeptiert.
+Die Datenbank liegt **ausserhalb** von Render: PostgreSQL 18 bei [Neon](https://neon.com),
+Region Frankfurt/EU, Free-Plan (ADR-12). Das ist nötig, weil Renders Free-Tier ein ephemeres
+Filesystem hat — alles, was der Service selbst auf Platte schreibt, verschwindet bei jedem
+Redeploy, Restart und Spin-Down. Der Spin-Down kostet damit nur noch Latenz, keine Daten.
+
+Die drei Verbindungsvariablen werden im Render-Dashboard gesetzt (in `render.yaml` nur mit
+`sync: false` deklariert). Anleitung zum Anlegen des Neon-Projekts und zum Aufteilen des
+Connection-Strings: [ADR-12, Abschnitt „Setup"](docs/adr/ADR-12-datenpersistenz-produktion.md#setup-neon-projekt-und-render-variablen).
 
 ### Prod-Build lokal
 

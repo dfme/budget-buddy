@@ -39,8 +39,10 @@ import org.springframework.stereotype.Service;
  * Default-Pool von 10 Connections. Atomar sein muss nur das abschliessende {@code saveAll};
  * das läuft bereits in einer eigenen Transaktion (Spring Data, {@code SimpleJpaRepository}).
  * Der Duplikatcheck liest davor transaktionslos — der damit mögliche TOCTOU-Race bei parallelem
- * Doppel-Upload bestand schon mit Methoden-Transaktion (SQLite serialisiert Writes, sperrt aber
- * keine Reads) und ist als Follow-up dokumentiert (eigene {@code pdf_imports}-Tabelle).
+ * Doppel-Upload bestand schon mit Methoden-Transaktion (eine Transaktion allein sperrt die
+ * gelesenen Zeilen nicht) und ist als Follow-up dokumentiert (eigene {@code pdf_imports}-Tabelle).
+ * Unter PostgreSQL ist er wahrscheinlicher als vorher, weil parallele Writes nicht mehr wie in
+ * SQLite serialisiert werden (DB-05, ADR-12).
  *
  * <p><strong>Jede Transaktion erhält eine Kategorie</strong> (AC BE-PDF-02): Liefert die
  * Kategorisierung {@link java.util.Optional#empty()} (leerer Text), fällt sie auf

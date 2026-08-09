@@ -51,7 +51,9 @@ public class TransactionCategoryService {
         transaction.setCategory(category.getLabel());
         transactionRepository.save(transaction);
 
-        // Lerneffekt: buchungstext verbatim als Lookup-Pattern (BE-CAT-04-Entscheid).
+        // Lerneffekt: buchungstext als Lookup-Pattern (BE-CAT-04-Entscheid) — seit DB-05/ADR-12
+        // beim Speichern auf Grossschreibung normalisiert, weil PostgreSQL kein COLLATE NOCASE
+        // kennt. In category_lookup steht deshalb COOP PRONTO BERN, nicht "Coop Pronto Bern".
         categoryLearningPort.learn(transaction.getBuchungstext(), category);
 
         return TransactionResponse.from(transaction);

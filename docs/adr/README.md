@@ -19,13 +19,14 @@ Diese Dokumentation hält die **wichtigsten Architektur-Entscheidungen** für Bu
 | **ADR-2**  | [Angular 21.x Frontend](ADR-2-angular-frontend.md)                                 | ✅ Accepted | Frontend Tech Stack        |
 | **ADR-3**  | [REST API vs. GraphQL](ADR-3-rest-vs-graphql.md)                                   | ✅ Accepted | API-Design                 |
 | **ADR-4**  | [Monolith vs. Microservices](ADR-4-monolith-vs-microservices.md)                   | ✅ Accepted | Backend-Deployment         |
-| **ADR-5**  | [SQLite für MVP-Datenbank](ADR-5-sqlite-mvp-database.md)                           | ✅ Accepted | Datenspeicherung           |
+| **ADR-5**  | [SQLite für MVP-Datenbank](ADR-5-sqlite-mvp-database.md)                           | ⛔ Superseded by ADR-12 | Datenspeicherung           |
 | **ADR-6**  | [Hybrid-Kategorisierung (Lookup + Claude API)](ADR-6-hybrid-categorization.md)     | ✅ Accepted | Transaction Categorization |
 | **ADR-7**  | [JWT (Stateless) Authentication](ADR-7-jwt-authentication.md)                      | ✅ Accepted | User Auth & Session Mgmt   |
 | **ADR-8**  | [Apache PDFBox 3.x für PDF-Verarbeitung](ADR-8-apache-pdfbox.md)                   | ✅ Accepted | PDF-Import                 |
 | **ADR-9**  | [BigDecimal für Geldbeträge](ADR-9-bigdecimal-money.md)                            | ✅ Accepted | Money Calculations         |
 | **ADR-10** | [Hosting-Plattform und Deployment-Strategie](ADR-10-hosting-plattform.md)          | ✅ Accepted | Deployment & Hosting       |
 | **ADR-11** | [UI-Design-Richtung «Klarheit» (Variante A)](ADR-11-ui-design-system.md)           | ✅ Accepted | Frontend UI / Design-System |
+| **ADR-12** | [PostgreSQL bei Neon als Produktionsdatenbank](ADR-12-datenpersistenz-produktion.md) | ✅ Accepted | Datenspeicherung           |
 
 ---
 
@@ -41,7 +42,8 @@ Diese Dokumentation hält die **wichtigsten Architektur-Entscheidungen** für Bu
 
 - **ADR-1:** Java 25 + Spring Boot (Backend)
 - **ADR-2:** Angular 21 (Frontend)
-- **ADR-5:** SQLite (Datenbank)
+- **ADR-5:** SQLite (Datenbank) — superseded durch ADR-12
+- **ADR-12:** PostgreSQL bei Neon, Frankfurt/EU (Datenbank)
 - **ADR-7:** JWT (Authentication)
 - **ADR-8:** Apache PDFBox (PDF-Verarbeitung)
 - **ADR-9:** BigDecimal (Geldbeträge)
@@ -64,8 +66,11 @@ Diese Dokumentation hält die **wichtigsten Architektur-Entscheidungen** für Bu
 Alle Entscheidungen optimieren für schnelle MVP-Auslieferung, nicht für infinite Skalierbarkeit:
 
 - Monolith statt Microservices
-- SQLite statt PostgreSQL (Migration Path vorhanden)
 - JWT statt Session-Store (keine extra Infrastruktur)
+- Managed PostgreSQL (Neon Free) statt selbst betriebener Datenbank
+
+SQLite stand hier bis August 2026 als Beispiel — der Migrationspfad wurde in ADR-12 tatsächlich
+beschritten, weil Persistenz auf Renders Free-Plan anders nicht erreichbar war.
 
 ### Pragmatische Tech-Wahl
 
@@ -88,7 +93,6 @@ Kritische Systeme haben Fallbacks:
 
 Architektur ermöglicht Upgrades **ohne Rewrite**:
 
-- SQLite → PostgreSQL (1-2 Sprints)
 - Monolith → Async Workers (bei Report-Generation)
 - JWT → Refresh Token Rotation (bei Logout-Anforderung)
 - Lookup-Only → ML-Klassifier (bei mehr Daten)
@@ -110,14 +114,14 @@ Architektur ermöglicht Upgrades **ohne Rewrite**:
 
 ### Für Future Refactorings
 
-- **Migration zu PostgreSQL?** → Siehe ADR-5 Migration Path
+- **Wechsel der Datenbank?** → Siehe ADR-12 (aktueller Stand) und ADR-5 (Variantenanalyse)
 - **Adding Microservices?** → Siehe ADR-4 Warnsignale
 - **Instant Logout?** → Siehe ADR-7 Consequences
 
 ### Für neue Entscheidungen
 
 - Folge dem ADR-Template (Context → Decision → Rationale → Consequences)
-- Nummeriere in Reihenfolge (ADR-10, ADR-11, ...)
+- Nummeriere in Reihenfolge (ADR-12, ADR-13, ...) — eine vergebene Nummer wird nie neu belegt
 - Verlinke auf verwandte ADRs
 
 ---
@@ -127,7 +131,7 @@ Architektur ermöglicht Upgrades **ohne Rewrite**:
 ```
 ADR-0: Frontend-Backend-Trennung
 ├── ADR-1: Java + Spring Boot (Backend-Implementierung)
-│   ├── ADR-5: SQLite (Datenbank)
+│   ├── ADR-12: PostgreSQL bei Neon (Datenbank; supersedet ADR-5)
 │   ├── ADR-7: JWT (Authentication)
 │   ├── ADR-8: Apache PDFBox (PDF)
 │   └── ADR-9: BigDecimal (Money)
@@ -137,7 +141,7 @@ ADR-0: Frontend-Backend-Trennung
 │   └── ADR-1: Spring Boot REST-Framework
 └── ADR-4: Monolith (Deployment-Architektur)
     ├── ADR-1: Single Spring Boot JAR
-    ├── ADR-5: Shared SQLite Database
+    ├── ADR-12: Gemeinsame PostgreSQL-Datenbank
     └── ADR-6: Hybrid Kategorisierung (in Monolith)
 ```
 

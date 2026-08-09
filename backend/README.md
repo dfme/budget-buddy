@@ -12,7 +12,8 @@ oder in `application.properties` eingecheckt (siehe ADR-7 und CLAUDE.md).
 | `JWT_SECRET`        | ja      | Secret für HS256-Signierung der JWTs. Min. 32 Zeichen (Fail-fast beim Start). |
 | `ANTHROPIC_API_KEY` | nein\*  | Claude API-Key (Kategorisierung + Monatsbericht). \*Kein Fail-fast: Ohne Key startet die App normal und kategorisiert unbekannte Transaktionen als `Sonstiges` — man kann also ohne Anthropic-Account entwickeln. In Produktion gesetzt. |
 | `ANTHROPIC_API_MODEL` | nein  | Überschreibt das Kategorisierungs-Modell (`anthropic.api.model`). Default: `claude-haiku-4-5`. |
-| `SQLITE_DB_PATH`    | nein    | Abweichender Pfad zur SQLite-Datei. Default: `budgetbuddy.db`.               |
+| `SPRING_DATASOURCE_URL` | nein | JDBC-URL der Datenbank. Default: der lokale Compose-Postgres (`jdbc:postgresql://localhost:5432/budgetbuddy`, ADR-12). |
+| `SPRING_DATASOURCE_USERNAME` / `SPRING_DATASOURCE_PASSWORD` | nein | Zugangsdaten. Default lokal jeweils `budgetbuddy`. |
 
 > **Hinweis:** Eine `.env`-Datei wird **nicht** automatisch eingelesen. Die Variablen
 > müssen als echte OS- bzw. IDE-Umgebungsvariablen gesetzt sein.

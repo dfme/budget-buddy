@@ -3,17 +3,10 @@ import { defineConfig, devices } from '@playwright/test';
 import {
   BACKEND_PORT,
   BASE_URL,
-  DB_PATH,
   LOCAL_TEST_JWT_SECRET,
-  isPlaywrightMainProcess,
-  resetDatabase,
   resolveBackendJar,
 } from './support/backend';
-
-// Vor dem Start der Testinstanz, nur im Hauptprozess — siehe resetDatabase().
-if (isPlaywrightMainProcess) {
-  resetDatabase();
-}
+import { DB_PASSWORD, DB_USER, JDBC_URL } from './support/database';
 
 /**
  * Playwright-Konfiguration für die BudgetBuddy-E2E-Tests (INFRA-14).
@@ -33,11 +26,16 @@ export default defineConfig({
   // ohne Retries würde das PRs blockieren, die nichts kaputt gemacht haben.
   retries: process.env.CI ? 2 : 0,
 
-  // Einzelner Worker: SQLite hat genau einen Writer. Parallele Register-Calls würden
-  // `SQLITE_BUSY` riskieren und Fehlschläge produzieren, die nichts über die App aussagen.
-  // Bei wachsender Suite ist der Hebel dagegen nicht Parallelität, sondern PostgreSQL (ADR-5).
+  // Einzelner Worker: Alle Tests teilen sich eine Backend-Instanz und damit eine Datenbank,
+  // die `globalSetup` einmal pro Lauf leert. Postgres könnte parallele Writer (anders als SQLite
+  // vorher), aber die Tests sind gegeneinander nicht isoliert — Parallelität bräuchte eine
+  // Datenbank pro Worker, nicht bloss ein höheres `workers`.
   workers: 1,
   fullyParallel: false,
+
+  // Leert die Nutzertabellen. Läuft nach dem Start des `webServer` — zulässig, seit die
+  // Datenbank ein Server und keine Datei mehr ist (Begründung in `support/database.ts`).
+  globalSetup: require.resolve('./global-setup'),
 
   // `github` setzt Annotationen direkt an die Zeilen im PR-Diff; `html` liefert den Report,
   // den der CI-Job bei Fehlschlag als Artifact hochlädt.
@@ -62,10 +60,10 @@ export default defineConfig({
     // Auf Health warten, nicht auf `/`: Health wird erst grün, wenn Flyway durch ist und die
     // DataSource steht. Ein antwortendes `/` würde Requests gegen ein leeres Schema zulassen.
     url: `${BASE_URL}/actuator/health`,
-    // Nie eine fremde Instanz adoptieren, auch lokal nicht: die Suite setzt die Datenbank vor
-    // dem Lauf zurück (resetDatabase) und darf deshalb nur gegen den Server testen, den sie
-    // selbst gestartet hat. Andernfalls löscht sie eine Datei, die eine andere Instanz gar nicht
-    // benutzt, und assertet gegen fremden Zustand. Kostet einen JVM-Start (~5s) pro Lauf.
+    // Nie eine fremde Instanz adoptieren, auch lokal nicht: die Suite leert die Datenbank zu
+    // Beginn (globalSetup) und darf deshalb nur gegen den Server testen, den sie selbst gestartet
+    // hat. Sonst zieht sie einer laufenden Instanz die Daten unter den Füssen weg und assertet
+    // gegen fremden Zustand. Kostet einen JVM-Start (~5s) pro Lauf.
     reuseExistingServer: false,
     // JVM-Start plus Flyway-Migrationen; in CI auf kalten Runnern deutlich langsamer als lokal.
     timeout: 120_000,
@@ -76,7 +74,11 @@ export default defineConfig({
     env: {
       // Relaxed Binding: SERVER_PORT → server.port. Hält die Testinstanz vom Dev-Port weg.
       SERVER_PORT: String(BACKEND_PORT),
-      SQLITE_DB_PATH: DB_PATH,
+      // Relaxed Binding: SPRING_DATASOURCE_* → spring.datasource.*. Zeigt auf die eigene
+      // E2E-Datenbank, nicht auf die Dev-Datenbank (Begründung in `support/database.ts`).
+      SPRING_DATASOURCE_URL: JDBC_URL,
+      SPRING_DATASOURCE_USERNAME: DB_USER,
+      SPRING_DATASOURCE_PASSWORD: DB_PASSWORD,
       JWT_SECRET: process.env.JWT_SECRET ?? LOCAL_TEST_JWT_SECRET,
     },
   },

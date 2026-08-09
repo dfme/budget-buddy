@@ -90,5 +90,5 @@ Idee: Ollama-Server läuft neben Spring Boot; LangChain4j oder direkter HTTP-Cli
 ## Related Decisions
 
 - **ADR-1:** Java + Spring Boot (AnthropicClient Integration)
-- **ADR-5:** SQLite (Lookup-Tabelle lokal gespeichert)
+- **ADR-12:** PostgreSQL bei Neon (Lookup-Tabelle in der gemeinsamen Datenbank)
 - **ADR-9:** BigDecimal für Geldbeträge
