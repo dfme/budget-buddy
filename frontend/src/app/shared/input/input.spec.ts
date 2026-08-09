@@ -35,4 +35,14 @@ describe('Input', () => {
     // instanziiert und damit ihr gekapseltes Styling anhängt (_ngcontent-Attribut).
     expect(select.getAttributeNames().some((name) => name.startsWith('_nghost'))).toBe(true);
   });
+
+  it('behaelt die projizierten Optionen des select (FE-FC-01)', () => {
+    const select = fixture.nativeElement.querySelector('select') as HTMLSelectElement;
+    // Zweite Haelfte der Aenderung an dieser Komponente: mit `template: ''` verwirft Angular
+    // die Kind-Elemente des Host-Tags, beim <select> also die <option>s. Die Zusicherung
+    // gehoert an diese Komponente — sonst schlaege ein Rueckbau nur in einem fremden
+    // Feature-Spec fehl.
+    expect(select.options).toHaveLength(1);
+    expect(select.options[0].value).toBe('a');
+  });
 });

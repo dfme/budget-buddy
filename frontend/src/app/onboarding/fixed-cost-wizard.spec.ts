@@ -51,6 +51,20 @@ describe('FixedCostWizard', () => {
     expect(component.form.invalid).toBe(true);
   });
 
+  it('lehnt eine Bezeichnung aus reinem Leerraum ab und sendet nicht', () => {
+    // `Validators.required` prueft nur die Laenge — '   ' waere damit gueltig, und der Trim in
+    // submit() schickte einen leeren String auf die Leitung: eine namenlose Position in einem
+    // NOT-NULL-Feld, dazu keine Erfolgs-Notice, weil der leere String falsy ist.
+    component.form.setValue({ bezeichnung: '   ', betrag: 100, intervall: 'monatlich' });
+
+    component.submit();
+    fixture.detectChanges();
+
+    httpMock.expectNone('/fixed-costs');
+    expect(component.form.valid).toBe(false);
+    expect(component.bezeichnungError()).toBe('Bezeichnung ist erforderlich.');
+  });
+
   it('rendert die Fehlermeldung sichtbar unter dem Feld', () => {
     component.submit();
     fixture.detectChanges();
@@ -77,6 +91,28 @@ describe('FixedCostWizard', () => {
 
     expect(component.form.valid).toBe(true);
     expect(component.form.controls.betrag.hasError('min')).toBe(false);
+  });
+
+  // Alle drei liegen ueber `min`, damit die Meldung eindeutig aus `maxDecimals` stammt.
+  it.each([10.999, 0.015, 1200.123])(
+    'lehnt den Betrag %s mit mehr als zwei Nachkommastellen ab',
+    (betrag) => {
+      // Ohne diese Pruefung liefe der Wert bis in DECIMAL(10,2) und wuerde still gerundet.
+      component.form.setValue({ bezeichnung: 'Miete', betrag, intervall: 'monatlich' });
+
+      component.submit();
+
+      httpMock.expectNone('/fixed-costs');
+      expect(component.form.controls.betrag.hasError('maxDecimals')).toBe(true);
+      expect(component.betragError()).toBe('Betrag darf höchstens zwei Nachkommastellen haben.');
+    },
+  );
+
+  it.each([1200, 1200.5, 1200.55])('akzeptiert den rappengenauen Betrag %s', (betrag) => {
+    component.form.setValue({ bezeichnung: 'Miete', betrag, intervall: 'monatlich' });
+
+    expect(component.form.controls.betrag.hasError('maxDecimals')).toBe(false);
+    expect(component.form.valid).toBe(true);
   });
 
   // --- AC3: Intervall-Dropdown ---
@@ -110,6 +146,21 @@ describe('FixedCostWizard', () => {
 
   it('steht per Default auf monatlich', () => {
     expect(component.form.controls.intervall.value).toBe('monatlich');
+  });
+
+  it('schreibt die Auswahl aus dem select ins FormControl', () => {
+    // Die Bindung <select> <-> FormControl ist die Mechanik, die dieser PR neu einfuehrt: die
+    // uebrigen Tests setzen den Wert ueber form.setValue() und wuerden einen Bruch hier nicht
+    // bemerken.
+    const select = (fixture.nativeElement as HTMLElement).querySelector(
+      '#intervall',
+    ) as HTMLSelectElement;
+    expect(select.value).toBe('monatlich');
+
+    select.value = 'jaehrlich';
+    select.dispatchEvent(new Event('change'));
+
+    expect(component.form.controls.intervall.value).toBe('jaehrlich');
   });
 
   // --- AC4: Submit + Erfolgs-Feedback ---

@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, ValidatorFn, Validators } from '@angular/forms';
 
 import { Button } from '../shared/button/button';
 import { Card } from '../shared/card/card';
@@ -17,6 +17,43 @@ import { FixedCostService } from './fixed-cost.service';
  * den `Validators.min` prüfen kann.
  */
 const MIN_BETRAG_CHF = 0.01;
+
+/**
+ * Wie {@link Validators.required}, verwirft aber auch reinen Leerraum.
+ *
+ * <p>`Validators.required` prüft nur `value.length === 0` — `'   '` wäre damit gültig, und der
+ * Trim in {@link FixedCostWizard.submit} schickte anschliessend einen leeren String auf die
+ * Leitung. `fixed_costs.bezeichnung` ist `VARCHAR NOT NULL` (V03) und nimmt den leeren String
+ * an; die namenlose Position landete in der Datenbank, und die Erfolgs-Notice bliebe aus, weil
+ * `@if (savedBezeichnung(); as …)` den leeren String als falsy behandelt.
+ *
+ * <p>Bewusst mit dem Fehlerschlüssel `required` statt `pattern`: so bleibt die bestehende
+ * Meldung in {@link FixedCostWizard.bezeichnungError} zuständig.
+ */
+const nonBlank: ValidatorFn = (control) =>
+  String(control.value ?? '').trim() ? null : { required: true };
+
+/**
+ * Lässt höchstens zwei Nachkommastellen zu — CHF ist rappengenau (ADR-9).
+ *
+ * <p>`step="0.01"` im Template ist wegen `novalidate` nur ein Hinweis, und Angular validiert
+ * `step` nicht: ohne diesen Validator liefe `10.999` bis in den Request und würde in
+ * `DECIMAL(10,2)` still gerundet. Stilles Runden ist bei Geldbeträgen die unangenehme Variante,
+ * deshalb der Abbruch vor dem Request. Die Server-Validierung in #12 bleibt davon unberührt —
+ * ein Client-Check ersetzt sie nicht.
+ *
+ * <p>Geprüft wird auf der Dezimaldarstellung statt über `value * 100`, weil binäre Gleitkomma-
+ * Arithmetik genau die Rundungsfehler erzeugt, die hier gefunden werden sollen (`10.999 * 100`
+ * ergibt `1099.9000000000001`).
+ */
+const maxTwoDecimals: ValidatorFn = (control) => {
+  const value = control.value;
+  if (value === null || value === '') {
+    return null;
+  }
+  const [, decimals = ''] = String(value).split('.');
+  return decimals.length <= 2 ? null : { maxDecimals: true };
+};
 
 /**
  * Erfassungsformular für eine Fixkosten-Position (FE-FC-01, US-03).
@@ -59,10 +96,18 @@ export class FixedCostWizard {
   readonly submitting = signal(false);
 
   readonly form = this.fb.nonNullable.group({
-    bezeichnung: ['', [Validators.required]],
+    bezeichnung: ['', [nonBlank]],
     // `betrag` ist im Formular `number | null`: ein leeres <input type="number"> liefert
     // null, nicht ''. Ohne den Null-Typ würde `required` bei leerem Feld nicht greifen.
-    betrag: [null as number | null, [Validators.required, Validators.min(MIN_BETRAG_CHF)]],
+    betrag: [
+      null as number | null,
+      [Validators.required, Validators.min(MIN_BETRAG_CHF), maxTwoDecimals],
+    ],
+    // `required` ist hier reine Absicherung und kann heute nicht feuern: das Feld startet auf
+    // `monatlich`, und ein natives <select> ohne Leer-Option kann keinen leeren Wert annehmen.
+    // Entsprechend zeigt das Template unter dem Intervall auch keine Fehlermeldung an. Käme
+    // später eine Platzhalter-Option («bitte wählen») dazu, hielte der Validator das Formular
+    // ungültig — dann gehört auch eine Meldung dazu.
     intervall: ['monatlich' as Intervall, [Validators.required]],
   });
 
@@ -90,17 +135,8 @@ export class FixedCostWizard {
     if (control.hasError('min')) {
       return 'Betrag muss grösser als 0 sein.';
     }
-    return null;
-  }
-
-  /** Fehlermeldung fürs Intervall-Feld oder `null`, solange gültig oder unberührt. */
-  intervallError(): string | null {
-    const control = this.form.controls.intervall;
-    if (!control.touched || control.valid) {
-      return null;
-    }
-    if (control.hasError('required')) {
-      return 'Intervall ist erforderlich.';
+    if (control.hasError('maxDecimals')) {
+      return 'Betrag darf höchstens zwei Nachkommastellen haben.';
     }
     return null;
   }

@@ -31,7 +31,9 @@
         />
       </app-field>
 
-      <app-field label="Intervall" inputId="intervall" [error]="intervallError()">
+      <!-- Ohne [error]: das Feld startet auf «monatlich» und kann ohne Leer-Option nicht
+           ungültig werden (siehe Kommentar am Formular). -->
+      <app-field label="Intervall" inputId="intervall">
         <select appInput id="intervall" formControlName="intervall" required>
           @for (option of intervallOptions; track option.value) {
             <option [value]="option.value">{{ option.label }}</option>

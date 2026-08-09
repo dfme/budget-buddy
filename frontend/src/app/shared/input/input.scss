@@ -14,6 +14,31 @@
   color: $c-ink-3;
 }
 
+// Safari auf macOS rendert ein natives <select> mit eigener Control-Chrome und ignoriert einen
+// Teil der Gestaltung oben — das Feld sähe dort anders aus als die <input>s darüber. Variante A
+// zieht es deshalb gleich: `appearance: none` nimmt die Chrome weg, der Pfeil kommt als eigenes
+// Zeichen zurück. Nur auf <select>, nicht auf :host — auf einem <input type="number"> würde
+// `appearance: none` die Spinner entfernen.
+:host(select) {
+  appearance: none;
+  // Platz für den Pfeil, damit lange Optionstexte nicht darunter laufen.
+  padding-right: $sp-6;
+  cursor: pointer;
+
+  // Der Pfeil als zwei Farbverläufe statt als Icon-Datei: so trägt er `currentColor` und folgt
+  // damit dem Theme, während ein SVG in einer `url()` seine Farbe fest eingebrannt hätte.
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentcolor 50%),
+    linear-gradient(135deg, currentcolor 50%, transparent 50%);
+  background-position:
+    calc(100% - #{$sp-4}) 50%,
+    calc(100% - #{$sp-3}) 50%;
+  background-size:
+    6px 6px,
+    6px 6px;
+  background-repeat: no-repeat;
+}
+
 // Angular markiert ungültige, bereits berührte Felder mit diesen Klassen.
 :host(.ng-invalid.ng-touched) {
   border-color: $c-negative;
