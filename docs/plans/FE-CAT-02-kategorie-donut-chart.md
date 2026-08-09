@@ -96,3 +96,23 @@ und FE-CAT-01 ist ebenfalls über Component-Tests abgesichert.
 - **AC 4:** `previousMonth()` → Antwort mit anderen Kategorien → `slices()` und die
   gerenderte Legende zeigen die neuen Werte.
 - Gegenprobe Leerzustand: kein `app-donut-chart` im DOM.
+
+## Nachtrag: Scope-Erweiterung Dev-Proxy (2026-08-09)
+
+Bei der manuellen Verifikation zeigte die Kategorie-Übersicht in jedem Monat
+«Die Kategorie-Übersicht konnte nicht geladen werden». Ursache war nicht der Chart,
+sondern eine Lücke in `frontend/proxy.conf.json`: der Proxy kannte `/auth`, `/users` und
+`/import`, aber nicht `/transactions`. `ng serve` beantwortete `/transactions/summary`
+darum mit dem SPA-Fallback `index.html` (200, `text/html`), der `HttpClient` scheiterte am
+JSON-Parsen und die Komponente lief in ihren Fehlerzweig.
+
+Belegt durch: `curl localhost:8080/transactions/summary?month=2025-03` → 401 (Backend
+korrekt), `curl localhost:4200/...` → 200 `text/html` mit `<!doctype html>`.
+
+Damit war FE-CAT-01 seit BE-CAT-05 in der lokalen Entwicklung defekt. Produktion und E2E
+blieben unauffällig, weil dort SPA und API aus demselben JAR im selben Origin laufen —
+es gibt gar keinen Proxy.
+
+Der Fix (`/transactions` im Proxy, Prefix-Liste im Spec vereinheitlicht) gehört nach
+CLAUDE.md eigentlich in ein eigenes INFRA-Ticket. Der User hat am 2026-08-09 entschieden,
+ihn in diesem PR mitzunehmen; er ist dort als Scope-Erweiterung deklariert.
