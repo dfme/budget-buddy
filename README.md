@@ -124,9 +124,11 @@ SPRING_DATASOURCE_PASSWORD  <PASSWORT>
 ```
 
 Der Wert von `SPRING_DATASOURCE_URL` muss mit `jdbc:postgresql://` beginnen und darf **kein `@`**
-enthalten; sonst startet der Container nicht (`'url' must start with "jdbc"` bzw.
-`UnknownHostException`). Vollständige Anleitung inklusive Anlegen des Neon-Projekts und
-Fehlersignaturen: [ADR-12, Abschnitt „Setup"](docs/adr/ADR-12-datenpersistenz-produktion.md#setup-neon-projekt-und-render-variablen).
+enthalten; sonst startet der Container nicht — entweder mit `'url' must start with "jdbc"` oder
+mit `JDBC URL invalid port number: …`. Der zweite Fall schreibt zusätzlich das **Passwort im
+Klartext** ins Render-Log, weil pgjdbc alles nach dem ersten `:` als Portangabe liest.
+Vollständige Anleitung inklusive Anlegen des Neon-Projekts und aller Fehlersignaturen:
+[ADR-12, Abschnitt „Setup"](docs/adr/ADR-12-datenpersistenz-produktion.md#setup-neon-projekt-und-render-variablen).
 
 ### Prod-Build lokal
 

@@ -26,7 +26,9 @@ weitere Tabellen und damit Migrationsaufwand hinzugekommen.
 
 Wir nutzen **PostgreSQL 18 bei [Neon](https://neon.com), Region Frankfurt/EU, Free-Plan**
 ([Abstimmungsergebnis zu Variante 4](https://github.com/dfme/budget-buddy/issues/78#issuecomment-5015065128)).
-Der Render-Workspace bleibt auf Hobby. Der Web-Service lief zum Zeitpunkt dieses Entscheids auf Free und wurde am 09.08.2026 auf Starter gewechselt (INFRA-24) — das ist Variante 8 der Analyse und ändert an diesem Entscheid nichts, ausser dass der Cold Start des Web-Service entfällt.
+Der Render-Workspace bleibt auf Hobby. Der Web-Service lief zum Zeitpunkt dieses Entscheids auf
+Free und wurde am 09.08.2026 auf Starter gewechselt (INFRA-24) — das ist Variante 8 der Analyse
+und ändert an diesem Entscheid nichts, ausser dass der Cold Start des Web-Service entfällt.
 
 Konkret:
 
@@ -182,11 +184,25 @@ entsteht, das nie ins Repository gehört.
    | Fehler | Meldung im Render-Log |
    | ------ | --------------------- |
    | `jdbc:`-Präfix fehlt | `'url' must start with "jdbc"` |
-   | Zugangsdaten in der URL gelassen | `java.net.UnknownHostException` — pgjdbc liest `user:pass@host` als Hostnamen |
-   | Variablen fehlen oder falsch benannt | Start gelingt, danach Verbindungsfehler gegen `localhost:5432` (die Defaults aus `application.properties`) |
+   | Zugangsdaten in der URL gelassen | `JDBC URL invalid port number: <PASSWORT>@<HOST>`, danach `Driver org.postgresql.Driver claims to not accept jdbcUrl, …` |
+   | Variablen fehlen oder falsch benannt | `Unable to obtain connection from database: Connection to localhost:5432 refused` — der Start bricht ab |
 
-   Der dritte Fall ist der tückischste: Auf einem Rechner mit lokalem Postgres würde die App
-   klaglos gegen die **falsche** Datenbank laufen. Ein Fail-fast dagegen ist als
+   **Zum zweiten Fall:** pgjdbc scheitert bereits am Parsen der URL, nicht an der Namensauflösung.
+   Alles nach dem ersten `:` im Autoritätsteil wird als Port gelesen — bei
+   `//user:passwort@host/db` also `passwort@host`. Eine DNS-Auflösung findet nie statt.
+   **Damit steht das Passwort im Klartext im Render-Log**, gleich zweimal: in der
+   `invalid port number`-Warnung und in der vollständigen `jdbcUrl` der Folgemeldung. Zugangsdaten
+   aus der URL herauszuhalten ist deshalb nicht nur eine Startbedingung, sondern verhindert ein
+   Leck — Render-Logs unterliegen einer anderen Zugriffskontrolle als die Datenbank.
+
+   **Zum dritten Fall:** Der Start bricht während der Context-Initialisierung ab, weil
+   `spring.flyway.enabled=true` die Verbindung schon beim Hochfahren erzwingt. Es gibt kein
+   Zeitfenster, in dem der Dienst läuft und erst später Fehler liefert; der Health-Check wird nie
+   grün und Render meldet einen fehlgeschlagenen Deploy.
+
+   Tückisch ist dieser Fall trotzdem, aber **lokal**: Auf einem Rechner mit laufendem Postgres auf
+   `localhost:5432` greifen die Defaults aus `application.properties`, und die App läuft klaglos
+   gegen die **falsche** Datenbank — ohne jede Meldung. Ein Fail-fast dagegen ist als
    [INFRA-25](https://github.com/dfme/budget-buddy/issues/150) erfasst.
 
    `?sslmode=require` bleibt stehen — Neon nimmt ausschliesslich TLS-Verbindungen an. Steht in
