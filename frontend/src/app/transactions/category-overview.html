@@ -50,15 +50,16 @@
                   Die ganze Zeile aufzuklappen wäre bequemer, aber nur mit der Maus: ein Button
                   ist das einzige Element, das Tastatur, Touch und Screenreader ohne Nachbau
                   bedienen. aria-expanded meldet den Zustand, aria-controls verweist auf die
-                  Zeile mit den Buchungen. Der Pfeil davor ist ein CSS-Pseudoelement — als
-                  Textknoten stünde er im textContent der Zelle und damit in jeder Auswertung,
-                  die dort den Kategorienamen erwartet.
+                  Zeile mit den Buchungen — aber nur, solange es sie gibt: sie entsteht erst beim
+                  Aufklappen, davor zeigte das Attribut auf eine nicht existierende ID. Der Pfeil
+                  ist ein CSS-Pseudoelement — als Textknoten stünde er im textContent der Zelle
+                  und damit in jeder Auswertung, die dort den Kategorienamen erwartet.
                 -->
                 <button
                   type="button"
                   class="drilldown-toggle"
                   [attr.aria-expanded]="isExpanded(item.category)"
-                  [attr.aria-controls]="'drilldown-' + item.category"
+                  [attr.aria-controls]="drilldownId(item.category)"
                   (click)="toggleCategory(item.category)"
                 >
                   <app-badge [category]="categorySlug(item.category)" [label]="item.category" />
@@ -95,17 +96,14 @@
                                 >Kategorie von {{ tx.buchungstext }}</span
                               >
                               <!--
-                                Beide Bindings sind nötig, sie decken verschiedene Momente ab:
-                                [selected] am <option> setzt die Erstauswahl, weil [value] am
-                                <select> schon greift, bevor die Optionen der @for-Schleife
-                                existieren. [value] wiederum trägt spätere Änderungen — nach
-                                einer Nutzerauswahl weicht das DOM von Angulars Binding-Cache
-                                ab, und ein erneut gleicher [selected]-Wert würde als No-Op
-                                verworfen. Ohne [value] käme der Rollback nicht im DOM an.
+                                Vorauswahl über [selected] am <option>, nicht über [value] am
+                                <select>: der Wert am Elternelement würde gesetzt, bevor die
+                                Optionen der @for-Schleife überhaupt existieren, und liefe ins
+                                Leere. [selected] trägt auch den Rollback — ändert sich
+                                tx.category zurück, flippen beide Bindings und schreiben ins DOM.
                               -->
                               <select
                                 appInput
-                                [value]="tx.category"
                                 (change)="changeCategory(tx, $any($event.target).value)"
                               >
                                 @for (option of categories; track option.slug) {

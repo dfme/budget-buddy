@@ -423,10 +423,15 @@ describe('CategoryOverview', () => {
       expect(put.request.method).toBe('PUT');
       expect(put.request.body).toEqual({ category: 'Restaurant' });
 
+      // Diese Assertion trägt den Nachweis für AC 2 — sie ist die einzige, die ohne das
+      // optimistische Update umfällt.
       expect(component.drilldown()?.transactions[0].category).toBe('Restaurant');
-      // Aussagekräftig trotz der Auswahl im Test: [value]="tx.category" am <select> würde die
-      // Anzeige beim Rendern auf den Signal-Wert zurückziehen. Dass 'Restaurant' stehenbleibt,
-      // heisst also, dass der optimistische Stand tatsächlich im Signal steht.
+
+      // Die DOM-Zeile darunter beweist das optimistische Update dagegen *nicht*: den Wert hat
+      // selectCategory() selbst gesetzt, und Angular schreibt bei unverändertem Binding nicht
+      // dagegen an. Sie bleibt als Regressionsschutz dafür stehen, dass nichts die Auswahl
+      // vorzeitig zurückzieht — nicht als Beleg. Wer das optimistische Update entfernt, sieht
+      // es am Rollback-Test unten, der dann rot wird.
       expect(selects()[0].value).toBe('Restaurant');
       expect(component.saveErrorMessage()).toBeNull();
 
@@ -462,6 +467,56 @@ describe('CategoryOverview', () => {
       // Die Übersicht selbst bleibt stehen — der Ladefehler-Zweig darf sie nicht ersetzen.
       expect((fixture.nativeElement as HTMLElement).querySelector('table')).not.toBeNull();
       expect(component.errorMessage()).toBeNull();
+    });
+
+    it('does not let a finished correction undo a second one that is still running', () => {
+      expandLebensmittel();
+
+      selectCategory(selects()[0], 'Restaurant');
+      selectCategory(selects()[1], 'Transport');
+      fixture.detectChanges();
+
+      const puts = httpMock.match((req) => req.url.endsWith('/category'));
+      expect(puts).toHaveLength(2);
+
+      // Nur der erste PUT ist fertig. Sein Nachladen dürfte jetzt nicht laufen: die Antwort des
+      // Servers kennt die zweite Korrektur noch nicht und würde sie sichtbar zurückwerfen.
+      puts[0].flush({ ...TRANSACTIONS[0], category: 'Restaurant' });
+      fixture.detectChanges();
+
+      expect(component.drilldown()?.transactions[1].category).toBe('Transport');
+      expect(selects()[1].value).toBe('Transport');
+
+      // Erst mit dem zweiten PUT wird nachgeladen — dann für beide.
+      puts[1].flush({ ...TRANSACTIONS[1], category: 'Transport' });
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      expectListRequest(httpMock).flush([]);
+      fixture.detectChanges();
+
+      expect(component.saveErrorMessage()).toBeNull();
+    });
+
+    it('does not report a failed correction after the user has moved to another month', () => {
+      expandLebensmittel();
+
+      selectCategory(selects()[0], 'Restaurant');
+      fixture.detectChanges();
+      const put = httpMock.expectOne('/transactions/1/category');
+
+      // Monatswechsel, bevor der Server geantwortet hat.
+      component.previousMonth();
+      fixture.detectChanges();
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      fixture.detectChanges();
+
+      // Der Monatswechsel bricht die Korrektur-Subscription ab. Damit kann der Error-Handler gar
+      // nicht mehr feuern — deshalb wird hier die Absage nicht mehr eingespielt, sondern der
+      // Abbruch selbst geprüft. Der PUT ist beim Server angekommen; abgebrochen ist nur die
+      // Reaktion des UI darauf.
+      expect(put.cancelled).toBe(true);
+
+      expect(component.saveErrorMessage()).toBeNull();
+      expect((fixture.nativeElement as HTMLElement).querySelector('.save-notice')).toBeNull();
     });
 
     it('does not send a request when the selected category is unchanged', () => {

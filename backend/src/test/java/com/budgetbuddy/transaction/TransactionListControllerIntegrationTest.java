@@ -166,10 +166,13 @@ class TransactionListControllerIntegrationTest {
     }
 
     @Test
-    void invalidCategoryReturns400() throws Exception {
+    void unmatchedCategoryReturnsEmptyList() throws Exception {
+        // Der Filter validiert das Vokabular bewusst nicht — sonst liessen sich genau die Zeilen
+        // nicht aufklappen, die mit einem unerwarteten Label in der Übersicht stehen.
         mockMvc.perform(get("/transactions").param("month", "2026-07")
                         .param("category", "Lebensmitel").cookie(jwtCookie(laraId)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
     }
 
     @Test

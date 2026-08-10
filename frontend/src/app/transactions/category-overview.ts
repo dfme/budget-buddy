@@ -124,6 +124,17 @@ export class CategoryOverview {
   /** Subscription der zuletzt geladenen Transaktionsliste. */
   private pendingDrilldownRequest: Subscription | undefined;
 
+  /**
+   * Noch laufende Kategorie-Korrekturen (PUT).
+   *
+   * <p>Als Menge und nicht als einzelnes Feld, weil mehrere Korrekturen gleichzeitig offen sein
+   * können — für zwei Klicks innerhalb einer Round-Trip-Zeit braucht es nicht viel. Sie steuert
+   * zwei Dinge: das Nachladen wartet, bis die letzte fertig ist ({@link refreshAfterCategoryChange}),
+   * und beim Monatswechsel werden sie abgebrochen, damit keine späte Antwort mehr in eine Anzeige
+   * schreibt, zu der sie nicht mehr gehört.
+   */
+  private readonly pendingSaves = new Set<Subscription>();
+
   constructor() {
     this.load();
   }
@@ -143,6 +154,14 @@ export class CategoryOverview {
   /** `true`, wenn die Buchungen dieser Kategorie gerade aufgeklappt sind. */
   isExpanded(category: string): boolean {
     return this.drilldown()?.category === category;
+  }
+
+  /**
+   * ID der aufgeklappten Buchungszeile — Ziel des `aria-controls` am Toggle. `null`, solange die
+   * Kategorie zu ist: die Zeile existiert dann nicht, und ein IDREF ins Leere ist ungültig.
+   */
+  drilldownId(category: string): string | null {
+    return this.isExpanded(category) ? `drilldown-${category}` : null;
   }
 
   /** Klappt die Buchungen einer Kategorie auf — oder wieder zu, wenn sie schon offen sind. */
@@ -174,13 +193,32 @@ export class CategoryOverview {
     this.saveErrorMessage.set(null);
     this.applyCategory(transaction.id, category);
 
-    this.transactionService.updateCategory(transaction.id, category).subscribe({
-      next: () => this.refreshAfterCategoryChange(),
-      error: (_err: HttpErrorResponse) => {
-        this.applyCategory(transaction.id, previous);
-        this.saveErrorMessage.set('Die Kategorie konnte nicht gespeichert werden.');
-      },
-    });
+    // Der Eintrag steht vor dem subscribe in der Menge, damit ein zeitgleich laufender zweiter
+    // PUT ihn schon sieht — und damit die Callbacks unten ihn sicher referenzieren können.
+    const save = new Subscription();
+    this.pendingSaves.add(save);
+
+    save.add(
+      this.transactionService.updateCategory(transaction.id, category).subscribe({
+        next: () => {
+          this.pendingSaves.delete(save);
+          this.refreshAfterCategoryChange();
+        },
+        error: (_err: HttpErrorResponse) => {
+          this.pendingSaves.delete(save);
+          this.applyCategory(transaction.id, previous);
+          this.saveErrorMessage.set('Die Kategorie konnte nicht gespeichert werden.');
+        },
+      }),
+    );
+  }
+
+  /** Bricht alle noch offenen Kategorie-Korrekturen ab und leert die Menge. */
+  private cancelPendingSaves(): void {
+    for (const save of this.pendingSaves) {
+      save.unsubscribe();
+    }
+    this.pendingSaves.clear();
   }
 
   /** Ersetzt die Kategorie einer Buchung im Drilldown-Signal (neue Objekte wegen OnPush). */
@@ -206,6 +244,13 @@ export class CategoryOverview {
    * ein Zurückfallen auf «Lädt …» wäre nur Unruhe.
    */
   private refreshAfterCategoryChange(): void {
+    if (this.pendingSaves.size > 0) {
+      // Eine zweite Korrektur läuft noch. Ihre Zeile steht optimistisch schon auf dem neuen Wert,
+      // der Server kennt ihn aber noch nicht — die nachgeladene Liste trüge dort den alten Wert
+      // und würde die Auswahl sichtbar zurückwerfen. Der zuletzt fertige PUT lädt für alle nach.
+      return;
+    }
+
     this.pendingRequest?.unsubscribe();
     this.pendingRequest = this.summaryService.getSummary(this.month()).subscribe({
       next: (summary) => {
@@ -264,6 +309,11 @@ export class CategoryOverview {
     this.pendingRequest?.unsubscribe();
     // Eine offene Kategorie gehört zum alten Monat — sie zeigt sonst weiter dessen Buchungen.
     this.pendingDrilldownRequest?.unsubscribe();
+    // Und eine noch offene Korrektur gehört ebenfalls dorthin: ihr Error-Handler würde sonst nach
+    // dem Wechsel «konnte nicht gespeichert werden» über einen Monat schreiben, in dem gar nichts
+    // geändert wurde. Der PUT selbst ist beim Server längst angekommen — abgebrochen wird nur die
+    // Reaktion darauf, nicht die Speicherung.
+    this.cancelPendingSaves();
     this.drilldown.set(null);
     this.saveErrorMessage.set(null);
     this.loading.set(true);

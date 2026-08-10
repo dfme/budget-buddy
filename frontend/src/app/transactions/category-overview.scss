@@ -123,19 +123,6 @@ tfoot td {
   margin-bottom: $sp-4;
 }
 
-// Label für den Screenreader: jedes Dropdown braucht einen eigenen Namen, sonst hören
-// Screenreader-Nutzer dreizehnmal «Kategorie» ohne zu wissen, zu welcher Buchung.
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
 .status {
   text-align: center;
   padding: $sp-5 0;

@@ -158,8 +158,23 @@ class TransactionListServiceTest {
     }
 
     @Test
-    void rejectsInvalidCategoryFilter() {
-        assertThatThrownBy(() -> service.list(USER_ID, "2026-07", "Lebensmitel"))
-                .isInstanceOf(InvalidCategoryException.class);
+    void filtersOnLabelsThatTheEnumDoesNotKnow() {
+        // Kehrseite von passesThroughUnknownCategoryLabelsFromTheDatabase: was die Übersicht
+        // anzeigt, muss sich auch aufklappen lassen. Das Frontend schickt genau dieses Label
+        // zurück — eine Validierung gegen das Enum hätte hier eine 400 erzeugt.
+        stubExpenses(
+                expense(1L, "2026-07-03", "NEUE KATEGORIE AG", "10.00", "Kryptowährung"),
+                expense(2L, "2026-07-04", "SBB CFF FFS", "40.00", "Transport"));
+
+        assertThat(service.list(USER_ID, "2026-07", "Kryptowährung"))
+                .extracting(TransactionResponse::buchungstext)
+                .containsExactly("NEUE KATEGORIE AG");
+    }
+
+    @Test
+    void unmatchedCategoryFilterYieldsAnEmptyListInsteadOfAnError() {
+        stubExpenses(expense(1L, "2026-07-03", "MIGROS BERN", "60.00", "Lebensmittel"));
+
+        assertThat(service.list(USER_ID, "2026-07", "Lebensmitel")).isEmpty();
     }
 }

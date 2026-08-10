@@ -175,3 +175,25 @@ main {
     padding: $sp-6 $sp-6 $sp-7;
   }
 }
+
+// -----------------------------------------------------------------------------
+// 4. Utilities
+// -----------------------------------------------------------------------------
+// Nur für Querschnittliches, das keiner Komponente gehört — hier landet nichts,
+// was auch ein Token oder eine Shared-Komponente sein könnte.
+
+// Text nur für Screenreader: unsichtbar, aber vorgelesen und im Accessibility-Tree.
+// Für Namen, die aus dem visuellen Kontext hervorgehen, dem Screenreader aber fehlen —
+// etwa das Kategorie-Dropdown je Buchung (FE-CAT-03), das sonst dreizehnmal gleich hiesse.
+// Bewusst nicht `display: none` und nicht `visibility: hidden`: beides nähme das Element
+// auch dem Screenreader.
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

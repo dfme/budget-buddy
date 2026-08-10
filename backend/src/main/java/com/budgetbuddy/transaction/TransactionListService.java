@@ -35,11 +35,9 @@ public class TransactionListService {
      * @param userId ID des eingeloggten Users (aus dem JWT).
      * @param month Monat im Format {@code YYYY-MM}.
      * @param categoryLabel deutsches Kategorie-Label als Filter, oder {@code null}/leer für alle
-     *     Kategorien.
+     *     Kategorien. Ein Label ohne Treffer liefert eine leere Liste, keinen Fehler.
      * @return die Transaktionen, absteigend nach Buchungsdatum und bei Gleichstand nach ID.
      * @throws InvalidMonthException wenn {@code month} fehlt oder kein {@code YYYY-MM} ist.
-     * @throws InvalidCategoryException wenn {@code categoryLabel} gesetzt ist, aber keinem gültigen
-     *     Label entspricht.
      */
     @Transactional(readOnly = true)
     public List<TransactionResponse> list(long userId, String month, String categoryLabel) {
@@ -94,18 +92,19 @@ public class TransactionListService {
     }
 
     /**
-     * Validiert den Filter gegen die feste Kategorienliste und gibt das kanonische Label zurück.
-     * Anders als beim Lesen der DB-Spalte ist hier Strenge richtig: der Wert kommt aus dem Request,
-     * und ein Tippfehler soll als 400 sichtbar werden statt still eine leere Liste zu liefern.
+     * Normalisiert den Filter auf {@code null} (kein Filter) oder das zu vergleichende Label.
+     *
+     * <p>Bewusst ohne Validierung gegen {@link Category}: der Filter muss jedes Label treffen
+     * können, das {@link #labelOf(Transaction)} ausgibt — und das reicht einen unerwarteten Wert
+     * aus der Datenbank absichtlich durch. Eine strenge Prüfung hier hätte genau die Zeilen
+     * unaufklappbar gemacht, die in der Übersicht sichtbar sind: das Frontend schickt den Wert
+     * zurück, den es von dort bekommen hat, und bekäme eine 400.
+     *
+     * <p>Der Preis ist, dass ein Tippfehler eine leere Liste liefert statt eines Fehlers. Das ist
+     * für einen Filter die richtige Antwort — die Vokabular-Prüfung gehört auf den Schreibpfad,
+     * wo sie in {@code TransactionCategoryService} auch stattfindet.
      */
     private String parseFilter(String categoryLabel) {
-        if (categoryLabel == null || categoryLabel.isBlank()) {
-            return null;
-        }
-        try {
-            return Category.fromLabel(categoryLabel).getLabel();
-        } catch (IllegalArgumentException e) {
-            throw new InvalidCategoryException(categoryLabel);
-        }
+        return categoryLabel == null || categoryLabel.isBlank() ? null : categoryLabel;
     }
 }

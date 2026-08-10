@@ -42,11 +42,11 @@ public class TransactionListController {
                     + "Buchungsdatum. Gutschriften sind nicht enthalten; nicht kategorisierte "
                     + "Transaktionen erscheinen als 'Sonstiges'. Mit 'category' lässt sich auf eine "
                     + "Kategorie eingrenzen — der Filter 'Sonstiges' trifft dabei auch die noch "
-                    + "nicht kategorisierten Buchungen.")
+                    + "nicht kategorisierten Buchungen. Ein Label ohne Treffer liefert eine leere "
+                    + "Liste, keinen Fehler.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Transaktionen zurückgegeben"),
-        @ApiResponse(responseCode = "400",
-                description = "month fehlt/ist kein YYYY-MM oder category ist ungültig",
+        @ApiResponse(responseCode = "400", description = "month fehlt oder ist kein YYYY-MM",
                 content = {}),
         @ApiResponse(responseCode = "401", description = "Nicht authentifiziert", content = {})
     })
