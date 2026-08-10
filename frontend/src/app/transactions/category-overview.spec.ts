@@ -7,9 +7,11 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { BaseChartDirective } from 'ng2-charts';
 
+import { CATEGORIES } from '../shared/category';
 import { installCanvasStub, restoreCanvasStub } from '../../testing/canvas';
 import { CategoryOverview } from './category-overview';
 import { CategorySummary } from './category-summary.model';
+import { Transaction } from './transaction.model';
 
 // Der CurrencyPipe nutzt den app-weiten LOCALE_ID (de-CH); die Locale-Daten müssen
 // dafür registriert sein — im echten App-Bootstrap erledigt das app.config.ts.
@@ -55,9 +57,44 @@ const OLDER_MONTH_SUMMARY: CategorySummary = {
   categories: [],
 };
 
+/** Buchungen hinter der Kategorie "Lebensmittel" (FE-CAT-03). */
+const TRANSACTIONS: Transaction[] = [
+  {
+    id: 1,
+    buchungsdatum: '2026-07-20',
+    buchungstext: 'COOP PRONTO BERN',
+    betrag: 34.2,
+    income: false,
+    category: 'Lebensmittel',
+  },
+  {
+    id: 2,
+    buchungsdatum: '2026-07-05',
+    buchungstext: 'MIGROS MM ZENTRUM',
+    betrag: 52.1,
+    income: false,
+    category: 'Lebensmittel',
+  },
+];
+
 /** URL-Matcher unabhängig vom (vom aktuellen Datum abhängigen) Monat. */
 function expectSummaryRequest(httpMock: HttpTestingController) {
   return httpMock.expectOne((req) => req.url === '/transactions/summary');
+}
+
+/** Wie {@link expectSummaryRequest}, aber für die Liste der Einzelbuchungen. */
+function expectListRequest(httpMock: HttpTestingController) {
+  return httpMock.expectOne((req) => req.url === '/transactions');
+}
+
+/**
+ * Wählt eine Kategorie im Dropdown so, wie es ein Nutzer täte: Wert setzen und `change`
+ * auslösen. Ein direkter Aufruf von `changeCategory` würde die Template-Verdrahtung
+ * überspringen — genau die Stelle, an der ein falscher Event-Ausdruck unbemerkt bliebe.
+ */
+function selectCategory(dropdown: HTMLSelectElement, category: string) {
+  dropdown.value = category;
+  dropdown.dispatchEvent(new Event('change'));
 }
 
 describe('CategoryOverview', () => {
@@ -282,5 +319,241 @@ describe('CategoryOverview', () => {
     fixture.detectChanges();
 
     expect(component.summary()?.totalCount).toBe(3);
+  });
+
+  describe('Kategorie-Korrektur (FE-CAT-03)', () => {
+    /** Klappt "Lebensmittel" auf und beantwortet den Listen-Request mit {@link TRANSACTIONS}. */
+    function expandLebensmittel(transactions = TRANSACTIONS) {
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      fixture.detectChanges();
+
+      toggleFor('Lebensmittel').click();
+      fixture.detectChanges();
+
+      const req = expectListRequest(httpMock);
+      req.flush(transactions);
+      fixture.detectChanges();
+      return req;
+    }
+
+    /** Der Aufklapp-Button der Zeile mit diesem Kategorie-Label. */
+    function toggleFor(category: string): HTMLButtonElement {
+      const toggle = Array.from(
+        (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>(
+          '.drilldown-toggle',
+        ),
+      ).find((button) => button.textContent?.trim() === category);
+      expect(toggle).toBeDefined();
+      return toggle!;
+    }
+
+    /** Die Dropdowns der aufgeklappten Buchungen, in Reihenfolge der Liste. */
+    function selects(): HTMLSelectElement[] {
+      return Array.from(
+        (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLSelectElement>(
+          '.transaction select',
+        ),
+      );
+    }
+
+    it('requests the transactions of the category when a row is expanded', () => {
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      fixture.detectChanges();
+
+      const toggle = toggleFor('Lebensmittel');
+      expect(toggle.getAttribute('aria-expanded')).toBe('false');
+
+      toggle.click();
+      fixture.detectChanges();
+
+      const req = expectListRequest(httpMock);
+      expect(req.request.params.get('month')).toBe(component.month());
+      expect(req.request.params.get('category')).toBe('Lebensmittel');
+      req.flush(TRANSACTIONS);
+      fixture.detectChanges();
+
+      expect(toggle.getAttribute('aria-expanded')).toBe('true');
+      const rendered = Array.from(
+        (fixture.nativeElement as HTMLElement).querySelectorAll('.transaction__text'),
+      ).map((el) => el.textContent?.trim());
+      expect(rendered).toEqual(['COOP PRONTO BERN', 'MIGROS MM ZENTRUM']);
+    });
+
+    it('collapses the row again on a second click without a further request', () => {
+      expandLebensmittel();
+
+      toggleFor('Lebensmittel').click();
+      fixture.detectChanges();
+
+      expect(component.drilldown()).toBeNull();
+      expect(selects()).toHaveLength(0);
+      // httpMock.verify() im afterEach beweist, dass kein weiterer Request offen ist.
+    });
+
+    // AC 1: Dropdown zeigt alle 13 Kategorien aus CLAUDE.md
+    it('offers all 13 categories in every dropdown, preselected with the current one', () => {
+      expandLebensmittel();
+
+      const dropdowns = selects();
+      expect(dropdowns).toHaveLength(2);
+
+      for (const dropdown of dropdowns) {
+        const options = Array.from(dropdown.options).map((option) => option.value);
+        expect(options).toHaveLength(13);
+        // Gegenprobe gegen die geteilte Liste statt gegen eine Kopie im Test: eine 14.
+        // Kategorie im Backend-Enum fällt so hier auf und nicht erst im Betrieb.
+        expect(options).toEqual(CATEGORIES.map((c) => c.label));
+      }
+
+      expect(dropdowns[0].value).toBe('Lebensmittel');
+    });
+
+    // AC 2: Kategorie-Änderung wird sofort im UI reflektiert (optimistic update)
+    it('shows the new category before the server has answered', () => {
+      expandLebensmittel();
+
+      selectCategory(selects()[0], 'Restaurant');
+      // Der Browser rendert zwischen Auswahl und Server-Antwort — ohne diesen Durchlauf
+      // hätte Angular den optimistischen Stand nie gesehen und könnte ihn später auch nicht
+      // zurücknehmen.
+      fixture.detectChanges();
+
+      // Noch nichts geflusht — der PUT ist offen, die Anzeige steht aber schon auf dem neuen Wert.
+      const put = httpMock.expectOne('/transactions/1/category');
+      expect(put.request.method).toBe('PUT');
+      expect(put.request.body).toEqual({ category: 'Restaurant' });
+
+      // Diese Assertion trägt den Nachweis für AC 2 — sie ist die einzige, die ohne das
+      // optimistische Update umfällt.
+      expect(component.drilldown()?.transactions[0].category).toBe('Restaurant');
+
+      // Die DOM-Zeile darunter beweist das optimistische Update dagegen *nicht*: den Wert hat
+      // selectCategory() selbst gesetzt, und Angular schreibt bei unverändertem Binding nicht
+      // dagegen an. Sie bleibt als Regressionsschutz dafür stehen, dass nichts die Auswahl
+      // vorzeitig zurückzieht — nicht als Beleg. Wer das optimistische Update entfernt, sieht
+      // es am Rollback-Test unten, der dann rot wird.
+      expect(selects()[0].value).toBe('Restaurant');
+      expect(component.saveErrorMessage()).toBeNull();
+
+      put.flush({ ...TRANSACTIONS[0], category: 'Restaurant' });
+      // Erfolg lädt Summary und offene Liste nach, damit Donut und Summen nicht auf dem
+      // alten Stand stehenbleiben.
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      expectListRequest(httpMock).flush([TRANSACTIONS[1]]);
+      fixture.detectChanges();
+
+      expect(component.saveErrorMessage()).toBeNull();
+    });
+
+    // AC 3: Bei API-Fehler wird die Änderung zurückgerollt
+    it('rolls the change back and explains itself when the server rejects it', () => {
+      expandLebensmittel();
+
+      selectCategory(selects()[0], 'Restaurant');
+      fixture.detectChanges();
+      expect(selects()[0].value).toBe('Restaurant');
+
+      httpMock
+        .expectOne('/transactions/1/category')
+        .flush(null, { status: 500, statusText: 'Server Error' });
+      fixture.detectChanges();
+
+      expect(component.drilldown()?.transactions[0].category).toBe('Lebensmittel');
+      expect(selects()[0].value).toBe('Lebensmittel');
+      expect(component.saveErrorMessage()).toBe('Die Kategorie konnte nicht gespeichert werden.');
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector('.save-notice')?.textContent,
+      ).toContain('nicht gespeichert');
+      // Die Übersicht selbst bleibt stehen — der Ladefehler-Zweig darf sie nicht ersetzen.
+      expect((fixture.nativeElement as HTMLElement).querySelector('table')).not.toBeNull();
+      expect(component.errorMessage()).toBeNull();
+    });
+
+    it('does not let a finished correction undo a second one that is still running', () => {
+      expandLebensmittel();
+
+      selectCategory(selects()[0], 'Restaurant');
+      selectCategory(selects()[1], 'Transport');
+      fixture.detectChanges();
+
+      const puts = httpMock.match((req) => req.url.endsWith('/category'));
+      expect(puts).toHaveLength(2);
+
+      // Nur der erste PUT ist fertig. Sein Nachladen dürfte jetzt nicht laufen: die Antwort des
+      // Servers kennt die zweite Korrektur noch nicht und würde sie sichtbar zurückwerfen.
+      puts[0].flush({ ...TRANSACTIONS[0], category: 'Restaurant' });
+      fixture.detectChanges();
+
+      expect(component.drilldown()?.transactions[1].category).toBe('Transport');
+      expect(selects()[1].value).toBe('Transport');
+
+      // Erst mit dem zweiten PUT wird nachgeladen — dann für beide.
+      puts[1].flush({ ...TRANSACTIONS[1], category: 'Transport' });
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      expectListRequest(httpMock).flush([]);
+      fixture.detectChanges();
+
+      expect(component.saveErrorMessage()).toBeNull();
+    });
+
+    it('does not report a failed correction after the user has moved to another month', () => {
+      expandLebensmittel();
+
+      selectCategory(selects()[0], 'Restaurant');
+      fixture.detectChanges();
+      const put = httpMock.expectOne('/transactions/1/category');
+
+      // Monatswechsel, bevor der Server geantwortet hat.
+      component.previousMonth();
+      fixture.detectChanges();
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      fixture.detectChanges();
+
+      // Der Monatswechsel bricht die Korrektur-Subscription ab. Damit kann der Error-Handler gar
+      // nicht mehr feuern — deshalb wird hier die Absage nicht mehr eingespielt, sondern der
+      // Abbruch selbst geprüft. Der PUT ist beim Server angekommen; abgebrochen ist nur die
+      // Reaktion des UI darauf.
+      expect(put.cancelled).toBe(true);
+
+      expect(component.saveErrorMessage()).toBeNull();
+      expect((fixture.nativeElement as HTMLElement).querySelector('.save-notice')).toBeNull();
+    });
+
+    it('does not send a request when the selected category is unchanged', () => {
+      expandLebensmittel();
+
+      selectCategory(selects()[0], 'Lebensmittel');
+      fixture.detectChanges();
+
+      expect(component.drilldown()?.transactions[0].category).toBe('Lebensmittel');
+      // httpMock.verify() im afterEach schlägt fehl, wenn doch ein PUT rausging.
+    });
+
+    it('reports a failed load of the transactions', () => {
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      fixture.detectChanges();
+
+      toggleFor('Lebensmittel').click();
+      fixture.detectChanges();
+      expectListRequest(httpMock).flush(null, { status: 500, statusText: 'Server Error' });
+      fixture.detectChanges();
+
+      expect(component.drilldown()?.error).not.toBeNull();
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector('.drilldown .status.error'),
+      ).not.toBeNull();
+    });
+
+    it('closes the expanded category when the month changes', () => {
+      expandLebensmittel();
+
+      component.previousMonth();
+      expectSummaryRequest(httpMock).flush(EMPTY_SUMMARY);
+      fixture.detectChanges();
+
+      // Die Buchungen gehören zum alten Monat — sie dürfen unter dem neuen nicht stehenbleiben.
+      expect(component.drilldown()).toBeNull();
+      expect(selects()).toHaveLength(0);
+    });
   });
 });

@@ -48,6 +48,81 @@ tfoot td {
   border-bottom: none;
 }
 
+// Aufklapp-Button in der Kategorie-Spalte (FE-CAT-03). Er sieht aus wie der Badge allein —
+// die Klickfläche darf sich nicht als zweites Bedienelement neben ihn stellen.
+.drilldown-toggle {
+  display: flex;
+  align-items: center;
+  gap: $sp-2;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  // Rein dekorativ und deshalb als Pseudoelement: so bleibt der Zellinhalt der
+  // Kategorienname, und aria-expanded am Button trägt den Zustand für Screenreader.
+  &::before {
+    content: '▸';
+    color: $c-ink-3;
+    font-size: $fs-xs;
+  }
+
+  &[aria-expanded='true']::before {
+    content: '▾';
+  }
+}
+
+.drilldown > td {
+  padding: 0 $sp-2 $sp-3;
+  background: $c-bg-subtle;
+}
+
+.transactions {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.transaction {
+  display: grid;
+  // Datum und Betrag sind schmal und fix, Dropdown nach Inhalt — der Buchungstext bekommt
+  // den Rest und darf als einziger umbrechen.
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: $sp-3;
+  padding: $sp-2 0;
+  border-bottom: 1px solid $c-line;
+  font-size: $fs-sm;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.transaction__date {
+  @include tabular;
+
+  color: $c-ink-2;
+}
+
+.transaction__text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.transaction__category select {
+  font-size: $fs-sm;
+}
+
+.save-notice {
+  display: block;
+  margin-bottom: $sp-4;
+}
+
 .status {
   text-align: center;
   padding: $sp-5 0;

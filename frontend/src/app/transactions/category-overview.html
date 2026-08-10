@@ -28,6 +28,10 @@
       />
     </app-card>
 
+    @if (saveErrorMessage(); as message) {
+      <app-notice class="save-notice" variant="error">{{ message }}</app-notice>
+    }
+
     <app-card>
       <table>
         <thead>
@@ -42,12 +46,84 @@
           @for (item of data.categories; track item.category) {
             <tr>
               <td>
-                <app-badge [category]="categorySlug(item.category)" [label]="item.category" />
+                <!--
+                  Die ganze Zeile aufzuklappen wäre bequemer, aber nur mit der Maus: ein Button
+                  ist das einzige Element, das Tastatur, Touch und Screenreader ohne Nachbau
+                  bedienen. aria-expanded meldet den Zustand, aria-controls verweist auf die
+                  Zeile mit den Buchungen — aber nur, solange es sie gibt: sie entsteht erst beim
+                  Aufklappen, davor zeigte das Attribut auf eine nicht existierende ID. Der Pfeil
+                  ist ein CSS-Pseudoelement — als Textknoten stünde er im textContent der Zelle
+                  und damit in jeder Auswertung, die dort den Kategorienamen erwartet.
+                -->
+                <button
+                  type="button"
+                  class="drilldown-toggle"
+                  [attr.aria-expanded]="isExpanded(item.category)"
+                  [attr.aria-controls]="drilldownId(item.category)"
+                  (click)="toggleCategory(item.category)"
+                >
+                  <app-badge [category]="categorySlug(item.category)" [label]="item.category" />
+                </button>
               </td>
               <td class="numeric">{{ item.amount | currency: 'CHF' : 'symbol' : '1.2-2' }}</td>
               <td class="numeric">{{ item.count }}</td>
               <td class="numeric">{{ item.percentage | number: '1.2-2' }}%</td>
             </tr>
+
+            @if (isExpanded(item.category)) {
+              <tr class="drilldown" [id]="'drilldown-' + item.category">
+                <td colspan="4">
+                  @if (drilldown(); as open) {
+                    @if (open.loading) {
+                      <p class="status">Lädt …</p>
+                    } @else if (open.error) {
+                      <p class="status error">{{ open.error }}</p>
+                    } @else if (open.transactions.length === 0) {
+                      <p class="status empty">Keine Buchungen in dieser Kategorie.</p>
+                    } @else {
+                      <ul class="transactions">
+                        @for (tx of open.transactions; track tx.id) {
+                          <li class="transaction">
+                            <span class="transaction__date">{{
+                              tx.buchungsdatum | date: 'dd.MM.yyyy'
+                            }}</span>
+                            <span class="transaction__text">{{ tx.buchungstext }}</span>
+                            <span class="transaction__amount numeric">{{
+                              tx.betrag | currency: 'CHF' : 'symbol' : '1.2-2'
+                            }}</span>
+                            <label class="transaction__category">
+                              <span class="visually-hidden"
+                                >Kategorie von {{ tx.buchungstext }}</span
+                              >
+                              <!--
+                                Vorauswahl über [selected] am <option>, nicht über [value] am
+                                <select>: der Wert am Elternelement würde gesetzt, bevor die
+                                Optionen der @for-Schleife überhaupt existieren, und liefe ins
+                                Leere. [selected] trägt auch den Rollback — ändert sich
+                                tx.category zurück, flippen beide Bindings und schreiben ins DOM.
+                              -->
+                              <select
+                                appInput
+                                (change)="changeCategory(tx, $any($event.target).value)"
+                              >
+                                @for (option of categories; track option.slug) {
+                                  <option
+                                    [value]="option.label"
+                                    [selected]="option.label === tx.category"
+                                  >
+                                    {{ option.label }}
+                                  </option>
+                                }
+                              </select>
+                            </label>
+                          </li>
+                        }
+                      </ul>
+                    }
+                  }
+                </td>
+              </tr>
+            }
           }
         </tbody>
         <tfoot>
