@@ -17,7 +17,7 @@ Drei Punkte waren vor der Umsetzung offen und wurden im Planungsgespräch entsch
 | ----- | --------- | ---------- |
 | Divisor «verbleibende Wochen» | `weeksLeft = max(1, ceil(Resttage inkl. heute ÷ 7))` | Konservativ: jeder verbleibende Tag ist budgetiert, der Wochenbetrag wird nie zu hoch. Die Prosa in US-06 ist in sich widersprüchlich — das Beispiel (2000 − 800 − 400 = 800 → 200 CHF/Woche) geht nur bei Divisor 4 auf, spricht aber von «den verbleibenden 3 Wochen». Aufrunden trifft das Beispiel im 28-Tage-Monat exakt. |
 | Zeitzone für «heute» | `Europe/Zurich`, fest im Service | `ClockConfig` liefert `systemUTC` (`config/ClockConfig.java:18`). In der Schweiz (UTC+1/+2) läge der Safe-to-Spend zwischen 00:00 und 02:00 Ortszeit sonst noch im Vortag — am Monatsersten also im Vormonat. CLAUDE.md beschränkt die App auf die Schweiz; eine Property wäre ein Schalter ohne Anwendungsfall, der falsch stehen kann. |
-| Fixkosten-Doppelabzug | Formel wörtlich nach US-06 umsetzen, Einschränkung dokumentieren, Folge-Issue `BE-STS-04` | Fixkosten werden abgezogen **und** erscheinen zusätzlich als Belastung in den importierten Transaktionen (z. B. Miete). Nach der Formel wird die Miete damit doppelt abgezogen. Die Auflösung braucht eine fachliche Entscheidung (Verknüpfung Fixkosten-Position ↔ Transaktion im Datenmodell) und gehört nicht in diesen Task. |
+| Fixkosten-Doppelabzug | Formel wörtlich nach US-06 umsetzen, Einschränkung dokumentieren, Folge-Issue [`BE-STS-04`](https://github.com/dfme/budget-buddy/issues/154) | Fixkosten werden abgezogen **und** erscheinen zusätzlich als Belastung in den importierten Transaktionen (z. B. Miete). Nach der Formel wird die Miete damit doppelt abgezogen. Die Auflösung braucht eine fachliche Entscheidung (Verknüpfung Fixkosten-Position ↔ Transaktion im Datenmodell) und gehört nicht in diesen Task. |
 
 Weitere Entscheide:
 
@@ -72,7 +72,7 @@ Weitere Entscheide:
    - `verfuegbar = einkommen − fixkosten − ausgaben`;
      `amount = verfuegbar.divide(weeksLeft, 2, HALF_UP)`; `isNegative = amount.signum() < 0`.
 5. Javadoc: Formel, Divisor-Regel, Zeitzonen-Begründung, bekannter Doppelabzug (→ BE-STS-04).
-6. Folge-Issue `BE-STS-04` anlegen (Label `bug`, ohne Milestone und ohne Sprint).
+6. Folge-Issue [`BE-STS-04`](https://github.com/dfme/budget-buddy/issues/154) anlegen (Label `bug`, ohne Milestone und ohne Sprint).
 
 ## Test-Strategie
 
