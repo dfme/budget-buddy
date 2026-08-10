@@ -21,6 +21,17 @@ describe('PdfUpload', () => {
   let component: PdfUpload;
   let httpMock: HttpTestingController;
 
+  /** Klickt die Aktion des Duplikat-Dialogs mit dieser Beschriftung. */
+  function clickModalButton(label: string): void {
+    const button = Array.from<HTMLButtonElement>(
+      fixture.nativeElement.querySelectorAll('app-modal .modal__actions button'),
+    ).find((btn) => btn.textContent?.trim() === label);
+    if (!button) {
+      throw new Error(`Kein Dialog-Button mit der Beschriftung "${label}"`);
+    }
+    button.click();
+  }
+
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [PdfUpload],
@@ -198,6 +209,74 @@ describe('PdfUpload', () => {
     const notice = fixture.nativeElement.querySelector('app-notice');
     expect(notice?.textContent).toContain('Der Import ist fehlgeschlagen');
     expect(notice?.getAttribute('role')).toBe('alert');
+  });
+
+  it('opens the duplicate dialog instead of an error message on a 409', () => {
+    component.onDrop(dropEvent([pdfFile('juli.pdf')]));
+
+    httpMock.expectOne('/import/pdf').flush(null, { status: 409, statusText: 'Conflict' });
+    fixture.detectChanges();
+
+    // AC 1: der Dialog erscheint …
+    const dialog = fixture.nativeElement.querySelector('app-modal [role="dialog"]');
+    expect(dialog).not.toBeNull();
+    expect(dialog.textContent).toContain('juli.pdf');
+    // … und der Fehler landet nicht zusätzlich als Meldung.
+    expect(component.importOutcome()).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-notice')).toBeNull();
+    expect(component.uploading()).toBe(false);
+  });
+
+  it('closes the dialog without importing when the user cancels', () => {
+    component.onDrop(dropEvent([pdfFile()]));
+    httpMock.expectOne('/import/pdf').flush(null, { status: 409, statusText: 'Conflict' });
+    fixture.detectChanges();
+
+    clickModalButton('Abbrechen');
+    fixture.detectChanges();
+
+    // AC 2: kein zweiter Request, Dialog weg …
+    httpMock.expectNone('/import/pdf');
+    expect(fixture.nativeElement.querySelector('app-modal')).toBeNull();
+    // … und die Erklärung bleibt stehen, ohne den für ein Duplikat falschen Retry-Rat.
+    const notice = fixture.nativeElement.querySelector('app-notice');
+    expect(notice?.textContent).toContain('Dieser Kontoauszug wurde bereits importiert.');
+    expect(notice?.textContent).not.toContain('versuche es erneut');
+  });
+
+  it('repeats the upload with force=true when the user confirms', () => {
+    const file = pdfFile();
+    component.onDrop(dropEvent([file]));
+    httpMock.expectOne('/import/pdf').flush(null, { status: 409, statusText: 'Conflict' });
+    fixture.detectChanges();
+
+    clickModalButton('Trotzdem importieren');
+    fixture.detectChanges();
+
+    // AC 3: derselbe Upload noch einmal, diesmal mit Force-Flag.
+    const req = httpMock.expectOne((r) => r.url === '/import/pdf');
+    expect(req.request.params.get('force')).toBe('true');
+    expect((req.request.body as FormData).get('file')).toBe(file);
+    req.flush({ count: 28 });
+    fixture.detectChanges();
+
+    expect(component.importOutcome()).toEqual({ kind: 'success', count: 28 });
+    expect(fixture.nativeElement.querySelector('app-modal')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-notice')?.textContent).toContain(
+      '28 Transaktionen erkannt.',
+    );
+  });
+
+  it('closes a stale dialog when the next file is selected', () => {
+    component.onDrop(dropEvent([pdfFile('juli.pdf')]));
+    httpMock.expectOne('/import/pdf').flush(null, { status: 409, statusText: 'Conflict' });
+    fixture.detectChanges();
+
+    component.onDrop(dropEvent([pdfFile('august.pdf')]));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('app-modal')).toBeNull();
+    httpMock.expectOne('/import/pdf').flush({ count: 5 });
   });
 
   it('ignores a drop while an upload is already running', () => {

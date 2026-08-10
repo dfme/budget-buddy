@@ -47,4 +47,18 @@
       <app-notice class="upload__notice" variant="error">{{ outcome.message }}</app-notice>
     }
   }
+
+  @if (duplicateFile(); as file) {
+    <!-- 409 aus dem Backend: statt einer Meldung eine Rückfrage (FE-PDF-03). -->
+    <app-modal
+      title="Kontoauszug bereits importiert"
+      confirmLabel="Trotzdem importieren"
+      cancelLabel="Abbrechen"
+      (confirm)="confirmDuplicateImport()"
+      (cancel)="cancelDuplicateImport()"
+    >
+      «{{ file.name }}» wurde bereits importiert. Wenn du trotzdem importierst, ersetzen die
+      Buchungen aus dieser Datei den früheren Import — es entstehen keine doppelten Einträge.
+    </app-modal>
+  }
 </section>

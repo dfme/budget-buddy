@@ -87,6 +87,25 @@
     </button>
   </div>
 
+  <h2 class="sg-label">Modal</h2>
+  <div class="sg-row">
+    <button appButton variant="ghost" type="button" (click)="modalOpen.set(true)">
+      Dialog öffnen
+    </button>
+  </div>
+  @if (modalOpen()) {
+    <app-modal
+      title="Kontoauszug bereits importiert"
+      confirmLabel="Trotzdem importieren"
+      cancelLabel="Abbrechen"
+      (confirm)="modalOpen.set(false)"
+      (cancel)="modalOpen.set(false)"
+    >
+      «kontoauszug-juli.pdf» wurde bereits importiert. Wenn du trotzdem importierst, ersetzen die
+      Buchungen aus dieser Datei den früheren Import.
+    </app-modal>
+  }
+
   <h2 class="sg-label">Charts</h2>
   <div class="sg-charts">
     <app-card title="Ausgaben nach Kategorie" meta="Juli 2026">

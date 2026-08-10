@@ -4,6 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { Button } from '../shared/button/button';
 import { Card } from '../shared/card/card';
+import { Modal } from '../shared/modal/modal';
 import { Notice } from '../shared/notice/notice';
 import { ImportErrorResponse } from './import-error.model';
 import { PdfImportService } from './pdf-import.service';
@@ -11,13 +12,19 @@ import { PdfImportService } from './pdf-import.service';
 /** Serverseitiges Upload-Limit aus BE-PDF-03 — client-seitig vorab geprüft (US-04). */
 const MAX_PDF_BYTES = 10 * 1024 * 1024;
 
+/**
+ * Meldung zum 409-Duplikat. Bewusst ohne Retry-Hinweis: ein zweiter Versuch scheitert identisch,
+ * weiter kommt der User nur über «Trotzdem importieren» im Dialog.
+ */
+const DUPLICATE_MESSAGE = 'Dieser Kontoauszug wurde bereits importiert.';
+
 /** Ausgang des letzten Uploads — Erfolg mit Anzahl oder Fehler mit fertiger Nutzermeldung. */
 export type ImportOutcome =
   | { kind: 'success'; count: number }
   | { kind: 'error'; message: string };
 
 /**
- * PDF-Upload für den Kontoauszug-Import (FE-PDF-01/FE-PDF-02, US-04).
+ * PDF-Upload für den Kontoauszug-Import (FE-PDF-01/FE-PDF-02/FE-PDF-03, US-04).
  *
  * <p>Dropzone mit Drag-and-Drop plus File-Picker als tastaturbedienbare
  * Alternative. Vor dem Upload wird client-seitig validiert (nur `.pdf`,
@@ -27,12 +34,16 @@ export type ImportOutcome =
  * <p>Der Ausgang landet differenziert in {@link importOutcome}: Erfolg trägt
  * die Anzahl importierter Transaktionen, Fehler eine bereits formulierte
  * Meldung ({@link PdfUpload.importErrorMessage} mappt Status + `reason` des
- * Backends). Der 409-Duplikatfall bleibt bis FE-PDF-03 (#29) im generischen
- * Fallback.
+ * Backends).
+ *
+ * <p>Das 409-Duplikat ist der einzige Fehler, der nicht als Meldung endet: er
+ * öffnet den Bestätigungsdialog ({@link duplicateFile}). «Trotzdem importieren»
+ * wiederholt den Upload mit `force=true` und ersetzt damit den früheren Import,
+ * «Abbrechen» schliesst den Dialog und lässt die Daten unverändert.
  */
 @Component({
   selector: 'app-pdf-upload',
-  imports: [Button, Card, Notice],
+  imports: [Button, Card, Modal, Notice],
   templateUrl: './pdf-upload.html',
   styleUrl: './pdf-upload.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -52,6 +63,12 @@ export class PdfUpload {
 
   /** `true`, während eine Datei über der Dropzone schwebt. */
   readonly dragActive = signal(false);
+
+  /**
+   * Die Datei, für die das Backend ein Duplikat gemeldet hat — solange gesetzt, steht der
+   * Bestätigungsdialog offen. `null`, sobald der User entschieden hat.
+   */
+  readonly duplicateFile = signal<File | null>(null);
 
   onDragOver(event: DragEvent): void {
     // Ohne preventDefault löst der Browser das drop-Event nicht aus.
@@ -81,9 +98,25 @@ export class PdfUpload {
     input.value = '';
   }
 
+  /** «Trotzdem importieren»: derselbe Upload noch einmal, diesmal mit Force-Flag. */
+  confirmDuplicateImport(): void {
+    const file = this.duplicateFile();
+    this.duplicateFile.set(null);
+    if (file) {
+      this.upload(file, true);
+    }
+  }
+
+  /** «Abbrechen»: Dialog zu, kein Import — der Grund bleibt als Meldung stehen. */
+  cancelDuplicateImport(): void {
+    this.duplicateFile.set(null);
+    this.importOutcome.set({ kind: 'error', message: DUPLICATE_MESSAGE });
+  }
+
   private selectFile(files: File[]): void {
     this.errorMessage.set(null);
     this.importOutcome.set(null);
+    this.duplicateFile.set(null);
 
     const file = files[0];
     if (!file) {
@@ -104,10 +137,10 @@ export class PdfUpload {
     this.upload(file);
   }
 
-  private upload(file: File): void {
+  private upload(file: File, force = false): void {
     this.uploading.set(true);
     this.importService
-      .importPdf(file)
+      .importPdf(file, force)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (response) => {
@@ -116,6 +149,13 @@ export class PdfUpload {
         },
         error: (error: unknown) => {
           this.uploading.set(false);
+          // Das Duplikat ist kein Endzustand, sondern eine Rückfrage: statt einer Meldung
+          // öffnet es den Dialog. Nur im Force-Lauf kann es das nicht mehr sein — dort ist der
+          // Duplikatcheck übersprungen, ein 409 also gar nicht möglich.
+          if (error instanceof HttpErrorResponse && error.status === 409) {
+            this.duplicateFile.set(file);
+            return;
+          }
           this.importOutcome.set({ kind: 'error', message: PdfUpload.importErrorMessage(error) });
         },
       });
@@ -143,8 +183,11 @@ export class PdfUpload {
    *
    * <p>Die beiden 400er unterscheidet der `reason` im Body (`ImportErrorResponse.java`);
    * ein 400 ohne bekannten `reason` (z. B. fehlender file-Part) fällt auf die Format-Meldung.
-   * 408 trägt den Retry-Hinweis; alles Übrige — inkl. 409-Duplikat bis FE-PDF-03 (#29) und
-   * 413 — bleibt generisch.
+   * 408 trägt den Retry-Hinweis; 413 und alles Übrige bleiben generisch.
+   *
+   * <p>Der 409 landet im Normalfall gar nicht hier — er öffnet den Dialog. Die Meldung greift
+   * für den abgebrochenen Dialog und als Netz für einen 409 aus einer anderen Quelle; sie trägt
+   * deshalb **keinen** Retry-Hinweis: bei einem Duplikat scheitert ein zweiter Versuch identisch.
    */
   private static importErrorMessage(error: unknown): string {
     if (error instanceof HttpErrorResponse) {
@@ -156,6 +199,9 @@ export class PdfUpload {
       }
       if (error.status === 408) {
         return 'Der Import hat zu lange gedauert und wurde abgebrochen. Bitte versuche es erneut.';
+      }
+      if (error.status === 409) {
+        return DUPLICATE_MESSAGE;
       }
     }
     return 'Der Import ist fehlgeschlagen — bitte versuche es erneut.';

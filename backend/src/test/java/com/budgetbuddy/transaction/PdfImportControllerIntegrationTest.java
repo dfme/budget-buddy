@@ -44,7 +44,8 @@ import org.springframework.test.web.servlet.MockMvc;
 /**
  * Integrationstest von {@code POST /import/pdf} (BE-PDF-03) gegen echtes PostgreSQL + Flyway und das
  * echte UBS-Fixture. Deckt die Acceptance Criteria am Endpoint ab: 200 mit Anzahl, 409 Duplikat,
- * 400 ungültiges PDF, 408 Timeout, 401 ohne Auth.
+ * 400 ungültiges PDF, 408 Timeout, 401 ohne Auth — dazu den bestätigten Force-Import
+ * ({@code force=true}, FE-PDF-03), der den früheren Import ersetzt statt ihn zu verdoppeln.
  *
  * <p>Die Kategorisierung ist per {@link MockitoBean} auf dem {@code hybridCategorizationService}
  * (dem {@code @Primary}-Port) gemockt — kein Claude-Call im Test (analog
@@ -191,6 +192,52 @@ class PdfImportControllerIntegrationTest {
 
         mockMvc.perform(multipart("/import/pdf").file(pdfPart(fixture())).cookie(jwtCookie(userId)))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    void duplicatePdfWithForceReturns200AndReplacesPreviousImport() throws Exception {
+        mockMvc.perform(multipart("/import/pdf").file(pdfPart(fixture())).cookie(jwtCookie(userId)))
+                .andExpect(status().isOk());
+        List<Long> firstImportIds = transactionRepository.findAll().stream()
+                .map(Transaction::getId).toList();
+
+        // FE-PDF-03: «Trotzdem importieren» wiederholt denselben Upload mit force=true.
+        mockMvc.perform(multipart("/import/pdf").file(pdfPart(fixture()))
+                        .param("force", "true").cookie(jwtCookie(userId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.count").value(28));
+
+        // Ersetzt, nicht angehängt: dieselbe Anzahl wie nach dem Erstimport …
+        assertThat(transactionRepository.count()).isEqualTo(28);
+        // … und es sind wirklich neue Zeilen, die alten wurden gelöscht.
+        assertThat(transactionRepository.findAll()).extracting(Transaction::getId)
+                .doesNotContainAnyElementsOf(firstImportIds);
+    }
+
+    @Test
+    void forceOnlyDeletesTransactionsOfTheRequestingUser() throws Exception {
+        jdbcTemplate.update(
+                "INSERT INTO users (email, password_hash, monthly_income, onboarding_completed)"
+                        + " VALUES (?, ?, ?, ?)",
+                "marc@example.ch", "bcrypt-hash", new BigDecimal("4200.00"), true);
+        long otherUserId = jdbcTemplate.queryForObject(
+                "SELECT id FROM users WHERE email = 'marc@example.ch'", Long.class);
+
+        // Dasselbe PDF bei beiden Usern (Gemeinschaftskonto) — der Force-Import des einen darf
+        // die Buchungen des anderen nicht anfassen (Mandantentrennung).
+        mockMvc.perform(multipart("/import/pdf").file(pdfPart(fixture())).cookie(jwtCookie(userId)))
+                .andExpect(status().isOk());
+        mockMvc.perform(multipart("/import/pdf").file(pdfPart(fixture()))
+                        .cookie(jwtCookie(otherUserId)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(multipart("/import/pdf").file(pdfPart(fixture()))
+                        .param("force", "true").cookie(jwtCookie(userId)))
+                .andExpect(status().isOk());
+
+        assertThat(transactionRepository.findAll()).filteredOn(tx -> tx.getUserId() == otherUserId)
+                .hasSize(28);
+        assertThat(transactionRepository.count()).isEqualTo(56);
     }
 
     @Test
