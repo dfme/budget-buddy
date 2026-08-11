@@ -170,7 +170,8 @@ BudgetBuddy is a web app for students and young professionals living in Switzerl
 - **Benutzer und Passwort gehören nicht in die URL.** Eingebettet landen sie in jeder Logzeile,
   die die Datasource-URL ausgibt. Getrennt als `SPRING_DATASOURCE_USERNAME` / `_PASSWORD` setzen.
 - **Scale-to-Zero nach 5 Min** (Neon Free): der erste Request danach ist langsam, die Daten
-  bleiben. Zusammen mit Renders Spin-Down (15 Min) gibt es zwei unabhängige Cold Starts.
+  bleiben. Das ist seit dem Wechsel des Render-Web-Service auf den Starter-Plan (INFRA-24) der
+  einzige Cold Start — Renders Spin-Down nach 15 Min entfällt.
 - **`COLLATE NOCASE` gibt es nicht.** Case-insensitive Zuordnung liegt in der Anwendung:
   Patterns werden grossgeschrieben gespeichert, Vergleiche laufen über `upper()`.
 - **Testcontainers braucht `-Dapi.version=1.44`** (in `pom.xml` gesetzt): das gebündelte

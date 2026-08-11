@@ -43,7 +43,7 @@ Spring Boot liefert die Angular-App als statische Ressourcen aus. Ein einziges D
 
 ### Positive
 
-- **Kosten:** Gratis-Tier reicht für MVP (kein monatlicher Fixkostendruck)
+- **Kosten:** $7/Monat (Starter-Instanz seit 09.08.2026, siehe *Nachtrag* unten). Bis dahin lief der Dienst auf dem Gratis-Tier
 - **Einfachheit:** Ein JAR = ein Deploy = ein Service-Dashboard
 - **Kein CORS in Prod:** SPA und API auf gleichem Origin
 - **EU-DSGVO:** Render Frankfurt ist DSGVO-konform — ausreichend als Trust-Signal für EU/CH-Nutzer im MVP
@@ -55,13 +55,12 @@ Spring Boot liefert die Angular-App als statische Ressourcen aus. Ein einziges D
   - Mitigation: In den AGB/Privacy Policy transparent kommunizieren ("Daten auf EU-Servern in Frankfurt")
 - **Kein Schweizer Trust-Signal:** "Läuft in der Schweiz" kann Marc gegenüber nicht versprochen werden
   - Mitigation: Stattdessen "EU-DSGVO-konform" als Trust-Signal im Onboarding verwenden
-- **Render Spin-Down:** Free-Services spinnen nach **15 Minuten** ohne Traffic herunter, das Hochfahren dauert laut [Render-Doku](https://render.com/docs/free) *"about one minute"*
-  - Mitigation für die Latenz: Für MVP akzeptabel; bezahlter Instance-Type behebt den Spin-Down vollständig
-  - **Achtung:** Der Spin-Down ist nicht nur ein Latenz-, sondern ein **Datenthema** — siehe nächster Punkt
+- **Render Spin-Down: behoben.** Free-Services spinnen nach **15 Minuten** ohne Traffic herunter, das Hochfahren dauert laut [Render-Doku](https://render.com/docs/free) *"about one minute"*. Seit dem Wechsel auf Starter (siehe *Nachtrag*) läuft der Dienst durchgehend
+  - Der verbleibende Cold Start kommt von der Datenbank: Neon skaliert nach 5 Minuten auf null und wacht beim nächsten Zugriff automatisch auf (ADR-12)
 - **Persistenz — gelöst durch eine externe Datenbank:** Render Free-Services haben ein ephemeres Filesystem. Alles, was der Service selbst auf Platte schreibt, geht verloren *"every time the service redeploys, restarts, or **spins down**"* — also auch nach jeder 15-minütigen Inaktivitätsphase, nicht nur beim Deploy
   - Free Web Services können keinen Persistent Disk anhängen; das setzt ein Upgrade des Instance-Types voraus
   - Deshalb liegen die Daten seit [ADR-12](ADR-12-datenpersistenz-produktion.md) **ausserhalb** von Render, in PostgreSQL bei Neon (Frankfurt/EU). Der Spin-Down kostet damit nur noch Latenz, keine Daten. Die Variantenanalyse dazu steht in [ADR-5, "Offene Frage: Persistenz in Produktion"](ADR-5-sqlite-mvp-database.md#offene-frage-persistenz-in-produktion)
-- **750 Free Instance Hours/Monat:** Ein durchgehend laufender Service benötigt ~720 h — der Puffer ist praktisch null. Bei Überschreitung suspendiert Render alle Free Web Services bis zum Monatsbeginn
+- **750 Free Instance Hours/Monat: entfällt.** Der Deckel galt nur für Free-Services; ein durchgehend laufender Dienst benötigt ~720 h, der Puffer war also praktisch null. Mit Starter gibt es keine Stundenbegrenzung
 
 ## Alternatives
 
@@ -79,6 +78,29 @@ Spring Boot liefert die Angular-App als statische Ressourcen aus. Ein einziges D
 - CORS in Produktion nötig (Origin-Whitelist pflegen)
 - Kein Kostenvorteil gegenüber gebündeltem Ansatz
 - **Future Option:** Wenn unabhängige Deployment-Zyklen für SPA nötig werden
+
+## Nachtrag 09.08.2026: Web-Service auf Starter
+
+Der Web-Service läuft seit dem 09.08.2026 auf dem **Starter**-Instance-Type ($7/Monat) statt auf
+Free. Das ist Variante 8 aus der Analyse in
+[ADR-5](ADR-5-sqlite-mvp-database.md#offene-frage-persistenz-in-produktion), umgesetzt in
+[INFRA-24](https://github.com/dfme/budget-buddy/issues/149).
+
+Der Entscheid dieses ADR — Render, Frankfurt/EU, SPA gebündelt im JAR — bleibt unverändert;
+geändert hat sich nur der Instance-Type. Konkret:
+
+- **Kein Spin-Down mehr.** Der Dienst ist always-on, der erste Aufruf nach einer Pause kostet keine
+  Minute Wartezeit mehr.
+- **Kein Stundendeckel mehr.** Die 750 Free Instance Hours entfallen; der Puffer gegenüber den
+  ~720 h eines durchgehend laufenden Dienstes war ohnehin praktisch null.
+- **$7/Monat Fixkosten**, wo vorher $0 standen.
+- **Der Cold Start ist damit nicht weg, nur halbiert.** Neon skaliert nach 5 Minuten ohne Zugriff
+  auf null (ADR-12). Wer die Latenz beim Präsentieren ganz vermeiden will, muss auch dort
+  nachbessern — das ist ein eigener Entscheid und bisher nicht getroffen.
+
+Nicht geändert hat sich die Begründung für die externe Datenbank. Ein Persistent Disk wäre auf
+Starter zwar buchbar, ADR-12 hat sich aber aus Backup- und Betriebsgründen gegen SQLite auf Disk
+entschieden, nicht allein wegen der Free-Tier-Beschränkung.
 
 ## Related Decisions
 
