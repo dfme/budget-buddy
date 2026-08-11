@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 import com.budgetbuddy.auth.UserIncomePort;
 import com.budgetbuddy.budget.dto.FixedCostSummaryResponse;
 import com.budgetbuddy.budget.dto.SafeToSpendResponse;
+import com.budgetbuddy.transaction.IncomeSuggestionPort;
 import com.budgetbuddy.transaction.MonthlyExpensePort;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -45,6 +46,7 @@ class SafeToSpendServiceTest {
     @Mock private UserIncomePort userIncomePort;
     @Mock private FixedCostService fixedCostService;
     @Mock private MonthlyExpensePort monthlyExpensePort;
+    @Mock private IncomeSuggestionPort incomeSuggestionPort;
     @Mock private Clock clock;
 
     @InjectMocks private SafeToSpendService service;
@@ -185,6 +187,7 @@ class SafeToSpendServiceTest {
     void missingIncomeSetsTheFlagAndSkipsTheDivision() {
         givenToday("2026-08-01");
         when(userIncomePort.findMonthlyIncome(USER_ID)).thenReturn(Optional.empty());
+        when(incomeSuggestionPort.suggestMonthlyIncome(USER_ID)).thenReturn(Optional.empty());
 
         SafeToSpendResponse result = service.calculate(USER_ID);
 
@@ -198,6 +201,49 @@ class SafeToSpendServiceTest {
         // Eingabewerte gar nicht erst gelesen werden. Ein null-Betrag allein zeigte das nicht.
         verify(fixedCostService, never()).list(anyLong());
         verify(monthlyExpensePort, never()).sumExpenses(anyLong(), any());
+    }
+
+    // --- BE-STS-02: Einkommens-Vorschlag ---
+
+    @Test
+    void withoutIncomeTheHeuristicFillsTheSuggestion() {
+        givenToday("2026-08-01");
+        when(userIncomePort.findMonthlyIncome(USER_ID)).thenReturn(Optional.empty());
+        when(incomeSuggestionPort.suggestMonthlyIncome(USER_ID))
+                .thenReturn(Optional.of(new BigDecimal("6800.00")));
+
+        SafeToSpendResponse result = service.calculate(USER_ID);
+
+        assertThat(result.incomeSuggestion()).isEqualByComparingTo("6800.00");
+        // Der Vorschlag ersetzt den Betrag nicht — US-06 verlangt eine Rückfrage, keine stille
+        // Übernahme. amount bleibt null, bis der User den Vorschlag bestätigt.
+        assertThat(result.amount()).isNull();
+        assertThat(result.noIncome()).isTrue();
+    }
+
+    @Test
+    void withoutIncomeAndWithoutPatternTheSuggestionStaysNull() {
+        givenToday("2026-08-01");
+        when(userIncomePort.findMonthlyIncome(USER_ID)).thenReturn(Optional.empty());
+        when(incomeSuggestionPort.suggestMonthlyIncome(USER_ID)).thenReturn(Optional.empty());
+
+        assertThat(service.calculate(USER_ID).incomeSuggestion()).isNull();
+    }
+
+    @Test
+    void withIncomeSetTheHeuristicNeverRuns() {
+        // AC2: «Vorschlag wird nur gemacht wenn kein Einkommen manuell gesetzt ist». Der Nachweis
+        // ist never() und nicht das null-Feld — ein null-Feld zeigte nicht, ob die Heuristik lief
+        // und nichts fand oder gar nicht erst lief.
+        givenToday("2026-02-01");
+        givenIncome("2000.00");
+        givenFixedCosts("800.00");
+        givenExpenses("400.00");
+
+        SafeToSpendResponse result = service.calculate(USER_ID);
+
+        assertThat(result.incomeSuggestion()).isNull();
+        verify(incomeSuggestionPort, never()).suggestMonthlyIncome(anyLong());
     }
 
     // --- Zeitzone: «heute» ist Europe/Zurich, nicht UTC ---
