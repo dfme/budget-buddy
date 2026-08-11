@@ -80,7 +80,7 @@ class SafeToSpendServiceIntegrationTest {
         // (3000.00 − 1300.00 − 200.00) ÷ 3 = 500.00
         assertThat(result.amount()).isEqualByComparingTo("500.00");
         assertThat(result.weeksLeft()).isEqualTo(3);
-        assertThat(result.isNegative()).isFalse();
+        assertThat(result.negative()).isFalse();
         assertThat(result.noIncome()).isFalse();
     }
 
@@ -119,7 +119,7 @@ class SafeToSpendServiceIntegrationTest {
 
         // (2000.00 − 1500.00 − 800.00) ÷ 3 = −100.00
         assertThat(result.amount()).isEqualByComparingTo("-100.00");
-        assertThat(result.isNegative()).isTrue();
+        assertThat(result.negative()).isTrue();
     }
 
     // --- Mandantentrennung: Gegenprobe mit einem zweiten User im selben Monat ---

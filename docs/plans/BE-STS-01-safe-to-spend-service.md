@@ -45,7 +45,7 @@ Weitere Entscheide:
 | ----- | ----- |
 | `backend/src/main/java/com/budgetbuddy/transaction/MonthlyExpensePort.java` | `BigDecimal sumExpenses(long userId, YearMonth month)`. Liegt im **liefernden** Modul, gleiche Bauart wie `auth/UserIncomePort.java:20`. Ohne ihn müsste `budget` direkt auf das `TransactionRepository` zugreifen — das untersagt CLAUDE.md. Bewusst schmal: über die Kante geht eine Summe, keine `Transaction`-Entities (Buchungstexte haben im budget-Modul nichts verloren). |
 | `backend/src/main/java/com/budgetbuddy/budget/SafeToSpendService.java` | Die Berechnung. |
-| `backend/src/main/java/com/budgetbuddy/budget/dto/SafeToSpendResponse.java` | Record mit `amount`, `weeksLeft`, `isNegative`, `noIncome`. |
+| `backend/src/main/java/com/budgetbuddy/budget/dto/SafeToSpendResponse.java` | Record mit `amount`, `weeksLeft`, `negative`, `noIncome`. Boolean ohne `is`-Präfix wie `exceedsIncome` — die Feldnamen sind zugleich das Wire-Format. |
 | `backend/src/test/java/com/budgetbuddy/budget/SafeToSpendServiceTest.java` | Unit-Test, Ports gemockt, fixe `Clock`. |
 | `backend/src/test/java/com/budgetbuddy/budget/SafeToSpendServiceIntegrationTest.java` | Integrationstest gegen Testcontainers-PostgreSQL inkl. Mandantentrennungs-Gegenprobe. |
 
@@ -70,7 +70,7 @@ Weitere Entscheide:
    - Fixkostensumme über `fixedCostService.list(userId).summeMonatlich()` — dieselbe gerundete
      Summe, die der Wizard anzeigt (Begründung in `FixedCostService:17-23`); modul-intern erlaubt.
    - `verfuegbar = einkommen − fixkosten − ausgaben`;
-     `amount = verfuegbar.divide(weeksLeft, 2, HALF_UP)`; `isNegative = amount.signum() < 0`.
+     `amount = verfuegbar.divide(weeksLeft, 2, HALF_UP)`; `negative = amount.signum() < 0`.
 5. Javadoc: Formel, Divisor-Regel, Zeitzonen-Begründung, bekannter Doppelabzug (→ BE-STS-04).
 6. Folge-Issue [`BE-STS-04`](https://github.com/dfme/budget-buddy/issues/154) anlegen (Label `bug`, ohne Milestone und ohne Sprint).
 
@@ -80,12 +80,12 @@ Weitere Entscheide:
 
 | AC | Test |
 | -- | ---- |
-| AC1 Formel mit `BigDecimal` | US-06-Beispiel 2000 / 800 / 400 am 01.02. → `200.00`; nicht aufgehende Division → Skala 2, HALF_UP; Beträge als `BigDecimal` durchgereicht |
+| AC1 Formel mit `BigDecimal` | US-06-Beispiel 2000 / 800 / 400 am 01.02. → `200.00`; nicht aufgehende Division → Skala 2, HALF_UP; **ADR-9-Nachweis** mit einer Fixture, bei der `double` ein anderes Ergebnis liefert (2000.00 / 800.07 / 400.03 → `199.98` statt `199.97`) |
 | AC2 Divisor ≥ 1 | `ceil`-Grenzfälle 01.08. → 5, 01.02. → 4, 25.08. → 1; letzter Tag des Monats → **1**, keine `ArithmeticException` |
 | AC3 Negativ-Flag | `< 0` → `true`; exakt `0.00` → `false` (Grenzfall) |
 | AC4 noIncome-Flag | `UserIncomePort` leer → `noIncome = true`, `amount = null`, `verify(monthlyExpensePort, never())` belegt «keine Division» |
 | Zeitzone | Clock auf `2026-07-31T23:30Z` (= 01.08. 01:30 Zürich) → gerechnet wird **August** |
-| Mandantentrennung | `ArgumentCaptor` belegt, dass alle drei Ports mit genau der übergebenen `userId` aufgerufen werden |
+| Mandantentrennung | `verify(...)` mit exakter `userId` belegt, dass alle drei Ports für genau diesen User aufgerufen werden |
 
 ### Integration — `SafeToSpendServiceIntegrationTest` (`@SpringBootTest`, `PostgresTestDatabase`, `@MockitoBean Clock`)
 

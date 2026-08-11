@@ -36,6 +36,13 @@ import org.springframework.transaction.annotation.Transactional;
  * Property: CLAUDE.md beschränkt die App auf Nutzer mit Wohnsitz in der Schweiz. Gelesen wird nur
  * {@link Clock#instant()}, damit die Berechnung mit einer festen Clock testbar bleibt.
  *
+ * <p><strong>Ausgabenfenster.</strong> Abgezogen wird die Summe des <em>ganzen</em> Kalendermonats,
+ * nicht nur der Tage bis heute — US-06 spricht von «bisherigen Ausgaben». In der Praxis fällt das
+ * zusammen: importierte Kontoauszüge sind rückdatiert, Buchungen nach dem heutigen Tag gibt es also
+ * nicht. Für den Monat als Ganzes ist die Monatssumme zudem die richtigere Definition: sie ist
+ * unabhängig vom Abrufzeitpunkt und damit über {@link MonthlyExpensePort} wiederverwendbar. Sollte
+ * je vordatiert importiert werden, wäre das Fenster auf {@code [Monatserster, heute]} zu verengen.
+ *
  * <p><strong>Bekannte Einschränkung — Doppelabzug.</strong> Fixkosten werden abgezogen und
  * erscheinen zusätzlich als Belastung unter den importierten Transaktionen; eine Miete, die per
  * Dauerauftrag abgeht, mindert den Betrag deshalb zweimal. Das ist die Formel, die US-06 wörtlich

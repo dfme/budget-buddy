@@ -64,7 +64,7 @@ class SafeToSpendServiceTest {
 
         assertThat(result.amount()).isEqualByComparingTo("200.00");
         assertThat(result.weeksLeft()).isEqualTo(4);
-        assertThat(result.isNegative()).isFalse();
+        assertThat(result.negative()).isFalse();
         assertThat(result.noIncome()).isFalse();
     }
 
@@ -85,15 +85,22 @@ class SafeToSpendServiceTest {
 
     @Test
     void rappenAreExactAcrossTheWholeFormula() {
-        // (2000.55 − 800.15 − 400.10) = 800.30; ÷ 4 = 200.075 → HALF_UP → 200.08.
-        // Mit double käme 200.07499999… heraus und damit 200.07 — genau der Fehler, den ADR-9
-        // ausschliesst.
+        // Der eigentliche ADR-9-Nachweis: diese Fixture ist so gewählt, dass BigDecimal und double
+        // auseinanderlaufen — ein Wechsel auf double macht den Test rot.
+        //
+        //   BigDecimal: 2000.00 − 800.07 − 400.03 = 799.90     ÷ 4 = 199.975         → HALF_UP → 199.98
+        //   double:     2000.00 − 800.07 − 400.03 = 799.8999…  ÷ 4 = 199.97499999997 → HALF_UP → 199.97
+        //
+        // Der double-Zwischenwert liegt knapp *unter* der Rundungsgrenze, deshalb kippt HALF_UP dort
+        // nach unten. Nicht jede krumme Fixture zeigt das: bei 2000.55/800.15/400.10 etwa landet der
+        // double-Wert bei 200.07500000000002 und damit über der Grenze — beide Welten runden auf
+        // 200.08 und der Test wäre mit double genauso grün.
         givenToday("2026-02-01");
-        givenIncome("2000.55");
-        givenFixedCosts("800.15");
-        givenExpenses("400.10");
+        givenIncome("2000.00");
+        givenFixedCosts("800.07");
+        givenExpenses("400.03");
 
-        assertThat(service.calculate(USER_ID).amount()).isEqualByComparingTo("200.08");
+        assertThat(service.calculate(USER_ID).amount()).isEqualByComparingTo("199.98");
     }
 
     // --- AC2: Divisor ist mindestens 1 (kein Division-by-Zero) ---
@@ -154,7 +161,7 @@ class SafeToSpendServiceTest {
         SafeToSpendResponse result = service.calculate(USER_ID);
 
         assertThat(result.amount()).isEqualByComparingTo("-50.00");
-        assertThat(result.isNegative()).isTrue();
+        assertThat(result.negative()).isTrue();
         assertThat(result.noIncome()).isFalse();
     }
 
@@ -169,7 +176,7 @@ class SafeToSpendServiceTest {
         SafeToSpendResponse result = service.calculate(USER_ID);
 
         assertThat(result.amount()).isEqualByComparingTo("0.00");
-        assertThat(result.isNegative()).isFalse();
+        assertThat(result.negative()).isFalse();
     }
 
     // --- AC4: noIncome-Flag gesetzt wenn monthly_income nicht erfasst ---
@@ -183,7 +190,7 @@ class SafeToSpendServiceTest {
 
         assertThat(result.noIncome()).isTrue();
         assertThat(result.amount()).isNull();
-        assertThat(result.isNegative()).isFalse();
+        assertThat(result.negative()).isFalse();
         // Der Divisor hängt allein am Datum und wird auch ohne Einkommen geliefert.
         assertThat(result.weeksLeft()).isEqualTo(5);
 
