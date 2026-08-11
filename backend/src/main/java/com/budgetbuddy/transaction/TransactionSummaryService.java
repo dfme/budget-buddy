@@ -24,9 +24,14 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Sämtliche Beträge sind {@link BigDecimal} (ADR-9). Die Prozentanteile werden mit dem
  * Largest-Remainder-Verfahren berechnet, sodass ihre Summe exakt {@code 100.00} ergibt — naives
  * Runden jedes Anteils könnte z. B. 99.99 liefern.
+ *
+ * <p>Derselbe Ausgabenbegriff — nur Belastungen, ganzer Monat — trägt den Safe-to-Spend aus US-06.
+ * Diese Klasse stellt ihn deshalb zusätzlich als {@link MonthlyExpensePort} bereit, damit das
+ * budget-Modul die Summe beziehen kann, ohne auf das {@link TransactionRepository} zuzugreifen
+ * (Modulgrenze, CLAUDE.md).
  */
 @Service
-public class TransactionSummaryService {
+public class TransactionSummaryService implements MonthlyExpensePort {
 
     private static final BigDecimal HUNDRED = new BigDecimal("100");
     private static final BigDecimal CENT = new BigDecimal("0.01");
@@ -77,6 +82,27 @@ public class TransactionSummaryService {
         }
 
         return new CategorySummaryResponse(month, total, expenses.size(), items);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Liest über dieselbe Query und summiert nach derselben Regel wie
+     * {@link #summarize(long, String)} — die Summe hier und {@code CategorySummaryResponse.total()}
+     * für denselben Monat sind damit zwangsläufig identisch. Summiert wird in Java über
+     * {@link BigDecimal} und nicht per {@code SUM} in SQL; die Begründung steht in
+     * {@link TransactionRepository}.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public BigDecimal sumExpenses(long userId, YearMonth month) {
+        BigDecimal sum = BigDecimal.ZERO.setScale(2);
+        for (Transaction tx : transactionRepository
+                .findByUserIdAndIncomeFalseAndBuchungsdatumBetween(
+                        userId, month.atDay(1), month.atEndOfMonth())) {
+            sum = sum.add(tx.getBetrag());
+        }
+        return sum;
     }
 
     /**

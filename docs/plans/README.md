@@ -37,6 +37,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `BE-PDF-03` | [POST /import/pdf Endpoint](BE-PDF-03-pdf-upload-endpoint.md) | [#18](https://github.com/dfme/budget-buddy/issues/18) | US-04 | Sprint 3 |
 | `BE-PDF-04` | [Parser wirft keine Exception bei 0 Transaktionen](BE-PDF-04-empty-parse-exception.md) | [#83](https://github.com/dfme/budget-buddy/issues/83) | — | Sprint 3 |
 | `BE-PDF-05` | [BE-PDF-05 — Gültiger Auszug mit 0 Buchungen wirft fälschlich UnsupportedStatementFormatException](BE-PDF-05-empty-statement-zero-bookings.md) | [#95](https://github.com/dfme/budget-buddy/issues/95) | — | Sprint 3 |
+| `BE-STS-01` | [SafeToSpendService](BE-STS-01-safe-to-spend-service.md) | [#21](https://github.com/dfme/budget-buddy/issues/21) | US-06 | Sprint 4 |
 | `DB-01` | [DB-01 — Flyway V1: users-Tabelle](DB-01-flyway-users-table.md) | [#4](https://github.com/dfme/budget-buddy/issues/4) | — | Sprint 1 |
 | `DB-02` | [DB-02 — Flyway V2: transactions-Tabelle](DB-02-transactions-table.md) | [#5](https://github.com/dfme/budget-buddy/issues/5) | US-04, US-05, US-06 | Sprint 1 |
 | `DB-03` | [DB-03 — Flyway V3: fixed_costs-Tabelle](DB-03-fixed-costs-table.md) | [#6](https://github.com/dfme/budget-buddy/issues/6) | US-03 | Sprint 1 |
