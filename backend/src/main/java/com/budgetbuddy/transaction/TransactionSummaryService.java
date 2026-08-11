@@ -6,7 +6,6 @@ import com.budgetbuddy.transaction.dto.CategorySummaryResponse;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.YearMonth;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -55,7 +54,7 @@ public class TransactionSummaryService implements MonthlyExpensePort {
      */
     @Transactional(readOnly = true)
     public CategorySummaryResponse summarize(long userId, String month) {
-        YearMonth yearMonth = parseMonth(month);
+        YearMonth yearMonth = MonthParser.parse(month);
 
         List<Transaction> expenses = transactionRepository
                 .findByUserIdAndIncomeFalseAndBuchungsdatumBetween(
@@ -104,17 +103,6 @@ public class TransactionSummaryService implements MonthlyExpensePort {
             sum = sum.add(tx.getBetrag());
         }
         return sum;
-    }
-
-    private YearMonth parseMonth(String month) {
-        if (month == null || month.isBlank()) {
-            throw new InvalidMonthException(month);
-        }
-        try {
-            return YearMonth.parse(month);
-        } catch (DateTimeParseException e) {
-            throw new InvalidMonthException(month);
-        }
     }
 
     /**

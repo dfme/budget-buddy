@@ -50,6 +50,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `FE-AUTH-05` | [Logout-Button + Nav-Anbindung](FE-AUTH-05-logout-button.md) | [#57](https://github.com/dfme/budget-buddy/issues/57) | US-01 | Sprint 2 |
 | `FE-CAT-01` | [FE-CAT-01 — Kategorie-Übersicht](FE-CAT-01-kategorie-uebersicht.md) | [#30](https://github.com/dfme/budget-buddy/issues/30) | US-05 | Sprint 3 |
 | `FE-CAT-02` | [Pie-Chart Ausgaben nach Kategorie](FE-CAT-02-kategorie-donut-chart.md) | [#31](https://github.com/dfme/budget-buddy/issues/31) | US-05 | Sprint 4 |
+| `FE-CAT-03` | [Manuelles Korrigieren von Kategorien](FE-CAT-03-kategorie-korrektur.md) | [#32](https://github.com/dfme/budget-buddy/issues/32) | US-05 | Sprint 4 |
 | `FE-FC-01` | [Fixkosten-Wizard Component](FE-FC-01-fixkosten-wizard.md) | [#24](https://github.com/dfme/budget-buddy/issues/24) | US-03 | Sprint 4 |
 | `FE-PDF-01` | [Plan: FE-PDF-01 — PDF-Upload Component](FE-PDF-01-pdf-upload-component.md) | [#27](https://github.com/dfme/budget-buddy/issues/27) | US-04 | Sprint 3 |
 | `FE-PDF-02` | [FE-PDF-02 — Ergebnis-Anzeige nach PDF-Import](FE-PDF-02-import-ergebnis-anzeige.md) | [#28](https://github.com/dfme/budget-buddy/issues/28) | US-04 | Sprint 3 |
