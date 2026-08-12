@@ -45,6 +45,22 @@ public class UserService implements UserIncomePort {
     }
 
     /**
+     * Markiert das Onboarding als abgeschlossen und liefert das aktualisierte Profil (US-03).
+     *
+     * <p>Idempotent: ein zweiter Aufruf ist kein Fehler, sondern liefert dasselbe Profil. Der
+     * Wizard darf mehrfach abgeschlossen werden, ohne dass der Client den Zustand vorher prüfen
+     * muss.
+     *
+     * @throws UserNotFoundException wenn kein User mit dieser ID existiert.
+     */
+    @Transactional
+    public UserProfileResponse completeOnboarding(long userId) {
+        User user = findUser(userId);
+        user.completeOnboarding();
+        return toResponse(user);
+    }
+
+    /**
      * {@inheritDoc}
      *
      * <p>Wirft bewusst <em>keine</em> {@link UserNotFoundException} bei unbekannter ID: der Port

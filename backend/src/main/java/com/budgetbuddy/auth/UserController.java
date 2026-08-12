@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -54,5 +55,18 @@ public class UserController {
     public UserProfileResponse updateIncome(
             @AuthenticationPrincipal Long userId, @Valid @RequestBody UpdateIncomeRequest request) {
         return userService.updateIncome(userId, request.betrag());
+    }
+
+    @PostMapping("/onboarding-complete")
+    @Operation(summary = "Onboarding abschliessen",
+            description = "Setzt onboardingCompleted auf true, sodass der Fixkosten-Wizard beim "
+                    + "nächsten Öffnen der App nicht mehr erscheint (US-03). Idempotent: ein "
+                    + "zweiter Aufruf liefert dasselbe Profil und ist kein Fehler.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Onboarding abgeschlossen"),
+        @ApiResponse(responseCode = "401", description = "Nicht authentifiziert", content = {})
+    })
+    public UserProfileResponse completeOnboarding(@AuthenticationPrincipal Long userId) {
+        return userService.completeOnboarding(userId);
     }
 }

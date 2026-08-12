@@ -73,4 +73,18 @@ public class User {
     public boolean isOnboardingCompleted() {
         return onboardingCompleted;
     }
+
+    /**
+     * Markiert das Onboarding als abgeschlossen (US-03, BE-FC-03).
+     *
+     * <p>Bewusst eine Domänenmethode statt eines {@code setOnboardingCompleted(boolean)}: das Flag
+     * kennt genau einen Übergang, {@code false → true}. Ein Setter böte auch den Rückweg an, den
+     * die Domäne nicht vorsieht — der Wizard wird nicht wieder «unabgeschlossen».
+     *
+     * <p>Mehrfachaufruf ist unschädlich: der Endpoint ist damit idempotent und braucht keine
+     * Sonderbehandlung für den zweiten Klick.
+     */
+    public void completeOnboarding() {
+        this.onboardingCompleted = true;
+    }
 }
