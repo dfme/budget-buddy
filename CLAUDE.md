@@ -94,7 +94,7 @@ Vollständige Acceptance Criteria: [docs/requirements/](docs/requirements/)
 | [US-11](docs/requirements/US-11-openbanking.md)                  | OpenBanking-Anbindung                          | Lara    | Could  |
 | [US-12](docs/requirements/US-12-monatswechsel.md)                | Zwischen Monaten wechseln                      | Lara    | Should |
 | [US-13](docs/requirements/US-13-transaktionen-pro-kategorie.md)  | Einzeltransaktionen pro Kategorie einsehen     | Lara    | Should |
-| [US-14](docs/requirements/US-14-einstellungen.md)                | Passwort und Einkommen in Einstellungen ändern | Marc    | Should |
+| [US-14](docs/requirements/US-14-einstellungen.md)                | Passwort, Einkommen und Erscheinungsbild ändern | Marc    | Should |
 
 ## Project
 

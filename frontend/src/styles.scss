@@ -21,8 +21,10 @@
 // -----------------------------------------------------------------------------
 // A ist hell-first: :root trägt die hellen Werte, [data-theme="dark"] überschreibt.
 // Ohne gesetztes `data-theme`-Attribut greift `:root` → Light ist der Default.
-// Eine nutzerseitige Theme-Umschaltung ist bewusst zurückgestellt (siehe
-// design/README.md); die Token-Architektur ist dafür bereits vorbereitet.
+// Die nutzerseitige Theme-Umschaltung („Hell / Dunkel / System" in den
+// Einstellungen) ist als Teil von US-14 spezifiziert, aber noch nicht umgesetzt —
+// bisher schaltet nur der Dev-Toggle im Styleguide `data-theme` um. Die
+// Token-Architektur hier ist dafür bereits vorbereitet.
 :root,
 :root[data-theme='light'] {
   color-scheme: light;
