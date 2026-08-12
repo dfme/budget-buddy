@@ -100,6 +100,11 @@ opts = ClaudeAgentOptions(
     # Bash, Read & Co. verfügbar — allowed_tools erlaubt nur das Ausführen ohne
     # Rückfrage, es nimmt dem Modell keine Tools weg.
     tools=[],
+    # setting_sources steht im SDK per Default auf ["user", "project"]: die CLI
+    # lädt dann CLAUDE.md, die Projekt-Skills und alle installierten Plugins in
+    # den Kontext — rund 88'000 Tokens pro Request. Leer gesetzt läuft der Agent
+    # ausserdem bei allen gleich, unabhängig vom lokalen Setup.
+    setting_sources=[],
     #                 └── dieser Schlüssel landet im Tool-Namen:
     allowed_tools=["mcp__budget__kategorisiere"],
     max_turns=3,

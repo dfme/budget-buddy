@@ -481,7 +481,7 @@ Lebensmittel
 Shopping
 Lebensmittel
 
-<span class="hi">--- Turns: 4 · Kosten: $0.0706 ---</span></code></pre>
+<span class="hi">--- Turns: 4 · Kosten: $0.0349 ---</span></code></pre>
 
       <div class="tablewrap">
         <table>
@@ -558,13 +558,18 @@ Lebensmittel
                 <tr><th>Agent</th><th>Modell</th><th>Turns</th><th>Kosten</th></tr>
               </thead>
               <tbody>
-                <tr><td>kategorisierung</td><td>Haiku 4.5</td><td class="num">4</td><td class="num">$0.0706</td></tr>
+                <tr><td>kategorisierung</td><td>Haiku 4.5</td><td class="num">4</td><td class="num">$0.0349</td></tr>
                 <tr><td>bericht</td><td>Sonnet 5</td><td class="num">4</td><td class="num">$0.1709</td></tr>
                 <tr><td>lookup_pfleger</td><td>Haiku 4.5</td><td class="num">10</td><td class="num">$0.0575</td></tr>
               </tbody>
             </table>
           </div>
-          <div class="colhead" style="margin-top:22px">Zusätzlich abgesichert</div>
+          <p class="lede" style="font-size:14px;margin-top:8px">
+            Jeweils der erste Lauf. Wiederholungen sind deutlich billiger, weil der
+            Prompt-Cache greift — derselbe Kategorisierungslauf kostete beim zweiten
+            Mal $0.0095.
+          </p>
+          <div class="colhead" style="margin-top:20px">Zusätzlich abgesichert</div>
           <div class="colbody">
             <p>Leere Eingaben und zu wenig Daten kommen als <code>is_error</code> zurück, ohne den Loop zu beenden.</p>
             <p>Jede Modellantwort wird gegen die 13 Kategorien geprüft; alles andere fällt auf <code>Sonstiges</code> — dieselbe Regel wie <em>parseCategory</em> im Backend.</p>
