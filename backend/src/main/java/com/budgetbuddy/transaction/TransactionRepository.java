@@ -25,4 +25,18 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
      * von einem anderen User (z. B. Gemeinschaftskonto) erneut importiert werden.
      */
     boolean existsByUserIdAndPdfSha256(Long userId, String pdfSha256);
+
+    /**
+     * Löscht alle Transaktionen dieses Users aus dem PDF mit diesem SHA-256 (FE-PDF-03): der
+     * bestätigte Force-Import <em>ersetzt</em> den vorherigen Import, statt seine Buchungen ein
+     * zweites Mal danebenzulegen. Wie beim Duplikatcheck ist die Einschränkung auf {@code userId}
+     * die Mandantentrennung — ohne sie würde der Hash quer über alle User löschen.
+     *
+     * <p>Manuelle Kategorie-Korrekturen gehen dabei nicht verloren: die leben als Lookup-Pattern
+     * in {@code category_lookup} ({@link TransactionCategoryService}) und greifen beim erneuten
+     * Kategorisieren wieder.
+     *
+     * @return Anzahl gelöschter Zeilen.
+     */
+    long deleteByUserIdAndPdfSha256(Long userId, String pdfSha256);
 }

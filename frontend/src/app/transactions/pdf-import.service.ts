@@ -20,10 +20,16 @@ export class PdfImportService {
    * Lädt einen Kontoauszug als PDF hoch; der Import läuft serverseitig synchron.
    *
    * @param file Die PDF-Datei (client-seitig bereits auf Typ und 10 MB geprüft).
+   * @param force `true` überspringt den serverseitigen Duplikatcheck und ersetzt einen früheren
+   *   Import desselben PDFs. Nur setzen, nachdem der User im Duplikat-Dialog «Trotzdem
+   *   importieren» bestätigt hat (FE-PDF-03) — sonst entstehen ungefragt Dubletten.
    */
-  importPdf(file: File): Observable<ImportResponse> {
+  importPdf(file: File, force = false): Observable<ImportResponse> {
     const formData = new FormData();
     formData.append('file', file);
-    return this.http.post<ImportResponse>('/import/pdf', formData);
+    // Der Parameter entfällt im Normalfall ganz: das Backend defaultet auf false, und eine
+    // URL ohne force=false ist im Netzwerk-Log eindeutig als regulärer Import lesbar.
+    const options = force ? { params: { force: true } } : {};
+    return this.http.post<ImportResponse>('/import/pdf', formData, options);
   }
 }

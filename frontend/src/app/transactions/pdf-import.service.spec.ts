@@ -32,4 +32,23 @@ describe('PdfImportService', () => {
 
     expect(received).toEqual({ count: 42 });
   });
+
+  it('sends no force parameter for a regular import', () => {
+    const file = new File(['%PDF-1.4'], 'kontoauszug.pdf', { type: 'application/pdf' });
+    service.importPdf(file).subscribe();
+
+    const req = httpMock.expectOne('/import/pdf');
+    expect(req.request.params.has('force')).toBe(false);
+    req.flush({ count: 42 });
+  });
+
+  it('sends force=true once the user confirmed the duplicate', () => {
+    const file = new File(['%PDF-1.4'], 'kontoauszug.pdf', { type: 'application/pdf' });
+    service.importPdf(file, true).subscribe();
+
+    const req = httpMock.expectOne((r) => r.url === '/import/pdf');
+    expect(req.request.params.get('force')).toBe('true');
+    expect((req.request.body as FormData).get('file')).toBe(file);
+    req.flush({ count: 42 });
+  });
 });

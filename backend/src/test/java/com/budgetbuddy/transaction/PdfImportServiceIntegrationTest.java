@@ -86,7 +86,7 @@ class PdfImportServiceIntegrationTest {
 
     @Test
     void importsAllFixtureTransactions_withCategoryAndHash() {
-        ImportResult result = pdfImportService.importPdf(userId, fixture());
+        ImportResult result = pdfImportService.importPdf(userId, fixture(), false);
 
         assertThat(result.transactionCount()).isEqualTo(28);
         assertThat(result.pdfSha256()).hasSize(64); // SHA-256 als Hex
@@ -108,9 +108,9 @@ class PdfImportServiceIntegrationTest {
 
     @Test
     void secondImportOfSamePdf_throwsDuplicateAndPersistsNothingNew() {
-        pdfImportService.importPdf(userId, fixture());
+        pdfImportService.importPdf(userId, fixture(), false);
 
-        assertThatThrownBy(() -> pdfImportService.importPdf(userId, fixture()))
+        assertThatThrownBy(() -> pdfImportService.importPdf(userId, fixture(), false))
                 .isInstanceOf(DuplicatePdfImportException.class);
 
         assertThat(transactionRepository.count()).isEqualTo(28);
@@ -127,8 +127,8 @@ class PdfImportServiceIntegrationTest {
         long otherUserId = jdbcTemplate.queryForObject(
                 "SELECT id FROM users WHERE email = 'lara.beispiel@example.ch'", Long.class);
 
-        pdfImportService.importPdf(userId, fixture());
-        ImportResult second = pdfImportService.importPdf(otherUserId, fixture());
+        pdfImportService.importPdf(userId, fixture(), false);
+        ImportResult second = pdfImportService.importPdf(otherUserId, fixture(), false);
 
         assertThat(second.transactionCount()).isEqualTo(28);
         assertThat(transactionRepository.count()).isEqualTo(56);
@@ -136,7 +136,7 @@ class PdfImportServiceIntegrationTest {
 
     @Test
     void pdfBinaryIsNotStoredInDatabase() {
-        pdfImportService.importPdf(userId, fixture());
+        pdfImportService.importPdf(userId, fixture(), false);
 
         // AC: keine PDF-Binärdaten in der DB — das Schema (Flyway V02) hat keine Blob-Spalte,
         // und die einzige PDF-Spur ist der 64-Zeichen-Hash.

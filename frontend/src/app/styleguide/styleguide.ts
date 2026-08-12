@@ -12,6 +12,7 @@ import { Chip } from '../shared/chip/chip';
 import { Field } from '../shared/field/field';
 import { Input } from '../shared/input/input';
 import { Meter } from '../shared/meter/meter';
+import { Modal } from '../shared/modal/modal';
 import { MonthNav } from '../shared/month-nav/month-nav';
 import { Notice } from '../shared/notice/notice';
 import { Segment, SegmentOption } from '../shared/segment/segment';
@@ -36,6 +37,7 @@ import { Segment, SegmentOption } from '../shared/segment/segment';
     Field,
     Input,
     Meter,
+    Modal,
     MonthNav,
     Notice,
     Segment,
@@ -99,6 +101,9 @@ export class Styleguide {
   readonly segmentValue = signal('all');
 
   readonly chipSelected = signal(true);
+
+  /** Offen-Zustand des Modal-Beispiels — der Dialog selbst hält keinen (siehe {@link Modal}). */
+  readonly modalOpen = signal(false);
 
   /** Kleiner Demo-Zustand für die MonthNav. */
   private readonly months = ['Mai 2026', 'Juni 2026', 'Juli 2026'];

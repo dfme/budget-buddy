@@ -34,6 +34,11 @@ import org.springframework.web.multipart.MultipartFile;
  * <p>Fehlerabbildung (siehe {@link PdfImportExceptionHandler}): ungültiges/passwortgeschütztes PDF
  * → 400, Duplikat → 409 ({@code @ResponseStatus} auf {@link DuplicatePdfImportException}), Timeout
  * → 408 ({@link PdfImportTimeoutException}), Überschreitung des serverseitigen 10-MB-Limits → 413.
+ *
+ * <p>Der optionale Parameter {@code force} ist die Gegenseite des 409: Bestätigt der User im
+ * Duplikat-Dialog «Trotzdem importieren» (FE-PDF-03, US-04), wiederholt der Client denselben
+ * Upload mit {@code force=true} und ersetzt damit den früheren Import. Default ist {@code false} —
+ * ohne ausdrückliche Bestätigung bleibt es beim Duplikatschutz.
  */
 @RestController
 @RequestMapping("/import")
@@ -62,15 +67,20 @@ public class PdfImportController {
         @ApiResponse(responseCode = "408",
                 description = "Import-Timeout (Zeitbudget überschritten)", content = @Content),
         @ApiResponse(responseCode = "409",
-                description = "Dieses PDF wurde bereits importiert", content = @Content),
+                description = "Dieses PDF wurde bereits importiert; mit force=true erneut "
+                        + "aufrufen, um den früheren Import zu ersetzen", content = @Content),
         @ApiResponse(responseCode = "413",
                 description = "PDF überschreitet das 10-MB-Limit", content = @Content)
     })
     public ImportResponse importPdf(
             @AuthenticationPrincipal Long userId,
             @Parameter(description = "Die hochzuladende PDF-Datei (max. 10 MB)")
-            @RequestParam("file") MultipartFile file) {
-        return ImportResponse.from(pdfImportService.importPdf(userId, readBytes(file)));
+            @RequestParam("file") MultipartFile file,
+            @Parameter(description = "Überspringt den Duplikatcheck und ersetzt einen früheren "
+                    + "Import desselben PDFs. Nur nach ausdrücklicher Bestätigung des Users im "
+                    + "Duplikat-Dialog setzen.")
+            @RequestParam(name = "force", defaultValue = "false") boolean force) {
+        return ImportResponse.from(pdfImportService.importPdf(userId, readBytes(file), force));
     }
 
     private static byte[] readBytes(MultipartFile file) {

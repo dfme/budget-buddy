@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Orchestriert den PDF-Import-Flow (BE-PDF-02, US-04): SHA-256-Hash → Duplikatcheck →
@@ -36,8 +37,10 @@ import org.springframework.stereotype.Service;
  *
  * <p><strong>Bewusst kein {@code @Transactional} um den ganzen Flow:</strong> Das würde die
  * JDBC-Connection über sämtliche Claude-Calls halten — bis ~50s pro Import bei einem
- * Default-Pool von 10 Connections. Atomar sein muss nur das abschliessende {@code saveAll};
- * das läuft bereits in einer eigenen Transaktion (Spring Data, {@code SimpleJpaRepository}).
+ * Default-Pool von 10 Connections. Atomar sein muss nur der abschliessende Schreibblock; der
+ * läuft über ein {@link TransactionTemplate} und umfasst im Force-Fall (FE-PDF-03) auch das
+ * Löschen des vorherigen Imports, damit zwischen Delete und Insert kein Fehler die alten Zeilen
+ * ersatzlos entfernen kann.
  * Der Duplikatcheck liest davor transaktionslos — der damit mögliche TOCTOU-Race bei parallelem
  * Doppel-Upload bestand schon mit Methoden-Transaktion (eine Transaktion allein sperrt die
  * gelesenen Zeilen nicht) und ist als Follow-up dokumentiert (eigene {@code pdf_imports}-Tabelle).
@@ -56,6 +59,7 @@ public class PdfImportService {
     private final SwissBankStatementParser parser;
     private final CategorizationPort categorizationPort;
     private final TransactionRepository transactionRepository;
+    private final TransactionTemplate transactionTemplate;
     private final Clock clock;
     private final Duration timeout;
 
@@ -63,11 +67,13 @@ public class PdfImportService {
             SwissBankStatementParser parser,
             CategorizationPort categorizationPort,
             TransactionRepository transactionRepository,
+            TransactionTemplate transactionTemplate,
             Clock clock,
             @Value("${budgetbuddy.import.timeout-seconds:30}") long timeoutSeconds) {
         this.parser = parser;
         this.categorizationPort = categorizationPort;
         this.transactionRepository = transactionRepository;
+        this.transactionTemplate = transactionTemplate;
         this.clock = clock;
         this.timeout = Duration.ofSeconds(timeoutSeconds);
     }
@@ -77,22 +83,29 @@ public class PdfImportService {
      *
      * @param userId ID des eingeloggten Users (aus dem JWT).
      * @param pdfBytes vollständiger Inhalt der PDF-Datei; wird nicht persistiert.
+     * @param force {@code true} überspringt den Duplikatcheck und <em>ersetzt</em> einen früheren
+     *     Import desselben PDFs: dessen Transaktionen werden gelöscht, bevor die neuen geschrieben
+     *     werden. Gedacht für die ausdrückliche Bestätigung «Trotzdem importieren» im
+     *     Duplikat-Dialog (FE-PDF-03, US-04) — ohne diese Bestätigung entstehen keine Dubletten.
+     *     Manuelle Kategorie-Korrekturen überleben das Ersetzen, weil sie als Lookup-Pattern in
+     *     {@code category_lookup} liegen (ADR-6, Schritt 3) und beim Re-Import wieder greifen.
      * @return Hash und Anzahl der importierten Transaktionen. 0 nur bei erkanntem Format ohne
      *     Buchungen (Konto ohne Bewegung, BE-PDF-05) — dann wird nichts persistiert und ein
      *     erneuter Upload desselben PDFs gilt nicht als Duplikat. Ein PDF ohne erkennbares
      *     Format wirft im Parser (BE-PDF-04).
-     * @throws DuplicatePdfImportException wenn dieser User dasselbe PDF bereits importiert hat.
+     * @throws DuplicatePdfImportException wenn dieser User dasselbe PDF bereits importiert hat
+     *     und {@code force} nicht gesetzt ist.
      * @throws PdfImportTimeoutException wenn das Zeitbudget überschritten wurde.
      * @throws PasswordProtectedPdfException wenn das PDF verschlüsselt ist.
      * @throws PdfParseException wenn das PDF nicht gelesen oder keine Transaktion extrahiert
      *     werden kann — inkl. der Subtypen {@link MissingTextLayerException} (Scan ohne
      *     Textlayer) und {@link UnsupportedStatementFormatException} (unbekanntes Layout).
      */
-    public ImportResult importPdf(long userId, byte[] pdfBytes) {
+    public ImportResult importPdf(long userId, byte[] pdfBytes, boolean force) {
         Instant deadline = clock.instant().plus(timeout);
 
         String pdfSha256 = sha256Hex(pdfBytes);
-        if (transactionRepository.existsByUserIdAndPdfSha256(userId, pdfSha256)) {
+        if (!force && transactionRepository.existsByUserIdAndPdfSha256(userId, pdfSha256)) {
             throw new DuplicatePdfImportException(pdfSha256);
         }
 
@@ -124,7 +137,18 @@ public class PdfImportService {
                     tx.betrag(), tx.isIncome(), category, pdfSha256));
         }
 
-        transactionRepository.saveAll(entities);
+        // Ersetzen statt Anhängen: Delete und Insert in einer Transaktion, damit ein Fehler
+        // dazwischen nicht die alten Zeilen ersatzlos entfernt. Die abgeleitete Delete-Query
+        // braucht ohnehin eine laufende Transaktion — SimpleJpaRepository deckt nur seine
+        // eigenen CRUD-Methoden ab, nicht deleteBy…-Ableitungen.
+        transactionTemplate.executeWithoutResult(status -> {
+            if (force) {
+                long removed = transactionRepository.deleteByUserIdAndPdfSha256(userId, pdfSha256);
+                log.info("Force-Import für User {}: {} Transaktion(en) des vorherigen Imports "
+                        + "ersetzt.", userId, removed);
+            }
+            transactionRepository.saveAll(entities);
+        });
         log.info("PDF-Import für User {}: {} Transaktion(en) importiert.", userId, entities.size());
         return new ImportResult(pdfSha256, entities.size());
     }

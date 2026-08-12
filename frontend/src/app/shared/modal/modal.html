@@ -1,0 +1,28 @@
+<!-- Klick auf den Hintergrund = Abbrechen. Nicht fokussierbar und aria-hidden: die Fläche ist
+     reine Maus-Bequemlichkeit, für Tastatur und Screenreader gibt es Escape und den Button. -->
+<div class="modal__backdrop" aria-hidden="true" (click)="cancel.emit()"></div>
+
+<div
+  class="modal__panel"
+  role="dialog"
+  aria-modal="true"
+  [attr.aria-labelledby]="titleId"
+  cdkTrapFocus
+  [cdkTrapFocusAutoCapture]="true"
+>
+  <h2 class="modal__title" [id]="titleId">{{ title() }}</h2>
+
+  <div class="modal__body">
+    <ng-content />
+  </div>
+
+  <div class="modal__actions">
+    <!-- Der Fokus startet auf «Abbrechen»: Bei einem Bestätigungsdialog ist das Abbrechen die
+         folgenlose Wahl — ein versehentliches Enter direkt nach dem Öffnen darf nicht die
+         Aktion auslösen, die der Dialog gerade absichern soll. -->
+    <button appButton variant="ghost" type="button" cdkFocusInitial (click)="cancel.emit()">
+      {{ cancelLabel() }}
+    </button>
+    <button appButton type="button" (click)="confirm.emit()">{{ confirmLabel() }}</button>
+  </div>
+</div>
