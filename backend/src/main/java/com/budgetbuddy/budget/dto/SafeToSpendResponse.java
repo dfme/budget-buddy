@@ -5,10 +5,11 @@ import java.math.BigDecimal;
 /**
  * Ergebnis der Safe-to-Spend-Berechnung eines Users (BE-STS-01, US-06).
  *
- * <p>BE-STS-03 serviert dieses Record als Antwort von {@code GET /budget/safe-to-spend} und ergänzt
- * dabei das dort geforderte fünfte Feld {@code incomeSuggestion} aus der Einkommens-Heuristik
- * (BE-STS-02). Solange die Heuristik nicht existiert, wäre das Feld hier immer {@code null} — ein
- * Feld ohne Wert dokumentiert nichts.
+ * <p>BE-STS-03 serviert dieses Record unverändert als Antwort von {@code GET /budget/safe-to-spend};
+ * alle fünf dort geforderten Felder stehen bereits hier. {@code incomeSuggestion} kam mit der
+ * Einkommens-Heuristik (BE-STS-02) dazu, weil deren AC verlangt, dass die Heuristik bei jedem
+ * Safe-to-Spend-Aufruf läuft — das Feld ohne den Aufruf zu haben, hiesse es immer {@code null} zu
+ * lassen.
  *
  * <p>Die Feldnamen sind zugleich das Wire-Format: Jackson serialisiert Record-Komponenten unter
  * ihrem Namen. Booleans stehen deshalb ohne {@code is}-Präfix, wie
@@ -28,9 +29,15 @@ import java.math.BigDecimal;
  * @param noIncome {@code true}, wenn der User kein Monatseinkommen erfasst hat
  *     ({@code users.monthly_income IS NULL}). Der Client zeigt dann den Hinweis «Bitte erfasse dein
  *     Monatseinkommen in den Einstellungen» statt eines Betrags.
+ * @param incomeSuggestion aus den Gutschriften abgeleiteter Einkommens-Vorschlag in CHF, Skala 2
+ *     (BE-STS-02) — der Betrag für den Hinweis «Regelmässige Gutschrift von X CHF erkannt». Nur
+ *     gesetzt, wenn {@code noIncome} gilt <em>und</em> sich ein wiederkehrendes Muster finden liess;
+ *     sonst {@code null}. Bei erfasstem Einkommen immer {@code null}: US-06 lässt die manuelle
+ *     Eingabe die Schätzung überschreiben, ein Vorschlag daneben wäre nur verwirrend.
  */
 public record SafeToSpendResponse(
         BigDecimal amount,
         int weeksLeft,
         boolean negative,
-        boolean noIncome) {}
+        boolean noIncome,
+        BigDecimal incomeSuggestion) {}

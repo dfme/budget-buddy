@@ -2,6 +2,7 @@ package com.budgetbuddy.budget;
 
 import com.budgetbuddy.auth.UserIncomePort;
 import com.budgetbuddy.budget.dto.SafeToSpendResponse;
+import com.budgetbuddy.transaction.IncomeSuggestionPort;
 import com.budgetbuddy.transaction.MonthlyExpensePort;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -43,6 +44,22 @@ import org.springframework.transaction.annotation.Transactional;
  * unabhängig vom Abrufzeitpunkt und damit über {@link MonthlyExpensePort} wiederverwendbar. Sollte
  * je vordatiert importiert werden, wäre das Fenster auf {@code [Monatserster, heute]} zu verengen.
  *
+ * <p><strong>Einkommens-Heuristik (BE-STS-02).</strong> Ist kein Einkommen erfasst, wird über
+ * {@link IncomeSuggestionPort} ein Vorschlag aus den wiederkehrenden Gutschriften abgeleitet. Der
+ * Aufruf sitzt <em>im</em> {@code noIncome}-Zweig — und das ist eine bewusste <strong>Abweichung von
+ * AC3</strong> («Heuristik läuft bei jedem Safe-to-Spend-Aufruf»), keine logische Notwendigkeit.
+ *
+ * <p>Beide ACs liessen sich auch wörtlich zugleich erfüllen: die Heuristik unbedingt laufen lassen
+ * und {@code incomeSuggestion} nur im {@code noIncome}-Fall füllen. AC2 spricht davon, wann ein
+ * Vorschlag <em>gemacht</em> wird, nicht davon, wann die Heuristik <em>läuft</em> — ein Widerspruch
+ * zwischen den beiden ACs besteht also nicht.
+ *
+ * <p>Der Grund für die Abweichung ist ein anderer: bei einem User <em>mit</em> erfasstem Einkommen
+ * ersparte die wörtliche Variante nichts und kostete bei jedem Dashboard-Aufruf eine Query über
+ * zwölf Monate Gutschriften, deren Ergebnis anschliessend verworfen würde. Wird AC3 später anders
+ * entschieden, ist die Verlagerung ein Zweizeiler — sie ist nicht dadurch festgeschrieben, dass die
+ * ACs es erzwängen. Die Lesart ist an Issue #22 festgehalten.
+ *
  * <p><strong>Bekannte Einschränkung — Doppelabzug.</strong> Fixkosten werden abgezogen und
  * erscheinen zusätzlich als Belastung unter den importierten Transaktionen; eine Miete, die per
  * Dauerauftrag abgeht, mindert den Betrag deshalb zweimal. Das ist die Formel, die US-06 wörtlich
@@ -51,13 +68,14 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>Sämtliche Beträge sind {@link BigDecimal} (ADR-9) — nie {@code double}/{@code float}.
  *
- * <p><strong>Mandantentrennung:</strong> alle drei Eingabewerte werden ausschliesslich über die
- * user-gebundenen Methoden von {@link UserIncomePort}, {@link FixedCostService} und
- * {@link MonthlyExpensePort} gelesen. Dieser Service hält kein eigenes Repository und kann damit
- * keine Query absetzen, die den User nicht einschränkt.
+ * <p><strong>Mandantentrennung:</strong> alle Eingabewerte werden ausschliesslich über die
+ * user-gebundenen Methoden von {@link UserIncomePort}, {@link FixedCostService},
+ * {@link MonthlyExpensePort} und {@link IncomeSuggestionPort} gelesen. Dieser Service hält kein
+ * eigenes Repository und kann damit keine Query absetzen, die den User nicht einschränkt.
  *
- * <p><strong>Modulgrenzen:</strong> Einkommen und Ausgaben kommen über Ports aus {@code auth} bzw.
- * {@code transaction} — kein direkter Zugriff auf deren Repositories (CLAUDE.md). Die Fixkosten
+ * <p><strong>Modulgrenzen:</strong> Einkommen, Ausgaben und Einkommens-Vorschlag kommen über Ports
+ * aus {@code auth} bzw. {@code transaction} — kein direkter Zugriff auf deren Repositories
+ * (CLAUDE.md). Die Fixkosten
  * liegen im eigenen Modul; genutzt wird bewusst {@link FixedCostService#list(long)} und nicht das
  * Repository, damit hier exakt die Monatssumme eingeht, die der Wizard anzeigt (Rundungsregel und
  * Begründung in {@link FixedCostService}).
@@ -79,16 +97,19 @@ public class SafeToSpendService {
     private final UserIncomePort userIncomePort;
     private final FixedCostService fixedCostService;
     private final MonthlyExpensePort monthlyExpensePort;
+    private final IncomeSuggestionPort incomeSuggestionPort;
     private final Clock clock;
 
     public SafeToSpendService(
             UserIncomePort userIncomePort,
             FixedCostService fixedCostService,
             MonthlyExpensePort monthlyExpensePort,
+            IncomeSuggestionPort incomeSuggestionPort,
             Clock clock) {
         this.userIncomePort = userIncomePort;
         this.fixedCostService = fixedCostService;
         this.monthlyExpensePort = monthlyExpensePort;
+        this.incomeSuggestionPort = incomeSuggestionPort;
         this.clock = clock;
     }
 
@@ -98,7 +119,8 @@ public class SafeToSpendService {
      * @param userId ID des eingeloggten Users (aus dem JWT).
      * @return Betrag samt Divisor und den beiden Zustands-Flags aus US-06. Ohne erfasstes Einkommen
      *     ein Ergebnis mit {@code noIncome = true} und {@code amount = null} — es findet dann keine
-     *     Division statt und es werden auch keine Ausgaben geladen.
+     *     Division statt und es werden auch keine Ausgaben geladen; stattdessen läuft die
+     *     Einkommens-Heuristik und füllt {@code incomeSuggestion}.
      */
     @Transactional(readOnly = true)
     public SafeToSpendResponse calculate(long userId) {
@@ -109,7 +131,9 @@ public class SafeToSpendService {
         if (monthlyIncome.isEmpty()) {
             // US-06: «keine Division wird ausgeführt». Ohne Einkommen gibt es keinen Betrag, den
             // ein Client anzeigen dürfte — 0.00 wäre die Falschaussage «du hast nichts mehr».
-            return new SafeToSpendResponse(null, weeksLeft, false, true);
+            // Genau hier greift die Einkommens-Heuristik (BE-STS-02) — siehe Klassen-Javadoc.
+            return new SafeToSpendResponse(null, weeksLeft, false, true,
+                    incomeSuggestionPort.suggestMonthlyIncome(userId).orElse(null));
         }
 
         BigDecimal fixedCosts = fixedCostService.list(userId).summeMonatlich();
@@ -121,7 +145,9 @@ public class SafeToSpendService {
         BigDecimal amount = verfuegbar.divide(
                 BigDecimal.valueOf(weeksLeft), RAPPEN_SCALE, RoundingMode.HALF_UP);
 
-        return new SafeToSpendResponse(amount, weeksLeft, amount.signum() < 0, false);
+        // incomeSuggestion bleibt null: US-06 lässt die manuelle Eingabe die Schätzung
+        // überschreiben, ein Vorschlag neben einem erfassten Einkommen wäre nur verwirrend.
+        return new SafeToSpendResponse(amount, weeksLeft, amount.signum() < 0, false, null);
     }
 
     /**

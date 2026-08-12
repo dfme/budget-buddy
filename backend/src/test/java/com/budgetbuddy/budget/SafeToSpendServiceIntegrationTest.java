@@ -106,6 +106,24 @@ class SafeToSpendServiceIntegrationTest {
         assertThat(result.noIncome()).isTrue();
         assertThat(result.amount()).isNull();
         assertThat(result.weeksLeft()).isEqualTo(3);
+        // Marc hat nur eine Belastung und keine wiederkehrende Gutschrift — die Heuristik läuft
+        // (BE-STS-02) und findet nichts, was sie vorschlagen könnte.
+        assertThat(result.incomeSuggestion()).isNull();
+    }
+
+    @Test
+    void suggestsAnIncomeFromRecurringCreditsWhenNoneIsSet() {
+        // Ende der Kette über echte Daten: Gutschriften in der DB → Heuristik → Vorschlag im
+        // Safe-to-Spend. Der Unit-Test mockt den Port und kann diese Verdrahtung nicht zeigen.
+        long marc = insertUser("marc-sts-suggestion@example.com", null);
+        insertIncome(marc, LocalDate.of(2026, 6, 25), "Saläreingang", new BigDecimal("6800.00"));
+        insertIncome(marc, LocalDate.of(2026, 7, 25), "Saläreingang", new BigDecimal("6800.00"));
+
+        SafeToSpendResponse result = service.calculate(marc);
+
+        assertThat(result.noIncome()).isTrue();
+        assertThat(result.amount()).isNull();
+        assertThat(result.incomeSuggestion()).isEqualByComparingTo("6800.00");
     }
 
     @Test

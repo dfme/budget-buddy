@@ -20,6 +20,19 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
             Long userId, LocalDate von, LocalDate bis);
 
     /**
+     * Lädt alle <em>Gutschriften</em> ({@code is_income = true}) eines Users, deren Buchungsdatum in
+     * das Intervall {@code [von, bis]} fällt — beide Grenzen inklusive. Eingabe der
+     * Einkommens-Heuristik (BE-STS-02, US-06), die daraus wiederkehrende Zahlungseingänge ableitet.
+     *
+     * <p>Spiegelbild zu {@link #findByUserIdAndIncomeFalseAndBuchungsdatumBetween}: die Auswertung
+     * läuft in Java mit {@link java.math.BigDecimal}, nicht per Aggregat in SQL. Dieselbe Begründung
+     * wie dort — ADR-9 wird an einer Stelle durchgesetzt statt an zweien; hier kommt hinzu, dass die
+     * Gruppierung über den normalisierten Buchungstext ohnehin nicht in eine Query passt.
+     */
+    List<Transaction> findByUserIdAndIncomeTrueAndBuchungsdatumBetween(
+            Long userId, LocalDate von, LocalDate bis);
+
+    /**
      * Duplikatcheck des PDF-Imports (BE-PDF-02): {@code true}, wenn dieser User bereits
      * Transaktionen aus dem PDF mit diesem SHA-256 importiert hat. Pro User — dasselbe PDF darf
      * von einem anderen User (z. B. Gemeinschaftskonto) erneut importiert werden.
