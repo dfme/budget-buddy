@@ -54,4 +54,30 @@
       </button>
     </form>
   </app-card>
+
+  <!-- Ausserhalb des <form>: der Abschluss ist keine Formular-Absendung, sondern verlässt
+       den Wizard. Innerhalb wäre er ein zweiter Button, den Enter im Formular auslösen
+       könnte — das Onboarding wäre versehentlich beendet. -->
+  <div class="wizard__finish">
+    @if (completeError(); as message) {
+      <app-notice variant="error">{{ message }}</app-notice>
+    }
+
+    <button
+      appButton
+      block
+      variant="ghost"
+      type="button"
+      [disabled]="completing()"
+      (click)="finishOnboarding()"
+    >
+      @if (completing()) {
+        Wird abgeschlossen…
+      } @else if (hasSaved()) {
+        Fertig — weiter zum Dashboard
+      } @else {
+        Keine Fixkosten — weiter zum Dashboard
+      }
+    </button>
+  </div>
 </section>

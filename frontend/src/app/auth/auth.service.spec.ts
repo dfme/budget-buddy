@@ -103,4 +103,45 @@ describe('AuthService', () => {
     expect(service.currentUser()).toBeNull();
     expect(service.isAuthenticated()).toBe(false);
   });
+
+  it('ensureCurrentUser returns the loaded profile without a request', () => {
+    service.login('lara@example.ch', 'supersecret').subscribe();
+    httpMock.expectOne('/auth/login').flush(LARA);
+
+    let emitted: User | null | undefined;
+    service.ensureCurrentUser().subscribe((user) => (emitted = user));
+
+    expect(emitted).toEqual(LARA);
+    httpMock.expectNone('/users/me');
+  });
+
+  it('ensureCurrentUser falls back to GET /users/me when the state is empty', () => {
+    let emitted: User | null | undefined;
+    service.ensureCurrentUser().subscribe((user) => (emitted = user));
+
+    const req = httpMock.expectOne('/users/me');
+    expect(req.request.method).toBe('GET');
+    req.flush(LARA);
+
+    expect(emitted).toEqual(LARA);
+    expect(service.currentUser()).toEqual(LARA);
+  });
+
+  it('completeOnboarding posts to the endpoint and updates the state', () => {
+    service.login('lara@example.ch', 'supersecret').subscribe();
+    httpMock.expectOne('/auth/login').flush(LARA);
+    expect(service.currentUser()?.onboardingCompleted).toBe(false);
+
+    let emitted: User | undefined;
+    service.completeOnboarding().subscribe((user) => (emitted = user));
+
+    const req = httpMock.expectOne('/users/me/onboarding-complete');
+    expect(req.request.method).toBe('POST');
+    req.flush({ ...LARA, onboardingCompleted: true });
+
+    // Ohne dieses State-Update wuerde der onboardingGuard die anschliessende Navigation
+    // aufs Dashboard sofort wieder in den Wizard zurueckdrehen.
+    expect(emitted?.onboardingCompleted).toBe(true);
+    expect(service.currentUser()?.onboardingCompleted).toBe(true);
+  });
 });

@@ -1,7 +1,9 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { Router, provideRouter } from '@angular/router';
 
+import { User } from '../auth/user.model';
 import { FixedCostWizard } from './fixed-cost-wizard';
 import { FixedCost, INTERVALL_OPTIONS } from './fixed-cost.model';
 
@@ -12,20 +14,30 @@ const MIETE: FixedCost = {
   intervall: 'monatlich',
 };
 
+/** Antwort von POST /users/me/onboarding-complete. */
+const LARA_ONBOARDED: User = {
+  id: 1,
+  email: 'lara@example.ch',
+  monthlyIncome: null,
+  onboardingCompleted: true,
+};
+
 describe('FixedCostWizard', () => {
   let fixture: ComponentFixture<FixedCostWizard>;
   let component: FixedCostWizard;
   let httpMock: HttpTestingController;
+  let navigate: ReturnType<typeof vi.spyOn>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [FixedCostWizard],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
     }).compileComponents();
 
     fixture = TestBed.createComponent(FixedCostWizard);
     component = fixture.componentInstance;
     httpMock = TestBed.inject(HttpTestingController);
+    navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     fixture.detectChanges();
   });
 
@@ -251,5 +263,101 @@ describe('FixedCostWizard', () => {
     expect(component.savedBezeichnung()).toBeNull();
     expect(component.submitting()).toBe(true);
     httpMock.expectOne('/fixed-costs').flush({ ...MIETE, id: 3, bezeichnung: 'Handy', betrag: 40 });
+  });
+
+  // --- FE-FC-02: Onboarding abschliessen ---
+
+  /** Speichert eine Position, damit `hasSaved()` steht. */
+  function saveMiete(): void {
+    component.form.setValue({ bezeichnung: 'Miete', betrag: 1200, intervall: 'monatlich' });
+    component.submit();
+    httpMock.expectOne('/fixed-costs').flush(MIETE, { status: 201, statusText: 'Created' });
+  }
+
+  it('schliesst das Onboarding ab und navigiert aufs Dashboard', () => {
+    component.finishOnboarding();
+
+    const req = httpMock.expectOne('/users/me/onboarding-complete');
+    expect(req.request.method).toBe('POST');
+    req.flush(LARA_ONBOARDED);
+    fixture.detectChanges();
+
+    expect(navigate).toHaveBeenCalledWith(['/dashboard']);
+    expect(component.completeError()).toBeNull();
+    expect(component.completing()).toBe(false);
+  });
+
+  it('loest den Abschluss ueber den Button aus', () => {
+    // Die Bindung Button -> Methode ist die Mechanik, die dieser PR neu einfuehrt; die
+    // uebrigen Tests rufen finishOnboarding() direkt und wuerden einen Bruch nicht bemerken.
+    const button = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('button'),
+    ).find((candidate) => candidate.textContent?.includes('weiter zum Dashboard'));
+    expect(button).toBeDefined();
+
+    button!.click();
+
+    httpMock.expectOne('/users/me/onboarding-complete').flush(LARA_ONBOARDED);
+    expect(navigate).toHaveBeenCalledWith(['/dashboard']);
+  });
+
+  it('beschriftet den Button mit «Keine Fixkosten», solange nichts gespeichert wurde', () => {
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Keine Fixkosten — weiter zum Dashboard');
+    expect(component.hasSaved()).toBe(false);
+  });
+
+  it('beschriftet den Button nach der ersten gespeicherten Position um', () => {
+    saveMiete();
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(component.hasSaved()).toBe(true);
+    expect(text).toContain('Fertig — weiter zum Dashboard');
+    expect(text).not.toContain('Keine Fixkosten');
+  });
+
+  it('schliesst auch nach gespeicherter Position ueber denselben Request ab', () => {
+    // US-03 laesst beide Wege aus dem Wizard heraus: «Keine Fixkosten» bestaetigen ODER
+    // mindestens eine Position gespeichert. Ohne diesen Pfad sperrte der onboardingGuard
+    // genau die Nutzer ein, die ihre Fixkosten korrekt erfasst haben.
+    saveMiete();
+
+    component.finishOnboarding();
+    httpMock.expectOne('/users/me/onboarding-complete').flush(LARA_ONBOARDED);
+
+    expect(navigate).toHaveBeenCalledWith(['/dashboard']);
+  });
+
+  it('bleibt im Wizard und meldet den Fehler, wenn der Abschluss scheitert', () => {
+    component.finishOnboarding();
+    httpMock
+      .expectOne('/users/me/onboarding-complete')
+      .flush('boom', { status: 500, statusText: 'Internal Server Error' });
+    fixture.detectChanges();
+
+    // Navigieren trotz gescheitertem Abschluss wuerde der Guard sofort zurueckdrehen.
+    expect(navigate).not.toHaveBeenCalled();
+    expect(component.completing()).toBe(false);
+    expect(component.completeError()).toBe(
+      'Onboarding konnte nicht abgeschlossen werden. Bitte versuche es später erneut.',
+    );
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'Onboarding konnte nicht abgeschlossen werden.',
+    );
+  });
+
+  it('raeumt die alte Fehlermeldung weg, bevor der naechste Abschlussversuch laeuft', () => {
+    component.finishOnboarding();
+    httpMock
+      .expectOne('/users/me/onboarding-complete')
+      .flush('boom', { status: 500, statusText: 'Internal Server Error' });
+    expect(component.completeError()).not.toBeNull();
+
+    component.finishOnboarding();
+
+    expect(component.completeError()).toBeNull();
+    expect(component.completing()).toBe(true);
+    httpMock.expectOne('/users/me/onboarding-complete').flush(LARA_ONBOARDED);
   });
 });

@@ -2,7 +2,9 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, ValidatorFn, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
 
+import { AuthService } from '../auth/auth.service';
 import { Button } from '../shared/button/button';
 import { Card } from '../shared/card/card';
 import { Field } from '../shared/field/field';
@@ -64,8 +66,13 @@ const maxTwoDecimals: ValidatorFn = (control) => {
  * hintereinander erfassbar sind — Lara erfasst im Onboarding typischerweise Miete,
  * Krankenkasse und Handy am Stück.
  *
- * <p>Bewusst <em>nicht</em> Teil dieser Komponente: der Onboarding-Zwang samt
- * «Keine Fixkosten»-Bestätigung (FE-FC-02, #25) und die Liste mit Bearbeiten/Löschen
+ * <p>Der Abschluss des Onboardings hängt seit FE-FC-02 (#25) hier: ein Button unter dem
+ * Formular ruft `POST /users/me/onboarding-complete` und navigiert aufs Dashboard. Er
+ * deckt beide Wege aus US-03 ab — «Keine Fixkosten» bestätigen und «mindestens ein
+ * Eintrag gespeichert»; unterschieden werden sie nur durch die Beschriftung, die Aktion
+ * ist dieselbe.
+ *
+ * <p>Bewusst <em>nicht</em> Teil dieser Komponente: die Liste mit Bearbeiten/Löschen
  * (FE-FC-03, #26). Der Name «Wizard» benennt die Komponente, nicht den Ablauf.
  *
  * <p>Kein Token- oder Header-Code: das httpOnly-JWT-Cookie wird durch den
@@ -81,6 +88,8 @@ const maxTwoDecimals: ValidatorFn = (control) => {
 export class FixedCostWizard {
   private readonly fb = inject(FormBuilder);
   private readonly fixedCosts = inject(FixedCostService);
+  private readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
 
   /** Auswahl des Intervall-Dropdowns — Wert und Anzeigetext (mit Umlaut) getrennt. */
@@ -94,6 +103,23 @@ export class FixedCostWizard {
 
   /** `true`, solange ein Request läuft — sperrt den Submit-Button. */
   readonly submitting = signal(false);
+
+  /**
+   * `true`, sobald in dieser Sitzung mindestens eine Position gespeichert wurde.
+   *
+   * <p>Steuert ausschliesslich die Beschriftung des Abschluss-Buttons, nicht seine Wirkung:
+   * beide Wege aus US-03 lösen denselben Request aus. Der Wert ist bewusst sitzungslokal
+   * und wird nicht aus `GET /fixed-costs` abgeleitet — ein Request nur für die Wortwahl
+   * eines Buttons wäre nicht zu rechtfertigen, und die bereits erfassten Positionen zeigt
+   * ohnehin erst die Liste aus FE-FC-03 (#26).
+   */
+  readonly hasSaved = signal(false);
+
+  /** `true`, solange der Abschluss-Request läuft — sperrt den Abschluss-Button. */
+  readonly completing = signal(false);
+
+  /** Fehlermeldung nach fehlgeschlagenem Abschluss oder `null`. */
+  readonly completeError = signal<string | null>(null);
 
   readonly form = this.fb.nonNullable.group({
     bezeichnung: ['', [nonBlank]],
@@ -164,6 +190,7 @@ export class FixedCostWizard {
         next: (created) => {
           this.submitting.set(false);
           this.savedBezeichnung.set(created.bezeichnung);
+          this.hasSaved.set(true);
           // Leeren statt `reset()`: das Intervall soll wieder auf dem Default stehen und
           // nicht auf `null` fallen, sonst ist das Dropdown nach dem Speichern leer.
           this.form.reset({ bezeichnung: '', betrag: null, intervall: 'monatlich' });
@@ -174,6 +201,40 @@ export class FixedCostWizard {
             err.status === 400
               ? 'Die Eingaben wurden vom Server abgelehnt. Bitte prüfe Bezeichnung, Betrag und Intervall.'
               : 'Speichern fehlgeschlagen. Bitte versuche es später erneut.',
+          );
+        },
+      });
+  }
+
+  /**
+   * Schliesst das Onboarding ab und navigiert aufs Dashboard (US-03).
+   *
+   * <p>Deckt beide Wege ab, mit denen der Wizard laut US-03 verlassen werden darf: die
+   * ausdrückliche «Keine Fixkosten»-Bestätigung und den Abschluss nach mindestens einer
+   * gespeicherten Position. Das Backend setzt `onboardingCompleted`, der `AuthService`
+   * übernimmt das aktualisierte Profil in den State — erst dadurch lässt der
+   * `onboardingGuard` die Navigation aufs Dashboard passieren.
+   *
+   * <p>Bei einem Fehler bleibt der Nutzer im Wizard und sieht eine Meldung: eine
+   * Navigation trotz gescheitertem Abschluss würde der Guard sofort zurückdrehen und
+   * sähe für den Nutzer wie ein Sprung ins Leere aus.
+   */
+  finishOnboarding(): void {
+    this.completeError.set(null);
+    this.completing.set(true);
+
+    this.auth
+      .completeOnboarding()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.completing.set(false);
+          this.router.navigate(['/dashboard']);
+        },
+        error: () => {
+          this.completing.set(false);
+          this.completeError.set(
+            'Onboarding konnte nicht abgeschlossen werden. Bitte versuche es später erneut.',
           );
         },
       });

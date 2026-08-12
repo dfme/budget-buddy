@@ -9,8 +9,15 @@ import { AuthService } from '../../auth/auth.service';
  * Endpoints, deren 401 NICHT zu einem Redirect führt:
  * - `/auth/login`, `/auth/register`: Ein 401 bedeutet hier "falsche Credentials"
  *   und wird von den Formular-Komponenten selbst behandelt.
- * - `/users/me`: Bootstrap-Call von {@link AuthService.loadCurrentUser} und dem
- *   `authGuard`. Ein Redirect hier würde eine Doppel-Navigation/Loop auslösen.
+ * - `/users/me`: Bootstrap-Call von {@link AuthService.loadCurrentUser}, dem
+ *   `authGuard` und dem `onboardingGuard`. Ein Redirect hier würde eine
+ *   Doppel-Navigation/Loop auslösen.
+ *
+ * <p>Verglichen wird der <strong>ganze</strong> Pfad, nicht sein Anfang: unter `/users/me`
+ * hängen inzwischen normale geschützte Aufrufe (`POST /users/me/onboarding-complete`,
+ * `PUT /users/me/income`), und die sind keine Bootstrap-Calls. Ein Teilstring-Vergleich
+ * nähme sie mit aus und liesse den Nutzer bei abgelaufenem Cookie mit einer irreführenden
+ * Fehlermeldung im Formular sitzen, statt ihn zum Login zu schicken.
  */
 const AUTH_BOOTSTRAP_PATHS = ['/auth/login', '/auth/register', '/users/me'];
 
@@ -39,5 +46,7 @@ export const authErrorInterceptor: HttpInterceptorFn = (req, next) => {
 };
 
 function isBootstrap(url: string): boolean {
-  return AUTH_BOOTSTRAP_PATHS.some((path) => url.includes(path));
+  // Query-String abschneiden, damit der exakte Vergleich nicht daran scheitert.
+  const path = url.split('?')[0];
+  return AUTH_BOOTSTRAP_PATHS.includes(path);
 }
