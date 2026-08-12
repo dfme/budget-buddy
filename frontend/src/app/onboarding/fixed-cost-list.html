@@ -1,0 +1,144 @@
+<section class="fixed-cost-list">
+  <h1>Fixkosten</h1>
+
+  @if (loading()) {
+    <p class="status">Lädt …</p>
+  } @else if (errorMessage()) {
+    <p class="status error">{{ errorMessage() }}</p>
+  } @else if (summary(); as data) {
+    @if (data.exceedsIncome) {
+      <app-notice class="income-warning" variant="warning">
+        Deine Fixkosten übersteigen dein Einkommen — Safe-to-Spend kann nicht berechnet werden.
+      </app-notice>
+    }
+
+    @if (deleteError(); as message) {
+      <app-notice variant="error">{{ message }}</app-notice>
+    }
+
+    <app-card title="Fixkosten">
+      <a appButton variant="ghost" card-actions routerLink="/onboarding">+ Neue Position</a>
+
+      @if (data.fixedCosts.length === 0) {
+        <p class="status empty">
+          Noch keine Fixkosten erfasst. <a routerLink="/onboarding">Jetzt erfassen</a>.
+        </p>
+      } @else {
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Bezeichnung</th>
+              <th scope="col" class="numeric">Betrag</th>
+              <th scope="col">Intervall</th>
+              <th scope="col" class="numeric">Monatsbetrag</th>
+              <th scope="col" class="actions">Aktionen</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of data.fixedCosts; track item.id) {
+              @if (editingId() === item.id) {
+                <tr class="editing">
+                  <td colspan="5">
+                    <form [formGroup]="editForm" (ngSubmit)="saveEdit(item.id)" novalidate>
+                      <app-field
+                        label="Bezeichnung"
+                        inputId="edit-bezeichnung"
+                        [error]="bezeichnungError()"
+                      >
+                        <input
+                          appInput
+                          id="edit-bezeichnung"
+                          type="text"
+                          formControlName="bezeichnung"
+                          autocomplete="off"
+                          required
+                        />
+                      </app-field>
+
+                      <app-field label="Betrag (CHF)" inputId="edit-betrag" [error]="betragError()">
+                        <input
+                          appInput
+                          id="edit-betrag"
+                          type="number"
+                          formControlName="betrag"
+                          inputmode="decimal"
+                          min="0.01"
+                          step="0.01"
+                          required
+                        />
+                      </app-field>
+
+                      <app-field label="Intervall" inputId="edit-intervall">
+                        <select appInput id="edit-intervall" formControlName="intervall" required>
+                          @for (option of intervallOptions; track option.value) {
+                            <option [value]="option.value">{{ option.label }}</option>
+                          }
+                        </select>
+                      </app-field>
+
+                      @if (editError(); as message) {
+                        <app-notice variant="error">{{ message }}</app-notice>
+                      }
+
+                      <div class="editing__actions">
+                        <button appButton type="submit" [disabled]="editSubmitting()">
+                          {{ editSubmitting() ? 'Wird gespeichert…' : 'Speichern' }}
+                        </button>
+                        <button
+                          appButton
+                          variant="ghost"
+                          type="button"
+                          [disabled]="editSubmitting()"
+                          (click)="cancelEdit()"
+                        >
+                          Abbrechen
+                        </button>
+                      </div>
+                    </form>
+                  </td>
+                </tr>
+              } @else {
+                <tr>
+                  <td>{{ item.bezeichnung }}</td>
+                  <td class="numeric">{{ item.betrag | currency: 'CHF' : 'symbol' : '1.2-2' }}</td>
+                  <td>{{ intervallLabel(item.intervall) }}</td>
+                  <td class="numeric">{{
+                    item.monatsbetrag | currency: 'CHF' : 'symbol' : '1.2-2'
+                  }}</td>
+                  <td class="actions">
+                    <button appButton variant="ghost" type="button" (click)="startEdit(item)">
+                      Bearbeiten
+                    </button>
+                    <button appButton variant="ghost" type="button" (click)="requestDelete(item)">
+                      Löschen
+                    </button>
+                  </td>
+                </tr>
+              }
+            }
+          </tbody>
+          <tfoot>
+            <tr>
+              <th scope="row" colspan="3">Total</th>
+              <td class="numeric">{{ data.summeMonatlich | currency: 'CHF' : 'symbol' : '1.2-2' }}</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      }
+    </app-card>
+  }
+
+  @if (pendingDelete(); as item) {
+    <app-modal
+      title="Position löschen?"
+      confirmLabel="Löschen"
+      cancelLabel="Abbrechen"
+      (confirm)="confirmDelete()"
+      (cancel)="cancelDelete()"
+    >
+      «{{ item.bezeichnung }}» wirklich löschen? Diese Aktion kann nicht rückgängig gemacht
+      werden.
+    </app-modal>
+  }
+</section>

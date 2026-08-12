@@ -25,11 +25,7 @@ export const INTERVALL_OPTIONS: readonly IntervallOption[] = [
 ];
 
 /**
- * Request-Body von `POST /fixed-costs` (FE-FC-01).
- *
- * **Unbestätigter Contract.** Der Endpoint existiert noch nicht — er kommt mit BE-FC-03
- * (#12). Die Form ist aus der Entity `FixedCost` und aus `Intervall.getLabel()` abgeleitet.
- * Weicht #12 davon ab, sind dieses Model und `FixedCostService` nachzuziehen.
+ * Request-Body von `POST /fixed-costs` und `PUT /fixed-costs/{id}` (FE-FC-01, FE-FC-03).
  *
  * `betrag` ist eine JSON-Zahl, kein String: das Backend nutzt `BigDecimal` (ADR-9),
  * serialisiert aber ohne String-Serializer — Jackson liefert und erwartet damit `number`.
@@ -43,11 +39,32 @@ export interface CreateFixedCostRequest {
   intervall: Intervall;
 }
 
-/**
- * Antwort von `POST /fixed-costs` — die angelegte Position inklusive vergebener ID.
- *
- * Gleiche Einschränkung wie bei {@link CreateFixedCostRequest}: unbestätigt bis #12.
- */
+/** Antwort von `POST /fixed-costs` — die angelegte Position inklusive vergebener ID. */
 export interface FixedCost extends CreateFixedCostRequest {
   id: number;
+}
+
+/**
+ * Eine Fixkosten-Position, wie sie `GET /fixed-costs` und `PUT /fixed-costs/{id}` liefern
+ * (FE-FC-03) — zusätzlich zu {@link FixedCost} der auf einen Monat normalisierte Betrag, der
+ * in die Safe-to-Spend-Rechnung eingeht. Spiegelt `FixedCostResponse` im Backend.
+ */
+export interface FixedCostDetail extends FixedCost {
+  /** Auf einen Monat normalisierter Betrag in CHF — `betrag` ÷ 1, ÷ 3 bzw. ÷ 12 je nach Intervall. */
+  monatsbetrag: number;
+}
+
+/**
+ * Antwort von `GET /fixed-costs` (FE-FC-03) — die Positionen plus die daraus abgeleiteten
+ * Werte für die Einkommens-Warnung aus US-03. Spiegelt `FixedCostSummaryResponse` im Backend.
+ */
+export interface FixedCostSummary {
+  /** Alle Positionen des Users, stabil nach Anlage-Reihenfolge sortiert. Leer, wenn keine erfasst. */
+  fixedCosts: FixedCostDetail[];
+  /** Summe der `monatsbetrag` aller Positionen, Skala 2. Bei leerer Liste `0`. */
+  summeMonatlich: number;
+  /** Monatliches Einkommen des Users in CHF, oder `null`, solange keines erfasst ist. */
+  monthlyIncome: number | null;
+  /** `true`, wenn `summeMonatlich >= monthlyIncome` — dann kann kein Safe-to-Spend berechnet werden. */
+  exceedsIncome: boolean;
 }

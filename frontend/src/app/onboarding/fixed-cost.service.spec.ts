@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 
-import { FixedCost } from './fixed-cost.model';
+import { FixedCost, FixedCostDetail, FixedCostSummary } from './fixed-cost.model';
 import { FixedCostService } from './fixed-cost.service';
 
 describe('FixedCostService', () => {
@@ -52,5 +52,61 @@ describe('FixedCostService', () => {
     // ohne String-Serializer. Kippt die Annahme mit #12, wird diese Assertion rot.
     expect(typeof req.request.body.betrag).toBe('number');
     req.flush({ id: 1, bezeichnung: 'Serafe', betrag: 335.5, intervall: 'jaehrlich' });
+  });
+
+  it('lädt die Übersicht über GET /fixed-costs', () => {
+    const summary: FixedCostSummary = {
+      fixedCosts: [{ id: 7, bezeichnung: 'Miete', betrag: 1200, intervall: 'monatlich', monatsbetrag: 1200 }],
+      summeMonatlich: 1200,
+      monthlyIncome: 3000,
+      exceedsIncome: false,
+    };
+    let received: FixedCostSummary | undefined;
+
+    service.list().subscribe((response) => (received = response));
+
+    const req = httpMock.expectOne('/fixed-costs');
+    expect(req.request.method).toBe('GET');
+    req.flush(summary);
+
+    expect(received).toEqual(summary);
+  });
+
+  it('sendet PUT /fixed-costs/{id} und liefert die aktualisierte Position', () => {
+    const updated: FixedCostDetail = {
+      id: 7,
+      bezeichnung: 'Miete',
+      betrag: 1250,
+      intervall: 'monatlich',
+      monatsbetrag: 1250,
+    };
+    let received: FixedCostDetail | undefined;
+
+    service
+      .update(7, { bezeichnung: 'Miete', betrag: 1250, intervall: 'monatlich' })
+      .subscribe((response) => (received = response));
+
+    const req = httpMock.expectOne('/fixed-costs/7');
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual({
+      bezeichnung: 'Miete',
+      betrag: 1250,
+      intervall: 'monatlich',
+    });
+    req.flush(updated);
+
+    expect(received).toEqual(updated);
+  });
+
+  it('sendet DELETE /fixed-costs/{id}', () => {
+    let completed = false;
+
+    service.delete(7).subscribe(() => (completed = true));
+
+    const req = httpMock.expectOne('/fixed-costs/7');
+    expect(req.request.method).toBe('DELETE');
+    req.flush(null, { status: 204, statusText: 'No Content' });
+
+    expect(completed).toBe(true);
   });
 });

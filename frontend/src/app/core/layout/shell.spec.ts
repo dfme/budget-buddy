@@ -86,7 +86,7 @@ describe('Shell', () => {
     expect(query('main.main')).not.toBeNull();
   });
 
-  it('führt genau die drei verfügbaren Ziele in der Navigation', () => {
+  it('führt genau die vier verfügbaren Ziele in der Navigation', () => {
     login();
 
     const links = Array.from(el().querySelectorAll<HTMLAnchorElement>('.nav__item'));
@@ -94,11 +94,13 @@ describe('Shell', () => {
       '/dashboard',
       '/categories',
       '/import',
+      '/fixkosten',
     ]);
     expect(links.map((a) => a.textContent?.trim().replace(/\s+/g, ' '))).toEqual([
       '◎ Übersicht',
       '≡ Transaktionen',
       '↑ Import',
+      '▦ Fixkosten',
     ]);
   });
 

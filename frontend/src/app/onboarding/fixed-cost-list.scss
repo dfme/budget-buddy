@@ -1,0 +1,86 @@
+@use 'tokens' as *;
+
+:host {
+  display: block;
+}
+
+.fixed-cost-list {
+  max-width: 40rem;
+  margin: 0 auto;
+}
+
+h1 {
+  margin-bottom: $sp-4;
+}
+
+.income-warning {
+  display: block;
+  margin-bottom: $sp-4;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: $sp-2;
+  border-bottom: 1px solid $c-line;
+  text-align: left;
+}
+
+.numeric {
+  @include tabular;
+
+  text-align: right;
+}
+
+.actions {
+  text-align: right;
+}
+
+td.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: $sp-2;
+}
+
+tfoot th,
+tfoot td {
+  font-weight: 600;
+  border-top: 2px solid $c-line-strong;
+  border-bottom: none;
+}
+
+// Aufgeklappte Bearbeiten-Zeile: eigene Fläche statt Tabellenzellen, damit das Formular nicht
+// an die schmalen Spaltenbreiten der Ansicht gebunden ist.
+tr.editing > td {
+  padding: $sp-3 $sp-2;
+  background: $c-bg-subtle;
+}
+
+tr.editing form {
+  display: flex;
+  flex-direction: column;
+  gap: $sp-3;
+}
+
+.editing__actions {
+  display: flex;
+  gap: $sp-3;
+}
+
+.status {
+  text-align: center;
+  padding: $sp-5 0;
+}
+
+.status.empty {
+  color: $c-ink-2;
+}
+
+.status.error {
+  color: $c-negative;
+  font-weight: 600;
+}

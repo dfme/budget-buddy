@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormBuilder, ReactiveFormsModule, ValidatorFn, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 
 import { AuthService } from '../auth/auth.service';
@@ -12,50 +12,7 @@ import { Input } from '../shared/input/input';
 import { Notice } from '../shared/notice/notice';
 import { INTERVALL_OPTIONS, Intervall } from './fixed-cost.model';
 import { FixedCostService } from './fixed-cost.service';
-
-/**
- * Kleinster erfassbarer Betrag in CHF. CHF-Beträge sind rappengenau (ADR-9), ein Rappen ist
- * damit die kleinste Einheit über null — die Regel «Betrag > 0» aus US-03 als konkreter Wert,
- * den `Validators.min` prüfen kann.
- */
-const MIN_BETRAG_CHF = 0.01;
-
-/**
- * Wie {@link Validators.required}, verwirft aber auch reinen Leerraum.
- *
- * <p>`Validators.required` prüft nur `value.length === 0` — `'   '` wäre damit gültig, und der
- * Trim in {@link FixedCostWizard.submit} schickte anschliessend einen leeren String auf die
- * Leitung. `fixed_costs.bezeichnung` ist `VARCHAR NOT NULL` (V03) und nimmt den leeren String
- * an; die namenlose Position landete in der Datenbank, und die Erfolgs-Notice bliebe aus, weil
- * `@if (savedBezeichnung(); as …)` den leeren String als falsy behandelt.
- *
- * <p>Bewusst mit dem Fehlerschlüssel `required` statt `pattern`: so bleibt die bestehende
- * Meldung in {@link FixedCostWizard.bezeichnungError} zuständig.
- */
-const nonBlank: ValidatorFn = (control) =>
-  String(control.value ?? '').trim() ? null : { required: true };
-
-/**
- * Lässt höchstens zwei Nachkommastellen zu — CHF ist rappengenau (ADR-9).
- *
- * <p>`step="0.01"` im Template ist wegen `novalidate` nur ein Hinweis, und Angular validiert
- * `step` nicht: ohne diesen Validator liefe `10.999` bis in den Request und würde in
- * `DECIMAL(10,2)` still gerundet. Stilles Runden ist bei Geldbeträgen die unangenehme Variante,
- * deshalb der Abbruch vor dem Request. Die Server-Validierung in #12 bleibt davon unberührt —
- * ein Client-Check ersetzt sie nicht.
- *
- * <p>Geprüft wird auf der Dezimaldarstellung statt über `value * 100`, weil binäre Gleitkomma-
- * Arithmetik genau die Rundungsfehler erzeugt, die hier gefunden werden sollen (`10.999 * 100`
- * ergibt `1099.9000000000001`).
- */
-const maxTwoDecimals: ValidatorFn = (control) => {
-  const value = control.value;
-  if (value === null || value === '') {
-    return null;
-  }
-  const [, decimals = ''] = String(value).split('.');
-  return decimals.length <= 2 ? null : { maxDecimals: true };
-};
+import { MIN_BETRAG_CHF, maxTwoDecimals, nonBlank } from './fixed-cost.validators';
 
 /**
  * Erfassungsformular für eine Fixkosten-Position (FE-FC-01, US-03).
