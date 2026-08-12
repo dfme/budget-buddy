@@ -46,11 +46,19 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p><strong>Einkommens-Heuristik (BE-STS-02).</strong> Ist kein Einkommen erfasst, wird über
  * {@link IncomeSuggestionPort} ein Vorschlag aus den wiederkehrenden Gutschriften abgeleitet. Der
- * Aufruf sitzt <em>im</em> {@code noIncome}-Zweig, und das ist die Auflösung zweier ACs, die sich
- * auf den ersten Blick widersprechen: «läuft bei jedem Safe-to-Spend-Aufruf» heisst, dass frisch
- * gerechnet wird — kein Cache, kein Batch-Job, kein persistierter Vorschlag; «nur wenn kein
- * Einkommen gesetzt ist» heisst, dass bei erfasstem Einkommen gar nichts läuft. Beides zugleich gilt
- * genau dann, wenn der Aufruf an dieser Stelle steht und nirgends sonst.
+ * Aufruf sitzt <em>im</em> {@code noIncome}-Zweig — und das ist eine bewusste <strong>Abweichung von
+ * AC3</strong> («Heuristik läuft bei jedem Safe-to-Spend-Aufruf»), keine logische Notwendigkeit.
+ *
+ * <p>Beide ACs liessen sich auch wörtlich zugleich erfüllen: die Heuristik unbedingt laufen lassen
+ * und {@code incomeSuggestion} nur im {@code noIncome}-Fall füllen. AC2 spricht davon, wann ein
+ * Vorschlag <em>gemacht</em> wird, nicht davon, wann die Heuristik <em>läuft</em> — ein Widerspruch
+ * zwischen den beiden ACs besteht also nicht.
+ *
+ * <p>Der Grund für die Abweichung ist ein anderer: bei einem User <em>mit</em> erfasstem Einkommen
+ * ersparte die wörtliche Variante nichts und kostete bei jedem Dashboard-Aufruf eine Query über
+ * zwölf Monate Gutschriften, deren Ergebnis anschliessend verworfen würde. Wird AC3 später anders
+ * entschieden, ist die Verlagerung ein Zweizeiler — sie ist nicht dadurch festgeschrieben, dass die
+ * ACs es erzwängen. Die Lesart ist an Issue #22 festgehalten.
  *
  * <p><strong>Bekannte Einschränkung — Doppelabzug.</strong> Fixkosten werden abgezogen und
  * erscheinen zusätzlich als Belastung unter den importierten Transaktionen; eine Miete, die per

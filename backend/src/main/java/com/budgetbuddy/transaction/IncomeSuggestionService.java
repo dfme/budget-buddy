@@ -39,6 +39,14 @@ import org.springframework.transaction.annotation.Transactional;
  * Ausreisser kippt deshalb die ganze Gruppe, statt herausgefiltert zu werden — lieber kein Vorschlag
  * als ein falscher, den Lara ungeprüft übernimmt.
  *
+ * <p><strong>Bekannte Einschränkung — Eigenübertragungen.</strong> Die Auswahlregel «höchster
+ * Median» bevorzugt systematisch den grössten wiederkehrenden Betrag, und das muss nicht der Lohn
+ * sein: eine monatliche Umbuchung vom eigenen Sparkonto ist typischerweise rund, gross und
+ * regelmässig — ohne den Absender ist sie von einem Lohneingang nicht zu unterscheiden. Die Folge
+ * ist ein <em>zu hoher</em> Vorschlag und, falls er übernommen wird, ein zu hoher Safe-to-Spend.
+ * Entschärft ist das nur durch die Rückfrage aus US-06 («als Monatseinkommen übernehmen?») — der
+ * Vorschlag wird nie still übernommen. Sauber löst es erst die Absender-Gruppierung, siehe unten.
+ *
  * <p><strong>Bekannte Einschränkung — Gruppierung ohne Absender.</strong> US-06 verlangt eine
  * regelmässige Gutschrift <em>desselben Absenders</em>. Der Absender steht nicht in der Datenbank:
  * {@code PdfImportService} persistiert nur den Buchungstext, die Detailzeilen aus
@@ -86,9 +94,14 @@ public class IncomeSuggestionService implements IncomeSuggestionPort {
      * gebucht sein — ohne diesen Schritt hätte jeder Monat einen eigenen Schlüssel und die Gruppe
      * käme nie auf zwei Vorkommen. Die Wortgrenzen sind über {@code \p{L}} formuliert und nicht über
      * {@code \b}, damit «Maien» oder «Marzipan» nicht angeschnitten werden.
+     *
+     * <p>März steht in drei Schreibweisen da: {@code märz}, {@code maerz} und das blosse
+     * {@code marz}. Bank-PDFs kommen auch ASCII-transliteriert, und dabei fällt der Umlaut je nach
+     * Quelle entweder auf die Ersatzschreibweise oder ersatzlos weg. Bliebe {@code marz} stehen,
+     * zerlegte es die Gruppe genau so, wie dieses Muster es verhindern soll.
      */
     private static final Pattern MONTH_NAME = Pattern.compile(
-            "(?<!\\p{L})(?:januar|februar|m(?:ä|ae)rz|april|mai|juni|juli|august|september"
+            "(?<!\\p{L})(?:januar|februar|m(?:ä|ae|a)rz|april|mai|juni|juli|august|september"
                     + "|oktober|november|dezember)(?!\\p{L})");
 
     /**

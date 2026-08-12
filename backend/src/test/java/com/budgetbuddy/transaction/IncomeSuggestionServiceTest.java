@@ -60,13 +60,29 @@ class IncomeSuggestionServiceTest {
     void monthNameInsideTheTextDoesNotSplitTheGroup() {
         // Post-Fixture: der Lohn ist als «GUTSCHRIFT LOHN <Monat>» gebucht. Ohne Normalisierung
         // hätte jeder Monat einen eigenen Schlüssel und keine Gruppe käme auf zwei Vorkommen.
-        givenToday("2026-11-15");
+        // «Heute» liegt hinter allen drei Buchungen: die echte Query kappt die obere Grenze bei
+        // heute, eine Gutschrift mit Zukunftsdatum könnte gar nicht zurückkommen. Das Mock würde
+        // das verdecken.
+        givenToday("2026-12-15");
         givenCredits(
                 credit("2026-09-30", "GUTSCHRIFT LOHN SEPTEMBER", "5500.00"),
                 credit("2026-10-30", "GUTSCHRIFT LOHN OKTOBER", "5500.00"),
                 credit("2026-11-30", "GUTSCHRIFT LOHN NOVEMBER", "5500.00"));
 
         assertThat(service.suggestMonthlyIncome(USER_ID)).hasValue(new BigDecimal("5500.00"));
+    }
+
+    @Test
+    void marchWithoutUmlautOrSubstituteIsAlsoStripped() {
+        // «märz» kommt in Bank-PDFs ASCII-transliteriert vor — als «maerz», aber auch ersatzlos als
+        // «marz». Bliebe «marz» stehen, bekäme diese Buchung einen eigenen Schlüssel und beide
+        // Gruppen hätten nur ein Vorkommen: kein Vorschlag.
+        givenToday("2026-06-01");
+        givenCredits(
+                credit("2026-03-25", "GUTSCHRIFT LOHN MARZ", "5000.00"),
+                credit("2026-04-25", "GUTSCHRIFT LOHN APRIL", "5000.00"));
+
+        assertThat(service.suggestMonthlyIncome(USER_ID)).hasValue(new BigDecimal("5000.00"));
     }
 
     @Test

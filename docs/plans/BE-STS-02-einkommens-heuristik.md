@@ -32,14 +32,34 @@ Weitere Entscheide:
 - **Rundung:** Median auf Skala 2 mit `HALF_UP` — dieselbe Regel wie `FixedCostService:185` und
   `SafeToSpendService`.
 
-## Verhältnis von AC2 und AC3
+## Verhältnis von AC2 und AC3 — bewusste Abweichung
 
-AC3 verlangt «Heuristik läuft bei jedem Safe-to-Spend-Aufruf», AC2 «Vorschlag nur wenn kein
-Einkommen manuell gesetzt ist». Beides zugleich heisst: der Aufruf sitzt im `noIncome`-Zweig von
-`SafeToSpendService.calculate(...)` und wird dort bei jedem Request frisch gerechnet — kein Cache,
-kein Batch-Job, kein persistierter Vorschlag. Ist ein Einkommen erfasst, läuft die Heuristik gar
-nicht; das ist genau AC2 und spart zugleich die Query. Diese Lesart steht im Javadoc, damit sie
-überprüfbar ist und nicht bei der nächsten Änderung still gekippt wird.
+> **Korrigiert nach dem Review von [#160](https://github.com/dfme/budget-buddy/pull/160).** Die
+> ursprüngliche Fassung dieses Abschnitts behauptete, die Platzierung im `noIncome`-Zweig sei die
+> einzige Stelle, an der beide ACs zugleich gelten. Das ist falsch, siehe unten.
+
+AC3 verlangt «Heuristik läuft bei jedem Safe-to-Spend-Aufruf», AC2 «Vorschlag wird nur gemacht wenn
+kein Einkommen manuell gesetzt ist». Ein Widerspruch besteht zwischen den beiden **nicht**: AC2 sagt,
+wann ein Vorschlag *herausgegeben* wird, nicht, wann die Heuristik *läuft*. Beide wären wörtlich
+zugleich erfüllbar:
+
+```java
+// AC3 wörtlich: läuft immer
+Optional<BigDecimal> suggestion = incomeSuggestionPort.suggestMonthlyIncome(userId);
+if (monthlyIncome.isEmpty()) {
+    return new SafeToSpendResponse(null, weeksLeft, false, true, suggestion.orElse(null));
+}
+// AC2 gehalten: incomeSuggestion bleibt null
+```
+
+Umgesetzt ist trotzdem die Variante mit dem Aufruf **im** `noIncome`-Zweig. Das ist damit eine
+bewusste Abweichung von AC3, und der Grund ist nicht Logik, sondern Aufwand: bei einem User *mit*
+erfasstem Einkommen kostete die wörtliche Variante bei jedem Dashboard-Aufruf eine Query über zwölf
+Monate Gutschriften, deren Ergebnis anschliessend verworfen würde.
+
+Die Abweichung ist an [#22](https://github.com/dfme/budget-buddy/issues/22) festgehalten, damit die
+AC nicht unabgehakt hängen bleibt. Wird AC3 später anders entschieden, ist die Verlagerung ein
+Zweizeiler — sie ist nicht dadurch festgeschrieben, dass die ACs es erzwängen.
 
 ## Algorithmus
 
@@ -123,7 +143,8 @@ Abschliessend `./mvnw verify` (Backend) und `npm run build` (Frontend, für die 
 
 - [ ] Wiederkehrende Gutschrift (±5 %, ≥ 2 Monate) wird erkannt
 - [ ] Vorschlag wird nur gemacht wenn kein Einkommen manuell gesetzt ist
-- [ ] Heuristik läuft bei jedem Safe-to-Spend-Aufruf
+- [ ] Heuristik läuft bei jedem Safe-to-Spend-Aufruf — **abweichend umgesetzt:** nur bei Aufrufen
+      ohne erfasstes Einkommen, siehe «Verhältnis von AC2 und AC3» oben
 
 ## Bewusst nicht in diesem Task
 
