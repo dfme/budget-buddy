@@ -379,18 +379,19 @@
 
 <div class="deck">
 
+
   <!-- ── 0 · Titel ──────────────────────────────────── -->
   <section class="slide" data-active="true">
     <div class="inner">
       <span class="toolname">mcp__budget__kategorisiere</span>
-      <h1>Die Kategorisierung aus BudgetBuddy als Custom Tool</h1>
+      <h1>Drei Agenten für BudgetBuddy, drei Arten der Arbeitsteilung</h1>
       <p class="lede">
-        Ein MCP-Tool im Claude Agent SDK, das die Hybrid-Kategorisierung
-        unseres Spring-Boot-Backends nachbildet — mit denselben Händler-Patterns
-        und denselben Prompts.
+        Custom Tools im Claude Agent SDK, gebaut auf der Fachlogik unseres
+        Spring-Boot-Backends — dieselben Händler-Patterns, dieselben Prompts,
+        dieselbe Rechnung.
       </p>
       <div class="agenda">
-        <div class="item"><span class="t">0:45</span><span>Was das Tool tut — und warum es zum Projekt passt</span></div>
+        <div class="item"><span class="t">0:45</span><span>Die Tools — was sie tun und warum sie zum Projekt passen</span></div>
         <div class="item"><span class="t">1:00</span><span>Der Lauf: Agent ruft Tool, Tool antwortet</span></div>
         <div class="item"><span class="t">0:45</span><span>Guardrails und Kosten</span></div>
         <div class="item"><span class="t">0:30</span><span>Der Stolperstein</span></div>
@@ -398,30 +399,54 @@
     </div>
   </section>
 
-  <!-- ── 1 · Das Tool ───────────────────────────────── -->
+  <!-- ── 1 · Die Tools ──────────────────────────────── -->
   <section class="slide">
     <div class="inner">
       <div class="meta">
         <span class="clock">0:45</span>
-        <span>Das Tool</span>
+        <span>Die Tools</span>
         <span class="spacer"></span>
-        <span>tools/kategorisierung_tool.py</span>
+        <span>tools/*.py</span>
       </div>
 
-      <h2>Stufe 1 wird zum Tool, der Agent wird zu Stufe 2</h2>
+      <h2>Ein Muster, drei Arbeitsteilungen</h2>
+
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>Agent</th><th>Das Tool …</th><th>Das Modell …</th><th>Wofür</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>kategorisierung</td>
+              <td>kennt bekannte Händler</td>
+              <td>entscheidet, wenn das Tool nichts weiss</td>
+              <td>US-05 · ADR-6</td>
+            </tr>
+            <tr>
+              <td>bericht</td>
+              <td>rechnet jede Zahl</td>
+              <td>formuliert nur — und muss durch die Prüfung</td>
+              <td>US-09 · ADR-9</td>
+            </tr>
+            <tr>
+              <td>lookup_pfleger</td>
+              <td>hat das Veto</td>
+              <td>schlägt neue Patterns vor</td>
+              <td>senkt API-Calls</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
       <div class="ledger">
         <div class="row">
-          <span class="key">Tut</span>
-          <span class="val">Nimmt einen Transaktions-Freitext, prüft ihn gegen die Lookup-Tabelle bekannter Schweizer Händler und liefert eine der 13 festen Kategorien zurück — oder die Meldung, dass kein Pattern getroffen hat.</span>
-        </div>
-        <div class="row">
           <span class="key">Passt</span>
-          <span class="val">ADR-6 beschreibt genau diese Kette: <strong>Lookup zuerst</strong> (deterministisch, kostenlos, deckt 70–80 %), <strong>LLM nur für den Rest</strong>. Im Agenten ist die Aufteilung wörtlich sichtbar — Stufe 1 im Tool, Stufe 2 im Modell.</span>
+          <span class="val">ADR-6 schreibt die Kette <strong>Lookup zuerst, LLM nur für den Rest</strong> vor — im Agenten ist sie wörtlich sichtbar. Der Bericht prototypt <em>report/</em>, das Modul enthält bisher nur <em>package-info.java</em>. Der Pfleger schliesst den Kreis: jedes neue Pattern spart dauerhaft API-Calls.</span>
         </div>
         <div class="row">
           <span class="key">Echt</span>
-          <span class="val">Patterns aus <em>V04__create_category_lookup_table.sql</em>, Match-Regel aus <em>CategoryLookupRepository</em>, beide Prompts wörtlich aus <em>ClaudeCategorizationService</em>. Der Agent entscheidet wie die Produktion.</span>
+          <span class="val">Patterns aus <em>V04__create_category_lookup_table.sql</em>, Prompts aus <em>ClaudeCategorizationService</em>, Aggregation aus <em>TransactionSummaryService</em> samt Largest-Remainder — die Anteile summieren sich auf exakt 100.00.</span>
         </div>
       </div>
 
@@ -433,7 +458,6 @@
     text = treffer(kategorie) <span class="k">if</span> kategorie <span class="k">else</span> CLAUDE_USER_PROMPT  <span class="c"># Stufe 2</span>
     <span class="k">return</span> {<span class="s">"content"</span>: [{<span class="s">"type"</span>: <span class="s">"text"</span>, <span class="s">"text"</span>: text}]}
 
-budget = create_sdk_mcp_server(name=<span class="s">"budget"</span>, tools=[kategorisiere])
 allowed_tools=[<span class="s">"<span class="hi">mcp__budget__kategorisiere</span>"</span>]</code></pre>
     </div>
   </section>
@@ -462,11 +486,7 @@ Lebensmittel
       <div class="tablewrap">
         <table>
           <thead>
-            <tr>
-              <th>Transaktion</th>
-              <th>Kategorie</th>
-              <th>Entschieden von</th>
-            </tr>
+            <tr><th>Transaktion</th><th>Kategorie</th><th>Entschieden von</th></tr>
           </thead>
           <tbody>
             <tr>
@@ -488,11 +508,16 @@ Lebensmittel
         </table>
       </div>
 
-      <p class="lede">
-        Bei den ersten beiden antwortet das Tool fertig. Bei der Bäckerei gibt es
-        den Backend-Prompt samt Kategorienliste zurück und überlässt dem Modell
-        die Entscheidung — das ist die Hybrid-Kette in einem einzigen Lauf.
-      </p>
+      <div class="ledger">
+        <div class="row">
+          <span class="key">Bericht</span>
+          <span class="val"><em>pruefe_bericht</em> läuft zweimal — die erste Fassung enthielt eine Zahl, die nicht aus der Aggregation stammte. Der Agent bessert nach, bevor er ausgibt.</span>
+        </div>
+        <div class="row">
+          <span class="key">Pfleger</span>
+          <span class="val"><em>LOHN ARBEITGEBER AG</em> wird abgelehnt — der echte Text lautet «LOHN <strong>JUNI</strong> ARBEITGEBER AG». Das Modell bessert auf <em>LOHN</em> nach und schliesst damit alle drei Lohn-Transaktionen.</span>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -506,38 +531,43 @@ Lebensmittel
         <span>ClaudeAgentOptions</span>
       </div>
 
-      <h2>Ein einziges Tool, drei harte Stopps</h2>
+      <h2>Nur die eigenen Tools, drei harte Stopps</h2>
 
       <div class="split">
         <div>
 <pre><code>opts = ClaudeAgentOptions(
     model=<span class="s">"claude-haiku-4-5"</span>,
-    <span class="hi">tools</span>=[],                <span class="c"># Bash, Read, Write aus</span>
+    <span class="hi">tools</span>=[],              <span class="c"># Bash, Read, Write aus</span>
+    <span class="hi">setting_sources</span>=[],    <span class="c"># CLAUDE.md + Plugins aus</span>
     allowed_tools=[<span class="s">"mcp__budget__kategorisiere"</span>],
     <span class="hi">max_turns</span>=3,
     <span class="hi">max_budget_usd</span>=0.20,
 )</code></pre>
           <p class="lede" style="margin-top:14px">
-            Der wichtigste Zweizeiler ist <code style="font-family:var(--mono);font-size:.86em">tools=[]</code>.
             <strong>allowed_tools nimmt dem Modell keine Tools weg</strong> — es erlaubt
-            nur, sie ohne Rückfrage auszuführen. Ohne die leere Liste hätte der Agent
-            weiterhin Bash.
+            nur, sie ohne Rückfrage auszuführen. Ohne <code style="font-family:var(--mono);font-size:.86em">tools=[]</code>
+            hätte der Agent weiterhin Bash.
           </p>
         </div>
 
         <div>
-          <div class="colhead">Gemessen im Lauf</div>
-          <div class="stats">
-            <div class="stat"><div class="n money">$0.0706</div><div class="l">Kosten total</div></div>
-            <div class="stat"><div class="n">3</div><div class="l">Tool-Calls</div></div>
-            <div class="stat"><div class="n">4</div><div class="l">Turns</div></div>
-            <div class="stat"><div class="n">$0.20</div><div class="l">Limit, nicht erreicht</div></div>
+          <div class="colhead">Gemessen, pro Lauf</div>
+          <div class="tablewrap">
+            <table>
+              <thead>
+                <tr><th>Agent</th><th>Modell</th><th>Turns</th><th>Kosten</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>kategorisierung</td><td>Haiku 4.5</td><td class="num">4</td><td class="num">$0.0706</td></tr>
+                <tr><td>bericht</td><td>Sonnet 5</td><td class="num">4</td><td class="num">$0.1709</td></tr>
+                <tr><td>lookup_pfleger</td><td>Haiku 4.5</td><td class="num">10</td><td class="num">$0.0575</td></tr>
+              </tbody>
+            </table>
           </div>
-          <div class="colhead" style="margin-top:24px">Zusätzlich abgesichert</div>
+          <div class="colhead" style="margin-top:22px">Zusätzlich abgesichert</div>
           <div class="colbody">
-            <p>Haiku statt Opus — Klassifikation gegen eine feste Liste braucht kein grosses Modell.</p>
-            <p>Leerer Text kommt als <code>is_error</code> zurück, ohne den Loop zu beenden.</p>
-            <p>Jede Antwortzeile wird gegen die 13 Kategorien geprüft; alles andere fällt auf <code>Sonstiges</code> — dieselbe Regel wie <em>parseCategory</em> im Backend.</p>
+            <p>Leere Eingaben und zu wenig Daten kommen als <code>is_error</code> zurück, ohne den Loop zu beenden.</p>
+            <p>Jede Modellantwort wird gegen die 13 Kategorien geprüft; alles andere fällt auf <code>Sonstiges</code> — dieselbe Regel wie <em>parseCategory</em> im Backend.</p>
           </div>
         </div>
       </div>
@@ -551,27 +581,26 @@ Lebensmittel
         <span class="clock">0:30</span>
         <span>Stolperstein</span>
         <span class="spacer"></span>
-        <span>Prompt gegen Prompt</span>
+        <span>$0.95 für einen Bericht</span>
       </div>
 
-      <h2>Zwei Prompts, die sich widersprechen</h2>
+      <h2>Der Agent zahlte für Kontext, den er nie brauchte</h2>
 
       <div class="split">
         <div>
           <div class="colhead">Das Problem</div>
           <div class="colbody">
-            <p>Der Backend-Prompt verlangt wörtlich:
-              <em>«Antworte ausschliesslich mit genau einem Kategorienamen. Keine Erklärung, keine Satzzeichen, kein weiterer Text.»</em></p>
-            <p>Der Agent muss aber ein Tool aufrufen und mehrere Transaktionen beantworten. Formulieren wir den Prompt um, entscheidet er nicht mehr wie die Produktion — und der ganze Vergleich ist wertlos.</p>
+            <p>Der erste Lauf des Berichtsagenten kostete <strong>$0.95</strong>, riss das Budget und brach mit einem Traceback ab. Für einen Text von 200 Wörtern.</p>
+            <p>Nicht das Denken war teuer: <strong>274'000 Input-Tokens</strong> bei 1'900 Output-Tokens, Thinking-Tokens 0.</p>
           </div>
         </div>
 
         <div>
           <div class="colhead solve">Die Lösung</div>
           <div class="colbody">
-            <p>Der Backend-Prompt bleibt <strong>unverändert und zuoberst</strong>. Darunter steht nur, was der Agent zusätzlich braucht: Tool zuerst aufrufen, eine Kategorie pro Zeile.</p>
-            <p>Die Zuordnung Zeile → Transaktion macht nicht der Prompt, sondern Python: <code>zip(transaktionen, antwortzeilen)</code>.</p>
-            <p><strong>Formatierung gehört in den Code, nicht in den Prompt.</strong></p>
+            <p><code>setting_sources</code> steht im SDK per Default auf <code>["user","project"]</code>. Die CLI lud CLAUDE.md, die Projekt-Skills und alle installierten Plugins mit — <strong>rund 88'000 Tokens pro Request</strong>.</p>
+            <p>Mit <code>setting_sources=[]</code> und <code>effort="low"</code>: <strong>$0.17</strong>.</p>
+            <p><strong>Wichtiger als die Kosten:</strong> ohne diese Zeile hängt das Verhalten davon ab, wer den Agenten startet und was lokal installiert ist.</p>
           </div>
         </div>
       </div>
@@ -579,10 +608,10 @@ Lebensmittel
       <hr class="rule">
 
       <p class="lede">
-        Nebenbei: <code style="font-family:var(--mono);font-size:.86em">@tool</code> gibt ein
-        <code style="font-family:var(--mono);font-size:.86em">SdkMcpTool</code>-Objekt zurück, keine Funktion.
-        Im Unit-Test ruft man deshalb <code style="font-family:var(--mono);font-size:.86em">kategorisiere.handler(args)</code> auf —
-        ohne das läuft man in ein <em>«object is not callable»</em>.
+        Und zwei kleinere: <code style="font-family:var(--mono);font-size:.86em">@tool</code> gibt ein
+        <code style="font-family:var(--mono);font-size:.86em">SdkMcpTool</code>-Objekt zurück, keine Funktion — im Test ruft man
+        <code style="font-family:var(--mono);font-size:.86em">.handler(args)</code> auf. Und der Backend-Prompt verlangt «nur ein
+        Kategoriename», der Agent muss aber mehrere Transaktionen beantworten: Formatierung gehört in den Code, nicht in den Prompt.
       </p>
     </div>
   </section>
