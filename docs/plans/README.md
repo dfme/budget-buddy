@@ -32,6 +32,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `BE-CAT-05` | [GET /transactions/summary](BE-CAT-05-transactions-summary.md) | [#20](https://github.com/dfme/budget-buddy/issues/20) | US-05 | Sprint 3 |
 | `BE-FC-01` | [FixedCost Entity und Repository](BE-FC-01-fixedcost-entity.md) | [#10](https://github.com/dfme/budget-buddy/issues/10) | US-03 | Sprint 4 |
 | `BE-FC-02` | [FixedCostService: CRUD und Normalisierung](BE-FC-02-fixedcost-service.md) | [#11](https://github.com/dfme/budget-buddy/issues/11) | US-03 | Sprint 4 |
+| `BE-FC-03` | [REST-Endpoints für Fixkosten](BE-FC-03-fixed-costs-endpoints.md) | [#12](https://github.com/dfme/budget-buddy/issues/12) | US-03 | Sprint 4 |
 | `BE-PDF-01` | [PDFBox-Parser für Schweizer Bank-PDFs](BE-PDF-01-swiss-bank-parser.md) | [#13](https://github.com/dfme/budget-buddy/issues/13) | US-04 | Sprint 3 |
 | `BE-PDF-02` | [PdfImportService](BE-PDF-02-pdf-import-service.md) | [#17](https://github.com/dfme/budget-buddy/issues/17) | US-04 | Sprint 3 |
 | `BE-PDF-03` | [POST /import/pdf Endpoint](BE-PDF-03-pdf-upload-endpoint.md) | [#18](https://github.com/dfme/budget-buddy/issues/18) | US-04 | Sprint 3 |

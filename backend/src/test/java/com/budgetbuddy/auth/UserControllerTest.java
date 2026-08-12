@@ -1,6 +1,7 @@
 package com.budgetbuddy.auth;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -126,5 +127,45 @@ class UserControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"betrag\": 5000.00}"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    // --- POST /users/me/onboarding-complete (BE-FC-03, US-03) ---
+
+    @Test
+    void onboardingCompleteSetsTheFlagInTheDatabase() throws Exception {
+        jdbcTemplate.update("UPDATE users SET onboarding_completed = false WHERE id = ?", userId);
+
+        mockMvc.perform(post("/users/me/onboarding-complete").cookie(jwtCookie()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.onboardingCompleted").value(true));
+
+        // Gegen die Datenbank geprüft, nicht nur gegen die Antwort: die Antwort käme auch aus einer
+        // Entity, die nie geflusht wurde.
+        org.assertj.core.api.Assertions.assertThat(onboardingCompleted()).isTrue();
+    }
+
+    @Test
+    void onboardingCompleteIsIdempotent() throws Exception {
+        jdbcTemplate.update("UPDATE users SET onboarding_completed = false WHERE id = ?", userId);
+
+        mockMvc.perform(post("/users/me/onboarding-complete").cookie(jwtCookie()))
+                .andExpect(status().isOk());
+        // Zweiter Aufruf ist kein Fehler — der Client muss den Zustand nicht vorher prüfen.
+        mockMvc.perform(post("/users/me/onboarding-complete").cookie(jwtCookie()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.onboardingCompleted").value(true));
+
+        org.assertj.core.api.Assertions.assertThat(onboardingCompleted()).isTrue();
+    }
+
+    @Test
+    void onboardingCompleteWithoutJwtReturns401() throws Exception {
+        mockMvc.perform(post("/users/me/onboarding-complete"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    private boolean onboardingCompleted() {
+        return Boolean.TRUE.equals(jdbcTemplate.queryForObject(
+                "SELECT onboarding_completed FROM users WHERE id = ?", Boolean.class, userId));
     }
 }

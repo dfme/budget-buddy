@@ -1,5 +1,5 @@
 /**
- * Budget-Modul: FixedCost/FixedCostRepository, FixedCostService, BudgetController,
+ * Budget-Modul: FixedCost/FixedCostRepository, FixedCostService, FixedCostController,
  * SafeToSpendService, SavingsGoalService.
  *
  * <p>Fixkosten (US-03), wöchentlicher Safe-to-Spend-Betrag und Sparziele; alle CHF-Beträge als
