@@ -36,6 +36,10 @@ replay_pid*
 .~lock.*
 .~$*
 
+# Python (tools/)
+__pycache__/
+*.py[cod]
+
 # claude specific
 .claude/settings.local.json
 
