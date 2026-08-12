@@ -156,9 +156,10 @@ describe('onboardingGuard', () => {
 
 describe('onboardingGuard am echten Router', () => {
   // Die Tests oben pruefen den Rueckgabewert des Guards. Hier navigiert der echte Router
-  // durch `app.routes`: das belegt AC1 als Verhalten und nicht als Zusicherung ueber einen
-  // UrlTree — inklusive der Annahme, dass Angular die Guards eines `canActivate`-Arrays
-  // der Reihe nach ausfuehrt und beim ersten UrlTree abbricht.
+  // durch `app.routes`: das belegt AC1 als Verhalten statt als Zusicherung ueber einen
+  // UrlTree — und genau das deckte auf, dass Angular die Guards eines `canActivate`-Arrays
+  // NICHT der Reihe nach ausfuehrt, sondern nebenlaeufig (siehe `onboarding.guard.ts` und
+  // `ensureCurrentUser` in `auth.service.ts`).
   let httpMock: HttpTestingController;
   let router: Router;
 
