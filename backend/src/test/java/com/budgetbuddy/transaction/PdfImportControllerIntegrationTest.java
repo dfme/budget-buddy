@@ -202,8 +202,11 @@ class PdfImportControllerIntegrationTest {
                 .map(Transaction::getId).toList();
 
         // FE-PDF-03: «Trotzdem importieren» wiederholt denselben Upload mit force=true.
+        // queryParam statt param: der Client hängt das Flag an die URL, und nur queryParam
+        // erzeugt im Test wirklich einen Query-String statt bloss einen Eintrag in der
+        // Parameter-Map. Sonst prüft der Test einen Pfad, den der Client gar nicht nimmt.
         mockMvc.perform(multipart("/import/pdf").file(pdfPart(fixture()))
-                        .param("force", "true").cookie(jwtCookie(userId)))
+                        .queryParam("force", "true").cookie(jwtCookie(userId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.count").value(28));
 
@@ -232,7 +235,7 @@ class PdfImportControllerIntegrationTest {
                 .andExpect(status().isOk());
 
         mockMvc.perform(multipart("/import/pdf").file(pdfPart(fixture()))
-                        .param("force", "true").cookie(jwtCookie(userId)))
+                        .queryParam("force", "true").cookie(jwtCookie(userId)))
                 .andExpect(status().isOk());
 
         assertThat(transactionRepository.findAll()).filteredOn(tx -> tx.getUserId() == otherUserId)

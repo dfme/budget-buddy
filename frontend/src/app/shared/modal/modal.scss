@@ -23,6 +23,12 @@
   position: relative;
   width: 100%;
   max-width: 26rem;
+  // Wiederverwendbar heisst: auch für Inhalt, der höher ist als der Viewport. Ohne diese beiden
+  // Zeilen schneidet `align-items: center` ihn oben ab, und zwar unerreichbar — der Überhang
+  // liegt ausserhalb des Scrollbereichs. `100%` ist die Content-Höhe des Hosts, also Viewport
+  // minus dessen Padding.
+  max-height: 100%;
+  overflow-y: auto;
   padding: $sp-5;
   background: $c-surface;
   border: 1px solid $c-line;

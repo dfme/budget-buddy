@@ -82,7 +82,7 @@ class PdfImportServiceTest {
         when(categorizationPort.categorize("Saläreingang"))
                 .thenReturn(Optional.of(Category.EINKOMMEN));
 
-        ImportResult result = service.importPdf(USER_ID, PDF_BYTES);
+        ImportResult result = service.importPdf(USER_ID, PDF_BYTES, false);
 
         assertThat(result.pdfSha256()).isEqualTo(expectedSha256());
         assertThat(result.transactionCount()).isEqualTo(2);
@@ -107,7 +107,7 @@ class PdfImportServiceTest {
         when(clock.instant()).thenReturn(T0);
         when(repository.existsByUserIdAndPdfSha256(USER_ID, expectedSha256())).thenReturn(true);
 
-        assertThatThrownBy(() -> service.importPdf(USER_ID, PDF_BYTES))
+        assertThatThrownBy(() -> service.importPdf(USER_ID, PDF_BYTES, false))
                 .isInstanceOf(DuplicatePdfImportException.class);
 
         verifyNoInteractions(parser, categorizationPort);
@@ -142,7 +142,7 @@ class PdfImportServiceTest {
         when(categorizationPort.categorize(anyString()))
                 .thenReturn(Optional.of(Category.SONSTIGES));
 
-        service.importPdf(USER_ID, PDF_BYTES);
+        service.importPdf(USER_ID, PDF_BYTES, false);
 
         verify(repository, never()).deleteByUserIdAndPdfSha256(any(), anyString());
         verify(repository).saveAll(any());
@@ -176,7 +176,7 @@ class PdfImportServiceTest {
         when(categorizationPort.categorize(anyString()))
                 .thenReturn(Optional.of(Category.SONSTIGES));
 
-        assertThatThrownBy(() -> service.importPdf(USER_ID, PDF_BYTES))
+        assertThatThrownBy(() -> service.importPdf(USER_ID, PDF_BYTES, false))
                 .isInstanceOf(PdfImportTimeoutException.class);
 
         verify(repository, never()).saveAll(any());
@@ -192,7 +192,7 @@ class PdfImportServiceTest {
         when(parser.parse(PDF_BYTES)).thenReturn(List.of(
                 parsed("GIRO POST", List.of(), "850.00", false)));
 
-        assertThatThrownBy(() -> service.importPdf(USER_ID, PDF_BYTES))
+        assertThatThrownBy(() -> service.importPdf(USER_ID, PDF_BYTES, false))
                 .isInstanceOf(PdfImportTimeoutException.class);
 
         verifyNoInteractions(categorizationPort);
@@ -207,7 +207,7 @@ class PdfImportServiceTest {
                 parsed("GIRO POST", List.of(), "850.00", false)));
         when(categorizationPort.categorize(anyString())).thenReturn(Optional.empty());
 
-        service.importPdf(USER_ID, PDF_BYTES);
+        service.importPdf(USER_ID, PDF_BYTES, false);
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<Transaction>> saved = ArgumentCaptor.forClass(List.class);
@@ -224,7 +224,7 @@ class PdfImportServiceTest {
         when(categorizationPort.categorize(anyString()))
                 .thenReturn(Optional.of(Category.WOHNEN));
 
-        service.importPdf(USER_ID, PDF_BYTES);
+        service.importPdf(USER_ID, PDF_BYTES, false);
 
         // Bei Überweisungen steht der Empfänger in den Detailzeilen — ohne ihn hätte die
         // Kategorisierung nur "ESR" als Input (ADR-6 liefe leer).
@@ -237,7 +237,7 @@ class PdfImportServiceTest {
         when(repository.existsByUserIdAndPdfSha256(any(), anyString())).thenReturn(false);
         when(parser.parse(PDF_BYTES)).thenThrow(new PdfParseException("kaputt", null));
 
-        assertThatThrownBy(() -> service.importPdf(USER_ID, PDF_BYTES))
+        assertThatThrownBy(() -> service.importPdf(USER_ID, PDF_BYTES, false))
                 .isInstanceOf(PdfParseException.class);
         verify(repository, never()).saveAll(any());
     }
@@ -255,6 +255,7 @@ class PdfImportServiceTest {
         when(categorizationPort.categorize(anyString()))
                 .thenReturn(Optional.of(Category.SONSTIGES));
 
-        assertThat(fixedClockService.importPdf(USER_ID, PDF_BYTES).transactionCount()).isEqualTo(1);
+        assertThat(fixedClockService.importPdf(USER_ID, PDF_BYTES, false).transactionCount())
+                .isEqualTo(1);
     }
 }

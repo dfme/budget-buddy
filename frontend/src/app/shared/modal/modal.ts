@@ -39,6 +39,10 @@ let nextId = 0;
     // liegt zwar in der Falle, aber `keydown` am body (z. B. direkt nach dem Öffnen) erreicht
     // ein Panel-Listener nicht.
     '(document:keydown.escape)': 'cancel.emit()',
+    // Angular lässt ein statisches `title="…"` zusätzlich als DOM-Attribut stehen, auch wenn es
+    // als Input konsumiert wird. Auf diesem Host wäre das ein nativer Tooltip über der ganzen
+    // Seite: er ist `position: fixed; inset: 0`, die Trefferfläche also der ganze Viewport.
+    '[attr.title]': 'null',
   },
 })
 export class Modal {

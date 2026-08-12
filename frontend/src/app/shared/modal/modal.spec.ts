@@ -64,6 +64,16 @@ describe('Modal', () => {
     );
   });
 
+  it('lässt kein title-Attribut auf dem Host stehen', () => {
+    // Regression: Angular schreibt ein statisches `title="…"` zusätzlich ins DOM, obwohl es hier
+    // ein Input ist. Der Host ist `position: fixed; inset: 0` — das Attribut ergäbe einen nativen
+    // Tooltip, der beim Hovern über der ganzen Seite aufgeht, solange der Dialog offen ist.
+    const modal = fixture.nativeElement.querySelector('app-modal');
+    expect(modal.hasAttribute('title')).toBe(false);
+    // Die Überschrift steht weiterhin sichtbar im Panel.
+    expect(panel().textContent).toContain('Kontoauszug bereits importiert');
+  });
+
   it('projiziert den Inhalt und beschriftet beide Aktionen', () => {
     expect(panel().textContent).toContain('Dieser Kontoauszug wurde bereits importiert.');
     expect(button('Trotzdem importieren')).toBeTruthy();

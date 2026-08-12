@@ -79,14 +79,6 @@ public class PdfImportService {
     }
 
     /**
-     * Importiert alle Transaktionen aus einem Kontoauszug-PDF — der reguläre Import mit
-     * Duplikatschutz. Siehe {@link #importPdf(long, byte[], boolean)}.
-     */
-    public ImportResult importPdf(long userId, byte[] pdfBytes) {
-        return importPdf(userId, pdfBytes, false);
-    }
-
-    /**
      * Importiert alle Transaktionen aus einem Kontoauszug-PDF für den angegebenen User.
      *
      * @param userId ID des eingeloggten Users (aus dem JWT).
