@@ -26,7 +26,9 @@ weitere Tabellen und damit Migrationsaufwand hinzugekommen.
 
 Wir nutzen **PostgreSQL 18 bei [Neon](https://neon.com), Region Frankfurt/EU, Free-Plan**
 ([Abstimmungsergebnis zu Variante 4](https://github.com/dfme/budget-buddy/issues/78#issuecomment-5015065128)).
-Der Render Web-Service bleibt auf Free, der Render-Workspace auf Hobby.
+Der Render-Workspace bleibt auf Hobby. Der Web-Service lief zum Zeitpunkt dieses Entscheids auf
+Free und wurde am 09.08.2026 auf Starter gewechselt (INFRA-24) — das ist Variante 8 der Analyse
+und ändert an diesem Entscheid nichts, ausser dass der Cold Start des Web-Service entfällt.
 
 Konkret:
 
@@ -94,9 +96,11 @@ Dazu kommen:
 
 - **Docker wird Pflicht** — lokal für `docker compose`, in CI für Testcontainers und den
   Service-Container des E2E-Jobs. Auf GitHub-hosted Runnern ist das gegeben.
-- **Cold Start bleibt, doppelt.** Der Render-Web-Service spinnt nach 15 Min herunter, Neon nach
-  5 Min. Beide wachen automatisch auf; der erste Request nach einer Pause ist entsprechend
-  langsam. Behebbar für $7/Monat (Variante 8), bewusst nicht Teil dieses Entscheids.
+- **Cold Start bleibt — seit dem Wechsel auf Starter nur noch einer.** Neon skaliert nach 5 Min
+  auf null und wacht beim nächsten Zugriff automatisch auf; der erste Request danach ist
+  entsprechend langsam. Der zweite Cold Start (Render-Spin-Down nach 15 Min) ist mit Variante 8
+  am 09.08.2026 entfallen (INFRA-24). Bei Verfassen dieses ADR war er noch Teil der
+  Konsequenzen.
 - **Kein vollwertiges Backup.** Neon Free bietet ~6 h PITR. Für ein Kursprojekt akzeptiert; ein
   echtes Backup-Fenster kostet Geld (ADR-5, Variante 7).
 - **Grenzen des Free-Plans:** 0,5 GB Storage und 100 CU-h pro Projekt. Für MVP-Scale
@@ -153,18 +157,61 @@ entsteht, das nie ins Repository gehört.
    Entscheid auf Hobby und erlaubt damit genau einen Admin; dieser Engpass soll sich nicht
    verdoppeln.
 5. **Render-Variablen setzen** — *Service budgetbuddy → Environment*. Die URI aus Schritt 3 wird
-   auf drei Variablen aufgeteilt:
+   auf drei Variablen aufgeteilt. **An dieser Umformung sind beim ersten Deploy zwei Versuche
+   hintereinander gescheitert**, deshalb hier ausgeschrieben statt beschrieben:
 
    ```
-   SPRING_DATASOURCE_URL       jdbc:postgresql://<host>/<db>?sslmode=require
-   SPRING_DATASOURCE_USERNAME  <user>
-   SPRING_DATASOURCE_PASSWORD  <password>
+   Neon liefert:
+   postgresql://<USER>:<PASSWORT>@<HOST>.eu-central-1.aws.neon.tech/<DB>?sslmode=require
+
+   Daraus wird:
+   SPRING_DATASOURCE_URL       jdbc:postgresql://<HOST>.eu-central-1.aws.neon.tech/<DB>?sslmode=require
+   SPRING_DATASOURCE_USERNAME  <USER>
+   SPRING_DATASOURCE_PASSWORD  <PASSWORT>
    ```
 
-   - Das Präfix `jdbc:` muss davor — die nackte `postgresql://`-URI nimmt der JDBC-Treiber nicht an.
-   - Benutzer und Passwort gehören **aus** der URL heraus in eigene Variablen: eingebettet landen
-     sie in jeder Logzeile, die die Datasource-URL ausgibt.
-   - `?sslmode=require` bleibt stehen — Neon nimmt ausschliesslich TLS-Verbindungen an.
+   Die Platzhalter stehen hier bewusst in spitzen Klammern statt als Beispielwerte: Ein
+   realistisch aussehendes Passwort in der Doku wird irgendwann kopiert.
+
+   Alles zwischen `//` und `@` — einschliesslich des `@` — wandert in die beiden anderen
+   Variablen. Der Rest der URL bleibt unverändert. Der fehlende Port ist Absicht: pgjdbc nimmt
+   dann 5432.
+
+   Der Wert von `SPRING_DATASOURCE_URL` muss beide Bedingungen erfüllen: er **beginnt mit
+   `jdbc:postgresql://`** und **enthält kein `@`**. Trifft eines nicht zu, startet der Container
+   nicht:
+
+   | Fehler | Meldung im Render-Log |
+   | ------ | --------------------- |
+   | `jdbc:`-Präfix fehlt | `'url' must start with "jdbc"` |
+   | Zugangsdaten in der URL gelassen | `JDBC URL invalid port number: <PASSWORT>@<HOST>`, danach `Driver org.postgresql.Driver claims to not accept jdbcUrl, …` |
+   | Variablen fehlen oder falsch benannt | `Unable to obtain connection from database: Connection to localhost:5432 refused` — der Start bricht ab |
+
+   **Zum zweiten Fall:** pgjdbc scheitert bereits am Parsen der URL, nicht an der Namensauflösung.
+   Alles nach dem ersten `:` im Autoritätsteil wird als Port gelesen — bei
+   `//user:passwort@host/db` also `passwort@host`. Eine DNS-Auflösung findet nie statt.
+   **Damit steht das Passwort im Klartext im Render-Log**, gleich zweimal: in der
+   `invalid port number`-Warnung und in der vollständigen `jdbcUrl` der Folgemeldung. Zugangsdaten
+   aus der URL herauszuhalten ist deshalb nicht nur eine Startbedingung, sondern verhindert ein
+   Leck — Render-Logs unterliegen einer anderen Zugriffskontrolle als die Datenbank.
+
+   **Zum dritten Fall:** Der Start bricht während der Context-Initialisierung ab, weil
+   `spring.flyway.enabled=true` die Verbindung schon beim Hochfahren erzwingt. Es gibt kein
+   Zeitfenster, in dem der Dienst läuft und erst später Fehler liefert; der Health-Check wird nie
+   grün und Render meldet einen fehlgeschlagenen Deploy.
+
+   Tückisch ist dieser Fall trotzdem, aber **lokal**: Auf einem Rechner mit laufendem Postgres auf
+   `localhost:5432` greifen die Defaults aus `application.properties`, und die App läuft klaglos
+   gegen die **falsche** Datenbank — ohne jede Meldung. Ein Fail-fast dagegen ist als
+   [INFRA-25](https://github.com/dfme/budget-buddy/issues/150) erfasst.
+
+   `?sslmode=require` bleibt stehen — Neon nimmt ausschliesslich TLS-Verbindungen an. Steht in
+   der URI zusätzlich `&channelBinding=require`, kann das ebenfalls bleiben; pgjdbc 42.7 kennt
+   den Parameter.
+
+   Zwei Stolperer beim Kopieren: Neon bietet teils den **psql-Befehl** an (`psql 'postgresql://…'`)
+   statt der nackten URI — dann kommen `psql ` und Anführungszeichen mit. Und die Änderung muss
+   im Dashboard mit *Save changes* bestätigt werden; ein Deploy davor nimmt noch den alten Wert.
 
 6. **Verifizieren** — nach dem Deploy einen User registrieren, *Manual Deploy → Clear build cache*
    auslösen und danach einloggen. Zweite Probe: 6 Minuten warten (Neon Scale-to-Zero) und erneut

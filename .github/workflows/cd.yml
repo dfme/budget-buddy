@@ -68,8 +68,8 @@ jobs:
           # Timeout: Obergrenze, keine Laufzeit — bei erfolgreichem Deploy bricht die
           # Schleife ab, sobald der SHA matcht. Die vollen 15 min fallen nur bei einem
           # kaputten Deploy an. Ein zu tiefes Limit würde dagegen langsame, aber
-          # erfolgreiche Deploys rot melden (Render Free-Tier: kein Build-Cache, langsame
-          # Hardware, Cold-Start) — also erneut ein Signal, dem man nicht trauen kann.
+          # erfolgreiche Deploys rot melden (Docker-Build ohne Cache, Build-Queue bei Render,
+          # begrenzte Build-Hardware) — also erneut ein Signal, dem man nicht trauen kann.
           #
           # 15 min = 2.5× der gemessenen Deploy-Dauer (5m53s im ersten Lauf mit
           # Versionsprüfung, Run 29409594339). Puffer für Build-Queue, Registry-Schwankungen

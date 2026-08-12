@@ -8,10 +8,16 @@ services:
     runtime: docker
     # Frankfurt (EU) — nächster Render-Standort zur Schweiz, EU-DSGVO (ADR-10).
     region: frankfurt
-    # Free-Tier: kein Persistent Disk. Das ist unkritisch, seit die Daten ausserhalb
-    # von Render liegen (PostgreSQL bei Neon, Frankfurt/EU — ADR-12). Der Spin-Down
-    # kostet nur noch Latenz.
-    plan: free
+    # Starter ($7/Mt, seit 09.08.2026 — Variante 8 aus ADR-5, umgesetzt in INFRA-24).
+    # Gegenüber Free entfällt damit der Spin-Down nach 15 Minuten und der Deckel von
+    # 750 Instanzstunden pro Monat, der bei ~720 h Bedarf praktisch keinen Puffer liess.
+    #
+    # Dieser Wert muss dem Plan im Render-Dashboard entsprechen: Wird das Blueprint mit
+    # `plan: free` erneut angewendet, stuft es den laufenden Dienst zurück.
+    #
+    # Ein Persistent Disk wäre auf Starter buchbar, wird aber nicht genutzt — die Daten
+    # liegen ausserhalb von Render in PostgreSQL bei Neon (Frankfurt/EU, ADR-12).
+    plan: starter
     dockerfilePath: ./Dockerfile
     # Health-Check über den Actuator-Endpoint (in application.properties freigegeben).
     healthCheckPath: /actuator/health
