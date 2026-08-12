@@ -26,7 +26,10 @@ test.describe('Auth-Flow', () => {
     await expect(page.getByRole('heading', { name: 'Login' })).toBeVisible();
   });
 
-  test('Registrierung übers Formular führt aufs Dashboard', async ({ page, testUser }) => {
+  test('Registrierung übers Formular führt in den Onboarding-Wizard', async ({
+    page,
+    testUser,
+  }) => {
     // Deep-Link auf /register: trifft zuerst den Server (Pushstate-Routing), muss also vom
     // SpaForwardController auf index.html weitergeleitet werden. Genau diese Route fehlte in
     // SecurityConfig und antwortete in Produktion mit 401 (mitgefixt in diesem PR).
@@ -36,8 +39,10 @@ test.describe('Auth-Flow', () => {
     await page.getByLabel('Passwort').fill(testUser.password);
     await page.getByRole('button', { name: 'Konto erstellen' }).click();
 
-    await expect(page).toHaveURL(/\/dashboard$/);
-    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+    // Ein frisches Konto hat onboardingCompleted = false; der onboardingGuard (FE-FC-02)
+    // fängt die Navigation auf /dashboard ab und leitet auf den Wizard um.
+    await expect(page).toHaveURL(/\/onboarding$/);
+    await expect(page.getByRole('heading', { name: 'Fixkosten erfassen' })).toBeVisible();
   });
 
   test('setzt das JWT als httpOnly-Cookie mit SameSite=Strict', async ({
@@ -49,7 +54,9 @@ test.describe('Auth-Flow', () => {
     await page.getByLabel('E-Mail').fill(testUser.email);
     await page.getByLabel('Passwort').fill(testUser.password);
     await page.getByRole('button', { name: 'Konto erstellen' }).click();
-    await expect(page).toHaveURL(/\/dashboard$/);
+    // Ein frisches Konto landet im Onboarding-Wizard, nicht auf /dashboard (FE-FC-02) —
+    // das Cookie interessiert hier aber nicht, wo die Navigation endet.
+    await expect(page).toHaveURL(/\/onboarding$/);
 
     // ADR-7 im echten Browser statt nur im Unit-Test: httpOnly schützt gegen XSS,
     // SameSite=Strict ersetzt den CSRF-Token. Beides wäre serverseitig leicht zu verlieren,
@@ -66,7 +73,11 @@ test.describe('Auth-Flow', () => {
     await expect(page.evaluate(() => document.cookie)).resolves.not.toContain('jwt');
   });
 
-  test('Login übers Formular führt aufs Dashboard', async ({ page, request, testUser }) => {
+  test('Login übers Formular führt in den Onboarding-Wizard', async ({
+    page,
+    request,
+    testUser,
+  }) => {
     // Konto out-of-band anlegen: die `request`-Fixture hat einen eigenen Cookie-Jar, der
     // Browser bleibt also anonym. Sonst wäre der Login-Pfad nicht isoliert vom Register-Pfad.
     const registered = await request.post('/auth/register', { data: testUser });
@@ -77,8 +88,10 @@ test.describe('Auth-Flow', () => {
     await page.getByLabel('Passwort').fill(testUser.password);
     await page.getByRole('button', { name: 'Einloggen' }).click();
 
-    await expect(page).toHaveURL(/\/dashboard$/);
-    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+    // Das Konto ist frisch angelegt und damit nicht onboardet — derselbe onboardingGuard
+    // wie bei der Registrierung greift auch hier (FE-FC-02).
+    await expect(page).toHaveURL(/\/onboarding$/);
+    await expect(page.getByRole('heading', { name: 'Fixkosten erfassen' })).toBeVisible();
   });
 
   test('Fehlerpfad: geschützte Route ohne Cookie leitet auf /login', async ({ page }) => {

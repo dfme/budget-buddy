@@ -23,3 +23,12 @@ form {
   flex-direction: column;
   gap: $sp-4;
 }
+
+// Abschluss-Aktion, abgesetzt unter der Karte: sie verlässt den Wizard und gehört damit
+// nicht in dieselbe Fläche wie das Erfassungsformular.
+.wizard__finish {
+  display: flex;
+  flex-direction: column;
+  gap: $sp-3;
+  margin-top: $sp-5;
+}

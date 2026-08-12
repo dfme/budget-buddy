@@ -42,7 +42,7 @@ describe('authGuard', () => {
 
   afterEach(() => httpMock.verify());
 
-  it('grants access immediately when already authenticated', () => {
+  it('grants access from the loaded state without hitting /users/me', () => {
     // State setzen, ohne Backend-Call
     auth.login('lara@example.ch', 'supersecret').subscribe();
     httpMock.expectOne('/auth/login').flush(LARA);
@@ -50,7 +50,11 @@ describe('authGuard', () => {
 
     const result = runGuard();
 
-    expect(result).toBe(true);
+    let resolved: boolean | UrlTree | undefined;
+    (result as Observable<boolean | UrlTree>).subscribe((value) => (resolved = value));
+
+    expect(resolved).toBe(true);
+    httpMock.expectNone('/users/me');
   });
 
   it('restores state via /users/me and grants access when the cookie is valid', () => {

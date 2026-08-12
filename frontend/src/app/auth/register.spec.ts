@@ -13,6 +13,8 @@ const LARA: User = {
   onboardingCompleted: false,
 };
 
+const LARA_ONBOARDED: User = { ...LARA, onboardingCompleted: true };
+
 describe('Register', () => {
   let fixture: ComponentFixture<Register>;
   let component: Register;
@@ -52,7 +54,10 @@ describe('Register', () => {
     expect(navigate).not.toHaveBeenCalled();
   });
 
-  it('registers and redirects to the dashboard on success', () => {
+  it('registers and redirects to the onboarding wizard for a fresh account', () => {
+    // Ein frisch registriertes Konto hat onboardingCompleted = false (User-Konstruktor,
+    // BE-AUTH-03). Der direkte Sprung erspart den Umweg über den onboardingGuard-Redirect
+    // (FE-FC-02), landet aber am selben Ziel wie dieser.
     component.form.setValue({ email: 'lara@example.ch', password: 'supersecret' });
 
     component.submit();
@@ -65,9 +70,20 @@ describe('Register', () => {
     });
     req.flush(LARA);
 
-    expect(navigate).toHaveBeenCalledWith(['/dashboard']);
+    expect(navigate).toHaveBeenCalledWith(['/onboarding']);
     expect(component.errorMessage()).toBeNull();
     expect(component.submitting()).toBe(false);
+  });
+
+  it('redirects to the dashboard if the account is already onboarded', () => {
+    // Praktisch nicht der Regelfall bei einer Neuregistrierung, aber die Weiche entscheidet
+    // strikt nach der Serverantwort — kein Sonderfall für „gerade registriert".
+    component.form.setValue({ email: 'lara@example.ch', password: 'supersecret' });
+
+    component.submit();
+    httpMock.expectOne('/auth/register').flush(LARA_ONBOARDED);
+
+    expect(navigate).toHaveBeenCalledWith(['/dashboard']);
   });
 
   it('shows a specific error and does not redirect on 409', () => {

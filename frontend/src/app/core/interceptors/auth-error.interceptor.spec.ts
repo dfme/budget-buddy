@@ -60,6 +60,32 @@ describe('authErrorInterceptor', () => {
     expect(navigate).not.toHaveBeenCalled();
   });
 
+  it('redirects on 401 from /users/me/onboarding-complete despite the shared prefix', () => {
+    // Der Aufruf liegt unter /users/me, ist aber kein Bootstrap-Call: ein 401 heisst hier
+    // «Cookie abgelaufen». Mit einem Teilstring-Vergleich fiele er unter die Ausnahme und
+    // der Nutzer bliebe mit «bitte spaeter erneut versuchen» im Wizard sitzen.
+    http.post('/users/me/onboarding-complete', {}).subscribe({ error: () => {} });
+
+    httpMock
+      .expectOne('/users/me/onboarding-complete')
+      .flush(null, { status: 401, statusText: 'Unauthorized' });
+
+    expect(resetState).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith(['/login']);
+  });
+
+  it('does not redirect on 401 from /users/me with a query string', () => {
+    // Der exakte Vergleich darf nicht an einem Query-String scheitern.
+    http.get('/users/me', { params: { refresh: 'true' } }).subscribe({ error: () => {} });
+
+    httpMock
+      .expectOne((req) => req.url === '/users/me')
+      .flush(null, { status: 401, statusText: 'Unauthorized' });
+
+    expect(resetState).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
   it('passes non-401 errors through without redirecting', () => {
     let status: number | undefined;
     http.get('/transactions').subscribe({

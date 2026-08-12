@@ -13,8 +13,10 @@ import { AuthService } from './auth.service';
 /**
  * Registrierungs-Formular (US-01). Reactive Form mit E-Mail + Passwort (≥ 8 Zeichen),
  * die den {@link AuthService} nutzt. Bei Erfolg legt das Backend das Konto an, setzt
- * das JWT-Cookie und wir leiten aufs Dashboard weiter. Eine bereits vergebene E-Mail
- * (409) wird als eindeutige Meldung angezeigt.
+ * das JWT-Cookie und wir leiten je nach `onboardingCompleted` direkt auf den Wizard oder
+ * das Dashboard weiter — ein frisches Konto hat nie `onboardingCompleted = true`, aber der
+ * direkte Sprung erspart den Umweg über den `onboardingGuard`-Redirect (FE-FC-02). Eine
+ * bereits vergebene E-Mail (409) wird als eindeutige Meldung angezeigt.
  *
  * <p>Kein Token-/Header-Code: das httpOnly-JWT-Cookie wird durch den
  * `credentialsInterceptor` automatisch mitgesendet (ADR-7).
@@ -83,9 +85,9 @@ export class Register {
 
     const { email, password } = this.form.getRawValue();
     this.auth.register(email, password).subscribe({
-      next: () => {
+      next: (user) => {
         this.submitting.set(false);
-        this.router.navigate(['/dashboard']);
+        this.router.navigate([user.onboardingCompleted ? '/dashboard' : '/onboarding']);
       },
       error: (err: HttpErrorResponse) => {
         this.submitting.set(false);

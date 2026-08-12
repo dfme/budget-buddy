@@ -13,6 +13,8 @@ const LARA: User = {
   onboardingCompleted: false,
 };
 
+const LARA_ONBOARDED: User = { ...LARA, onboardingCompleted: true };
+
 describe('Login', () => {
   let fixture: ComponentFixture<Login>;
   let component: Login;
@@ -42,7 +44,9 @@ describe('Login', () => {
     expect(navigate).not.toHaveBeenCalled();
   });
 
-  it('logs in and redirects to the dashboard on success', () => {
+  it('logs in and redirects to the onboarding wizard for a non-onboarded account', () => {
+    // Der direkte Sprung erspart den Umweg über den onboardingGuard-Redirect (FE-FC-02),
+    // landet aber am selben Ziel wie dieser.
     component.form.setValue({ email: 'lara@example.ch', password: 'supersecret' });
 
     component.submit();
@@ -55,9 +59,18 @@ describe('Login', () => {
     });
     req.flush(LARA);
 
-    expect(navigate).toHaveBeenCalledWith(['/dashboard']);
+    expect(navigate).toHaveBeenCalledWith(['/onboarding']);
     expect(component.errorMessage()).toBeNull();
     expect(component.submitting()).toBe(false);
+  });
+
+  it('logs in and redirects to the dashboard for an onboarded account', () => {
+    component.form.setValue({ email: 'lara@example.ch', password: 'supersecret' });
+
+    component.submit();
+    httpMock.expectOne('/auth/login').flush(LARA_ONBOARDED);
+
+    expect(navigate).toHaveBeenCalledWith(['/dashboard']);
   });
 
   it('shows a neutral error and does not redirect on 401', () => {

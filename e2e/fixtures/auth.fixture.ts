@@ -39,6 +39,12 @@ export function uniqueTestUser(): TestUser {
  * BrowserContext. Ein `POST /auth/register` darüber landet also im Browser, obwohl das Cookie
  * `HttpOnly` ist und JS es nie sehen kann (ADR-7) — genau deshalb wäre `document.cookie` oder
  * `addInitScript` hier kein Ersatz.
+ *
+ * Ein frisch registriertes Konto hat `onboardingCompleted = false` (`User`-Konstruktor,
+ * BE-AUTH-03); seit FE-FC-02 leitet der `onboardingGuard` einen solchen Account von
+ * `/dashboard`, `/categories` und `/import` auf `/onboarding` um. Ohne den Abschluss hier
+ * würde die Fixture ihr eigenes Versprechen brechen — US-04…US-06 kämen nie auf ihrer
+ * Zielroute an, sondern landeten jedes Mal im Wizard.
  */
 export const test = base.extend<{
   testUser: TestUser;
@@ -55,11 +61,21 @@ export const test = base.extend<{
     // baseURL explizit: browser.newContext() erbt die `use`-Optionen der Config nicht.
     const context = await browser.newContext({ baseURL });
 
-    const response = await context.request.post('/auth/register', { data: testUser });
+    const response = await context.request.post('/auth/register', {
+      data: testUser,
+    });
     expect(
       response.status(),
       `Auth-Fixture: POST /auth/register für ${testUser.email} fehlgeschlagen`,
     ).toBe(201);
+
+    // Onboarding abschliessen, sonst würde der onboardingGuard jede spätere Navigation auf
+    // /dashboard, /categories oder /import in den Wizard zurückwerfen.
+    const onboarded = await context.request.post('/users/me/onboarding-complete');
+    expect(
+      onboarded.status(),
+      `Auth-Fixture: POST /users/me/onboarding-complete für ${testUser.email} fehlgeschlagen`,
+    ).toBe(200);
 
     await use(context);
     await context.close();
