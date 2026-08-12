@@ -289,26 +289,26 @@ Nach dem Entscheid (offen, sofern nicht abgehakt):
       FE-UI-04 (App-Shell), Chart-Integration (ng2-charts)
 - [ ] ADR-11 (UI-Design-System) + CLAUDE.md (Tech-Stack, ADR-Tabelle) nachziehen
 
-### Mögliche spätere Erweiterung: nutzerseitige Theme-Präferenz
+### Nutzerseitige Theme-Präferenz — entschieden, jetzt Teil von US-14
 
-> **Status: offen, bewusst zurückgestellt** — kein Bestandteil dieses Issues.
+> **Status: aufgenommen** — die Umschaltung gehört zu
+> [US-14 (Einstellungen)](../docs/requirements/US-14-einstellungen.md).
+> Die frühere Scope-Gabelung ist damit aufgelöst.
 
-Der Hell/Dunkel-Umschalter in den Prototypen (A und C) ist reine
-**Review-Steuerung** und wird **nicht** ins Frontend übernommen (`theme.js` ist
-Wegwerf-Code). Falls das Team Nutzern später ein umschaltbares Theme anbieten
-will, gehört das in ein **eigenes Issue** — festgehalten, damit es nicht verloren
-geht:
+Der Hell/Dunkel-Umschalter in den Prototypen (A und C) war reine
+**Review-Steuerung** und wurde **nicht** ins Frontend übernommen (`theme.js` ist
+Wegwerf-Code). Die nutzerseitige Umschaltung ist eine eigene Umsetzung — ihr
+Zuschnitt ist inzwischen entschieden:
 
-- **Abhängig vom Design-Entscheid:** nur sinnvoll, wenn „beide Themes
-  unterstützen" gewählt wird. Bei „nur hell" bzw. „nur dunkel" entfällt es.
-- **Scope-Gabelung** (bestimmt den Zuschnitt, im Issue offen zu lassen):
-  - *Client-only* — Präferenz in `localStorage` + `prefers-color-scheme` als
-    Default → reines Frontend-Issue.
-  - *Geräteübergreifend* — Präferenz im User-Profil (DB) → Frontend **und**
-    Backend, berührt US-14 (Einstellungen).
-- **Mehr als CSS:** Theme vor dem ersten Paint anwenden (kein Flash), OS-Default
-  respektieren, sinnvoller Ort im UI (Einstellungen).
-- **Voraussetzung schon jetzt sichern:** Das Fundament-Issue muss die
-  Token-Architektur **theme-fähig** anlegen (CSS Custom Properties + `data-theme`,
-  beide Themes als Sets — wie in diesen Prototypen), auch wenn die Umschalt-UI
-  vorerst weggelassen wird. Dann ist diese Erweiterung später billig.
+- **Ort im UI:** Einstellungen, als Auswahl „Hell / Dunkel / System" (US-14).
+- **Scope-Gabelung — entschieden für *client-only*:** Präferenz in
+  `localStorage` + `prefers-color-scheme` als Default → reines Frontend-Thema.
+  Die geräteübergreifende Variante (Präferenz im User-Profil/DB, Frontend **und**
+  Backend) ist bewusst verworfen: sie kostet Migration und Endpoint für einen
+  Nutzen, den ein Ein-Geräte-Nutzer wie Marc nicht spürt.
+- **Mehr als CSS:** Theme vor dem ersten Paint anwenden (kein Flash) und
+  OS-Default respektieren, solange „System" gewählt ist.
+- **Voraussetzung ist erfüllt:** FE-UI-02 hat die Token-Architektur
+  **theme-fähig** angelegt (CSS Custom Properties + `data-theme`, beide Themes als
+  Sets — wie in diesen Prototypen) in `frontend/src/styles.scss`. Sichtbar ist sie
+  bisher nur über den Dev-Toggle im Styleguide.
