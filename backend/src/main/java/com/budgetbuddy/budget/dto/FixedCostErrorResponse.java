@@ -12,8 +12,14 @@ package com.budgetbuddy.budget.dto;
  * <p>404 trägt bewusst <em>keinen</em> Body: dort ist der Status eindeutig, und jede Zusatzauskunft
  * verriete, ob eine fremde ID existiert.
  *
+ * <p><strong>Jeder 400er dieses Controllers trägt diesen Body</strong> — auch die, die Jackson
+ * auslöst, bevor der Controller läuft (fehlender Body, kaputtes JSON, Typfehler). Der
+ * {@code FixedCostExceptionHandler} fängt sie eigens ab; ohne ihn sagte das OpenAPI-Dokument den
+ * Body zu, den es in diesen Fällen nicht gäbe.
+ *
  * @param field Name des verletzten Feldes: {@code "bezeichnung"}, {@code "betrag"},
- *     {@code "intervall"} — oder {@code "request"}, wenn gar kein Body ankam.
+ *     {@code "intervall"} — oder {@code "request"}, wenn sich der Fehler keinem einzelnen Feld
+ *     zuordnen lässt (kein Body, abgeschnittenes JSON).
  * @param message Beschreibung der verletzten Regel. Wiederholt die Eingabe nicht: der Wert ginge
  *     sonst unverändert in die Antwort zurück, und das ist der kurze Weg zu Reflected-XSS im
  *     Client.

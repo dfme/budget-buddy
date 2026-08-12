@@ -290,13 +290,104 @@ class FixedCostControllerIntegrationTest {
 
     @Test
     void errorMessageDoesNotEchoTheSubmittedValue() throws Exception {
-        // Die Eingabe darf nicht unverändert zurückgespiegelt werden (Reflected-XSS-Pfad).
+        // Der Payload muss die *Bezeichnungs*-Regel verletzen, sonst prüft der Test nichts: bei
+        // gültiger Bezeichnung plus ungültigem Betrag antwortet validate() mit der Betrag-Meldung,
+        // die den Payload nie in der Hand hatte. Deshalb 145 Zeichen (Grenze ist 100) bei gültigem
+        // Betrag — jetzt hängt die Assertion an der Meldung, die den Wert wirklich gesehen hat.
+        String payload = "<script>alert(1)</script>" + "A".repeat(120);
+
         mockMvc.perform(post("/fixed-costs")
                         .cookie(jwtCookie(lara))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(body("<script>alert(1)</script>", "0.00", "monatlich")))
+                        .content(body(payload, "1200.00", "monatlich")))
                 .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.field").value("bezeichnung"))
+                .andExpect(content().string(not(containsString("<script>"))))
+                .andExpect(content().string(not(containsString("AAAA"))));
+    }
+
+    @Test
+    void intervallErrorMessageDoesNotEchoTheSubmittedValue() throws Exception {
+        // Gegenstück für das dritte Feld: auch der Intervall-Wert kommt aus der Fremdeingabe.
+        mockMvc.perform(post("/fixed-costs")
+                        .cookie(jwtCookie(lara))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body("Miete", "1200.00", "<script>alert(1)</script>")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.field").value("intervall"))
                 .andExpect(content().string(not(containsString("<script>"))));
+    }
+
+    // --- 400 aus dem Body-Parsing: entsteht vor dem Controller, trägt trotzdem field ---
+
+    @Test
+    void commaAmountReturns400WithBetragAsField() throws Exception {
+        // Der praktische Fall: "12,50" ist in einem Schweizer Wizard eine naheliegende Eingabe und
+        // kommt als String an. Jackson bricht ab, bevor der Controller läuft — ohne eigenen Handler
+        // gäbe es hier einen 400 ohne field, obwohl OpenAPI den Body zusagt.
+        mockMvc.perform(post("/fixed-costs")
+                        .cookie(jwtCookie(lara))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"bezeichnung\":\"Miete\",\"betrag\":\"12,50\","
+                                + "\"intervall\":\"monatlich\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.field").value("betrag"))
+                .andExpect(jsonPath("$.message").isNotEmpty())
+                // Die Eingabe selbst darf auch hier nicht zurückgespiegelt werden.
+                .andExpect(content().string(not(containsString("12,50"))));
+    }
+
+    @Test
+    void missingBodyReturns400WithRequestAsField() throws Exception {
+        mockMvc.perform(post("/fixed-costs")
+                        .cookie(jwtCookie(lara))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.field").value("request"));
+    }
+
+    @Test
+    void malformedJsonReturns400WithRequestAsField() throws Exception {
+        mockMvc.perform(post("/fixed-costs")
+                        .cookie(jwtCookie(lara))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"bezeichnung\":"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.field").value("request"));
+    }
+
+    @Test
+    void everyBadRequestCarriesAFieldRegardlessOfWhereItWasDetected() throws Exception {
+        // Der eigentliche Contract-Punkt: #26 liest err.error.field und darf nie undefined sehen.
+        // Fachliche Validierung (Service) und Parsing-Fehler (Jackson) laufen über verschiedene
+        // Pfade und müssen denselben Body liefern.
+        mockMvc.perform(post("/fixed-costs")
+                        .cookie(jwtCookie(lara))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body("Miete", "0.00", "monatlich")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.field").isNotEmpty());
+
+        mockMvc.perform(post("/fixed-costs")
+                        .cookie(jwtCookie(lara))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"bezeichnung\":\"Miete\",\"betrag\":\"abc\","
+                                + "\"intervall\":\"monatlich\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.field").isNotEmpty());
+    }
+
+    @Test
+    void malformedBodyOnUpdateAlsoCarriesAField() throws Exception {
+        long id = createEntry(lara, "Miete", "1200.00", "monatlich");
+
+        mockMvc.perform(put("/fixed-costs/" + id)
+                        .cookie(jwtCookie(lara))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"bezeichnung\":\"Miete\",\"betrag\":\"12,50\","
+                                + "\"intervall\":\"monatlich\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.field").value("betrag"));
     }
 
     @Test
