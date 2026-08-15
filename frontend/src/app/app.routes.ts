@@ -29,6 +29,14 @@ export const routes: Routes = [
     loadComponent: () => import('./transactions/pdf-upload').then((m) => m.PdfUpload),
   },
   {
+    // Bewusst NICHT `/fixed-costs`: das ist das API-Prefix von FixedCostController. Ein
+    // gleichnamiger Angular-Pfad würde beim Hard-Reload den Backend-Endpoint statt index.html
+    // treffen.
+    path: 'fixkosten',
+    canActivate: [authGuard, onboardingGuard],
+    loadComponent: () => import('./onboarding/fixed-cost-list').then((m) => m.FixedCostList),
+  },
+  {
     // Ohne `onboardingGuard` — das Ziel der Umleitung darf sich nicht selbst umleiten.
     path: 'onboarding',
     canActivate: [authGuard],
