@@ -102,6 +102,29 @@ public class TransactionListService {
     }
 
     /**
+     * Die Monate, in denen der User Ausgaben hat — absteigend, im Format {@code YYYY-MM}
+     * (FE-CAT-04, US-12).
+     *
+     * <p>Eingabe des Monats-Dropdowns: ohne diese Liste müsste das Frontend eine Jahresspanne
+     * raten. Zu kurz, und alte Kontoauszüge wären unerreichbar — die Test-PDFs enthalten Buchungen
+     * aus 2019, 2021 und 2025; zu lang, und die Auswahl bestünde aus leeren Jahren.
+     *
+     * <p>Formatiert über {@link YearMonth#toString()}, die exakte Umkehrung von
+     * {@link MonthParser#parse(String)}: was hier herauskommt, ist genau das, was der
+     * {@code month}-Parameter wieder annimmt.
+     *
+     * @param userId ID des eingeloggten Users (aus dem JWT).
+     * @return die Monate mit Ausgaben, neuester zuerst. Leer, wenn der User keine Ausgaben hat.
+     */
+    @Transactional(readOnly = true)
+    public List<String> availableMonths(long userId) {
+        return transactionRepository.findDistinctExpenseMonths(userId).stream()
+                .map(row -> YearMonth.of(((Number) row[0]).intValue(), ((Number) row[1]).intValue()))
+                .map(YearMonth::toString)
+                .toList();
+    }
+
+    /**
      * Baut das Seitenfenster und weist unbrauchbare Werte ab, statt sie stillschweigend
      * zurechtzubiegen: ein zu grosses {@code size} als Vollload zu beantworten wäre genau der
      * Zustand, den dieser Task beseitigt, und ein zurechtgestutzter Wert wäre für den Aufrufer

@@ -68,6 +68,35 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
             Pageable pageable);
 
     /**
+     * Die Monate, in denen dieser User Ausgaben hat — als Paare {@code [jahr, monat]}, absteigend
+     * (FE-CAT-04, US-12). Eingabe des Monats-Dropdowns, das damit nur Monate anbietet, in denen
+     * auch etwas zu sehen ist.
+     *
+     * <p>Aggregiert in der Datenbank statt in Java: die Alternative wäre, alle Buchungsdaten eines
+     * Users zu laden, um daraus eine Handvoll Monate zu destillieren — ein Vollload über die ganze
+     * Historie für eine Liste, die selten mehr als ein paar Dutzend Einträge hat.
+     *
+     * <p>Über {@code year()}/{@code month()} statt über ein datenbankspezifisches
+     * {@code to_char(…, 'YYYY-MM')}: die Formatierung passiert in
+     * {@link TransactionListService#availableMonths(long)} mit {@link java.time.YearMonth}, also
+     * mit derselben Klasse, die {@link MonthParser} beim Lesen des Parameters verwendet. Format und
+     * Parsing können so nicht auseinanderlaufen.
+     *
+     * <p>Nur Ausgaben, wie im Summary und in der Liste: ein Monat mit ausschliesslich Gutschriften
+     * hätte in der Kategorie-Übersicht nichts anzuzeigen und gehört nicht ins Dropdown.
+     *
+     * @return Paare {@code [Integer jahr, Integer monat]}, absteigend nach Jahr und Monat.
+     */
+    @Query("""
+            select distinct year(t.buchungsdatum), month(t.buchungsdatum)
+              from Transaction t
+             where t.userId = :userId
+               and t.income = false
+             order by year(t.buchungsdatum) desc, month(t.buchungsdatum) desc
+            """)
+    List<Object[]> findDistinctExpenseMonths(@Param("userId") Long userId);
+
+    /**
      * Lädt alle <em>Gutschriften</em> ({@code is_income = true}) eines Users, deren Buchungsdatum in
      * das Intervall {@code [von, bis]} fällt — beide Grenzen inklusive. Eingabe der
      * Einkommens-Heuristik (BE-STS-02, US-06), die daraus wiederkehrende Zahlungseingänge ableitet.

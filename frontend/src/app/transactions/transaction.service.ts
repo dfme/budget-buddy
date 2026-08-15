@@ -54,6 +54,18 @@ export class TransactionService {
   }
 
   /**
+   * Lädt die Monate, in denen der User Ausgaben hat — neuester zuerst, im Format `YYYY-MM`
+   * (FE-CAT-04, US-12).
+   *
+   * <p>Eingabe des Direktsprung-Dropdowns. Ohne diese Liste müsste das Frontend eine Jahresspanne
+   * raten: zu kurz, und alte Kontoauszüge wären unerreichbar; zu lang, und die Auswahl bestünde
+   * aus leeren Jahren.
+   */
+  availableMonths(): Observable<string[]> {
+    return this.http.get<string[]>('/transactions/months');
+  }
+
+  /**
    * Setzt die Kategorie einer Transaktion und lernt dabei serverseitig das Händler-Pattern
    * (BE-CAT-04) — die nächste Buchung desselben Händlers wird dadurch ohne Claude-Call
    * kategorisiert.

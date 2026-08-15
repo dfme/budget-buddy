@@ -2,9 +2,12 @@ import { registerLocaleData } from '@angular/common';
 import localeDeCh from '@angular/common/locales/de-CH';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideLocationMocks } from '@angular/common/testing';
 import { LOCALE_ID } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { Location } from '@angular/common';
 import { By } from '@angular/platform-browser';
+import { Router, provideRouter } from '@angular/router';
 import { BaseChartDirective } from 'ng2-charts';
 
 import { CATEGORIES } from '../shared/category';
@@ -77,6 +80,14 @@ const TRANSACTIONS: Transaction[] = [
   },
 ];
 
+/**
+ * Antwort von `GET /transactions/months` (FE-CAT-04). Enthält bewusst nicht den aktuellen Monat:
+ * die Liste kommt aus den vorhandenen Buchungen, und ein frisch angelegter Monat steht noch nicht
+ * darin. Die Jahre spiegeln die Test-PDFs — genau die Spanne, die eine geratene Jahresliste
+ * verfehlen würde.
+ */
+const AVAILABLE_MONTHS = ['2025-06', '2021-03', '2019-08'];
+
 /** URL-Matcher unabhängig vom (vom aktuellen Datum abhängigen) Monat. */
 function expectSummaryRequest(httpMock: HttpTestingController) {
   return httpMock.expectOne((req) => req.url === '/transactions/summary');
@@ -128,13 +139,29 @@ describe('CategoryOverview', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
+        // Ein Catch-all ohne Component: die Komponente wird hier von Hand erzeugt, nicht vom
+        // Router gerendert. Gebraucht wird er trotzdem, weil goTo() relativ zur aktuellen Route
+        // navigiert — ohne passende Route bräche die Navigation ab, und der Monat käme nie in
+        // die URL. provideLocationMocks() hält das im Speicher statt in der echten History und
+        // liefert das location.back() für den Zurück-Test (FE-CAT-04).
+        provideRouter([{ path: '**', children: [] }]),
+        provideLocationMocks(),
         { provide: LOCALE_ID, useValue: 'de-CH' },
       ],
     }).compileComponents();
 
+    // Ohne initialNavigation() setzt der Router seinen Location-Listener nie auf — er wird hier
+    // ja nicht über ein Bootstrap gestartet. router.navigate() funktionierte trotzdem, aber ein
+    // Browser-Zurück käme nie an: genau der Fall, den FE-CAT-04 abdecken muss.
+    TestBed.inject(Router).initialNavigation();
+
     fixture = TestBed.createComponent(CategoryOverview);
     component = fixture.componentInstance;
     httpMock = TestBed.inject(HttpTestingController);
+    // FE-CAT-04: die Monatsliste wird beim Aufbau geladen. Einmal zentral beantwortet, damit die
+    // Fälle darunter sich nicht damit befassen müssen. AVAILABLE_MONTHS enthält bewusst *nicht*
+    // den aktuellen Monat — so belegt jeder Fall nebenbei, dass er trotzdem wählbar bleibt.
+    httpMock.expectOne('/transactions/months').flush(AVAILABLE_MONTHS);
   });
 
   // `finally`, damit ein fehlgeschlagenes verify() den Canvas-Stub trotzdem zurücknimmt —
@@ -575,6 +602,196 @@ describe('CategoryOverview', () => {
       // Die Buchungen gehören zum alten Monat — sie dürfen unter dem neuen nicht stehenbleiben.
       expect(component.drilldown()).toBeNull();
       expect(selects()).toHaveLength(0);
+    });
+  });
+
+  describe('Direktsprung und URL (FE-CAT-04)', () => {
+    /** Das Direktsprung-Dropdown der Monatsnavigation. */
+    function jump(): HTMLSelectElement {
+      const select = (fixture.nativeElement as HTMLElement).querySelector<HTMLSelectElement>(
+        '.month-nav__jump select',
+      );
+      expect(select).not.toBeNull();
+      return select!;
+    }
+
+    /** Wählt einen Monat so, wie es ein Nutzer täte. */
+    function jumpTo(month: string) {
+      const select = jump();
+      select.value = month;
+      select.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+    }
+
+    /**
+     * Räumt die Instanz aus dem `beforeEach` ab und baut eine neue auf — für die Fälle, die den
+     * Zustand *vor* dem Aufbau brauchen (Deep-Link, fehlgeschlagene Monatsliste).
+     *
+     * <p>Die Reihenfolge ist wesentlich: erst den offenen Request der alten Instanz beantworten,
+     * dann zerstören, dann navigieren. Wer vor dem Zerstören navigiert, weckt die alte
+     * Subscription und bekommt zwei Summary-Requests.
+     */
+    async function recreate(queryParams: Record<string, string> = {}) {
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      fixture.destroy();
+      await TestBed.inject(Router).navigate([], { queryParams });
+      fixture = TestBed.createComponent(CategoryOverview);
+      component = fixture.componentInstance;
+      return httpMock.expectOne('/transactions/months');
+    }
+
+    // AC 1: ein beliebiger Monat ist ohne Zwischenklicks erreichbar.
+    it('offers every month with expenses, newest first', () => {
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      fixture.detectChanges();
+
+      const options = Array.from(jump().options).map((option) => option.value);
+      // Der aktuelle Monat steht vorne, obwohl der Endpoint ihn nicht geliefert hat.
+      expect(options[0]).toBe(component.month());
+      expect(options).toContain('2019-08');
+      expect(options).toEqual([...options].sort().reverse());
+    });
+
+    // AC 2: genau ein Request, nicht einer pro übersprungenem Monat.
+    it('jumps seven years back with a single request', () => {
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      fixture.detectChanges();
+
+      jumpTo('2019-08');
+
+      // expectOne wirft, sobald mehr als ein Request offen ist — und httpMock.verify() im
+      // afterEach fängt jeden weiteren. Ein Stepper-Weg über 80 Monate wäre hier sofort rot.
+      const req = expectSummaryRequest(httpMock);
+      expect(req.request.params.get('month')).toBe('2019-08');
+      req.flush(EMPTY_SUMMARY);
+      fixture.detectChanges();
+
+      expect(component.month()).toBe('2019-08');
+    });
+
+    // AC 3: der gewählte Monat steht in der URL.
+    it('writes the month into the URL, for the jump and for the stepper', async () => {
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      fixture.detectChanges();
+      const location = TestBed.inject(Location);
+
+      jumpTo('2021-03');
+      expectSummaryRequest(httpMock).flush(EMPTY_SUMMARY);
+      await fixture.whenStable();
+      expect(location.path()).toContain('month=2021-03');
+
+      component.previousMonth();
+      expectSummaryRequest(httpMock).flush(EMPTY_SUMMARY);
+      await fixture.whenStable();
+      expect(location.path()).toContain('month=2021-02');
+    });
+
+    // AC 3: Deep-Link und Reload landen im selben Monat.
+    it('starts in the month from the URL', async () => {
+      (await recreate({ month: '2019-08' })).flush(AVAILABLE_MONTHS);
+
+      const req = expectSummaryRequest(httpMock);
+      expect(req.request.params.get('month')).toBe('2019-08');
+      req.flush(EMPTY_SUMMARY);
+      fixture.detectChanges();
+
+      expect(component.month()).toBe('2019-08');
+      expect(component.monthLabel()).toBe('August 2019');
+    });
+
+    it('falls back to the current month when the URL carries nonsense', async () => {
+      (await recreate({ month: 'kaputt' })).flush(AVAILABLE_MONTHS);
+
+      const req = expectSummaryRequest(httpMock);
+      req.flush(SUMMARY);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      // Kein «Invalid Date» in der Überschrift, und die Adresse behauptet danach nicht mehr
+      // etwas anderes als die Anzeige.
+      expect(component.monthLabel()).not.toContain('Invalid');
+      expect(TestBed.inject(Location).path()).toContain(`month=${component.month()}`);
+    });
+
+    // Der Test, der bei halbierter Kopplung rot wird: eine URL, die nur geschrieben und nie
+    // gelesen wird, lässt die Anzeige beim Zurückgehen stehen.
+    it('follows the browser back button to the previous month', async () => {
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      fixture.detectChanges();
+      const startMonth = component.month();
+
+      jumpTo('2021-03');
+      expectSummaryRequest(httpMock).flush(EMPTY_SUMMARY);
+      await fixture.whenStable();
+      expect(component.month()).toBe('2021-03');
+
+      TestBed.inject(Location).back();
+      // Die Popstate-Navigation landet erst im nächsten Makrotask; whenStable() allein ist hier
+      // zu früh und der Test wäre grün, obwohl noch nichts passiert ist.
+      await new Promise((resolve) => setTimeout(resolve));
+      await fixture.whenStable();
+
+      const back = expectSummaryRequest(httpMock);
+      expect(back.request.params.get('month')).toBe(startMonth);
+      back.flush(SUMMARY);
+      fixture.detectChanges();
+
+      expect(component.month()).toBe(startMonth);
+    });
+
+    it('does not load a second time when its own URL update comes back', async () => {
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      fixture.detectChanges();
+
+      jumpTo('2021-03');
+      expectSummaryRequest(httpMock).flush(EMPTY_SUMMARY);
+      await fixture.whenStable();
+
+      // Die Wache in syncFromUrl verwirft die Rückmeldung der eigenen Navigation. Ohne sie stünde
+      // hier ein zweiter Request offen und httpMock.verify() im afterEach würde umfallen.
+      expect(component.month()).toBe('2021-03');
+    });
+
+    it('survives two jumps in a row without leaving a stale request behind', async () => {
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      fixture.detectChanges();
+
+      jumpTo('2021-03');
+      const first = expectSummaryRequest(httpMock);
+      jumpTo('2019-08');
+
+      // Der zweite Sprung bricht den ersten Request ab — dieselbe Regel wie beim Stepper.
+      expect(first.cancelled).toBe(true);
+      expectSummaryRequest(httpMock).flush(EMPTY_SUMMARY);
+      await fixture.whenStable();
+
+      expect(component.month()).toBe('2019-08');
+    });
+
+    // AC 4 und Entscheid 6: die Zukunftssperre gilt für beide Bedienwege.
+    it('offers no future month, in neither control', async () => {
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      fixture.detectChanges();
+
+      const nextButton = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
+        'button[aria-label="Nächster Monat"]',
+      )!;
+      expect(nextButton.disabled).toBe(true);
+
+      const options = Array.from(jump().options).map((option) => option.value);
+      expect(options.filter((month) => month > component.month())).toEqual([]);
+    });
+
+    // Entscheid 7: ein ausgefallener Monats-Endpoint ist kein Seitenfehler.
+    it('keeps working when the month list cannot be loaded', async () => {
+      (await recreate()).flush(null, { status: 500, statusText: 'Server Error' });
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      fixture.detectChanges();
+
+      // Das Dropdown fällt auf den angezeigten Monat zurück, die Übersicht steht unverändert da.
+      expect(component.monthOptions().map((option) => option.value)).toEqual([component.month()]);
+      expect(component.errorMessage()).toBeNull();
+      expect((fixture.nativeElement as HTMLElement).querySelector('table')).not.toBeNull();
     });
   });
 

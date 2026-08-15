@@ -54,6 +54,14 @@ class TransactionListOpenApiTest {
     }
 
     @Test
+    void theMonthsEndpointIsDocumented() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.paths['/transactions/months'].get").exists())
+                .andExpect(jsonPath("$.paths['/transactions/months'].get.summary").isNotEmpty());
+    }
+
+    @Test
     void theResponseSchemaCarriesTheHasMoreFlag() throws Exception {
         mockMvc.perform(get("/v3/api-docs"))
                 .andExpect(status().isOk())

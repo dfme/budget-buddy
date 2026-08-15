@@ -18,4 +18,24 @@
   >
     ›
   </button>
+
+  @if (months().length > 0) {
+    <!--
+      Natives <select> mit <label>: Tastatur, Fokus und Screenreader-Ansage kommen ohne Nachbau,
+      und auf Touch öffnet die System-Auswahl. Die Vorauswahl steht über [selected] am <option>
+      und nicht über [value] am <select> — derselbe Grund wie beim Kategorie-Dropdown der
+      Übersicht: der Wert am Elternelement würde gesetzt, bevor die Optionen der @for-Schleife
+      existieren, und liefe ins Leere.
+    -->
+    <label class="month-nav__jump">
+      <span class="visually-hidden">Monat direkt wählen</span>
+      <select appInput (change)="select.emit($any($event.target).value)">
+        @for (month of months(); track month.value) {
+          <option [value]="month.value" [selected]="month.value === selected()">
+            {{ month.label }}
+          </option>
+        }
+      </select>
+    </label>
+  }
 </div>

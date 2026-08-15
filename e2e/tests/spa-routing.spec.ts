@@ -41,6 +41,19 @@ test.describe('SPA-Deep-Links', () => {
     expect(response.status()).toBe(401);
   });
 
+  test('/categories mit Monat im Query-String liefert die SPA aus', async ({ request }) => {
+    // FE-CAT-04: der Direktsprung schreibt den Monat als ?month=YYYY-MM in die URL. Dass der
+    // Query-String kein Teil des Pfads ist und das exakte Pattern /categories weiterhin greift,
+    // ist genau die Annahme, auf der die Entscheidung gegen /categories/2026-06 beruht — und die
+    // Sorte Annahme, die INFRA-17 (#126) in Produktion aufgedeckt hat. Eine TestBed-Assertion
+    // belegt nur, dass die Komponente den Parameter liest, nicht dass der Server die URL
+    // ausliefert.
+    const response = await request.get('/categories?month=2025-06');
+
+    expect(response.status(), 'Deep-Link mit Monat').toBe(200);
+    expect(await response.text()).toContain('<app-root>');
+  });
+
   test('die API bleibt ohne Cookie geschützt', async ({ request }) => {
     // Gegenprobe zur SPA-Freigabe: sie darf die API nicht mit aufmachen.
     const response = await request.get('/users/me');
