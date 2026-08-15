@@ -535,6 +535,14 @@ export class CategoryOverview {
    * <p>Ab {@link MAX_PAGES_PER_REQUEST} Seiten begrenzt das Backend die Anfrage. Dann wird das
    * Fenster auf diese Grösse gekürzt und der Button erscheint wieder: die Liste ist kürzer als
    * vorher, aber keine Buchung wird übersprungen.
+   *
+   * <p>Die <em>Untergrenze</em> von einer Seite sieht nach totem Code aus, ist es aber nicht:
+   * {@code toggleCategory} setzt {@code pagesLoaded} beim Aufklappen auf 0, und eine Korrektur
+   * überlebt das Zuklappen (abgebrochen werden Korrekturen nur beim Monatswechsel). Wer eine
+   * Kategorie korrigiert, zuklappt und wieder aufklappt, bevor der PUT zurück ist, landet genau
+   * hier mit 0 geladenen Seiten. Ohne die Untergrenze ginge die Anfrage mit {@code size=0} raus,
+   * und das Backend antwortete mit 400. Festgehalten im Test «reloads a full page when a
+   * correction lands after the category was reopened».
    */
   private reloadWindow(open: Drilldown): void {
     const pages = Math.min(Math.max(open.pagesLoaded, 1), MAX_PAGES_PER_REQUEST);

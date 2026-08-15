@@ -938,6 +938,42 @@ describe('CategoryOverview', () => {
       expect(loadMoreButton()).toBeNull();
     });
 
+    // Review-Befund aus PR #170: die Untergrenze in reloadWindow sieht wie toter Code aus. Sie ist
+    // es nicht — dieser Ablauf erreicht sie. Ohne sie fragte der Fenster-Reload mit size=0 an,
+    // was das Backend mit 400 abweist, und die aufgeklappte Kategorie stünde mit einer
+    // Fehlermeldung über einer leeren Liste da.
+    it('reloads a full page when a correction lands after the category was reopened', () => {
+      expandLebensmittel(manyTransactions(20), true);
+
+      selectCategory(selects()[0], 'Restaurant');
+      fixture.detectChanges();
+      const put = httpMock.expectOne('/transactions/1/category');
+
+      // Zuklappen bricht nur den Listen-Request ab, nicht die laufende Korrektur — die wird
+      // ausschliesslich beim Monatswechsel gecancelt. Das Wiederaufklappen setzt pagesLoaded
+      // zurück, während der PUT noch unterwegs ist.
+      toggleFor('Lebensmittel').click();
+      fixture.detectChanges();
+      toggleFor('Lebensmittel').click();
+      fixture.detectChanges();
+      const reopen = expectListRequest(httpMock);
+      expect(component.drilldown()?.pagesLoaded).toBe(0);
+
+      put.flush({ ...manyTransactions(1)[0], category: 'Restaurant' });
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+
+      const reload = expectListRequest(httpMock);
+      expect(reload.request.params.get('size')).toBe('20');
+      expect(reload.request.params.get('page')).toBe('0');
+      // Der Reload übernimmt den noch offenen Request des Wiederaufklappens.
+      expect(reopen.cancelled).toBe(true);
+      reload.flush(page(manyTransactions(20), true));
+      fixture.detectChanges();
+
+      expect(component.drilldown()?.transactions).toHaveLength(20);
+      expect(component.drilldown()?.pagesLoaded).toBe(1);
+    });
+
     it('starts over at the first page when another category is expanded', () => {
       expandLebensmittel(manyTransactions(20), true);
 
