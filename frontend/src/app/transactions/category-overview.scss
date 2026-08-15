@@ -118,6 +118,13 @@ tfoot td {
   font-size: $fs-sm;
 }
 
+// Zentriert unter der Liste statt am Rand: der Button gehört zur Liste darüber, nicht zur
+// Tabellenzeile, in der die aufgeklappte Zelle steckt.
+.load-more {
+  display: block;
+  margin: $sp-3 auto 0;
+}
+
 .save-notice {
   display: block;
   margin-bottom: $sp-4;

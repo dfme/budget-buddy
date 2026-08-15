@@ -2,7 +2,11 @@ package com.budgetbuddy.transaction;
 
 import java.time.LocalDate;
 import java.util.List;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 /**
  * Repository-Zugriff auf {@link Transaction} (transaction-intern, kein modulübergreifender Zugriff).
@@ -18,6 +22,50 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
      */
     List<Transaction> findByUserIdAndIncomeFalseAndBuchungsdatumBetween(
             Long userId, LocalDate von, LocalDate bis);
+
+    /**
+     * Seitenweise Variante für die Transaktionsliste (FE-CAT-05, US-13): dieselbe Auswahl wie oben,
+     * aber begrenzt auf das Fenster aus {@code pageable}. Sortiert wird über dessen {@code Sort} —
+     * die Reihenfolge gehört in die Query, weil ein späteres Sortieren in Java nur die
+     * <em>geladene</em> Seite ordnen könnte und damit die falschen Zeilen lieferte.
+     *
+     * <p>{@link Slice} statt {@code Page}: Spring Data holt intern {@code size + 1} Zeilen und
+     * beantwortet {@code hasNext()} daraus. Eine Gesamtzahl braucht die Anzeige nicht, und sie zu
+     * liefern hiesse, neben jeder Seite eine zweite Query über den ganzen Monat laufen zu lassen.
+     */
+    Slice<Transaction> findByUserIdAndIncomeFalseAndBuchungsdatumBetween(
+            Long userId, LocalDate von, LocalDate bis, Pageable pageable);
+
+    /**
+     * Wie oben, zusätzlich eingegrenzt auf ein Kategorie-Label (FE-CAT-05, US-13).
+     *
+     * <p>Das {@code coalesce} bildet dieselbe Regel ab wie {@code TransactionListService.labelOf()}
+     * auf dem Antwortpfad: eine noch nicht kategorisierte Buchung ({@code category IS NULL}) zählt
+     * als <em>Sonstiges</em>, weil die Kategorie-Übersicht sie unter diesem Namen summiert — ein
+     * Filter auf {@code Sonstiges} muss sie deshalb treffen. Die Regel steht damit an zwei Stellen;
+     * das Label selbst kommt an beiden aus {@code Category.SONSTIGES.getLabel()} und wird hier als
+     * Parameter hereingereicht, damit kein zweiter String entsteht.
+     *
+     * <p>Der Filter kann die Mandantentrennung nicht aufweichen: {@code t.userId = :userId} steht
+     * unabhängig davon in der Query.
+     *
+     * <p>Ohne {@code order by} im JPQL — die Reihenfolge kommt aus dem {@code Sort} des
+     * {@code pageable}, sonst stünden zwei Sortierungen nebeneinander.
+     */
+    @Query("""
+            select t from Transaction t
+             where t.userId = :userId
+               and t.income = false
+               and t.buchungsdatum between :von and :bis
+               and coalesce(t.category, :sonstiges) = :label
+            """)
+    Slice<Transaction> findExpensesByCategoryLabel(
+            @Param("userId") Long userId,
+            @Param("von") LocalDate von,
+            @Param("bis") LocalDate bis,
+            @Param("label") String label,
+            @Param("sonstiges") String sonstiges,
+            Pageable pageable);
 
     /**
      * Lädt alle <em>Gutschriften</em> ({@code is_income = true}) eines Users, deren Buchungsdatum in

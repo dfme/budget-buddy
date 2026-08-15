@@ -2,14 +2,27 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
-import { Transaction } from './transaction.model';
+import { Transaction, TransactionPage } from './transaction.model';
 
 /**
- * Kapselt den Zugriff auf die Einzeltransaktionen: `GET /transactions` (FE-CAT-03) und
+ * Buchungen pro Seite — derselbe Wert, den das Backend als Standard für `size` verwendet
+ * (`TransactionListService.DEFAULT_PAGE_SIZE`) und den US-13 für die erste Anzeige verlangt.
+ */
+export const TRANSACTION_PAGE_SIZE = 20;
+
+/**
+ * Grösstes `size`, das das Backend annimmt (`TransactionListService.MAX_PAGE_SIZE`); darüber
+ * antwortet es mit 400. Begrenzt das Fenster, das nach einer Kategorie-Korrektur am Stück
+ * nachgeladen wird.
+ */
+export const MAX_TRANSACTION_PAGE_SIZE = 100;
+
+/**
+ * Kapselt den Zugriff auf die Einzeltransaktionen: `GET /transactions` (FE-CAT-03, FE-CAT-05) und
  * `PUT /transactions/{id}/category` (BE-CAT-04, US-05).
  *
- * <p>Zustandslos wie {@link TransactionSummaryService} — der UI-State (offene Kategorie,
- * laden/Fehler) liegt in der {@link CategoryOverview}-Komponente als Signals. Das
+ * <p>Zustandslos wie {@link TransactionSummaryService} — der UI-State (offene Kategorie, geladene
+ * Seiten, laden/Fehler) liegt in der {@link CategoryOverview}-Komponente als Signals. Das
  * httpOnly-JWT-Cookie sendet der `credentialsInterceptor` automatisch mit (ADR-7).
  */
 @Injectable({ providedIn: 'root' })
@@ -17,17 +30,27 @@ export class TransactionService {
   private readonly http = inject(HttpClient);
 
   /**
-   * Lädt die Ausgaben eines Monats, absteigend nach Buchungsdatum.
+   * Lädt eine Seite der Ausgaben eines Monats, absteigend nach Buchungsdatum.
    *
    * @param month Monat im Format `YYYY-MM` (z. B. `2026-07`).
    * @param category Optionaler Kategorie-Filter als deutsches Label (z. B. `"Lebensmittel"`).
+   * @param page Nullbasierte Seitennummer.
+   * @param size Buchungen pro Seite, höchstens {@link MAX_TRANSACTION_PAGE_SIZE}.
    */
-  list(month: string, category?: string): Observable<Transaction[]> {
-    let params = new HttpParams().set('month', month);
+  list(
+    month: string,
+    category?: string,
+    page = 0,
+    size = TRANSACTION_PAGE_SIZE,
+  ): Observable<TransactionPage> {
+    let params = new HttpParams()
+      .set('month', month)
+      .set('page', page)
+      .set('size', size);
     if (category) {
       params = params.set('category', category);
     }
-    return this.http.get<Transaction[]>('/transactions', { params });
+    return this.http.get<TransactionPage>('/transactions', { params });
   }
 
   /**

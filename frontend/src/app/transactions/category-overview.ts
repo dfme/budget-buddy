@@ -4,6 +4,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { Subscription } from 'rxjs';
 
 import { Badge } from '../shared/badge/badge';
+import { Button } from '../shared/button/button';
 import { Card } from '../shared/card/card';
 import { CATEGORIES } from '../shared/category';
 import { DonutChart, DonutSlice } from '../shared/chart/donut-chart';
@@ -12,22 +13,49 @@ import { MonthNav } from '../shared/month-nav/month-nav';
 import { Notice } from '../shared/notice/notice';
 import { CategorySummary } from './category-summary.model';
 import { Transaction } from './transaction.model';
-import { TransactionService } from './transaction.service';
+import {
+  MAX_TRANSACTION_PAGE_SIZE,
+  TRANSACTION_PAGE_SIZE,
+  TransactionService,
+} from './transaction.service';
 import { TransactionSummaryService } from './transaction-summary.service';
 
 /** Meldung, wenn die Buchungen einer aufgeklappten Kategorie nicht geladen werden konnten. */
 const FAILED_TO_LOAD = 'Die Buchungen konnten nicht geladen werden.';
 
+/** Meldung, wenn das Nachladen weiterer Buchungen fehlschlägt — die geladenen bleiben stehen. */
+const FAILED_TO_LOAD_MORE = 'Weitere Buchungen konnten nicht geladen werden.';
+
+/** Meldung, wenn die Liste nach einer Kategorie-Korrektur nicht aktualisiert werden konnte. */
+const FAILED_TO_REFRESH = 'Die Liste konnte nicht aktualisiert werden.';
+
+/**
+ * Wie viele Seiten am Stück nachgeladen werden können, bevor das Backend das `size`-Limit
+ * ablehnt. Grenze des Fensters, das nach einer Kategorie-Korrektur neu geladen wird.
+ */
+const MAX_PAGES_PER_REQUEST = MAX_TRANSACTION_PAGE_SIZE / TRANSACTION_PAGE_SIZE;
+
 /** Zustand der aktuell aufgeklappten Kategorie. `null`, solange keine offen ist. */
 interface Drilldown {
   /** Deutsches Kategorie-Label, z. B. `"Lebensmittel"`. */
   readonly category: string;
-  /** Die Buchungen dieser Kategorie im angezeigten Monat. */
+  /** Die bereits geladenen Buchungen dieser Kategorie im angezeigten Monat. */
   readonly transactions: readonly Transaction[];
   /** `true`, solange die Liste erstmals geladen wird. */
   readonly loading: boolean;
+  /** `true`, solange eine weitere Seite nachgeladen wird — die bisherigen bleiben sichtbar. */
+  readonly loadingMore: boolean;
   /** Fehlermeldung des Ladevorgangs oder `null`. */
   readonly error: string | null;
+  /** `true`, wenn hinter den geladenen Buchungen weitere folgen (Backend-Signal `hasMore`). */
+  readonly hasMore: boolean;
+  /**
+   * Anzahl angeforderter Seiten. Nicht dasselbe wie {@link transactions}`.length / 20`: nach einer
+   * Korrektur kann das Fenster weniger Einträge enthalten, als es Seiten umfasst. Der Wert
+   * bestimmt, ab welchem Offset die nächste Seite beginnt — er darf deshalb nur wachsen, wenn eine
+   * Seite tatsächlich angefordert wurde.
+   */
+  readonly pagesLoaded: number;
 }
 
 /**
@@ -41,14 +69,26 @@ interface Drilldown {
  * Ausgabenverteilung (FE-CAT-02).
  *
  * <p>Jede Kategorie-Zeile lässt sich aufklappen und zeigt dann die Buchungen dahinter,
- * jede mit einem Dropdown zur Korrektur der Kategorie (FE-CAT-03).
+ * jede mit einem Dropdown zur Korrektur der Kategorie (FE-CAT-03). Die Liste beginnt mit 20
+ * Buchungen und wächst über «Weitere laden» seitenweise (FE-CAT-05, US-13).
  *
  * <p>OnPush + Signals wie im übrigen Frontend; der HTTP-Zugriff liegt in den
  * zustandslosen Services {@link TransactionSummaryService} und {@link TransactionService}.
  */
 @Component({
   selector: 'app-category-overview',
-  imports: [CurrencyPipe, DatePipe, DecimalPipe, MonthNav, Card, Badge, DonutChart, Input, Notice],
+  imports: [
+    CurrencyPipe,
+    DatePipe,
+    DecimalPipe,
+    MonthNav,
+    Card,
+    Badge,
+    Button,
+    DonutChart,
+    Input,
+    Notice,
+  ],
   templateUrl: './category-overview.html',
   styleUrl: './category-overview.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -172,8 +212,32 @@ export class CategoryOverview {
       return;
     }
     this.saveErrorMessage.set(null);
-    this.drilldown.set({ category, transactions: [], loading: true, error: null });
-    this.loadDrilldown(category);
+    this.drilldown.set({
+      category,
+      transactions: [],
+      loading: true,
+      loadingMore: false,
+      error: null,
+      hasMore: false,
+      pagesLoaded: 0,
+    });
+    this.loadPage(category, 0);
+  }
+
+  /**
+   * Lädt die nächste Seite Buchungen und hängt sie an (FE-CAT-05, US-13).
+   *
+   * <p>Der Offset kommt aus {@link Drilldown#pagesLoaded}, nicht aus der Anzahl sichtbarer
+   * Buchungen: nach einer Kategorie-Korrektur kann das Fenster einen Eintrag weniger enthalten,
+   * als es Seiten umfasst — die nächste Seite beginnt trotzdem an der Seitengrenze.
+   */
+  loadMore(): void {
+    const open = this.drilldown();
+    if (open === null || !open.hasMore || open.loading || open.loadingMore) {
+      return;
+    }
+    this.drilldown.set({ ...open, loadingMore: true, error: null });
+    this.loadPage(open.category, open.pagesLoaded);
   }
 
   /**
@@ -269,29 +333,105 @@ export class CategoryOverview {
 
     const open = this.drilldown();
     if (open !== null) {
-      this.loadDrilldown(open.category);
+      this.reloadWindow(open);
     }
   }
 
-  /** Lädt die Buchungen einer Kategorie im aktuellen Monat. */
-  private loadDrilldown(category: string): void {
+  /**
+   * Lädt eine Seite Buchungen einer Kategorie im aktuellen Monat.
+   *
+   * <p>Seite 0 ersetzt die Liste (Erstladen), jede weitere hängt an — sonst würde «Weitere laden»
+   * die bereits sichtbaren Buchungen neu setzen, was AC 5 ausschliesst.
+   */
+  private loadPage(category: string, page: number): void {
     this.pendingDrilldownRequest?.unsubscribe();
 
-    this.pendingDrilldownRequest = this.transactionService.list(this.month(), category).subscribe({
-      next: (transactions) =>
-        this.drilldown.update((current) =>
-          // Nach dem Monatswechsel oder Zuklappen gehört die Antwort nicht mehr zur Anzeige.
-          current?.category === category
-            ? { ...current, transactions, loading: false, error: null }
-            : current,
-        ),
-      error: (_err: HttpErrorResponse) =>
-        this.drilldown.update((current) =>
-          current?.category === category
-            ? { ...current, transactions: [], loading: false, error: FAILED_TO_LOAD }
-            : current,
-        ),
-    });
+    this.pendingDrilldownRequest = this.transactionService
+      .list(this.month(), category, page)
+      .subscribe({
+        next: (result) =>
+          this.drilldown.update((current) =>
+            // Nach dem Monatswechsel oder Zuklappen gehört die Antwort nicht mehr zur Anzeige.
+            current?.category === category
+              ? {
+                  ...current,
+                  transactions:
+                    page === 0
+                      ? result.transactions
+                      : [...current.transactions, ...result.transactions],
+                  pagesLoaded: page + 1,
+                  hasMore: result.hasMore,
+                  loading: false,
+                  loadingMore: false,
+                  error: null,
+                }
+              : current,
+          ),
+        error: (_err: HttpErrorResponse) =>
+          this.drilldown.update((current) => {
+            if (current?.category !== category) {
+              return current;
+            }
+            // Beim Erstladen gibt es nichts zu behalten; beim Nachladen dagegen stehen bereits
+            // Buchungen da, und die gehören nicht wegen einer gescheiterten Folgeseite entfernt.
+            // hasMore bleibt in dem Fall stehen, damit der Button einen zweiten Versuch erlaubt.
+            return page === 0
+              ? {
+                  ...current,
+                  transactions: [],
+                  loading: false,
+                  loadingMore: false,
+                  hasMore: false,
+                  error: FAILED_TO_LOAD,
+                }
+              : { ...current, loadingMore: false, error: FAILED_TO_LOAD_MORE };
+          }),
+      });
+  }
+
+  /**
+   * Lädt nach einer Kategorie-Korrektur das gesamte geladene Fenster neu — in einem Request.
+   *
+   * <p>Ein blosses Nachladen von Seite 0 würde die Liste auf 20 Einträge zurückwerfen, sobald der
+   * Nutzer «Weitere laden» benutzt hat. Die Zeile nur lokal zu entfernen wäre der andere
+   * naheliegende Weg und ist falsch: die korrigierte Buchung verlässt serverseitig die Kategorie,
+   * alle dahinter rücken einen Platz vor, und die nächste Seite begänne dann hinter einer Buchung,
+   * die nie jemand gesehen hat. Das Fenster neu zu laden schliesst diese Lücke — entweder es
+   * bleibt voll (die Offsets stimmen weiter) oder die Menge ist hineingeschrumpft und `hasMore`
+   * wird `false`, womit es keine Folgeseite mehr gibt.
+   *
+   * <p>Ab {@link MAX_PAGES_PER_REQUEST} Seiten begrenzt das Backend die Anfrage. Dann wird das
+   * Fenster auf diese Grösse gekürzt und der Button erscheint wieder: die Liste ist kürzer als
+   * vorher, aber keine Buchung wird übersprungen.
+   */
+  private reloadWindow(open: Drilldown): void {
+    const pages = Math.min(Math.max(open.pagesLoaded, 1), MAX_PAGES_PER_REQUEST);
+    this.pendingDrilldownRequest?.unsubscribe();
+
+    this.pendingDrilldownRequest = this.transactionService
+      .list(this.month(), open.category, 0, pages * TRANSACTION_PAGE_SIZE)
+      .subscribe({
+        next: (result) =>
+          this.drilldown.update((current) =>
+            current?.category === open.category
+              ? {
+                  ...current,
+                  transactions: result.transactions,
+                  pagesLoaded: pages,
+                  hasMore: result.hasMore,
+                  loading: false,
+                  loadingMore: false,
+                  error: null,
+                }
+              : current,
+          ),
+        error: (_err: HttpErrorResponse) =>
+          this.drilldown.update((current) =>
+            current?.category === open.category
+              ? { ...current, loadingMore: false, error: FAILED_TO_REFRESH }
+              : current,
+          ),
+      });
   }
 
   /**

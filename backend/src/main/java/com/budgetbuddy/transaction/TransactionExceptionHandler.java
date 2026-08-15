@@ -11,7 +11,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * <p>Ein fehlender {@code month}-Parameter bzw. ein leeres {@code category}-Feld liefert Spring Boot
  * bereits als 400 ({@code MissingServletRequestParameterException} bzw.
  * {@code MethodArgumentNotValidException}); hier werden zusätzlich die domänenspezifischen Fälle
- * abgebildet: ungültiger {@code month}/{@code category}-Wert → 400, unbekannte Transaktion → 404.
+ * abgebildet: ungültiger {@code month}/{@code category}-Wert → 400, unbrauchbare {@code page}/
+ * {@code size}-Werte → 400, unbekannte Transaktion → 404.
  */
 @RestControllerAdvice(assignableTypes = {
     TransactionSummaryController.class,
@@ -24,6 +25,12 @@ public class TransactionExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public void handleInvalidMonth(InvalidMonthException ex) {
         // Kein Body: 400 genügt für einen fehlerhaften month-Parameter.
+    }
+
+    @ExceptionHandler(InvalidPaginationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public void handleInvalidPagination(InvalidPaginationException ex) {
+        // Kein Body: 400 genügt für unbrauchbare page/size-Werte, die Grenzen stehen in Swagger.
     }
 
     @ExceptionHandler(InvalidCategoryException.class)
