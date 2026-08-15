@@ -18,13 +18,23 @@ Board-Fall tarnt sich als „gibt es nicht".
 
 | | `review-pr` | `implement-issue` | `plan-sprint` |
 | --- | --- | --- | --- |
-| gh-Scopes | `repo` | `repo` | `repo` **+ `read:project`**, zum Schreiben `project` |
-| Rechte am Repo | Lesen genügt | **Write** (Collaborator) | Lesen; **Write**, sobald der Vorschlag ins Repo soll |
-| Rechte am Board | — | — | **eigene Freigabe** (s. u.) |
+| gh-Scopes | `repo`; `project` für die Übernahme | `repo`; `project` für die Übernahme | `repo` **+ `read:project`**, zum Schreiben `project` |
+| Rechte am Repo | Lesen genügt; **Write** für den Assignee | **Write** (Collaborator) | Lesen; **Write**, sobald der Vorschlag ins Repo soll |
+| Rechte am Board | **Write**, sonst ohne Kartenbewegung | **Write**, sonst ohne Kartenbewegung | **eigene Freigabe** (s. u.) |
 | Toolchain | JDK 25, Node, Python | JDK 25, Node | `bash`, `jq` |
 | Typische Fehlermeldung | `HTTP 422` beim Absetzen | `permission denied` beim Push | `missing required scopes [read:project]` (Scope) bzw. `Could not resolve to a ProjectV2` (Freigabe) |
 
 Erläuterungen zu den nicht offensichtlichen Zeilen:
+
+- **Board-Zugriff ist bei `review-pr` und `implement-issue` weich, bei `plan-sprint` hart.** Beide
+  erstgenannten Skills übernehmen zu Beginn den Vorgang: Assignee setzen und die Karte auf dem
+  Sprint Board bewegen (`implement-issue`: Issue → `In Progress`, nach dem Öffnen des PR weiter
+  auf `Review`; `review-pr`: PR → `In Progress` und das verlinkte Issue → `Review`). Fehlt dafür
+  der Scope, die Board-Freigabe oder — nur bei
+  `review-pr` — der Write-Zugriff aufs Repo, **bricht der Lauf nicht ab**: das Skill meldet es
+  einmal und macht ohne diesen Schritt weiter. Die eigentliche Arbeit (implementieren bzw.
+  reviewen) hängt nicht daran. Bei `plan-sprint` ist der Board-Zugriff dagegen der Zweck des
+  Skills und damit Vorbedingung.
 
 - **`plan-sprint` braucht `read:project` — und eine Freigabe am Board.** Das Skill liest das
   [Sprint Board](https://github.com/users/dfme/projects/4) über `gh project field-list`. Der
@@ -41,14 +51,16 @@ Erläuterungen zu den nicht offensichtlichen Zeilen:
   CLAUDE.md nur über Branch + PR — dafür braucht es dann Write wie bei `implement-issue`.
 - **`implement-issue` braucht Write-Zugriff**, weil es einen Branch pusht und via `gh pr create`
   einen PR öffnet. Ein reiner Lesezugriff reicht hier — anders als bei `review-pr` — nicht.
-- **`review-pr` kommt mit Lesezugriff aus.** Das Repo ist public; auch der Ruleset-Check in
-  Schritt 2 ist ohne Sonderrechte lesbar (`GET /repos/dfme/budget-buddy/rulesets` antwortet auch
-  mit `"admin": false`). Admin-Rechte sind ausdrücklich **nicht** nötig.
+- **`review-pr` kommt für den Review selbst mit Lesezugriff aus.** Das Repo ist public; auch der
+  Ruleset-Check in Schritt 2 ist ohne Sonderrechte lesbar (`GET /repos/dfme/budget-buddy/rulesets`
+  antwortet auch mit `"admin": false`). Admin-Rechte sind ausdrücklich **nicht** nötig. Einzige
+  Ausnahme ist der Assignee in Schritt 1c: Assignees setzen darf nur, wer Write-Zugriff aufs Repo
+  hat. Ohne den läuft der Review vollständig durch, nur ohne Zuweisung.
 - **Python** braucht nur `review-pr`: die Review-Payload wird als JSON-Datei geschrieben, weil
   Markdown mit Code-Fences und Umlauten am Shell-Quoting zerbricht. Achtung beim Aufruf — unter
   Windows heisst der Interpreter `python`, `python3` ist dort der Microsoft-Store-Stub.
 
-## Board-Zugriff für `plan-sprint` (nicht über das Repo geregelt)
+## Board-Zugriff (nicht über das Repo geregelt)
 
 Das [Sprint Board](https://github.com/users/dfme/projects/4) ist ein **privates User-Project**
 (`users/dfme/projects/4`), kein Repo-Project. Daraus folgt der Punkt, den man leicht übersieht:
@@ -61,8 +73,8 @@ Die Freigabe vergibt der Board-Owner (**dfme**) separat: Board öffnen → *Sett
 
 | Rolle | Reicht für |
 | ----- | ---------- |
-| **Read** | den Sprint-Vorschlag — das Skill liest Felder, Velocity und Carryover |
-| **Write** | zusätzlich das Zurückschreiben ins Board, wenn das Team den Vorschlag annimmt |
+| **Read** | den Sprint-Vorschlag von `plan-sprint` — das Skill liest Felder, Velocity und Carryover |
+| **Write** | zusätzlich das Zurückschreiben ins Board: `plan-sprint` Schritt 5, und die Übernahme zu Beginn von `implement-issue` und `review-pr` |
 
 Die **eigene** Berechtigung ist abfragbar — `ProjectV2` hat zwar kein `collaborators`-Feld (die
 Rechte *anderer* sieht man also nicht), aber `viewerCanUpdate`:
@@ -161,8 +173,11 @@ Token nehmen (`repo`, `project`).
 Ein **Fine-grained** Token ist für `plan-sprint` der falsche Weg: dessen `Projects`-Berechtigung
 ist eine *Account*-Berechtigung und deckt die Projects des Token-Inhabers ab, nicht das private
 Board einer anderen Person. Für `implement-issue` und `review-pr` funktioniert ein Fine-grained
-Token dagegen — nötig sind *Contents: Read & Write*, *Pull requests: Read & Write* und
-*Metadata: Read*.
+Token dagegen — nötig sind *Contents: Read & Write*, *Issues: Read & Write*,
+*Pull requests: Read & Write* und *Metadata: Read*. Dieselbe Projects-Einschränkung trifft
+allerdings auch sie: die Kartenbewegung zu Beginn beider Skills bleibt mit einem Fine-grained
+Token aus. Da dieser Schritt nicht blockierend ist, laufen sie trotzdem vollständig durch — die
+Karte ist dann von Hand zu setzen.
 
 Ein solcher Token ist ein Secret wie jedes andere: **nie ins Repo**, weder in `.env` noch
 sonstwo — es gilt CLAUDE.md → „Sicherheit: Keine Secrets im Git". Bei versehentlichem Commit
