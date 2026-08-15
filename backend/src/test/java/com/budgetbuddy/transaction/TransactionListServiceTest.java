@@ -13,6 +13,7 @@ import com.budgetbuddy.transaction.dto.TransactionListResponse;
 import com.budgetbuddy.transaction.dto.TransactionResponse;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -260,6 +261,37 @@ class TransactionListServiceTest {
 
         assertThat(capturedPageable().getPageSize())
                 .isEqualTo(TransactionListService.MAX_PAGE_SIZE);
+    }
+
+    @Test
+    void formatsAvailableMonthsAsTheParameterFormat() {
+        // Ausgabe von availableMonths() und Eingabe des month-Parameters müssen dasselbe Format
+        // haben — sonst liefert das Dropdown Werte, die der Endpoint mit 400 abweist.
+        when(repository.findDistinctExpenseMonths(USER_ID))
+                .thenReturn(List.<Object[]>of(new Object[] {2026, 7}, new Object[] {2019, 8}));
+
+        List<String> months = service.availableMonths(USER_ID);
+
+        assertThat(months).containsExactly("2026-07", "2019-08");
+        assertThat(MonthParser.parse(months.getFirst())).isEqualTo(YearMonth.of(2026, 7));
+    }
+
+    @Test
+    void acceptsWhateverNumericTypeTheDatabaseReturns() {
+        // year()/month() liefern je nach Dialekt Integer oder Long — deshalb steht im Service ein
+        // Cast auf Number und nicht auf Integer. Ein ClassCastException fiele sonst erst in
+        // Produktion auf, weil der Unit-Test die Typen selbst wählt.
+        when(repository.findDistinctExpenseMonths(USER_ID))
+                .thenReturn(List.<Object[]>of(new Object[] {2021L, 3L}));
+
+        assertThat(service.availableMonths(USER_ID)).containsExactly("2021-03");
+    }
+
+    @Test
+    void reportsNoAvailableMonthsWhenThereAreNoExpenses() {
+        when(repository.findDistinctExpenseMonths(USER_ID)).thenReturn(List.of());
+
+        assertThat(service.availableMonths(USER_ID)).isEmpty();
     }
 
     @Test

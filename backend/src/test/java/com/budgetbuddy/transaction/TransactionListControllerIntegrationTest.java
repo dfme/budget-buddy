@@ -331,6 +331,72 @@ class TransactionListControllerIntegrationTest {
     }
 
     @Test
+    void listsTheMonthsWithExpensesNewestFirst() throws Exception {
+        // Laras Juli hat zwei Ausgaben — sie erscheinen als ein Monat, nicht als zwei. Der Juni
+        // kommt aus der MIETE-Buchung.
+        mockMvc.perform(get("/transactions/months").cookie(jwtCookie(laraId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0]").value("2026-07"))
+                .andExpect(jsonPath("$[1]").value("2026-06"));
+    }
+
+    @Test
+    void monthsSpanYearsAndPadSingleDigitMonths() throws Exception {
+        // Der eigentliche Grund für diesen Endpoint: alte Kontoauszüge. Eine im Frontend
+        // festgelegte Jahresspanne träfe genau diese Monate nicht.
+        save(laraId, "2019-08-04", "ALTER AUSZUG", "42.00", false, "Sonstiges");
+
+        mockMvc.perform(get("/transactions/months").cookie(jwtCookie(laraId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(3))
+                .andExpect(jsonPath("$[2]").value("2019-08"));
+    }
+
+    @Test
+    void monthsWithOnlyIncomeDoNotAppear() throws Exception {
+        // Ein Monat mit ausschliesslich Gutschriften hat in der Kategorie-Übersicht nichts
+        // anzuzeigen — er gehört nicht ins Dropdown.
+        save(laraId, "2026-05-25", "LOHN ARBEITGEBER", "3000.00", true, "Einkommen");
+
+        mockMvc.perform(get("/transactions/months").cookie(jwtCookie(laraId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@ == '2026-05')]").isEmpty());
+    }
+
+    @Test
+    void doesNotLeakTheMonthsOfAnotherUser() throws Exception {
+        // Der Endpoint gibt preis, *wann* jemand Geld ausgegeben hat — für sich schon eine
+        // Aussage über eine Person, auch ohne Beträge.
+        save(marcId, "2020-01-09", "MARCS ALTE BUCHUNG", "15.00", false, "Shopping");
+
+        mockMvc.perform(get("/transactions/months").cookie(jwtCookie(laraId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@ == '2020-01')]").isEmpty());
+
+        mockMvc.perform(get("/transactions/months").cookie(jwtCookie(marcId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0]").value("2026-07"))
+                .andExpect(jsonPath("$[1]").value("2020-01"));
+    }
+
+    @Test
+    void userWithoutExpensesGetsAnEmptyMonthList() throws Exception {
+        long neu = createUser("neu@example.ch");
+
+        mockMvc.perform(get("/transactions/months").cookie(jwtCookie(neu)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    void monthsWithoutJwtReturns401() throws Exception {
+        mockMvc.perform(get("/transactions/months"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void sizeBelowOneReturns400() throws Exception {
         mockMvc.perform(get("/transactions").param("month", "2026-07").param("size", "0")
                         .cookie(jwtCookie(laraId)))

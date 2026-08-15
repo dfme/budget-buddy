@@ -1,6 +1,8 @@
 import { CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, ParamMap, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 
 import { Badge } from '../shared/badge/badge';
@@ -9,7 +11,7 @@ import { Card } from '../shared/card/card';
 import { CATEGORIES } from '../shared/category';
 import { DonutChart, DonutSlice } from '../shared/chart/donut-chart';
 import { Input } from '../shared/input/input';
-import { MonthNav } from '../shared/month-nav/month-nav';
+import { MonthNav, MonthOption } from '../shared/month-nav/month-nav';
 import { Notice } from '../shared/notice/notice';
 import { CategorySummary } from './category-summary.model';
 import { Transaction } from './transaction.model';
@@ -34,6 +36,12 @@ const FAILED_TO_REFRESH = 'Die Liste konnte nicht aktualisiert werden.';
  * ablehnt. Grenze des Fensters, das nach einer Kategorie-Korrektur neu geladen wird.
  */
 const MAX_PAGES_PER_REQUEST = MAX_TRANSACTION_PAGE_SIZE / TRANSACTION_PAGE_SIZE;
+
+/**
+ * Zulässiger `month`-Query-Parameter. Ein unbrauchbarer Wert darf nicht bis `formatMonth()`
+ * durchkommen — `new Date(NaN)` erzeugte dort ein «Invalid Date» als Überschrift.
+ */
+const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 /** Zustand der aktuell aufgeklappten Kategorie. `null`, solange keine offen ist. */
 interface Drilldown {
@@ -102,6 +110,8 @@ export class CategoryOverview {
 
   private readonly summaryService = inject(TransactionSummaryService);
   private readonly transactionService = inject(TransactionService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   /** Aktuell angezeigter Monat im Format `YYYY-MM`. */
   readonly month = signal(CategoryOverview.currentMonth());
@@ -146,6 +156,35 @@ export class CategoryOverview {
   /** `true`, wenn der angezeigte Monat der aktuelle Monat ist — sperrt "›". */
   readonly isCurrentMonth = computed(() => this.month() >= CategoryOverview.currentMonth());
 
+  /**
+   * Monate mit Ausgaben aus `GET /transactions/months`, roh wie geliefert. Leer, solange nichts
+   * geladen ist oder der Request fehlgeschlagen ist.
+   */
+  private readonly loadedMonths = signal<readonly string[]>([]);
+
+  /**
+   * Die Monate des Direktsprung-Dropdowns (FE-CAT-04), neuester zuerst.
+   *
+   * <p>Zwei Regeln über der geladenen Liste:
+   *
+   * <ul>
+   *   <li>Der angezeigte Monat ist immer dabei, auch wenn er keine Ausgaben hat. Sonst stünde das
+   *       Dropdown bei leerem Konto oder einem per Deep-Link geöffneten leeren Monat auf einem
+   *       fremden Wert.
+   *   <li>Zukunftsmonate fallen raus — dieselbe Regel, die {@link isCurrentMonth} am Stepper
+   *       durchsetzt. Ein Dropdown, das sie anböte, hebelte die Sperre aus.
+   * </ul>
+   */
+  readonly monthOptions = computed<readonly MonthOption[]>(() => {
+    const current = CategoryOverview.currentMonth();
+    const values = new Set(this.loadedMonths().filter((month) => month <= current));
+    values.add(this.month());
+    return [...values]
+      .sort()
+      .reverse()
+      .map((value) => ({ value, label: CategoryOverview.formatMonth(value) }));
+  });
+
   /** Aufgeklappte Kategorie samt ihren Buchungen, oder `null`, wenn keine offen ist. */
   readonly drilldown = signal<Drilldown | null>(null);
 
@@ -175,20 +214,113 @@ export class CategoryOverview {
    */
   private readonly pendingSaves = new Set<Subscription>();
 
+  /**
+   * `false`, bis die erste URL-Auswertung gelaufen ist. Ohne diese Unterscheidung würde die
+   * Gleichheits-Wache in {@link syncFromUrl} das Erstladen verschlucken, sobald die URL keinen
+   * Parameter trägt — der ausgelesene Monat wäre dann von Anfang an derselbe wie der angezeigte.
+   */
+  private initialLoadDone = false;
+
   constructor() {
-    this.load();
+    // `queryParamMap` liefert den aktuellen Stand sofort und danach jede Änderung. Beides läuft
+    // durch dieselbe Methode: das Erstladen (auch per Deep-Link) und später Browser-Zurück,
+    // -Vorwärts oder eine von Hand editierte Adresse.
+    this.route.queryParamMap
+      .pipe(takeUntilDestroyed())
+      .subscribe((params) => this.syncFromUrl(params));
+    this.loadAvailableMonths();
   }
 
   /** Einen Monat zurück. */
   previousMonth(): void {
-    this.month.set(CategoryOverview.shiftMonth(this.month(), -1));
-    this.load();
+    this.goTo(CategoryOverview.shiftMonth(this.month(), -1));
   }
 
   /** Einen Monat vor. */
   nextMonth(): void {
-    this.month.set(CategoryOverview.shiftMonth(this.month(), 1));
+    this.goTo(CategoryOverview.shiftMonth(this.month(), 1));
+  }
+
+  /**
+   * Springt direkt auf einen Monat (FE-CAT-04, US-12) — unabhängig davon, wie weit er entfernt
+   * ist, und mit genau einem Request statt einem pro übersprungenem Monat.
+   */
+  selectMonth(month: string): void {
+    if (month === this.month()) {
+      return;
+    }
+    this.goTo(month);
+  }
+
+  /**
+   * Wechselt den angezeigten Monat und zieht die URL nach.
+   *
+   * <p>Geladen wird sofort, nicht erst wenn die Navigation gelandet ist: die Anzeige soll nicht
+   * auf den Router warten. Die URL folgt anschliessend, und die Wache in {@link syncFromUrl}
+   * verwirft die Rückmeldung — sonst liefe jeder Wechsel zweimal.
+   */
+  private goTo(month: string): void {
+    this.month.set(month);
     this.load();
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { month },
+      queryParamsHandling: 'merge',
+    });
+  }
+
+  /**
+   * Übernimmt den Monat aus der URL — beim Erstladen und bei jeder äusseren Änderung.
+   *
+   * <p>Die Gleichheits-Wache unten ist der Grund, warum Stepper und Sprung synchron laden dürfen,
+   * ohne dass ein zweiter Request folgt. Wer sie entfernt, bekommt pro Wechsel zwei Requests —
+   * der Test «schreibt den Monat in die URL, ohne ein zweites Mal zu laden» wird dann rot.
+   */
+  private syncFromUrl(params: ParamMap): void {
+    const raw = params.get('month');
+    // Ein Zukunftsmonat ist hier genauso unbrauchbar wie ein kaputtes Format: dort gibt es keine
+    // Buchungen, und der Stepper verbietet den Weg dorthin ohnehin. Ihn erst weiter unten aus dem
+    // Dropdown zu filtern, hiesse Entscheid 5 zu brechen — das <select> stünde dann auf einem
+    // Wert, den seine eigene Liste nicht enthält. Hier abgefangen, halten beide Regeln.
+    const valid =
+      raw !== null && MONTH_PATTERN.test(raw) && raw <= CategoryOverview.currentMonth();
+    const month = valid ? raw : CategoryOverview.currentMonth();
+
+    if (raw !== null && !valid) {
+      // Unbrauchbarer Parameter: die Adresse auf den tatsächlich angezeigten Monat zurechtrücken,
+      // statt eine URL stehen zu lassen, die etwas anderes behauptet als die Seite. `replaceUrl`,
+      // damit die kaputte Adresse nicht im Verlauf liegenbleibt und «Zurück» sie wieder aufruft.
+      void this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { month },
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+      });
+    }
+
+    if (this.initialLoadDone && month === this.month()) {
+      return;
+    }
+    this.initialLoadDone = true;
+    this.month.set(month);
+    this.load();
+  }
+
+  /**
+   * Lädt die Monate für das Direktsprung-Dropdown.
+   *
+   * <p>Einmal beim Aufbau der Seite: die Liste ändert sich nur durch einen Import, und der führt
+   * ohnehin über eine andere Seite hierher zurück.
+   */
+  private loadAvailableMonths(): void {
+    this.transactionService.availableMonths().subscribe({
+      next: (months) => this.loadedMonths.set(months),
+      error: (_err: HttpErrorResponse) => {
+        // Bewusst ohne Meldung: {@link monthOptions} fällt auf den angezeigten Monat zurück, und
+        // Stepper wie Übersicht funktionieren unverändert weiter. Eine rote Meldung für ein
+        // ausgefallenes Komfort-Element stünde in keinem Verhältnis zur Einschränkung.
+      },
+    });
   }
 
   /** `true`, wenn die Buchungen dieser Kategorie gerade aufgeklappt sind. */

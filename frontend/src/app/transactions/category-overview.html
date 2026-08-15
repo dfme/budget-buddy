@@ -5,8 +5,11 @@
     class="month-selector"
     [label]="monthLabel()"
     [disableNext]="isCurrentMonth()"
+    [months]="monthOptions()"
+    [selected]="month()"
     (prev)="previousMonth()"
     (next)="nextMonth()"
+    (select)="selectMonth($event)"
   />
 
   @if (loading()) {

@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.List;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -67,5 +68,20 @@ public class TransactionListController {
                     + TransactionListService.DEFAULT_PAGE_SIZE, example = "20")
             @RequestParam(defaultValue = TransactionListService.DEFAULT_PAGE_SIZE) int size) {
         return listService.list(userId, month, category, page, size);
+    }
+
+    @GetMapping("/months")
+    @Operation(summary = "Monate mit Ausgaben auflisten",
+            description = "Liefert die Monate im Format YYYY-MM, in denen der eingeloggte User "
+                    + "Ausgaben hat — neuester zuerst. Eingabe des Monats-Dropdowns der "
+                    + "Kategorie-Übersicht, das damit nur Monate anbietet, in denen auch etwas zu "
+                    + "sehen ist. Monate mit ausschliesslich Gutschriften erscheinen nicht. Ein "
+                    + "User ohne Ausgaben bekommt eine leere Liste, keinen Fehler.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Monate zurückgegeben"),
+        @ApiResponse(responseCode = "401", description = "Nicht authentifiziert", content = {})
+    })
+    public List<String> listMonths(@AuthenticationPrincipal Long userId) {
+        return listService.availableMonths(userId);
     }
 }
