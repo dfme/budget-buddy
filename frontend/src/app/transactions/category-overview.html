@@ -76,10 +76,18 @@
                   @if (drilldown(); as open) {
                     @if (open.loading) {
                       <p class="status">Lädt …</p>
-                    } @else if (open.error) {
-                      <p class="status error">{{ open.error }}</p>
                     } @else if (open.transactions.length === 0) {
-                      <p class="status empty">Keine Buchungen in dieser Kategorie.</p>
+                      <!--
+                        Fehler und Leerzustand teilen sich diesen Zweig, weil beide dasselbe
+                        beschreiben: es steht nichts da. Sobald Buchungen geladen sind, gehört ein
+                        Fehler dagegen unter die Liste (siehe unten) — ein gescheitertes Nachladen
+                        darf die bereits sichtbaren Buchungen nicht durch eine Meldung ersetzen.
+                      -->
+                      @if (open.error) {
+                        <p class="status error">{{ open.error }}</p>
+                      } @else {
+                        <p class="status empty">Keine Buchungen in dieser Kategorie.</p>
+                      }
                     } @else {
                       <ul class="transactions">
                         @for (tx of open.transactions; track tx.id) {
@@ -119,6 +127,23 @@
                           </li>
                         }
                       </ul>
+
+                      @if (open.error) {
+                        <p class="status error">{{ open.error }}</p>
+                      }
+
+                      @if (open.hasMore) {
+                        <button
+                          appButton
+                          variant="ghost"
+                          type="button"
+                          class="load-more"
+                          [disabled]="open.loadingMore"
+                          (click)="loadMore()"
+                        >
+                          {{ open.loadingMore ? 'Lädt …' : 'Weitere laden' }}
+                        </button>
+                      }
                     }
                   }
                 </td>

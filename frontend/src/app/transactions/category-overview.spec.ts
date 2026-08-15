@@ -11,7 +11,7 @@ import { CATEGORIES } from '../shared/category';
 import { installCanvasStub, restoreCanvasStub } from '../../testing/canvas';
 import { CategoryOverview } from './category-overview';
 import { CategorySummary } from './category-summary.model';
-import { Transaction } from './transaction.model';
+import { Transaction, TransactionPage } from './transaction.model';
 
 // Der CurrencyPipe nutzt den app-weiten LOCALE_ID (de-CH); die Locale-Daten müssen
 // dafür registriert sein — im echten App-Bootstrap erledigt das app.config.ts.
@@ -85,6 +85,23 @@ function expectSummaryRequest(httpMock: HttpTestingController) {
 /** Wie {@link expectSummaryRequest}, aber für die Liste der Einzelbuchungen. */
 function expectListRequest(httpMock: HttpTestingController) {
   return httpMock.expectOne((req) => req.url === '/transactions');
+}
+
+/** Antwort-Seite von `GET /transactions` (FE-CAT-05) — ohne Folgeseite, wenn nicht anders gesagt. */
+function page(transactions: Transaction[], hasMore = false): TransactionPage {
+  return { transactions, hasMore };
+}
+
+/** {@link count} Buchungen ab {@link firstId} — Material für die Seitengrenzen. */
+function manyTransactions(count: number, firstId = 1): Transaction[] {
+  return Array.from({ length: count }, (_, index) => ({
+    id: firstId + index,
+    buchungsdatum: '2026-07-15',
+    buchungstext: `BUCHUNG ${firstId + index}`,
+    betrag: 10,
+    income: false,
+    category: 'Lebensmittel',
+  }));
 }
 
 /**
@@ -321,41 +338,48 @@ describe('CategoryOverview', () => {
     expect(component.summary()?.totalCount).toBe(3);
   });
 
+  /** Der Aufklapp-Button der Zeile mit diesem Kategorie-Label. */
+  function toggleFor(category: string): HTMLButtonElement {
+    const toggle = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>(
+        '.drilldown-toggle',
+      ),
+    ).find((button) => button.textContent?.trim() === category);
+    expect(toggle).toBeDefined();
+    return toggle!;
+  }
+
+  /** Die Dropdowns der aufgeklappten Buchungen, in Reihenfolge der Liste. */
+  function selects(): HTMLSelectElement[] {
+    return Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLSelectElement>(
+        '.transaction select',
+      ),
+    );
+  }
+
+  /** Die Buchungstexte der aufgeklappten Liste, in Anzeigereihenfolge. */
+  function renderedTexts(): (string | undefined)[] {
+    return Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('.transaction__text'),
+    ).map((el) => el.textContent?.trim());
+  }
+
+  /** Klappt "Lebensmittel" auf und beantwortet den Listen-Request. */
+  function expandLebensmittel(transactions = TRANSACTIONS, hasMore = false) {
+    expectSummaryRequest(httpMock).flush(SUMMARY);
+    fixture.detectChanges();
+
+    toggleFor('Lebensmittel').click();
+    fixture.detectChanges();
+
+    const req = expectListRequest(httpMock);
+    req.flush(page(transactions, hasMore));
+    fixture.detectChanges();
+    return req;
+  }
+
   describe('Kategorie-Korrektur (FE-CAT-03)', () => {
-    /** Klappt "Lebensmittel" auf und beantwortet den Listen-Request mit {@link TRANSACTIONS}. */
-    function expandLebensmittel(transactions = TRANSACTIONS) {
-      expectSummaryRequest(httpMock).flush(SUMMARY);
-      fixture.detectChanges();
-
-      toggleFor('Lebensmittel').click();
-      fixture.detectChanges();
-
-      const req = expectListRequest(httpMock);
-      req.flush(transactions);
-      fixture.detectChanges();
-      return req;
-    }
-
-    /** Der Aufklapp-Button der Zeile mit diesem Kategorie-Label. */
-    function toggleFor(category: string): HTMLButtonElement {
-      const toggle = Array.from(
-        (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>(
-          '.drilldown-toggle',
-        ),
-      ).find((button) => button.textContent?.trim() === category);
-      expect(toggle).toBeDefined();
-      return toggle!;
-    }
-
-    /** Die Dropdowns der aufgeklappten Buchungen, in Reihenfolge der Liste. */
-    function selects(): HTMLSelectElement[] {
-      return Array.from(
-        (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLSelectElement>(
-          '.transaction select',
-        ),
-      );
-    }
-
     it('requests the transactions of the category when a row is expanded', () => {
       expectSummaryRequest(httpMock).flush(SUMMARY);
       fixture.detectChanges();
@@ -369,14 +393,11 @@ describe('CategoryOverview', () => {
       const req = expectListRequest(httpMock);
       expect(req.request.params.get('month')).toBe(component.month());
       expect(req.request.params.get('category')).toBe('Lebensmittel');
-      req.flush(TRANSACTIONS);
+      req.flush(page(TRANSACTIONS));
       fixture.detectChanges();
 
       expect(toggle.getAttribute('aria-expanded')).toBe('true');
-      const rendered = Array.from(
-        (fixture.nativeElement as HTMLElement).querySelectorAll('.transaction__text'),
-      ).map((el) => el.textContent?.trim());
-      expect(rendered).toEqual(['COOP PRONTO BERN', 'MIGROS MM ZENTRUM']);
+      expect(renderedTexts()).toEqual(['COOP PRONTO BERN', 'MIGROS MM ZENTRUM']);
     });
 
     it('collapses the row again on a second click without a further request', () => {
@@ -439,7 +460,7 @@ describe('CategoryOverview', () => {
       // Erfolg lädt Summary und offene Liste nach, damit Donut und Summen nicht auf dem
       // alten Stand stehenbleiben.
       expectSummaryRequest(httpMock).flush(SUMMARY);
-      expectListRequest(httpMock).flush([TRANSACTIONS[1]]);
+      expectListRequest(httpMock).flush(page([TRANSACTIONS[1]]));
       fixture.detectChanges();
 
       expect(component.saveErrorMessage()).toBeNull();
@@ -490,7 +511,7 @@ describe('CategoryOverview', () => {
       // Erst mit dem zweiten PUT wird nachgeladen — dann für beide.
       puts[1].flush({ ...TRANSACTIONS[1], category: 'Transport' });
       expectSummaryRequest(httpMock).flush(SUMMARY);
-      expectListRequest(httpMock).flush([]);
+      expectListRequest(httpMock).flush(page([]));
       fixture.detectChanges();
 
       expect(component.saveErrorMessage()).toBeNull();
@@ -554,6 +575,191 @@ describe('CategoryOverview', () => {
       // Die Buchungen gehören zum alten Monat — sie dürfen unter dem neuen nicht stehenbleiben.
       expect(component.drilldown()).toBeNull();
       expect(selects()).toHaveLength(0);
+    });
+  });
+
+  describe('Pagination (FE-CAT-05)', () => {
+    /** Der «Weitere laden»-Button, oder `null`, wenn er nicht angezeigt wird. */
+    function loadMoreButton(): HTMLButtonElement | null {
+      return (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.load-more');
+    }
+
+    // AC 4 + 6: initial 20 Buchungen, Button nur bei weiteren.
+    it('shows the first page and offers to load more', () => {
+      const req = expandLebensmittel(manyTransactions(20), true);
+
+      expect(req.request.params.get('page')).toBe('0');
+      expect(req.request.params.get('size')).toBe('20');
+      expect(renderedTexts()).toHaveLength(20);
+      expect(loadMoreButton()?.textContent?.trim()).toBe('Weitere laden');
+    });
+
+    it('hides the button when the first page is already the last', () => {
+      expandLebensmittel(manyTransactions(12), false);
+
+      expect(renderedTexts()).toHaveLength(12);
+      expect(loadMoreButton()).toBeNull();
+    });
+
+    // AC 5: der Button hängt an, ohne die bereits sichtbaren Buchungen neu zu laden.
+    it('appends the next page to the entries already shown', () => {
+      expandLebensmittel(manyTransactions(20), true);
+
+      loadMoreButton()!.click();
+      fixture.detectChanges();
+
+      const req = expectListRequest(httpMock);
+      expect(req.request.params.get('page')).toBe('1');
+      expect(req.request.params.get('size')).toBe('20');
+      // Genau ein Request — httpMock.verify() im afterEach fällt um, wenn Seite 0 mitgeladen wird.
+      req.flush(page(manyTransactions(5, 21), false));
+      fixture.detectChanges();
+
+      const texts = renderedTexts();
+      expect(texts).toHaveLength(25);
+      expect(texts[0]).toBe('BUCHUNG 1');
+      expect(texts[24]).toBe('BUCHUNG 25');
+    });
+
+    it('hides the button once the last page has been appended', () => {
+      expandLebensmittel(manyTransactions(20), true);
+
+      loadMoreButton()!.click();
+      fixture.detectChanges();
+      expectListRequest(httpMock).flush(page(manyTransactions(3, 21), false));
+      fixture.detectChanges();
+
+      expect(loadMoreButton()).toBeNull();
+    });
+
+    it('keeps the loaded entries when loading the next page fails', () => {
+      expandLebensmittel(manyTransactions(20), true);
+
+      loadMoreButton()!.click();
+      fixture.detectChanges();
+      expectListRequest(httpMock).flush(null, { status: 500, statusText: 'Server Error' });
+      fixture.detectChanges();
+
+      // Die 20 sichtbaren Buchungen gehören nicht wegen einer gescheiterten Folgeseite entfernt,
+      // und der Button bleibt für einen zweiten Versuch stehen.
+      expect(renderedTexts()).toHaveLength(20);
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector('.drilldown .status.error')
+          ?.textContent,
+      ).toContain('Weitere Buchungen');
+      expect(loadMoreButton()).not.toBeNull();
+    });
+
+    // AC 7: die Korrektur funktioniert auch auf einem nachgeladenen Eintrag.
+    it('corrects a category on an appended entry and reloads the whole loaded window', () => {
+      expandLebensmittel(manyTransactions(20), true);
+
+      loadMoreButton()!.click();
+      fixture.detectChanges();
+      expectListRequest(httpMock).flush(page(manyTransactions(20, 21), true));
+      fixture.detectChanges();
+      expect(renderedTexts()).toHaveLength(40);
+
+      // Die 25. Buchung stammt aus der nachgeladenen Seite.
+      selectCategory(selects()[24], 'Restaurant');
+      fixture.detectChanges();
+      const put = httpMock.expectOne('/transactions/25/category');
+      put.flush({ ...manyTransactions(1, 25)[0], category: 'Restaurant' });
+
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      const reload = expectListRequest(httpMock);
+      // Das ganze Fenster in einem Request — nicht Seite 0, sonst fiele die Liste auf 20 zurück.
+      expect(reload.request.params.get('page')).toBe('0');
+      expect(reload.request.params.get('size')).toBe('40');
+      reload.flush(page(manyTransactions(39), true));
+      fixture.detectChanges();
+
+      expect(renderedTexts()).toHaveLength(39);
+      expect(component.saveErrorMessage()).toBeNull();
+    });
+
+    // Der Fall, den ein blosses lokales Entfernen der Zeile verlöre: die Buchung, die durch die
+    // Korrektur von Seite 1 auf Seite 0 rutscht, wäre danach über den Button nicht mehr erreichbar.
+    it('does not lose the entry that moves into the window when one leaves the category', () => {
+      expandLebensmittel(manyTransactions(20), true);
+
+      selectCategory(selects()[0], 'Restaurant');
+      fixture.detectChanges();
+      httpMock
+        .expectOne('/transactions/1/category')
+        .flush({ ...manyTransactions(1)[0], category: 'Restaurant' });
+
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      const reload = expectListRequest(httpMock);
+      expect(reload.request.params.get('size')).toBe('20');
+      // Der Server hat noch 20 Buchungen: die 21. ist an die Stelle der korrigierten gerückt.
+      reload.flush(page(manyTransactions(20, 2), false));
+      fixture.detectChanges();
+
+      const texts = renderedTexts();
+      expect(texts).toHaveLength(20);
+      expect(texts).toContain('BUCHUNG 21');
+      expect(texts).not.toContain('BUCHUNG 1');
+      expect(loadMoreButton()).toBeNull();
+    });
+
+    // Review-Befund aus PR #170: die Untergrenze in reloadWindow sieht wie toter Code aus. Sie ist
+    // es nicht — dieser Ablauf erreicht sie. Ohne sie fragte der Fenster-Reload mit size=0 an,
+    // was das Backend mit 400 abweist, und die aufgeklappte Kategorie stünde mit einer
+    // Fehlermeldung über einer leeren Liste da.
+    it('reloads a full page when a correction lands after the category was reopened', () => {
+      expandLebensmittel(manyTransactions(20), true);
+
+      selectCategory(selects()[0], 'Restaurant');
+      fixture.detectChanges();
+      const put = httpMock.expectOne('/transactions/1/category');
+
+      // Zuklappen bricht nur den Listen-Request ab, nicht die laufende Korrektur — die wird
+      // ausschliesslich beim Monatswechsel gecancelt. Das Wiederaufklappen setzt pagesLoaded
+      // zurück, während der PUT noch unterwegs ist.
+      toggleFor('Lebensmittel').click();
+      fixture.detectChanges();
+      toggleFor('Lebensmittel').click();
+      fixture.detectChanges();
+      const reopen = expectListRequest(httpMock);
+      expect(component.drilldown()?.pagesLoaded).toBe(0);
+
+      put.flush({ ...manyTransactions(1)[0], category: 'Restaurant' });
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+
+      const reload = expectListRequest(httpMock);
+      expect(reload.request.params.get('size')).toBe('20');
+      expect(reload.request.params.get('page')).toBe('0');
+      // Der Reload übernimmt den noch offenen Request des Wiederaufklappens.
+      expect(reopen.cancelled).toBe(true);
+      reload.flush(page(manyTransactions(20), true));
+      fixture.detectChanges();
+
+      expect(component.drilldown()?.transactions).toHaveLength(20);
+      expect(component.drilldown()?.pagesLoaded).toBe(1);
+    });
+
+    it('starts over at the first page when another category is expanded', () => {
+      expandLebensmittel(manyTransactions(20), true);
+
+      loadMoreButton()!.click();
+      fixture.detectChanges();
+      expectListRequest(httpMock).flush(page(manyTransactions(20, 21), true));
+      fixture.detectChanges();
+
+      // Zuklappen und eine andere Kategorie öffnen — das Fenster der alten darf nicht nachwirken.
+      toggleFor('Lebensmittel').click();
+      fixture.detectChanges();
+      toggleFor('Wohnen').click();
+      fixture.detectChanges();
+
+      const req = expectListRequest(httpMock);
+      expect(req.request.params.get('category')).toBe('Wohnen');
+      expect(req.request.params.get('page')).toBe('0');
+      req.flush(page(manyTransactions(2), false));
+      fixture.detectChanges();
+
+      expect(renderedTexts()).toHaveLength(2);
     });
   });
 });
