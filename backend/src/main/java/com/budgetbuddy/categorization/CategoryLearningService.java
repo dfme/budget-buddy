@@ -45,6 +45,8 @@ public class CategoryLearningService implements CategoryLearningPort {
         // Pattern liesse sich mit derselben Eingabe nicht wiederfinden.
         String pattern = merchantPattern.trim().toUpperCase(Locale.ROOT);
         categoryLookupRepository.save(new CategoryLookup(pattern, category.getLabel()));
-        log.debug("Lookup gelernt: '{}' → '{}'.", pattern, category.getLabel());
+        // Händler-Pattern redigiert (BE-PDF-06): es stammt aus dem Transaktionstext — auch DEBUG
+        // darf keine Zahlungsdaten tragen.
+        log.debug("Lookup gelernt: {} → '{}'.", LogRedaction.redact(pattern), category.getLabel());
     }
 }

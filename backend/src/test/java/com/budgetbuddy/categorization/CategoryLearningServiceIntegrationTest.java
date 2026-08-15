@@ -40,7 +40,7 @@ class CategoryLearningServiceIntegrationTest {
 
         // Realer PDF-Text enthält das gelernte Pattern als Substring.
         assertThat(lookupTableService.categorize("BAECKEREI MUELLER 12345"))
-                .contains(Category.LEBENSMITTEL);
+                .contains(new CategorizationResult(Category.LEBENSMITTEL, CategorizationResult.Source.LOOKUP));
     }
 
     @Test
@@ -49,7 +49,7 @@ class CategoryLearningServiceIntegrationTest {
         learningService.learn("COIFFEUR STUDIO X", Category.GESUNDHEIT);
 
         assertThat(lookupTableService.categorize("COIFFEUR STUDIO X ZUERICH"))
-                .contains(Category.GESUNDHEIT);
+                .contains(new CategorizationResult(Category.GESUNDHEIT, CategorizationResult.Source.LOOKUP));
     }
 
     @Test
@@ -62,7 +62,7 @@ class CategoryLearningServiceIntegrationTest {
         learningService.learn("migros", Category.SONSTIGES);
 
         assertThat(lookupTableService.categorize("MIGROS BERN 044 913 2323"))
-                .contains(Category.SONSTIGES);
+                .contains(new CategorizationResult(Category.SONSTIGES, CategorizationResult.Source.LOOKUP));
         assertThat(countLookupRowsFor("MIGROS")).isEqualTo(1);
     }
 

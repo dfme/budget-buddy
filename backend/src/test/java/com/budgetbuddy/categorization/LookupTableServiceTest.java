@@ -33,16 +33,17 @@ class LookupTableServiceTest {
         when(categoryLookupRepository.findMatching("MIGROS BERN"))
                 .thenReturn(List.of(new CategoryLookup("MIGROS", "Lebensmittel")));
 
-        Optional<Category> result = lookupTableService.categorize("MIGROS BERN");
+        Optional<CategorizationResult> result = lookupTableService.categorize("MIGROS BERN");
 
-        assertThat(result).contains(Category.LEBENSMITTEL);
+        assertThat(result).contains(new CategorizationResult(
+                Category.LEBENSMITTEL, CategorizationResult.Source.LOOKUP));
     }
 
     @Test
     void returnsEmptyForUnknownMerchant() {
         when(categoryLookupRepository.findMatching("UNBEKANNTER LADEN")).thenReturn(List.of());
 
-        Optional<Category> result = lookupTableService.categorize("UNBEKANNTER LADEN");
+        Optional<CategorizationResult> result = lookupTableService.categorize("UNBEKANNTER LADEN");
 
         assertThat(result).isEmpty();
     }
@@ -56,14 +57,15 @@ class LookupTableServiceTest {
                                 new CategoryLookup("SWISS PASS", "Transport"),
                                 new CategoryLookup("SWISS", "Sonstiges")));
 
-        Optional<Category> result = lookupTableService.categorize("SWISS PASS ABO");
+        Optional<CategorizationResult> result = lookupTableService.categorize("SWISS PASS ABO");
 
-        assertThat(result).contains(Category.TRANSPORT);
+        assertThat(result).contains(new CategorizationResult(
+                Category.TRANSPORT, CategorizationResult.Source.LOOKUP));
     }
 
     @Test
     void returnsEmptyForNullInputWithoutHittingRepository() {
-        Optional<Category> result = lookupTableService.categorize(null);
+        Optional<CategorizationResult> result = lookupTableService.categorize(null);
 
         assertThat(result).isEmpty();
         verify(categoryLookupRepository, never()).findMatching(any());
@@ -71,7 +73,7 @@ class LookupTableServiceTest {
 
     @Test
     void returnsEmptyForBlankInputWithoutHittingRepository() {
-        Optional<Category> result = lookupTableService.categorize("   ");
+        Optional<CategorizationResult> result = lookupTableService.categorize("   ");
 
         assertThat(result).isEmpty();
         verify(categoryLookupRepository, never()).findMatching(any());

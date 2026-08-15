@@ -1,6 +1,7 @@
 package com.budgetbuddy.transaction;
 
 import com.budgetbuddy.categorization.CategorizationPort;
+import com.budgetbuddy.categorization.CategorizationResult;
 import com.budgetbuddy.categorization.Category;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -109,16 +110,31 @@ public class PdfImportService {
             throw new DuplicatePdfImportException(pdfSha256);
         }
 
+        // Phasendauern (BE-PDF-06): Parse (PDFBox, lokal, CPU-gebunden) und Kategorisierung
+        // (Claude, Netz) getrennt gemessen — sie haben verschiedene Ursachen und Fixes.
+        // Zeitquelle ist bewusst die injizierte Clock, nicht System.nanoTime(): nanoTime() wäre
+        // monoton und immun gegen NTP-Sprünge, aber nicht über die Clock testbar. Für die hier
+        // interessierende Grössenordnung («0.4s oder 22s» — Auslösebedingung des @Async-Upgrade-
+        // Pfads in CLAUDE.md) genügt die Clock.
+        Instant parseStart = clock.instant();
         List<ParsedTransaction> parsed = parser.parse(pdfBytes);
+        Instant parseEnd = clock.instant();
+        Duration parseDuration = Duration.between(parseStart, parseEnd);
         // PDFBox kennt kein Timeout — ein pathologisches PDF kann den Parse beliebig lange
         // beschäftigen. Ohne diesen Check würde die Deadline erst greifen, wenn auch noch
         // kategorisiert wird (realistischster Ausfallpfad ganz ohne Claude-Beteiligung).
-        if (clock.instant().isAfter(deadline)) {
+        if (parseEnd.isAfter(deadline)) {
             log.warn("PDF-Import für User {} nach dem Parsen abgebrochen (Timeout {}s).",
                     userId, timeout.toSeconds());
             throw new PdfImportTimeoutException(timeout);
         }
 
+        // Lookup-/Claude-Verhältnis (BE-PDF-06): die aussagekräftigste Einzelzahl des Flows —
+        // ADR-6 rechnet mit 70–80% Lookup-Treffern, erst diese Zählung macht das überprüfbar.
+        // Leere Texte (Optional.empty → Sonstiges) zählen in keiner der beiden Quellen; die
+        // Summe kann dann kleiner sein als die Gesamtzahl.
+        int viaLookup = 0;
+        int viaClaude = 0;
         List<Transaction> entities = new ArrayList<>(parsed.size());
         for (ParsedTransaction tx : parsed) {
             if (clock.instant().isAfter(deadline)) {
@@ -129,13 +145,22 @@ public class PdfImportService {
             }
             // fullText() = Buchungszeile + Detailzeilen (Empfänger) — der Input, mit dem beide
             // Stufen der Hybrid-Kategorisierung etwas anfangen können (ADR-6).
-            String category = categorizationPort
-                    .categorize(tx.fullText())
-                    .orElse(Category.SONSTIGES)
-                    .getLabel();
+            String category;
+            var result = categorizationPort.categorize(tx.fullText()).orElse(null);
+            if (result == null) {
+                category = Category.SONSTIGES.getLabel();
+            } else {
+                category = result.category().getLabel();
+                if (result.source() == CategorizationResult.Source.LOOKUP) {
+                    viaLookup++;
+                } else {
+                    viaClaude++;
+                }
+            }
             entities.add(new Transaction(userId, tx.buchungsdatum(), tx.buchungstext(),
                     tx.betrag(), tx.isIncome(), category, pdfSha256));
         }
+        Duration categorizationDuration = Duration.between(parseEnd, clock.instant());
 
         // Ersetzen statt Anhängen: Delete und Insert in einer Transaktion, damit ein Fehler
         // dazwischen nicht die alten Zeilen ersatzlos entfernt. Die abgeleitete Delete-Query
@@ -149,7 +174,12 @@ public class PdfImportService {
             }
             transactionRepository.saveAll(entities);
         });
-        log.info("PDF-Import für User {}: {} Transaktion(en) importiert.", userId, entities.size());
+        // Eine Summary-Zeile pro Import auf INFO (BE-PDF-06) — bewusst keine Zeile pro
+        // Transaktion, application-prod.properties fährt com.budgetbuddy=INFO.
+        log.info("PDF-Import für User {}: {} Transaktion(en) importiert "
+                        + "(Parse {} ms, Kategorisierung {} ms; {} via Lookup, {} via Claude).",
+                userId, entities.size(), parseDuration.toMillis(),
+                categorizationDuration.toMillis(), viaLookup, viaClaude);
         return new ImportResult(pdfSha256, entities.size());
     }
 

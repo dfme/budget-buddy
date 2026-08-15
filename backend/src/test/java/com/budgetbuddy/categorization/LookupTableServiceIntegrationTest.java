@@ -34,21 +34,21 @@ class LookupTableServiceIntegrationTest {
     @Test
     void matchesMerchantAsSubstringOfTransactionText() {
         // Realer PDF-Text enthält das Seed-Pattern MIGROS plus Zusatz-Tokens.
-        Optional<Category> result = lookupTableService.categorize("MIGROS BERN 044 913 2323");
+        Optional<CategorizationResult> result = lookupTableService.categorize("MIGROS BERN 044 913 2323");
 
-        assertThat(result).contains(Category.LEBENSMITTEL);
+        assertThat(result).contains(new CategorizationResult(Category.LEBENSMITTEL, CategorizationResult.Source.LOOKUP));
     }
 
     @Test
     void matchesCaseInsensitively() {
-        Optional<Category> result = lookupTableService.categorize("digitec galaxus ag");
+        Optional<CategorizationResult> result = lookupTableService.categorize("digitec galaxus ag");
 
-        assertThat(result).contains(Category.SHOPPING);
+        assertThat(result).contains(new CategorizationResult(Category.SHOPPING, CategorizationResult.Source.LOOKUP));
     }
 
     @Test
     void returnsEmptyForUnknownMerchant() {
-        Optional<Category> result = lookupTableService.categorize("BAECKEREI MUELLER 12345");
+        Optional<CategorizationResult> result = lookupTableService.categorize("BAECKEREI MUELLER 12345");
 
         assertThat(result).isEmpty();
     }

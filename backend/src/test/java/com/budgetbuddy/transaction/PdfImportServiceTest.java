@@ -10,7 +10,12 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.budgetbuddy.categorization.CategorizationPort;
+import com.budgetbuddy.categorization.CategorizationResult;
 import com.budgetbuddy.categorization.Category;
 import java.math.BigDecimal;
 import java.security.MessageDigest;
@@ -23,6 +28,7 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.slf4j.LoggerFactory;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -78,9 +84,11 @@ class PdfImportServiceTest {
                 parsed("Kartenzahlung Migros Zuerich", List.of(), "87.60", false),
                 parsed("Saläreingang", List.of(), "6800.00", true)));
         when(categorizationPort.categorize("Kartenzahlung Migros Zuerich"))
-                .thenReturn(Optional.of(Category.LEBENSMITTEL));
+                .thenReturn(Optional.of(new CategorizationResult(
+                        Category.LEBENSMITTEL, CategorizationResult.Source.LOOKUP)));
         when(categorizationPort.categorize("Saläreingang"))
-                .thenReturn(Optional.of(Category.EINKOMMEN));
+                .thenReturn(Optional.of(new CategorizationResult(
+                        Category.EINKOMMEN, CategorizationResult.Source.LOOKUP)));
 
         ImportResult result = service.importPdf(USER_ID, PDF_BYTES, false);
 
@@ -102,6 +110,52 @@ class PdfImportServiceTest {
         assertThat(saved.getValue().getLast().getCategory()).isEqualTo("Einkommen");
     }
 
+    /**
+     * BE-PDF-06: Eine Summary-Zeile pro Import auf INFO — mit getrennten Phasendauern (Parse vs.
+     * Kategorisierung) und dem Lookup-/Claude-Verhältnis. Die Dauern sind über die gemockte Clock
+     * deterministisch: Parse 2s, Kategorisierung 5s.
+     */
+    @Test
+    void happyPath_logsSummaryWithPhaseDurationsAndSourceRatio() throws Exception {
+        // instant(): 1. Deadline-Basis T0, 2. Parse-Start T0, 3. Parse-Ende T0+2s,
+        // 4.-6. Checks vor Tx1-Tx3 (ok), 7. Kategorisierungs-Ende T0+7s.
+        when(clock.instant()).thenReturn(T0, T0, T0.plusSeconds(2),
+                T0.plusSeconds(2), T0.plusSeconds(3), T0.plusSeconds(4), T0.plusSeconds(7));
+        when(repository.existsByUserIdAndPdfSha256(USER_ID, expectedSha256())).thenReturn(false);
+        when(parser.parse(PDF_BYTES)).thenReturn(List.of(
+                parsed("Kartenzahlung Migros Zuerich", List.of(), "87.60", false),
+                parsed("Saläreingang", List.of(), "6800.00", true),
+                parsed("KLEINGARTENVEREIN BEITRAG", List.of(), "120.00", false)));
+        when(categorizationPort.categorize("Kartenzahlung Migros Zuerich"))
+                .thenReturn(Optional.of(new CategorizationResult(
+                        Category.LEBENSMITTEL, CategorizationResult.Source.LOOKUP)));
+        when(categorizationPort.categorize("Saläreingang"))
+                .thenReturn(Optional.of(new CategorizationResult(
+                        Category.EINKOMMEN, CategorizationResult.Source.LOOKUP)));
+        when(categorizationPort.categorize("KLEINGARTENVEREIN BEITRAG"))
+                .thenReturn(Optional.of(new CategorizationResult(
+                        Category.FREIZEIT, CategorizationResult.Source.CLAUDE)));
+
+        Logger serviceLogger = (Logger) LoggerFactory.getLogger(PdfImportService.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        serviceLogger.addAppender(appender);
+        try {
+            service.importPdf(USER_ID, PDF_BYTES, false);
+        } finally {
+            serviceLogger.detachAppender(appender);
+        }
+
+        assertThat(appender.list)
+                .filteredOn(event -> event.getLevel() == Level.INFO)
+                .singleElement()
+                .extracting(ILoggingEvent::getFormattedMessage)
+                .asString()
+                .contains("User 42", "3 Transaktion(en)")
+                .contains("Parse 2000 ms", "Kategorisierung 5000 ms")
+                .contains("2 via Lookup", "1 via Claude");
+    }
+
     @Test
     void duplicatePdf_throwsConflictWithoutParsingOrCategorizing() throws Exception {
         when(clock.instant()).thenReturn(T0);
@@ -120,7 +174,8 @@ class PdfImportServiceTest {
         when(parser.parse(PDF_BYTES)).thenReturn(List.of(
                 parsed("Kartenzahlung Migros Zuerich", List.of(), "87.60", false)));
         when(categorizationPort.categorize(anyString()))
-                .thenReturn(Optional.of(Category.LEBENSMITTEL));
+                .thenReturn(Optional.of(new CategorizationResult(
+                        Category.LEBENSMITTEL, CategorizationResult.Source.LOOKUP)));
 
         ImportResult result = service.importPdf(USER_ID, PDF_BYTES, true);
 
@@ -140,7 +195,8 @@ class PdfImportServiceTest {
         when(parser.parse(PDF_BYTES)).thenReturn(List.of(
                 parsed("GIRO POST", List.of(), "850.00", false)));
         when(categorizationPort.categorize(anyString()))
-                .thenReturn(Optional.of(Category.SONSTIGES));
+                .thenReturn(Optional.of(new CategorizationResult(
+                        Category.SONSTIGES, CategorizationResult.Source.LOOKUP)));
 
         service.importPdf(USER_ID, PDF_BYTES, false);
 
@@ -150,10 +206,10 @@ class PdfImportServiceTest {
 
     @Test
     void forceImport_stillAbortsOnTimeoutWithoutTouchingExistingTransactions() {
-        // instant(): 1. Deadline-Basis T0, 2. Check nach Parse (überschritten). Der Force-Pfad
-        // darf nicht früher löschen als der reguläre speichert — sonst stünde der User nach einem
-        // Timeout ohne seine alten Buchungen da.
-        when(clock.instant()).thenReturn(T0, T0.plusSeconds(TIMEOUT_SECONDS + 1));
+        // instant(): 1. Deadline-Basis T0, 2. Parse-Start T0, 3. Check nach Parse (überschritten).
+        // Der Force-Pfad darf nicht früher löschen als der reguläre speichert — sonst stünde der
+        // User nach einem Timeout ohne seine alten Buchungen da.
+        when(clock.instant()).thenReturn(T0, T0, T0.plusSeconds(TIMEOUT_SECONDS + 1));
         when(parser.parse(PDF_BYTES)).thenReturn(List.of(
                 parsed("GIRO POST", List.of(), "850.00", false)));
 
@@ -166,15 +222,16 @@ class PdfImportServiceTest {
 
     @Test
     void timeoutDuringCategorization_throwsWithoutPersisting() {
-        // instant(): 1. Deadline-Basis T0, 2. Check nach Parse (ok), 3. Check vor Tx1 (ok),
-        // 4. Check vor Tx2 (überschritten).
-        when(clock.instant()).thenReturn(T0, T0, T0, T0.plusSeconds(TIMEOUT_SECONDS + 1));
+        // instant(): 1. Deadline-Basis T0, 2. Parse-Start T0, 3. Check nach Parse (ok),
+        // 4. Check vor Tx1 (ok), 5. Check vor Tx2 (überschritten).
+        when(clock.instant()).thenReturn(T0, T0, T0, T0, T0.plusSeconds(TIMEOUT_SECONDS + 1));
         when(repository.existsByUserIdAndPdfSha256(any(), anyString())).thenReturn(false);
         when(parser.parse(PDF_BYTES)).thenReturn(List.of(
                 parsed("ESR", List.of("Stadtwerke Bern"), "78.50", false),
                 parsed("GIRO POST", List.of(), "850.00", false)));
         when(categorizationPort.categorize(anyString()))
-                .thenReturn(Optional.of(Category.SONSTIGES));
+                .thenReturn(Optional.of(new CategorizationResult(
+                        Category.SONSTIGES, CategorizationResult.Source.LOOKUP)));
 
         assertThatThrownBy(() -> service.importPdf(USER_ID, PDF_BYTES, false))
                 .isInstanceOf(PdfImportTimeoutException.class);
@@ -186,8 +243,8 @@ class PdfImportServiceTest {
     void timeoutDuringParse_throwsWithoutCategorizing() {
         // PDFBox kennt kein eigenes Timeout: Frisst der Parse das ganze Budget, muss der Import
         // direkt danach abbrechen — ohne einen einzigen Kategorisierungs-Call.
-        // instant(): 1. Deadline-Basis T0, 2. Check nach Parse (überschritten).
-        when(clock.instant()).thenReturn(T0, T0.plusSeconds(TIMEOUT_SECONDS + 1));
+        // instant(): 1. Deadline-Basis T0, 2. Parse-Start T0, 3. Check nach Parse (überschritten).
+        when(clock.instant()).thenReturn(T0, T0, T0.plusSeconds(TIMEOUT_SECONDS + 1));
         when(repository.existsByUserIdAndPdfSha256(any(), anyString())).thenReturn(false);
         when(parser.parse(PDF_BYTES)).thenReturn(List.of(
                 parsed("GIRO POST", List.of(), "850.00", false)));
@@ -222,7 +279,8 @@ class PdfImportServiceTest {
         when(parser.parse(PDF_BYTES)).thenReturn(List.of(
                 parsed("ESR", List.of("Stadtwerke Bern"), "78.50", false)));
         when(categorizationPort.categorize(anyString()))
-                .thenReturn(Optional.of(Category.WOHNEN));
+                .thenReturn(Optional.of(new CategorizationResult(
+                        Category.WOHNEN, CategorizationResult.Source.LOOKUP)));
 
         service.importPdf(USER_ID, PDF_BYTES, false);
 
@@ -253,7 +311,8 @@ class PdfImportServiceTest {
         when(parser.parse(PDF_BYTES)).thenReturn(List.of(
                 parsed("GIRO POST", List.of(), "850.00", false)));
         when(categorizationPort.categorize(anyString()))
-                .thenReturn(Optional.of(Category.SONSTIGES));
+                .thenReturn(Optional.of(new CategorizationResult(
+                        Category.SONSTIGES, CategorizationResult.Source.LOOKUP)));
 
         assertThat(fixedClockService.importPdf(USER_ID, PDF_BYTES, false).transactionCount())
                 .isEqualTo(1);

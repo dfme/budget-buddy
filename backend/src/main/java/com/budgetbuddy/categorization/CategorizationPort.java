@@ -16,9 +16,10 @@ public interface CategorizationPort {
      *
      * @param transactionText Freitext der Transaktion (z. B. {@code "DIGITEC GALAXUS AG 044 913
      *     2323"}), typischerweise aus dem PDF-Import.
-     * @return die erkannte Kategorie, oder {@link Optional#empty()}, wenn diese Quelle den Text
-     *     nicht zuordnen kann (der Aufrufer eskaliert dann an die nächste Stufe bzw. den Fallback
-     *     {@code Sonstiges}).
+     * @return die erkannte Kategorie samt liefernder Stufe ({@link CategorizationResult.Source},
+     *     BE-PDF-06: Basis für das Lookup-/Claude-Verhältnis im Import-Log), oder
+     *     {@link Optional#empty()}, wenn diese Quelle den Text nicht zuordnen kann (der Aufrufer
+     *     eskaliert dann an die nächste Stufe bzw. den Fallback {@code Sonstiges}).
      */
-    Optional<Category> categorize(String transactionText);
+    Optional<CategorizationResult> categorize(String transactionText);
 }

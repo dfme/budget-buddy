@@ -34,9 +34,9 @@ class HybridCategorizationServiceTest {
 
     @Test
     void bekannterHaendlerWirdOhneClaudeCallKategorisiert() {
-        when(lookupTableService.categorize(KNOWN)).thenReturn(Optional.of(Category.LEBENSMITTEL));
+        when(lookupTableService.categorize(KNOWN)).thenReturn(Optional.of(lookup(Category.LEBENSMITTEL)));
 
-        assertThat(service.categorize(KNOWN)).contains(Category.LEBENSMITTEL);
+        assertThat(service.categorize(KNOWN)).contains(lookup(Category.LEBENSMITTEL));
         verifyNoInteractions(claudeCategorizationService);
     }
 
@@ -44,9 +44,9 @@ class HybridCategorizationServiceTest {
     void unbekannterHaendlerWirdAnClaudeDelegiert() {
         when(lookupTableService.categorize(UNKNOWN)).thenReturn(Optional.empty());
         when(claudeCategorizationService.categorize(UNKNOWN))
-                .thenReturn(Optional.of(Category.SHOPPING));
+                .thenReturn(Optional.of(claude(Category.SHOPPING)));
 
-        assertThat(service.categorize(UNKNOWN)).contains(Category.SHOPPING);
+        assertThat(service.categorize(UNKNOWN)).contains(claude(Category.SHOPPING));
         verify(claudeCategorizationService).categorize(UNKNOWN);
     }
 
@@ -54,9 +54,9 @@ class HybridCategorizationServiceTest {
     void claudeFallbackSonstigesWirdDurchgereicht() {
         when(lookupTableService.categorize(UNKNOWN)).thenReturn(Optional.empty());
         when(claudeCategorizationService.categorize(UNKNOWN))
-                .thenReturn(Optional.of(Category.SONSTIGES));
+                .thenReturn(Optional.of(claude(Category.SONSTIGES)));
 
-        assertThat(service.categorize(UNKNOWN)).contains(Category.SONSTIGES);
+        assertThat(service.categorize(UNKNOWN)).contains(claude(Category.SONSTIGES));
     }
 
     /**
@@ -69,7 +69,7 @@ class HybridCategorizationServiceTest {
         when(claudeCategorizationService.categorize(UNKNOWN))
                 .thenThrow(new IllegalStateException("SDK kaputt"));
 
-        assertThat(service.categorize(UNKNOWN)).contains(Category.SONSTIGES);
+        assertThat(service.categorize(UNKNOWN)).contains(claude(Category.SONSTIGES));
     }
 
     /** Defensiv: ein leeres Optional aus Stufe 2 darf nicht als "keine Kategorie" durchschlagen. */
@@ -78,7 +78,7 @@ class HybridCategorizationServiceTest {
         when(lookupTableService.categorize(UNKNOWN)).thenReturn(Optional.empty());
         when(claudeCategorizationService.categorize(UNKNOWN)).thenReturn(Optional.empty());
 
-        assertThat(service.categorize(UNKNOWN)).contains(Category.SONSTIGES);
+        assertThat(service.categorize(UNKNOWN)).contains(claude(Category.SONSTIGES));
     }
 
     /** Ein DB-Fehler ist ein echter Fehler und wird nicht zu 'Sonstiges' geschluckt. */
@@ -90,6 +90,14 @@ class HybridCategorizationServiceTest {
         assertThatThrownBy(() -> service.categorize(KNOWN))
                 .isInstanceOf(IllegalStateException.class);
         verifyNoInteractions(claudeCategorizationService);
+    }
+
+    private static CategorizationResult lookup(Category category) {
+        return new CategorizationResult(category, CategorizationResult.Source.LOOKUP);
+    }
+
+    private static CategorizationResult claude(Category category) {
+        return new CategorizationResult(category, CategorizationResult.Source.CLAUDE);
     }
 
     @ParameterizedTest

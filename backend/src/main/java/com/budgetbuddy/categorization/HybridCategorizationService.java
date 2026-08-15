@@ -37,16 +37,17 @@ public class HybridCategorizationService implements CategorizationPort {
     }
 
     @Override
-    public Optional<Category> categorize(String transactionText) {
+    public Optional<CategorizationResult> categorize(String transactionText) {
         if (transactionText == null || transactionText.isBlank()) {
             return Optional.empty();
         }
 
         // Stufe 1: bekannter Händler → fertig, kein API-Call.
-        Optional<Category> fromLookup = lookupTableService.categorize(transactionText);
+        Optional<CategorizationResult> fromLookup = lookupTableService.categorize(transactionText);
         if (fromLookup.isPresent()) {
-            log.debug("'{}' via Lookup-Tabelle als '{}' kategorisiert.",
-                    transactionText, fromLookup.get().getLabel());
+            // Transaktionstext redigiert (BE-PDF-06): auch DEBUG darf keine Zahlungsdaten tragen.
+            log.debug("{} via Lookup-Tabelle als '{}' kategorisiert.",
+                    LogRedaction.redact(transactionText), fromLookup.get().category().getLabel());
             return fromLookup;
         }
 
@@ -59,15 +60,17 @@ public class HybridCategorizationService implements CategorizationPort {
      * bereits selbst ab. Der Catch hier deckt alles darüber hinaus ab — ein unerwarteter
      * Laufzeitfehler aus dem SDK darf den synchronen Import-Flow nicht abbrechen (Churn-Risiko #1).
      */
-    private Category categorizeWithClaude(String transactionText) {
+    private CategorizationResult categorizeWithClaude(String transactionText) {
         try {
             return claudeCategorizationService
                     .categorize(transactionText)
-                    .orElse(Category.SONSTIGES);
+                    .orElse(new CategorizationResult(
+                            Category.SONSTIGES, CategorizationResult.Source.CLAUDE));
         } catch (RuntimeException e) {
-            log.warn("Unerwarteter Fehler bei der Claude-Kategorisierung von '{}' — Fallback "
-                    + "'Sonstiges'.", transactionText, e);
-            return Category.SONSTIGES;
+            log.warn("Unerwarteter Fehler bei der Claude-Kategorisierung von {} — Fallback "
+                    + "'Sonstiges'.", LogRedaction.redact(transactionText), e);
+            return new CategorizationResult(
+                    Category.SONSTIGES, CategorizationResult.Source.CLAUDE);
         }
     }
 }
