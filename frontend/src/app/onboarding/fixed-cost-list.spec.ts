@@ -58,6 +58,33 @@ describe('FixedCostList', () => {
     return (fixture.nativeElement as HTMLElement).textContent ?? '';
   }
 
+  /** Zeile in der Fixkosten-Tabelle, die `bezeichnung` enthält. */
+  function rowFor(bezeichnung: string): HTMLElement {
+    const row = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('tbody > tr'),
+    ).find((tr) => tr.textContent?.includes(bezeichnung));
+    if (!row) {
+      throw new Error(`Keine Zeile mit "${bezeichnung}"`);
+    }
+    return row as HTMLElement;
+  }
+
+  /** Klickt den Button mit dieser Beschriftung innerhalb von `container`. */
+  function clickButton(container: Element, label: string): void {
+    const button = Array.from<HTMLButtonElement>(container.querySelectorAll('button')).find(
+      (btn) => btn.textContent?.trim() === label,
+    );
+    if (!button) {
+      throw new Error(`Kein Button mit der Beschriftung "${label}"`);
+    }
+    button.click();
+  }
+
+  /** Klickt die Aktion des Löschen-Dialogs mit dieser Beschriftung. */
+  function clickModalButton(label: string): void {
+    clickButton(fixture.nativeElement.querySelector('app-modal .modal__actions')!, label);
+  }
+
   // --- AC1: Liste zeigt Bezeichnung, Betrag, Intervall ---
 
   it('rendert alle Positionen mit Bezeichnung, Betrag, Intervall und Monatsbetrag', () => {
@@ -91,12 +118,12 @@ describe('FixedCostList', () => {
 
   // --- AC4: Warnung Fixkosten >= Einkommen ---
 
-  it('zeigt die Warnung prominent, wenn die Fixkosten das Einkommen erreichen oder übersteigen', () => {
+  it('zeigt die Warnung prominent mit den konkreten Beträgen, wenn die Fixkosten das Einkommen erreichen oder übersteigen', () => {
     flushInitialLoad(summaryOf([MIETE], 1200, true));
 
-    expect(text()).toContain(
-      'Deine Fixkosten übersteigen dein Einkommen — Safe-to-Spend kann nicht berechnet werden.',
-    );
+    expect(text()).toContain('Deine Fixkosten (CHF 1’200.00)');
+    expect(text()).toContain('dein Einkommen (CHF 1’200.00)');
+    expect(text()).toContain('Safe-to-Spend kann nicht berechnet werden.');
   });
 
   it('zeigt keine Warnung, wenn die Fixkosten das Einkommen nicht erreichen', () => {
@@ -110,9 +137,13 @@ describe('FixedCostList', () => {
   it('füllt das Bearbeiten-Formular mit den aktuellen Werten der Position', () => {
     flushInitialLoad(summaryOf([SERAFE], 3000, false));
 
-    component.startEdit(SERAFE);
+    clickButton(rowFor('Serafe'), 'Bearbeiten');
     fixture.detectChanges();
 
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector<HTMLInputElement>('#edit-bezeichnung')?.value).toBe('Serafe');
+    expect(root.querySelector<HTMLInputElement>('#edit-betrag')?.value).toBe('335');
+    expect(root.querySelector<HTMLSelectElement>('#edit-intervall')?.value).toBe('jaehrlich');
     expect(component.editForm.getRawValue()).toEqual({
       bezeichnung: 'Serafe',
       betrag: 335,
@@ -171,7 +202,7 @@ describe('FixedCostList', () => {
   it('löscht erst nach Bestätigung im Dialog', () => {
     flushInitialLoad(summaryOf([MIETE], 3000, false));
 
-    component.requestDelete(MIETE);
+    clickButton(rowFor('Miete'), 'Löschen');
     fixture.detectChanges();
 
     expect(text()).toContain('Miete» wirklich löschen?');
@@ -181,8 +212,9 @@ describe('FixedCostList', () => {
   it('sendet DELETE erst nach Bestätigung und lädt die Liste danach neu', () => {
     flushInitialLoad(summaryOf([MIETE], 3000, false));
 
-    component.requestDelete(MIETE);
-    component.confirmDelete();
+    clickButton(rowFor('Miete'), 'Löschen');
+    fixture.detectChanges();
+    clickModalButton('Löschen');
 
     const deleteReq = httpMock.expectOne('/fixed-costs/1');
     expect(deleteReq.request.method).toBe('DELETE');
@@ -194,6 +226,20 @@ describe('FixedCostList', () => {
 
     expect(component.pendingDelete()).toBeNull();
     expect(text()).toContain('Noch keine Fixkosten erfasst');
+  });
+
+  it('löst bei doppeltem Bestätigen nur ein einziges DELETE aus', () => {
+    flushInitialLoad(summaryOf([MIETE], 3000, false));
+
+    component.requestDelete(MIETE);
+    component.confirmDelete();
+    component.confirmDelete();
+
+    const deleteReq = httpMock.expectOne('/fixed-costs/1');
+    deleteReq.flush(null, { status: 204, statusText: 'No Content' });
+
+    httpMock.expectOne('/fixed-costs').flush(summaryOf([], null, false));
+    fixture.detectChanges();
   });
 
   it('sendet kein DELETE, wenn der Dialog abgebrochen wird', () => {

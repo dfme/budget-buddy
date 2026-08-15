@@ -4,7 +4,7 @@
 - **Task-ID:** `FE-FC-03`
 - **Branch:** `feature/FE-FC-03-fixkosten-liste`
 - **Story:** US-03 — Fixkosten erfassen (Onboarding-Wizard)
-- **Sprint:** Backlog
+- **Sprint:** Sprint 4
 - **Bestätigt am:** 2026-08-12
 
 ## Kontext

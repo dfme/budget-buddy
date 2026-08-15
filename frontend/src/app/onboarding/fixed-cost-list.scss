@@ -9,8 +9,16 @@
   margin: 0 auto;
 }
 
-h1 {
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $sp-3;
   margin-bottom: $sp-4;
+}
+
+h1 {
+  margin: 0;
 }
 
 .income-warning {

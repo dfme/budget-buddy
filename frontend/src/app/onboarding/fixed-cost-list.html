@@ -1,5 +1,8 @@
 <section class="fixed-cost-list">
-  <h1>Fixkosten</h1>
+  <div class="page-header">
+    <h1>Fixkosten</h1>
+    <a appButton variant="ghost" routerLink="/onboarding">+ Neue Position</a>
+  </div>
 
   @if (loading()) {
     <p class="status">Lädt …</p>
@@ -8,7 +11,9 @@
   } @else if (summary(); as data) {
     @if (data.exceedsIncome) {
       <app-notice class="income-warning" variant="warning">
-        Deine Fixkosten übersteigen dein Einkommen — Safe-to-Spend kann nicht berechnet werden.
+        Deine Fixkosten ({{ data.summeMonatlich | currency: 'CHF' : 'symbol' : '1.2-2' }}) übersteigen
+        dein Einkommen ({{ data.monthlyIncome | currency: 'CHF' : 'symbol' : '1.2-2' }}) — Safe-to-Spend
+        kann nicht berechnet werden.
       </app-notice>
     }
 
@@ -16,9 +21,7 @@
       <app-notice variant="error">{{ message }}</app-notice>
     }
 
-    <app-card title="Fixkosten">
-      <a appButton variant="ghost" card-actions routerLink="/onboarding">+ Neue Position</a>
-
+    <app-card>
       @if (data.fixedCosts.length === 0) {
         <p class="status empty">
           Noch keine Fixkosten erfasst. <a routerLink="/onboarding">Jetzt erfassen</a>.

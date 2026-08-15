@@ -178,7 +178,7 @@ export class FixedCostList implements OnInit {
   /** Löscht die Position der offenen Bestätigung und lädt die Liste danach neu. */
   confirmDelete(): void {
     const item = this.pendingDelete();
-    if (!item) {
+    if (!item || this.deleting()) {
       return;
     }
     this.deleting.set(true);
