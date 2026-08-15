@@ -278,7 +278,12 @@ export class CategoryOverview {
    */
   private syncFromUrl(params: ParamMap): void {
     const raw = params.get('month');
-    const valid = raw !== null && MONTH_PATTERN.test(raw);
+    // Ein Zukunftsmonat ist hier genauso unbrauchbar wie ein kaputtes Format: dort gibt es keine
+    // Buchungen, und der Stepper verbietet den Weg dorthin ohnehin. Ihn erst weiter unten aus dem
+    // Dropdown zu filtern, hiesse Entscheid 5 zu brechen — das <select> stünde dann auf einem
+    // Wert, den seine eigene Liste nicht enthält. Hier abgefangen, halten beide Regeln.
+    const valid =
+      raw !== null && MONTH_PATTERN.test(raw) && raw <= CategoryOverview.currentMonth();
     const month = valid ? raw : CategoryOverview.currentMonth();
 
     if (raw !== null && !valid) {

@@ -123,6 +123,22 @@ Deep-Link geöffneten leeren Monat auf einem fremden Wert.
 AC 4 verlangt die Sperre am Stepper; ein Dropdown, das Zukunftsmonate anböte, hebelte sie aus.
 Gefiltert wird mit derselben Regel wie `isCurrentMonth()`.
 
+**Nachtrag aus dem Review von PR #171.** Die erste Fassung filterte nur die geladene Monatsliste
+und fügte den angezeigten Monat ungefiltert hinzu. Über einen von Hand gebauten Link
+(`?month=2099-01`) landete ein Zukunftsmonat damit doch im Dropdown — die Zusicherung oben stimmte
+nicht. Ursache war ein Konflikt zwischen Entscheid 5 («der angezeigte Monat ist immer wählbar») und
+Entscheid 6: beide sind nur widerspruchsfrei, solange der angezeigte Monat selbst nie in der
+Zukunft liegt.
+
+Der Fix sitzt deshalb eine Ebene früher, in `syncFromUrl`: ein Zukunftsmonat im Parameter ist
+genauso unbrauchbar wie ein kaputtes Format — dort gibt es keine Buchungen, und der Stepper
+verbietet den Weg dorthin ohnehin. Behandelt man ihn gleich, greift die bestehende URL-Korrektur
+mit und beide Entscheide halten ohne Ausnahme. Nur im Dropdown zu filtern hätte Entscheid 5
+gebrochen: das `<select>` stünde dann auf einem Wert, den seine eigene Liste nicht enthält.
+
+Abgedeckt durch `refuses a future month from the URL like any other unusable parameter`; gegen
+den ausgehängten Fix ist der Test rot.
+
 ### 7. Fällt der Monats-Endpoint aus, degradiert das Dropdown still
 
 Es zeigt dann nur den angezeigten Monat, ohne Fehlermeldung. Seite und Stepper funktionieren

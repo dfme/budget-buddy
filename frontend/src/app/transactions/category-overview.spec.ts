@@ -713,6 +713,24 @@ describe('CategoryOverview', () => {
       expect(TestBed.inject(Location).path()).toContain(`month=${component.month()}`);
     });
 
+    // Review-Befund aus PR #171: über einen von Hand gebauten Link war ein Zukunftsmonat im
+    // Dropdown erreichbar — entgegen der Zusicherung, dass die Sperre für beide Bedienwege gilt.
+    it('refuses a future month from the URL like any other unusable parameter', async () => {
+      (await recreate({ month: '2099-01' })).flush(AVAILABLE_MONTHS);
+
+      const req = expectSummaryRequest(httpMock);
+      expect(req.request.params.get('month')).not.toBe('2099-01');
+      req.flush(SUMMARY);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      // Angezeigt wird der aktuelle Monat, die Adresse steht auf demselben Wert, und das Dropdown
+      // enthält keinen Zukunftsmonat — Entscheid 5 und 6 gelten beide.
+      expect(component.month()).toBe(component.monthOptions()[0].value);
+      expect(component.monthOptions().filter((o) => o.value > component.month())).toEqual([]);
+      expect(TestBed.inject(Location).path()).toContain(`month=${component.month()}`);
+    });
+
     // Der Test, der bei halbierter Kopplung rot wird: eine URL, die nur geschrieben und nie
     // gelesen wird, lässt die Anzeige beim Zurückgehen stehen.
     it('follows the browser back button to the previous month', async () => {
