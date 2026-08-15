@@ -1,6 +1,6 @@
 ---
 name: review-pr
-description: GitHub Pull Request reviewen — PR und Issue einlesen, Diff gegen die Gegenseite kreuzprüfen, Tests ausführen, Befunde in blockierend/nicht-blockierend trennen, Review präsentieren (mit Bestätigung), als REQUEST_CHANGES mit Inline-Threads absetzen. Auslösen via /review-pr <pr-number>.
+description: GitHub Pull Request reviewen — PR und Issue einlesen und übernehmen (Assignee am PR, PR-Karte In Progress, Issue-Karte Review), Diff gegen die Gegenseite kreuzprüfen, Tests ausführen, Befunde in blockierend/nicht-blockierend trennen, Review präsentieren (mit Bestätigung), als REQUEST_CHANGES mit Inline-Threads absetzen. Auslösen via /review-pr <pr-number>.
 argument-hint: "<pr-number>"
 ---
 
@@ -44,6 +44,8 @@ PR ungewollt. Die Klassifikation ist deshalb eine echte Entscheidung, kein Forma
 gh auth status
 gh api user --jq .login
 gh pr view <pr-number> --json author --jq .author.login
+gh api repos/dfme/budget-buddy --jq '.permissions.push'
+gh api graphql -f query='{ user(login:"dfme"){ projectV2(number:4){ viewerCanUpdate } } }'
 ```
 
 Bricht `gh auth status` ab, hier stoppen und die Ursache melden statt in Schritt 1 an einem
@@ -57,7 +59,16 @@ PR mit `HTTP 422` ab, und `COMMENT` blockiert nicht (siehe Schritt 8). Ein Revie
 blockieren kann, verfehlt den Zweck dieses Skills — das muss vor der Arbeit feststehen, nicht
 erst beim Absetzen.
 
-### 1. EINLESEN
+Die letzten beiden Aufrufe gehören zur Übernahme in Schritt 1c und sind **beide nicht
+blockierend**. Der Review selbst kommt weiterhin mit Lesezugriff aus; nur das Setzen des
+Assignees braucht `push: true` und das Setzen der Karten den Scope `project` plus die Freigabe am
+Board. Fehlt eines davon, wird es einmal gemeldet und der Review läuft normal weiter — ohne
+Assignee bzw. ohne Kartenbewegung. Ein fehlendes Board-Metadatum darf einen Review nicht
+verhindern.
+
+### 1. EINLESEN UND ÜBERNEHMEN
+
+**1a. PR und Issue lesen.**
 
 ```bash
 gh pr view <pr-number> --json number,title,author,body,state,headRefName,baseRefName,mergeStateStatus,reviewDecision
@@ -68,7 +79,7 @@ gh pr diff <pr-number>
 Das verlinkte Issue mitlesen (`Closes #NN` im PR-Body) — die **Acceptance Criteria und die
 Definition of Done dort sind der Massstab**, nicht der PR-Text.
 
-**Bestehende Reviews und Threads immer mitlesen** — auch bei `reviewDecision: null`, denn ein
+**1b. Bestehende Reviews und Threads immer mitlesen** — auch bei `reviewDecision: null`, denn ein
 `COMMENTED`-Review ohne Threads lässt das Feld leer, obwohl inhaltlich schon reviewt wurde:
 
 ```bash
@@ -87,6 +98,86 @@ gh api graphql -f query='
 
 Reviews laufen parallel. Wer das überspringt, postet Threads zu Befunden, die schon jemand
 anders angebracht hat — der Autor muss dann dasselbe Problem zweimal auflösen.
+
+**1c. Review übernehmen.** Erst jetzt, nach 1b: das Ergebnis von 1b entscheidet mit, ob überhaupt
+übernommen werden soll. Reviewt bereits jemand anders, ist eine stille zweite Übernahme genau der
+Fall, den 1b verhindern will.
+
+Übernommen wird in drei Schritten — der PR bekommt den Reviewer als Assignee, die PR-Karte geht
+auf `In Progress`, die Karte des verlinkten Issues auf `Review`:
+
+```bash
+gh pr view <pr-number> --json assignees --jq '[.assignees[].login]'
+gh pr edit <pr-number> --add-assignee @me
+```
+
+`@me` ist der bei `gh` angemeldete Account, also die Person, die das Kommando abgesetzt hat.
+Assignee und Reviewer sind auf GitHub zwei verschiedene Felder; gesetzt wird **Assignee**, weil
+das Board diese Spalte anzeigt.
+
+Hängt bereits ein fremder Assignee dran, ist das **ein Hinweis, kein Gate**: melden, `@me`
+zusätzlich setzen, weiterarbeiten. Zwei Leute dürfen denselben PR reviewen — mehr Augen finden
+mehr, und Schritt 1b sorgt dafür, dass keine doppelten Threads entstehen. Der fremde Assignee
+wird dabei nie entfernt. (`implement-issue` hält an derselben Stelle an; dort wäre das Ergebnis
+doppelte Implementierungsarbeit, hier ist es ein zweites Paar Augen.)
+
+Feld- und Options-IDs zuerst auflösen, nie raten; das Board ist ein User-Project, seine IDs sind
+nirgends im Repo hinterlegt:
+
+```bash
+gh api graphql -f query='{ user(login:"dfme"){ projectV2(number:4){ id } } }'
+gh project field-list 4 --owner dfme --format json \
+  --jq '.fields[] | select(.name=="Status") | {fieldId: .id, options: [.options[] | {name, id}]}'
+```
+
+`--jq` ist der in `gh` eingebaute Filter und braucht das `jq`-Binary nicht — nur `--format json`
+muss dabeistehen, sonst bricht der Aufruf mit *cannot use `--jq` without specifying `--format
+json`* ab.
+
+Die Item-IDs beider Karten in einem Aufruf holen (`<issue-number>` ist das `Closes #NN` aus 1a):
+
+```bash
+gh api graphql -f query='
+{ repository(owner: "dfme", name: "budget-buddy") {
+    pullRequest(number: <pr-number>) {
+      projectItems(first: 5) { nodes {
+        id project { number }
+        fieldValueByName(name: "Status") { ... on ProjectV2ItemFieldSingleSelectValue { name } } } } }
+    issue(number: <issue-number>) {
+      projectItems(first: 5) { nodes {
+        id project { number }
+        fieldValueByName(name: "Status") { ... on ProjectV2ItemFieldSingleSelectValue { name } } } } } } }'
+```
+
+Nur die Karten aus `project.number == 4` sind gemeint. PRs landen per `Auto-add to project` auf
+dem Board, aber nicht garantiert — kommt die Liste leer zurück, melden und weitermachen, nicht
+selbst hinzufügen. Nennt der PR-Body kein `Closes #NN`, entfällt der Issue-Teil; das ist dann
+zugleich ein 🔴-Befund für Schritt 5, weil ohne Closing-Keyword das Issue beim Merge offen bleibt.
+
+Gesetzt wird je Karte mit:
+
+```bash
+gh project item-edit \
+  --project-id <projekt-id> \
+  --id <item-id> \
+  --field-id <status-field-id> \
+  --single-select-option-id <options-id>
+```
+
+| Karte | Ausgangsstatus | Vorgehen |
+| ----- | -------------- | -------- |
+| PR | `Backlog` / `Todo` | auf `In Progress` |
+| PR | `In Progress` | so lassen — jemand reviewt bereits; melden und weiterarbeiten |
+| PR | `Review` / `Done` | **nicht** zurücksetzen, melden und fragen |
+| Issue | `Review` | so lassen — der Normalfall, wenn der PR aus `implement-issue` kam (dessen Schritt 11b) |
+| Issue | `Todo` / `In Progress` | auf `Review` — greift bei PRs, die von Hand geöffnet wurden |
+| Issue | `Backlog` / `Done` | **nicht** anfassen, melden — ein PR auf ein Backlog-Issue oder ein bereits erledigtes Issue ist selbst ein Befund |
+
+**Der Assignee des Issues wird nie angefasst.** Der gehört der Person, die implementiert hat;
+bewegt wird dort nur die Karte. Nur der PR bekommt den Reviewer.
+
+Danach mit einer erneuten Abfrage verifizieren, nicht auf den Erfolg der Mutation vertrauen, und
+dem User in einem Satz sagen, was gesetzt wurde.
 
 ### 2. RULESET PRÜFEN
 
@@ -195,7 +286,7 @@ subprocess.run(["gh", "api", "repos/dfme/budget-buddy/pulls/<pr>/reviews",
                 "--method", "POST", "--input", "payload.json"])
 ```
 
-**Vor dem Absetzen gegen die Threads aus Schritt 1 abgleichen.** Deckt sich ein eigener Befund
+**Vor dem Absetzen gegen die Threads aus Schritt 1b abgleichen.** Deckt sich ein eigener Befund
 inhaltlich mit einem fremden Thread, den fremden stehen lassen und den eigenen weglassen —
 zwei Threads zum selben Problem bedeuten für den Autor doppelte Auflösearbeit ohne
 Erkenntnisgewinn. Fällt die Doppelung erst nach dem Posten auf, den **eigenen** Thread löschen
@@ -237,6 +328,10 @@ Titel `[TASK-ID] Kurzbeschreibung`, neue freie ID im betroffenen Bereich, Label 
 - **Nie ungefragt absetzen.** Schritt 7 ist ein verbindliches Gate.
 - **Fremde Threads nie anfassen** — weder auflösen noch löschen noch bearbeiten. Ob ein Befund
   erledigt ist, entscheidet, wer ihn angebracht hat.
+- **Keine Karte auf `Done`.** Schritt 1c bewegt Karten nur in den Review hinein. `Done` folgt aus
+  dem Merge, und der wird ausschliesslich von einem Dev getriggert.
+- **Fremde Assignees nie überschreiben** — weder am PR noch am Issue. Der Assignee des Issues
+  wird grundsätzlich nicht angefasst.
 - **Eigene Threads dürfen korrigiert werden.** Ein selbst gepostetes Duplikat zu löschen ist
   richtig und ausdrücklich erlaubt — Zögern führt sonst zu doppelter Auflösearbeit beim Autor.
   Auflösen des eigenen Threads bleibt dem Autor des PR überlassen.

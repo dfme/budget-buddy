@@ -1,6 +1,6 @@
 ---
 name: implement-issue
-description: GitHub Issue end-to-end umsetzen — Issue einlesen, Fragen klären, Plan präsentieren (mit Bestätigung), Branch erstellen, Code + Tests implementieren, Security-Review und lokalen Review durchführen (mit Bestätigung), PR öffnen. Auslösen via /implement-issue <issue-number>.
+description: GitHub Issue end-to-end umsetzen — Issue einlesen und übernehmen (Assignee + Board-Status In Progress), Fragen klären, Plan präsentieren (mit Bestätigung), Branch erstellen, Code + Tests implementieren, Security-Review und lokalen Review durchführen (mit Bestätigung), PR öffnen und die Board-Karte auf Review setzen. Auslösen via /implement-issue <issue-number>.
 argument-hint: "<issue-number>"
 ---
 
@@ -21,6 +21,7 @@ Implement a GitHub Issue end-to-end: read the issue, ask clarifying questions if
 ```bash
 gh auth status
 gh api repos/dfme/budget-buddy --jq '.permissions.push'   # erwartet: true
+gh api graphql -f query='{ user(login:"dfme"){ projectV2(number:4){ viewerCanUpdate } } }'
 ```
 
 Nötig ist der Scope `repo` **und** Write-Zugriff aufs Repo — anders als beim Reviewen genügt
@@ -28,8 +29,108 @@ Lesezugriff hier nicht, weil Schritt 6 einen Branch pusht und Schritt 10 via `gh
 PR öffnet. Steht `push` auf `false`, hier stoppen und das melden, statt die Arbeit zu machen und
 erst am Push zu scheitern. Setup und Fehlerbilder: [.claude/skills/README.md](../README.md).
 
-### 1. EINLESEN
-Run `gh issue view <issue-number>` and read title, body, labels, and assignees in full.
+Der dritte Aufruf prüft den Zugriff aufs [Sprint Board](https://github.com/users/dfme/projects/4)
+für die Schritte 1b und 11b. **Er ist ausdrücklich nicht blockierend.** Fehlt der Scope `project` oder die
+Freigabe am Board (`Could not resolve to a ProjectV2`), wird das einmal gemeldet und der Lauf geht
+weiter — die Karte bleibt dann von Hand zu setzen. Ein fehlendes Board-Metadatum darf die
+Implementierung nicht aufhalten. Der Assignee in Schritt 1b hängt nicht daran: der läuft über
+`gh issue edit` und braucht nur `repo` plus Write.
+
+### 1. EINLESEN UND ÜBERNEHMEN
+
+**1a. Issue lesen.** Run `gh issue view <issue-number>` and read title, body, labels, and
+assignees in full.
+
+**1b. Issue übernehmen.** Das Issue wird der Person zugewiesen, die das Kommando abgesetzt hat,
+und die Board-Karte auf `In Progress` gesetzt — **hier am Anfang, nicht erst beim Branch.** Der
+Zweck ist, dass ein Teammitglied sofort sieht, dass jemand dran ist; nach dem Plan-Gate wäre das
+Zeitfenster für Doppelarbeit bereits verstrichen.
+
+Wer übernimmt, ist der bei `gh` angemeldete Account — in den Kommandos als `@me`:
+
+```bash
+gh api user --jq .login
+gh issue view <issue-number> --json assignees --jq '[.assignees[].login]'
+```
+
+| Zustand | Vorgehen |
+| ------- | -------- |
+| keine Assignees | `gh issue edit <issue-number> --add-assignee @me` |
+| bereits `@me` | nichts tun, nicht melden |
+| **fremder Assignee** | **anhalten** — siehe unten |
+
+Der fremde Assignee ist der wichtige Fall und das einzige **verbindliche Gate** in diesem Schritt.
+Er bedeutet, dass jemand anderes das Issue schon hat. `--add-assignee` würde still einen zweiten
+danebensetzen, und dann implementieren zwei Leute denselben Task — die Arbeit des einen ist am
+Ende verloren. Deshalb hier **nicht** einfach melden und weiterlaufen, sondern anhalten und dem
+User genau zwei Optionen vorlegen:
+
+- **abbrechen** — der Normalfall. Nichts wird geschrieben, kein Branch, kein Assignee, keine
+  Karte. Erst mit der Person reden, die drauf steht.
+- **trotzdem übernehmen** — nur auf ausdrückliche Ansage. Dann `--add-assignee @me` zusätzlich
+  zum bestehenden, den fremden nie entfernen, und den Umstand später im PR-Body benennen.
+
+Ohne Antwort wird nicht weitergearbeitet: ein Lauf, der bis Schritt 7 durchläuft und erst dann
+auffliegt, hat die Doppelarbeit bereits produziert.
+
+Der Unterschied zu `review-pr` (dort ein blosser Hinweis) ist beabsichtigt und folgt aus der
+Sache: zwei Reviews am selben PR sind ein Gewinn, zwei Implementierungen desselben Issues sind
+verlorene Arbeit.
+
+Dann die Board-Karte. Feld- und Options-IDs zuerst auflösen, nie raten — das Board ist ein
+User-Project, seine IDs sind nirgends im Repo hinterlegt:
+
+```bash
+gh api graphql -f query='{ user(login:"dfme"){ projectV2(number:4){ id } } }'
+gh project field-list 4 --owner dfme --format json \
+  --jq '.fields[] | select(.name=="Status") | {fieldId: .id, options: [.options[] | {name, id}]}'
+```
+
+`--jq` ist der in `gh` eingebaute Filter und braucht das `jq`-Binary nicht — nur `--format json`
+muss dabeistehen, sonst bricht der Aufruf mit *cannot use `--jq` without specifying `--format
+json`* ab.
+
+Die Item-ID der Karte hängt am Issue selbst; `gh issue`-Befehle zeigen sie nicht:
+
+```bash
+gh api graphql -f query='
+{ repository(owner: "dfme", name: "budget-buddy") {
+    issue(number: <issue-number>) {
+      projectItems(first: 5) { nodes {
+        id
+        project { number }
+        fieldValueByName(name: "Status") {
+          ... on ProjectV2ItemFieldSingleSelectValue { name }
+        } } } } } }'
+```
+
+Nur die Karte aus `project.number == 4` ist gemeint. Kommt die Liste leer zurück, liegt das Issue
+nicht auf dem Board — melden und weitermachen, nicht selbst hinzufügen.
+
+Geschrieben wird nur aus `Backlog` oder `Todo` heraus:
+
+```bash
+gh project item-edit \
+  --project-id <projekt-id> \
+  --id <item-id> \
+  --field-id <status-field-id> \
+  --single-select-option-id <options-id von "In Progress">
+```
+
+| Status der Karte | Vorgehen |
+| ---------------- | -------- |
+| `Backlog` / `Todo` | auf `In Progress` setzen |
+| `In Progress` | so lassen — jemand arbeitet bereits daran, zusammen mit dem Assignee-Befund bewerten |
+| `Review` / `Done` | **nicht** zurücksetzen, melden und fragen — das Issue gilt als weiter fortgeschritten, als der Lauf annimmt |
+
+Danach mit einer erneuten Abfrage verifizieren, nicht auf den Erfolg der Mutation vertrauen, und
+dem User in einem Satz sagen, was gesetzt wurde.
+
+**Rückabwicklung, wenn der Lauf abbricht.** Weil hier früh übernommen wird, hinterlässt ein
+Abbruch in Schritt 3 oder 4 — der User verwirft den Plan oder bricht ab — eine falsche Spur auf
+dem Board. In diesem Fall Assignee und Status wieder auf den vorher notierten Zustand
+zurückdrehen und das dem User bestätigen. Den Ausgangszustand deshalb festhalten, bevor
+geschrieben wird.
 
 ### 2. ANALYSE
 - Extract the Task-ID from the issue title — it is always in square brackets, e.g. `[BE-FC-01]`
@@ -296,9 +397,10 @@ PR body must include:
   out; do not pad the section with "n/a". If the review produced follow-up issues for pre-existing
   gaps, link them here.
 
-### 11. ISSUE VERLINKEN (Rückrichtung)
-`gh pr create` prints the new PR URL. Post a backlink comment on the issue so the link is
-also explicit in the issue timeline:
+### 11. ISSUE VERLINKEN UND AUF REVIEW SETZEN
+
+**11a. Backlink.** `gh pr create` prints the new PR URL. Post a backlink comment on the issue so
+the link is also explicit in the issue timeline:
 
 ```bash
 gh issue comment <issue-number> --body "🔀 PR erstellt: <pr-url>"
@@ -306,3 +408,22 @@ gh issue comment <issue-number> --body "🔀 PR erstellt: <pr-url>"
 
 Confirm to the user that PR and issue are now linked in both directions (PR → issue via
 `Closes #<issue-number>` + Development panel, issue → PR via the backlink comment).
+
+**11b. Board-Karte auf `Review`.** Mit dem offenen PR ist die Implementierung abgegeben — die
+Karte steht ab hier falsch auf `In Progress`. Sie wandert deshalb sofort weiter, ohne auf den
+ersten Reviewer zu warten: Item-ID, Feld-ID und Options-ID werden genauso aufgelöst wie in
+Schritt 1b, gesetzt wird `Review`.
+
+| Status der Karte | Vorgehen |
+| ---------------- | -------- |
+| `In Progress` | auf `Review` setzen — der Normalfall, so hat Schritt 1b sie hinterlassen |
+| `Backlog` / `Todo` | ebenfalls auf `Review` — sie ist dann nur nie mitgezogen worden (fehlender Board-Zugriff in Schritt 1b) |
+| `Review` | so lassen |
+| `Done` | **nicht** anfassen, melden — ein offener PR auf ein erledigtes Issue ist selbst ein Befund |
+
+Der Assignee bleibt unverändert: das Issue gehört weiterhin der Person, die implementiert hat.
+`/review-pr` setzt später nur den PR auf den Reviewer, nicht das Issue.
+
+Fehlt der Board-Zugriff, gilt dasselbe wie in Schritt 1b — einmal melden, nicht abbrechen. Der
+PR ist zu diesem Zeitpunkt bereits offen; ihn wegen eines Metadatums als gescheitert zu melden,
+wäre schlicht falsch.

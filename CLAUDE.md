@@ -459,10 +459,15 @@ Vorbedingungen (gh-Scopes, Repo-Rechte, Toolchain) je Skill und Fehlerbilder:
 [.claude/skills/README.md](.claude/skills/README.md). Sie sind **nicht** für alle drei gleich:
 `implement-issue` braucht Write-Zugriff aufs Repo, `plan-sprint` den Scope `project` **plus** eine
 eigene Freigabe am Sprint Board — das ist ein privates User-Project und vererbt sich nicht aus
-den Repo-Rechten. `review-pr` kommt mit Lesezugriff aus.
+den Repo-Rechten. `review-pr` kommt für den Review selbst mit Lesezugriff aus.
+
+`implement-issue` und `review-pr` übernehmen den Vorgang zu Beginn: Assignee auf die ausführende
+Person, Board-Karte in die passende Spalte. Dafür brauchen beide zusätzlich den Scope `project`
+und Write am Board — **nicht blockierend**: fehlt der Zugriff, wird es gemeldet und der Lauf geht
+ohne diesen Schritt weiter.
 
 | Skill | Befehl | Beschreibung |
 |-------|--------|--------------|
 | plan-sprint | `/plan-sprint` | Sprint planen: Backlog-Hygiene prüfen (Priority aus MoSCoW, fehlende Story Points/Area), Velocity und Carryover aus dem Board ableiten, Abhängigkeiten kreuzprüfen, Vorschlag als `docs/plans/sprints/SPRINT-NN.md` ablegen. Das Board wird erst auf ausdrücklichen Zuruf geschrieben — die Einplanung bleibt eine Kapazitätsentscheidung des Teams. |
-| implement-issue | `/implement-issue <issue-number>` | GitHub Issue end-to-end umsetzen: Issue einlesen, Fragen klären, Plan präsentieren (mit Bestätigung), Branch erstellen, Code + Tests implementieren, Security-Review und lokalen Review durchführen (mit Bestätigung), PR öffnen. Der Security-Review ist auf diese App zugeschnitten (Mandantentrennung, ADR-7-Invarianten, Secrets, Upload-Grenzen, Datenminimierung beim Claude-Call) und läuft nur für die Bereiche, die der Diff berührt. |
-| review-pr | `/review-pr <pr-number>` | Pull Request reviewen: PR und Issue einlesen, Diff gegen die Gegenseite kreuzprüfen, Tests selbst ausführen, Befunde in blockierend/nicht-blockierend trennen, Review präsentieren (mit Bestätigung), als `REQUEST_CHANGES` mit Inline-Threads absetzen. Blockierende Befunde gehören als Inline-Thread an den Diff — ein Review-Body ist für die Ruleset-Regel `required_review_thread_resolution` unsichtbar und hält den Merge nicht auf. |
+| implement-issue | `/implement-issue <issue-number>` | GitHub Issue end-to-end umsetzen: Issue einlesen und übernehmen (Assignee auf die ausführende Person, Board-Karte auf `In Progress`), Fragen klären, Plan präsentieren (mit Bestätigung), Branch erstellen, Code + Tests implementieren, Security-Review und lokalen Review durchführen (mit Bestätigung), PR öffnen und die Board-Karte auf `Review` setzen. Ist das Issue bereits jemand anderem zugewiesen, hält der Skill an und fragt. Der Security-Review ist auf diese App zugeschnitten (Mandantentrennung, ADR-7-Invarianten, Secrets, Upload-Grenzen, Datenminimierung beim Claude-Call) und läuft nur für die Bereiche, die der Diff berührt. |
+| review-pr | `/review-pr <pr-number>` | Pull Request reviewen: PR und Issue einlesen und übernehmen (Assignee am PR, PR-Karte auf `In Progress`, Karte des verlinkten Issues auf `Review`), Diff gegen die Gegenseite kreuzprüfen, Tests selbst ausführen, Befunde in blockierend/nicht-blockierend trennen, Review präsentieren (mit Bestätigung), als `REQUEST_CHANGES` mit Inline-Threads absetzen. Blockierende Befunde gehören als Inline-Thread an den Diff — ein Review-Body ist für die Ruleset-Regel `required_review_thread_resolution` unsichtbar und hält den Merge nicht auf. |
