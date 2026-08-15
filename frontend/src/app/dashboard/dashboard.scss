@@ -1,3 +1,36 @@
+@use 'tokens' as *;
+
 :host {
   display: block;
+}
+
+.safe-to-spend-card {
+  max-width: 28rem;
+  margin: $sp-6 auto 0;
+}
+
+.safe-to-spend {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $sp-2;
+  padding: $sp-5 0;
+  text-align: center;
+}
+
+.safe-to-spend__amount {
+  font-size: $fs-hero;
+}
+
+.safe-to-spend__amount--placeholder {
+  @include tabular;
+
+  font-weight: 600;
+  color: $c-ink-3;
+}
+
+.safe-to-spend__week-label {
+  margin: 0;
+  color: $c-ink-2;
+  font-size: $fs-sm;
 }

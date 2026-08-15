@@ -1,4 +1,24 @@
-<section>
+<section class="dashboard">
   <h1>Dashboard</h1>
-  <p>Platzhalter — Safe-to-Spend kommt mit US-06.</p>
+
+  @if (loading()) {
+    <p class="status">Lädt …</p>
+  } @else if (errorMessage()) {
+    <app-notice variant="error">{{ errorMessage() }}</app-notice>
+  } @else if (data(); as d) {
+    <app-card class="safe-to-spend-card" title="Safe-to-Spend">
+      <div class="safe-to-spend">
+        @if (d.amount !== null) {
+          <app-amount class="safe-to-spend__amount" [value]="d.amount" [showCurrency]="true" />
+        } @else {
+          <span
+            class="safe-to-spend__amount safe-to-spend__amount--placeholder"
+            aria-label="Kein Betrag verfügbar"
+            >—</span
+          >
+        }
+        <p class="safe-to-spend__week-label">{{ weekLabel() }}</p>
+      </div>
+    </app-card>
+  }
 </section>
