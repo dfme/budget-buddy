@@ -28,10 +28,20 @@ export class Amount {
   /** Stellt `CHF` voran (z. B. für Hero-Beträge). */
   readonly showCurrency = input(false);
 
+  /**
+   * Unterdrückt das `+` bei positiven Beträgen — für Kontostände (z. B. Safe-to-Spend), bei
+   * denen ein positiver Wert der Normalfall ist, nicht eine Veränderung. Das Minuszeichen bei
+   * negativen Beträgen bleibt davon unberührt: das ist immer eine relevante Abweichung.
+   */
+  readonly hidePositiveSign = input(false);
+
   /** `+` für positive, `−` (Minuszeichen) für negative Beträge, sonst leer. */
   readonly sign = computed(() => {
     const v = this.value();
-    return v > 0 ? '+' : v < 0 ? '−' : '';
+    if (v > 0) {
+      return this.hidePositiveSign() ? '' : '+';
+    }
+    return v < 0 ? '−' : '';
   });
 
   /** Betrag im Schweizer Format, ohne Vorzeichen. */
@@ -39,7 +49,7 @@ export class Amount {
 
   protected readonly ariaLabel = computed(() => {
     const v = this.value();
-    const direction = v > 0 ? 'plus ' : v < 0 ? 'minus ' : '';
+    const direction = v < 0 ? 'minus ' : v > 0 && !this.hidePositiveSign() ? 'plus ' : '';
     return `${direction}${this.formatted()} Franken`;
   });
 }

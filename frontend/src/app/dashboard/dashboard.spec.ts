@@ -58,12 +58,14 @@ describe('Dashboard', () => {
     expect(fixture.nativeElement.querySelector('.status')?.textContent).toContain('Lädt');
   });
 
-  it('renders the amount large and central, with a pluralized week label', () => {
+  it('renders the amount in the hero style, without a "+" for a positive balance, and a pluralized week label', () => {
     expectSafeToSpendRequest(httpMock).flush(NORMAL);
     fixture.detectChanges();
 
     const amount = fixture.debugElement.query(By.css('app-amount'));
+    expect(amount.nativeElement.classList).toContain('safe-to-spend__amount');
     expect(amount.componentInstance.value()).toBe(500);
+    expect(amount.componentInstance.hidePositiveSign()).toBe(true);
     expect(fixture.nativeElement.querySelector('.safe-to-spend__week-label').textContent).toBe(
       'noch 2 Wochen im Monat',
     );
@@ -84,7 +86,9 @@ describe('Dashboard', () => {
 
     expect(fixture.debugElement.query(By.css('app-amount'))).toBeNull();
     const placeholder = fixture.nativeElement.querySelector('.safe-to-spend__amount--placeholder');
-    expect(placeholder.textContent).toBe('—');
+    expect(placeholder.querySelector('.safe-to-spend__amount-currency').textContent).toBe('CHF');
+    expect(placeholder.querySelector('[aria-hidden="true"]').textContent).toBe('—');
+    expect(placeholder.querySelector('.visually-hidden').textContent).toBe('Kein Betrag verfügbar');
   });
 
   it('shows an error notice when the request fails', () => {

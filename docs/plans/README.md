@@ -60,7 +60,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `FE-PDF-01` | [Plan: FE-PDF-01 — PDF-Upload Component](FE-PDF-01-pdf-upload-component.md) | [#27](https://github.com/dfme/budget-buddy/issues/27) | US-04 | Sprint 3 |
 | `FE-PDF-02` | [FE-PDF-02 — Ergebnis-Anzeige nach PDF-Import](FE-PDF-02-import-ergebnis-anzeige.md) | [#28](https://github.com/dfme/budget-buddy/issues/28) | US-04 | Sprint 3 |
 | `FE-PDF-03` | [FE-PDF-03 — Duplikat-Dialog](FE-PDF-03-duplikat-dialog.md) | [#29](https://github.com/dfme/budget-buddy/issues/29) | US-04 | Sprint 4 |
-| `FE-STS-01` | [FE-STS-01 — Safe-to-Spend Dashboard-Widget](FE-STS-01-safe-to-spend-widget.md) | [#33](https://github.com/dfme/budget-buddy/issues/33) | US-06 | Backlog |
+| `FE-STS-01` | [FE-STS-01 — Safe-to-Spend Dashboard-Widget](FE-STS-01-safe-to-spend-widget.md) | [#33](https://github.com/dfme/budget-buddy/issues/33) | US-06 | Sprint 4 |
 | `FE-UI-01` | [UI-Design definieren: 3 klickbare Varianten](FE-UI-01-design-varianten.md) | [#80](https://github.com/dfme/budget-buddy/issues/80) | US-05, US-06 | Sprint 3 |
 | `FE-UI-02` | [Design-Token-Fundament (Variante A, theme-fähig)](FE-UI-02-design-token-fundament.md) | [#99](https://github.com/dfme/budget-buddy/issues/99) | — | Sprint 3 |
 | `FE-UI-03` | [Shared-Basiskomponenten (Variante A)](FE-UI-03-shared-basiskomponenten.md) | [#100](https://github.com/dfme/budget-buddy/issues/100) | — | Sprint 3 |

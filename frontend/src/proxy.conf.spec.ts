@@ -16,7 +16,7 @@ describe('Dev-Proxy Konfiguration', () => {
    * `@RequestMapping`-Wurzelpfad: `/auth` (AuthController), `/users` (UserController,
    * `/users/me`), `/import` (PdfImportController), `/transactions`
    * (TransactionSummaryController + TransactionCategoryController), `/fixed-costs`
-   * (FE-FC-01; der Controller entsteht erst mit #12).
+   * (FE-FC-01; der Controller entsteht erst mit #12), `/budget` (BudgetController, BE-STS-03).
    *
    * <p>Nicht identisch mit «alle Backend-Endpoints»: `/v3/api-docs`, `/swagger-ui`,
    * `/actuator/health`, `/actuator/info` und `/error` sind ebenfalls Backend-Pfade
@@ -31,7 +31,7 @@ describe('Dev-Proxy Konfiguration', () => {
    *
    * <p>**Neuer Prefix, den die SPA aufruft → hier und in `proxy.conf.json` eintragen.**
    */
-  const proxiedPrefixes = ['/auth', '/users', '/import', '/transactions', '/fixed-costs'];
+  const proxiedPrefixes = ['/auth', '/users', '/import', '/transactions', '/fixed-costs', '/budget'];
 
   it.each(proxiedPrefixes)('leitet %s an das Backend auf :8080 weiter', (prefix) => {
     const entry = (proxyConfig as Record<string, { target: string; changeOrigin: boolean }>)[

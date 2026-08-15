@@ -4,7 +4,7 @@
 - **Task-ID:** `FE-STS-01`
 - **Branch:** `feature/FE-STS-01-safe-to-spend-widget`
 - **Story:** US-06 — Wöchentlicher Safe-to-Spend-Betrag
-- **Sprint:** Backlog
+- **Sprint:** Sprint 4
 - **Bestätigt am:** 2026-08-15
 
 ## Scope

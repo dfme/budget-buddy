@@ -20,6 +20,9 @@
 
 .safe-to-spend__amount {
   font-size: $fs-hero;
+  // Verkleinert nur das "CHF"-Präfix von app-amount — siehe amount.scss. Wert wie
+  // design/variant-a/styles.scss `.hero__currency` ($fs-lg neben $fs-hero-Ziffern).
+  --amount-currency-size: #{$fs-lg};
 }
 
 .safe-to-spend__amount--placeholder {
@@ -27,6 +30,13 @@
 
   font-weight: 600;
   color: $c-ink-3;
+}
+
+.safe-to-spend__amount-currency {
+  margin-right: $sp-1;
+  font-size: $fs-lg;
+  font-weight: 500;
+  color: $c-ink-2;
 }
 
 .safe-to-spend__week-label {

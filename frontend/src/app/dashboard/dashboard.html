@@ -9,13 +9,18 @@
     <app-card class="safe-to-spend-card" title="Safe-to-Spend">
       <div class="safe-to-spend">
         @if (d.amount !== null) {
-          <app-amount class="safe-to-spend__amount" [value]="d.amount" [showCurrency]="true" />
+          <app-amount
+            class="safe-to-spend__amount"
+            [value]="d.amount"
+            [showCurrency]="true"
+            [hidePositiveSign]="true"
+          />
         } @else {
-          <span
-            class="safe-to-spend__amount safe-to-spend__amount--placeholder"
-            aria-label="Kein Betrag verfügbar"
-            >—</span
-          >
+          <span class="safe-to-spend__amount safe-to-spend__amount--placeholder">
+            <span class="safe-to-spend__amount-currency">CHF</span>
+            <span aria-hidden="true">—</span>
+            <span class="visually-hidden">Kein Betrag verfügbar</span>
+          </span>
         }
         <p class="safe-to-spend__week-label">{{ weekLabel() }}</p>
       </div>
