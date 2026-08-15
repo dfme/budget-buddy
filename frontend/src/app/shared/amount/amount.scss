@@ -18,6 +18,10 @@
 
 .amount__currency {
   margin-right: $sp-1;
+  // Fällt auf die geerbte Grösse zurück (unverändertes Verhalten), lässt sich aber vom Host
+  // per `--amount-currency-size` verkleinern — nötig für Hero-Beträge, wo die Ziffern auf
+  // $fs-hero stehen, „CHF" davor aber wie in der Baseline (`design/variant-a`) kleiner bleibt.
+  font-size: var(--amount-currency-size, inherit);
   font-weight: 500;
   color: $c-ink-2;
 }

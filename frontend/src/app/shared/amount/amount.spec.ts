@@ -56,4 +56,16 @@ describe('Amount', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.amount__currency').textContent).toContain('CHF');
   });
+
+  it('unterdrückt bei hidePositiveSign nur das + eines positiven Betrags, nicht das − eines negativen', () => {
+    fixture.componentRef.setInput('hidePositiveSign', true);
+    setValue(1234.5);
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.amount__sign')!.textContent).toBe('');
+    expect(fixture.nativeElement.getAttribute('aria-label')).toBe("1'234.50 Franken");
+
+    setValue(-980);
+    expect(el.querySelector('.amount__sign')!.textContent).toBe('−');
+    expect(fixture.nativeElement.getAttribute('aria-label')).toBe('minus 980.00 Franken');
+  });
 });
