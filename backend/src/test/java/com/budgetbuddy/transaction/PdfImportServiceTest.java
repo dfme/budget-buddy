@@ -114,18 +114,24 @@ class PdfImportServiceTest {
      * BE-PDF-06: Eine Summary-Zeile pro Import auf INFO — mit getrennten Phasendauern (Parse vs.
      * Kategorisierung) und dem Lookup-/Claude-Verhältnis. Die Dauern sind über die gemockte Clock
      * deterministisch: Parse 2s, Kategorisierung 5s.
+     *
+     * <p>«ohne Call» steht als eigene Zahl neben «via Claude» (Review PR #174): Ein offener Circuit
+     * Breaker liefert {@code Sonstiges} ohne HTTP-Request und damit ohne Latenz — als «via Claude»
+     * gezählt läse sich die Zeile neben der Kategorisierungsdauer widersprüchlich.
      */
     @Test
     void happyPath_logsSummaryWithPhaseDurationsAndSourceRatio() throws Exception {
         // instant(): 1. Deadline-Basis T0, 2. Parse-Start T0, 3. Parse-Ende T0+2s,
-        // 4.-6. Checks vor Tx1-Tx3 (ok), 7. Kategorisierungs-Ende T0+7s.
+        // 4.-7. Checks vor Tx1-Tx4 (ok), 8. Kategorisierungs-Ende T0+7s.
         when(clock.instant()).thenReturn(T0, T0, T0.plusSeconds(2),
-                T0.plusSeconds(2), T0.plusSeconds(3), T0.plusSeconds(4), T0.plusSeconds(7));
+                T0.plusSeconds(2), T0.plusSeconds(3), T0.plusSeconds(4), T0.plusSeconds(5),
+                T0.plusSeconds(7));
         when(repository.existsByUserIdAndPdfSha256(USER_ID, expectedSha256())).thenReturn(false);
         when(parser.parse(PDF_BYTES)).thenReturn(List.of(
                 parsed("Kartenzahlung Migros Zuerich", List.of(), "87.60", false),
                 parsed("Saläreingang", List.of(), "6800.00", true),
-                parsed("KLEINGARTENVEREIN BEITRAG", List.of(), "120.00", false)));
+                parsed("KLEINGARTENVEREIN BEITRAG", List.of(), "120.00", false),
+                parsed("UNBEKANNTER HAENDLER GMBH", List.of(), "42.00", false)));
         when(categorizationPort.categorize("Kartenzahlung Migros Zuerich"))
                 .thenReturn(Optional.of(new CategorizationResult(
                         Category.LEBENSMITTEL, CategorizationResult.Source.LOOKUP)));
@@ -135,6 +141,10 @@ class PdfImportServiceTest {
         when(categorizationPort.categorize("KLEINGARTENVEREIN BEITRAG"))
                 .thenReturn(Optional.of(new CategorizationResult(
                         Category.FREIZEIT, CategorizationResult.Source.CLAUDE)));
+        // Breaker offen / kein API-Key: Sonstiges, aber ohne Request.
+        when(categorizationPort.categorize("UNBEKANNTER HAENDLER GMBH"))
+                .thenReturn(Optional.of(new CategorizationResult(
+                        Category.SONSTIGES, CategorizationResult.Source.CLAUDE_SKIPPED)));
 
         Logger serviceLogger = (Logger) LoggerFactory.getLogger(PdfImportService.class);
         ListAppender<ILoggingEvent> appender = new ListAppender<>();
@@ -151,9 +161,9 @@ class PdfImportServiceTest {
                 .singleElement()
                 .extracting(ILoggingEvent::getFormattedMessage)
                 .asString()
-                .contains("User 42", "3 Transaktion(en)")
+                .contains("User 42", "4 Transaktion(en)")
                 .contains("Parse 2000 ms", "Kategorisierung 5000 ms")
-                .contains("2 via Lookup", "1 via Claude");
+                .contains("2 via Lookup", "1 via Claude", "1 ohne Call");
     }
 
     @Test

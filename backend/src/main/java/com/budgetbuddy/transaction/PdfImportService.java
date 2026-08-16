@@ -131,10 +131,15 @@ public class PdfImportService {
 
         // Lookup-/Claude-Verhältnis (BE-PDF-06): die aussagekräftigste Einzelzahl des Flows —
         // ADR-6 rechnet mit 70–80% Lookup-Treffern, erst diese Zählung macht das überprüfbar.
-        // Leere Texte (Optional.empty → Sonstiges) zählen in keiner der beiden Quellen; die
-        // Summe kann dann kleiner sein als die Gesamtzahl.
+        // Leere Texte (Optional.empty → Sonstiges) zählen in keiner der Quellen; die Summe kann
+        // dann kleiner sein als die Gesamtzahl.
+        // «ohne Call» steht getrennt (Review PR #174): offener Circuit Breaker und fehlender
+        // API-Key liefern Sonstiges ohne HTTP-Request. Für die ADR-6-Trefferquote zählt es wie
+        // Claude (der Lookup kannte den Text nicht), für die Laufzeit nicht — sonst läse sich
+        // «12 via Claude» neben «Kategorisierung 180 ms» widersprüchlich.
         int viaLookup = 0;
         int viaClaude = 0;
+        int ohneCall = 0;
         List<Transaction> entities = new ArrayList<>(parsed.size());
         for (ParsedTransaction tx : parsed) {
             if (clock.instant().isAfter(deadline)) {
@@ -151,10 +156,10 @@ public class PdfImportService {
                 category = Category.SONSTIGES.getLabel();
             } else {
                 category = result.category().getLabel();
-                if (result.source() == CategorizationResult.Source.LOOKUP) {
-                    viaLookup++;
-                } else {
-                    viaClaude++;
+                switch (result.source()) {
+                    case LOOKUP -> viaLookup++;
+                    case CLAUDE -> viaClaude++;
+                    case CLAUDE_SKIPPED -> ohneCall++;
                 }
             }
             entities.add(new Transaction(userId, tx.buchungsdatum(), tx.buchungstext(),
@@ -176,10 +181,10 @@ public class PdfImportService {
         });
         // Eine Summary-Zeile pro Import auf INFO (BE-PDF-06) — bewusst keine Zeile pro
         // Transaktion, application-prod.properties fährt com.budgetbuddy=INFO.
-        log.info("PDF-Import für User {}: {} Transaktion(en) importiert "
-                        + "(Parse {} ms, Kategorisierung {} ms; {} via Lookup, {} via Claude).",
+        log.info("PDF-Import für User {}: {} Transaktion(en) importiert (Parse {} ms, "
+                        + "Kategorisierung {} ms; {} via Lookup, {} via Claude, {} ohne Call).",
                 userId, entities.size(), parseDuration.toMillis(),
-                categorizationDuration.toMillis(), viaLookup, viaClaude);
+                categorizationDuration.toMillis(), viaLookup, viaClaude, ohneCall);
         return new ImportResult(pdfSha256, entities.size());
     }
 

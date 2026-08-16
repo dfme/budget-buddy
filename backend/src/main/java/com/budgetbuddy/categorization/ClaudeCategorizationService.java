@@ -84,14 +84,15 @@ public class ClaudeCategorizationService implements CategorizationPort {
         AnthropicClient client = clientProvider.getIfAvailable();
         if (client == null) {
             // Kein API-Key konfiguriert — bereits beim Start geloggt, hier nur noch Fallback.
-            return Optional.of(claudeResult(Category.SONSTIGES));
+            // Kein Request hinaus, daher CLAUDE_SKIPPED statt CLAUDE (Review PR #174).
+            return Optional.of(skippedResult());
         }
 
         if (isBreakerOpen()) {
             // Transaktionstext redigiert (BE-PDF-06): auch DEBUG darf keine Zahlungsdaten tragen.
             log.debug("Circuit Breaker offen — {} ohne Claude-Call als 'Sonstiges' eingestuft.",
                     LogRedaction.redact(transactionText));
-            return Optional.of(claudeResult(Category.SONSTIGES));
+            return Optional.of(skippedResult());
         }
 
         Message response;
@@ -100,8 +101,11 @@ public class ClaudeCategorizationService implements CategorizationPort {
         } catch (AnthropicException e) {
             // Infrastruktur-Fehler (Timeout, IO, HTTP): zählt für den Breaker.
             recordFailure();
+            // Nur der Exception-Typ, nicht e.getMessage() (Review PR #174): Die Meldung ist ein
+            // Fremdstring aus dem SDK, und der Transaktionstext ging als Prompt hinaus. Der Typ
+            // beantwortet «429 oder Timeout?» vollständig — siehe LogRedaction.describe.
             log.warn("Claude-Call für {} fehlgeschlagen ({}) — Fallback 'Sonstiges'.",
-                    LogRedaction.redact(transactionText), e.getMessage());
+                    LogRedaction.redact(transactionText), LogRedaction.describe(e));
             return Optional.of(claudeResult(Category.SONSTIGES));
         }
 
@@ -114,6 +118,12 @@ public class ClaudeCategorizationService implements CategorizationPort {
 
     private static CategorizationResult claudeResult(Category category) {
         return new CategorizationResult(category, CategorizationResult.Source.CLAUDE);
+    }
+
+    /** Claude-Stufe erreicht, aber ohne HTTP-Request beantwortet — siehe {@code Source}. */
+    private static CategorizationResult skippedResult() {
+        return new CategorizationResult(
+                Category.SONSTIGES, CategorizationResult.Source.CLAUDE_SKIPPED);
     }
 
     private MessageCreateParams buildParams(String transactionText) {
@@ -164,10 +174,16 @@ public class ClaudeCategorizationService implements CategorizationPort {
         try {
             return Category.fromLabel(text.get());
         } catch (IllegalArgumentException e) {
-            // Das Antwort-Label bleibt im Klartext: Es ist Modell-Output (max. MAX_TOKENS) und
-            // der Diagnosezweck der Zeile; der Transaktionstext dagegen ist redigiert (BE-PDF-06).
-            log.warn("Claude lieferte für {} die unbekannte Kategorie '{}' — Fallback "
-                            + "'Sonstiges'.", LogRedaction.redact(transactionText), text.get());
+            // Auch die Antwort selbst wird redigiert (Review PR #174): Dieser Zweig feuert genau
+            // dann, wenn das Modell die Anweisung NICHT befolgt hat — ein Echo des Prompts, der
+            // den Transaktionstext enthält (buildUserPrompt), ist damit ein naheliegender Fall
+            // und nicht der exotische. MAX_TOKENS = 20 reicht für eine Buchungszeile bequem, und
+            // die Zeile steht auf WARN, also live in den Render-Logs.
+            // Der Diagnosezweck ist «das Modell lieferte etwas Ungültiges», nicht der Wortlaut;
+            // der Hash bleibt korrelierbar. Nebeneffekt: ein '\n' in der Antwort kann keine
+            // Log-Zeile mehr fälschen — .trim() oben entfernt nur aussen.
+            log.warn("Claude lieferte für {} die unbekannte Kategorie {} — Fallback 'Sonstiges'.",
+                    LogRedaction.redact(transactionText), LogRedaction.redact(text.get()));
             return Category.SONSTIGES;
         }
     }

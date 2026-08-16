@@ -106,7 +106,9 @@ class ClaudeCategorizationServiceTest {
 
         Optional<CategorizationResult> result = service.categorize(TRANSACTION);
 
-        assertThat(result).contains(claude(Category.SONSTIGES));
+        // Kein Request hinaus → CLAUDE_SKIPPED, nicht CLAUDE (Review PR #174): Die Trennung hält
+        // die Laufzeit-Aussage der Import-Summary sauber.
+        assertThat(result).contains(skipped());
         verifyNoInteractions(messageService);
     }
 
@@ -150,9 +152,10 @@ class ClaudeCategorizationServiceTest {
         verify(messageService, times(ClaudeCategorizationService.FAILURE_THRESHOLD))
                 .create(any(MessageCreateParams.class));
 
-        // Ab jetzt darf kein Call mehr rausgehen — der Rest des Imports fällt sofort durch.
-        assertThat(service.categorize(TRANSACTION)).contains(claude(Category.SONSTIGES));
-        assertThat(service.categorize(TRANSACTION)).contains(claude(Category.SONSTIGES));
+        // Ab jetzt darf kein Call mehr rausgehen — der Rest des Imports fällt sofort durch, und
+        // zwar als CLAUDE_SKIPPED: ohne Request kostet er auch keine Latenz (Review PR #174).
+        assertThat(service.categorize(TRANSACTION)).contains(skipped());
+        assertThat(service.categorize(TRANSACTION)).contains(skipped());
 
         verify(messageService, times(ClaudeCategorizationService.FAILURE_THRESHOLD))
                 .create(any(MessageCreateParams.class));
@@ -245,6 +248,12 @@ class ClaudeCategorizationServiceTest {
 
     private static CategorizationResult claude(Category category) {
         return new CategorizationResult(category, CategorizationResult.Source.CLAUDE);
+    }
+
+    /** Claude-Stufe erreicht, aber ohne HTTP-Request beantwortet (Breaker offen / kein Key). */
+    private static CategorizationResult skipped() {
+        return new CategorizationResult(
+                Category.SONSTIGES, CategorizationResult.Source.CLAUDE_SKIPPED);
     }
 
     private MessageCreateParams captureParams() {

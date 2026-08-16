@@ -19,7 +19,10 @@ import com.anthropic.models.messages.StopReason;
 import com.anthropic.models.messages.TextBlock;
 import com.anthropic.models.messages.Usage;
 import com.anthropic.services.blocking.MessageService;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Clock;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
@@ -105,16 +108,66 @@ class CategorizationLogRedactionTest {
                 .thenReturn(messageWithText("   "));
         claudeService.categorize(TRANSACTION);
 
-        // WARN-Pfad «unbekannte Kategorie» — das Antwort-Label selbst darf im Log stehen
-        // (Modell-Output, Diagnosezweck der Zeile), der Transaktionstext nicht.
+        // WARN-Pfad «unbekannte Kategorie» — auch die Antwort selbst wird redigiert.
         when(messageService.create(any(MessageCreateParams.class)))
                 .thenReturn(messageWithText("Kryptowährung"));
         claudeService.categorize(TRANSACTION);
 
         assertRedacted();
+        // Die Zeile bleibt diagnostisch brauchbar: Sie sagt weiterhin, DASS etwas Ungültiges kam.
         assertThat(appender.list)
                 .anySatisfy(event ->
-                        assertThat(event.getFormattedMessage()).contains("Kryptowährung"));
+                        assertThat(event.getFormattedMessage()).contains("unbekannte Kategorie"));
+    }
+
+    /**
+     * Der Fall, den der PR-Review von #174 als blockierend aufgedeckt hat: Der Zweig «unbekannte
+     * Kategorie» feuert genau dann, wenn das Modell die Anweisung nicht befolgt hat — ein Echo des
+     * Prompts (der den Transaktionstext enthält) ist damit naheliegend, nicht exotisch. Vor dem Fix
+     * stand der Transaktionstext dadurch im Klartext auf WARN in den Render-Logs.
+     */
+    @Test
+    void claudeEchoingTheTransactionTextIsRedacted() {
+        when(messageService.create(any(MessageCreateParams.class)))
+                .thenReturn(messageWithText(TRANSACTION));
+
+        claudeService.categorize(TRANSACTION);
+
+        assertRedacted();
+    }
+
+    /**
+     * {@code .trim()} entfernt nur aussen: Eine Antwort mit Zeilenumbruch könnte sonst eine
+     * zweite, gefälschte Log-Zeile vortäuschen. Die Redaktion schliesst das mit ein.
+     */
+    @Test
+    void claudeResponseWithNewlineCannotForgeALogLine() {
+        when(messageService.create(any(MessageCreateParams.class)))
+                .thenReturn(messageWithText("Freizeit\nWARN gefälschte Zeile"));
+
+        claudeService.categorize(TRANSACTION);
+
+        assertRedacted();
+        assertThat(appender.list)
+                .allSatisfy(event ->
+                        assertThat(event.getFormattedMessage()).doesNotContain("gefälschte Zeile"));
+    }
+
+    /**
+     * Die SDK-Fehlermeldung ist ein Fremdstring; ob sie Request-Inhalt zurückspiegeln kann, ist
+     * nicht belegt. Geloggt wird deshalb nur der Exception-Typ (Review PR #174).
+     */
+    @Test
+    void claudeFailureLogsExceptionTypeInsteadOfSdkMessage() {
+        when(messageService.create(any(MessageCreateParams.class)))
+                .thenThrow(new AnthropicException("ZAHLUNG KARDIOLOGIE HIRSLANDEN 4242", null));
+
+        claudeService.categorize(TRANSACTION);
+
+        assertRedacted();
+        assertThat(appender.list)
+                .anySatisfy(event ->
+                        assertThat(event.getFormattedMessage()).contains("AnthropicException"));
     }
 
     @Test
@@ -153,9 +206,38 @@ class CategorizationLogRedactionTest {
 
         assertThat(redacted)
                 .matches("<len=" + TRANSACTION.length() + " sha256=[0-9a-f]{8}>")
-                // Deterministisch: identische Texte bleiben über Log-Zeilen hinweg korrelierbar.
+                // Innerhalb des Prozesses deterministisch: identische Texte bleiben über
+                // Log-Zeilen hinweg korrelierbar.
                 .isEqualTo(LogRedaction.redact(TRANSACTION));
         assertThat(LogRedaction.redact(null)).isEqualTo("<null>");
+    }
+
+    /**
+     * Gesalzen (Review PR #174): Ohne Salt könnte, wer Log-Zugriff hat, eine Vermutung wie
+     * «KARDIOLOGIE HIRSLANDEN» nachrechnen und bestätigen. Der Hash darf deshalb nicht der
+     * blanke SHA-256 des Texts sein.
+     */
+    @Test
+    void redactionHashIsSaltedAndThereforeNotConfirmableAgainstAGuess() throws Exception {
+        String unsaltedPrefix = HexFormat.of()
+                .formatHex(MessageDigest.getInstance("SHA-256")
+                        .digest(TRANSACTION.getBytes(StandardCharsets.UTF_8)))
+                .substring(0, 8);
+
+        assertThat(LogRedaction.redact(TRANSACTION)).doesNotContain(unsaltedPrefix);
+    }
+
+    @Test
+    void describeReportsTypeChainWithoutTheMessage() {
+        Exception cause = new java.net.SocketTimeoutException("timeout nach 10s");
+        Exception wrapped = new AnthropicException("Anfrage an /v1/messages fehlgeschlagen", cause);
+
+        assertThat(LogRedaction.describe(wrapped))
+                .isEqualTo("AnthropicException ← SocketTimeoutException")
+                .doesNotContain("v1/messages");
+        assertThat(LogRedaction.describe(new IllegalStateException("kaputt")))
+                .isEqualTo("IllegalStateException");
+        assertThat(LogRedaction.describe(null)).isEqualTo("<null>");
     }
 
     /**
