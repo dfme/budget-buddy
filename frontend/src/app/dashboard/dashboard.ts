@@ -11,9 +11,10 @@ import { SafeToSpendService } from './safe-to-spend.service';
  * Dashboard mit dem Safe-to-Spend-Widget (FE-STS-01, US-06).
  *
  * <p>Zeigt den wöchentlichen Safe-to-Spend-Betrag gross und zentral, zusammen mit
- * dem Wochen-Label ("noch N Wochen im Monat"). Das Negativ-Banner (FE-STS-02) und
- * der No-Income-Hinweis mit Einkommens-Vorschlag (FE-STS-03) sind eigene, auf
- * diesem Widget aufbauende Issues — hier wird der `amount: null`-Fall nur so weit
+ * dem Wochen-Label ("noch N Wochen im Monat"). Ist das Budget überzogen (`negative`),
+ * steht darüber das rote Warn-Banner aus FE-STS-02 — der Text stammt wörtlich aus
+ * US-06. Der No-Income-Hinweis mit Einkommens-Vorschlag (FE-STS-03) ist ein eigenes,
+ * auf diesem Widget aufbauendes Issue — hier wird der `amount: null`-Fall nur so weit
  * behandelt, dass kein `NaN`/`CHF 0.00` als irreführender Platzhalter erscheint.
  *
  * <p>OnPush + Signals wie im übrigen Frontend; der HTTP-Zugriff liegt im

@@ -4,6 +4,11 @@
   display: block;
 }
 
+// Spaltenbreite des Dashboards. Das Negativ-Banner (FE-STS-02) steht am oberen Rand
+// oberhalb der Card (US-06) und teilt sich deren Breite — als eine Regel, damit beide
+// beim Anpassen nicht auseinanderlaufen und das Banner nicht über die volle Seitenbreite
+// läuft, unter der die Card dann eingerückt wirkte.
+.negative-banner,
 .safe-to-spend-card {
   max-width: 28rem;
   margin: $sp-6 auto 0;
