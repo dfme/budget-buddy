@@ -1,6 +1,6 @@
 package com.budgetbuddy.transaction;
 
-import com.budgetbuddy.transaction.dto.TransactionResponse;
+import com.budgetbuddy.transaction.dto.TransactionListResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -37,26 +37,51 @@ public class TransactionListController {
     }
 
     @GetMapping
-    @Operation(summary = "Ausgaben eines Monats auflisten",
-            description = "Liefert die einzelnen Ausgaben des Monats, absteigend nach "
+    @Operation(summary = "Ausgaben eines Monats seitenweise auflisten",
+            description = "Liefert eine Seite der einzelnen Ausgaben des Monats, absteigend nach "
                     + "Buchungsdatum. Gutschriften sind nicht enthalten; nicht kategorisierte "
                     + "Transaktionen erscheinen als 'Sonstiges'. Mit 'category' lässt sich auf eine "
                     + "Kategorie eingrenzen — der Filter 'Sonstiges' trifft dabei auch die noch "
                     + "nicht kategorisierten Buchungen. Ein Label ohne Treffer liefert eine leere "
-                    + "Liste, keinen Fehler.")
+                    + "Liste, keinen Fehler. Ohne 'page' und 'size' werden die ersten "
+                    + TransactionListService.DEFAULT_PAGE_SIZE + " Buchungen geliefert; 'hasMore' "
+                    + "in der Antwort sagt, ob dahinter weitere folgen.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Transaktionen zurückgegeben"),
-        @ApiResponse(responseCode = "400", description = "month fehlt oder ist kein YYYY-MM",
+        @ApiResponse(responseCode = "200", description = "Seite der Transaktionen zurückgegeben"),
+        @ApiResponse(responseCode = "400",
+                description = "month fehlt oder ist kein YYYY-MM; page negativ; size ausserhalb "
+                        + "1.." + TransactionListService.MAX_PAGE_SIZE,
                 content = {}),
         @ApiResponse(responseCode = "401", description = "Nicht authentifiziert", content = {})
     })
-    public List<TransactionResponse> listTransactions(
+    public TransactionListResponse listTransactions(
             @AuthenticationPrincipal Long userId,
             @Parameter(description = "Monat im Format YYYY-MM, z. B. 2026-07", example = "2026-07")
             @RequestParam String month,
             @Parameter(description = "Optionaler Kategorie-Filter (deutsches Label)",
                     example = "Lebensmittel")
-            @RequestParam(required = false) String category) {
-        return listService.list(userId, month, category);
+            @RequestParam(required = false) String category,
+            @Parameter(description = "Nullbasierte Seitennummer; Standard 0", example = "0")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Buchungen pro Seite, 1 bis "
+                    + TransactionListService.MAX_PAGE_SIZE + "; Standard "
+                    + TransactionListService.DEFAULT_PAGE_SIZE, example = "20")
+            @RequestParam(defaultValue = TransactionListService.DEFAULT_PAGE_SIZE) int size) {
+        return listService.list(userId, month, category, page, size);
+    }
+
+    @GetMapping("/months")
+    @Operation(summary = "Monate mit Ausgaben auflisten",
+            description = "Liefert die Monate im Format YYYY-MM, in denen der eingeloggte User "
+                    + "Ausgaben hat — neuester zuerst. Eingabe des Monats-Dropdowns der "
+                    + "Kategorie-Übersicht, das damit nur Monate anbietet, in denen auch etwas zu "
+                    + "sehen ist. Monate mit ausschliesslich Gutschriften erscheinen nicht. Ein "
+                    + "User ohne Ausgaben bekommt eine leere Liste, keinen Fehler.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Monate zurückgegeben"),
+        @ApiResponse(responseCode = "401", description = "Nicht authentifiziert", content = {})
+    })
+    public List<String> listMonths(@AuthenticationPrincipal Long userId) {
+        return listService.availableMonths(userId);
     }
 }

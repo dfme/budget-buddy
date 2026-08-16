@@ -2,6 +2,7 @@
 
 .month-nav {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: $sp-3;
@@ -10,6 +11,26 @@
 .month-nav__label {
   font-size: $fs-md;
   font-weight: 600;
+}
+
+// Das Dropdown bricht auf schmalen Viewports in eine eigene Zeile, statt Label und Pfeile
+// zusammenzuquetschen — der Stepper bleibt so auf dem Handy in voller Grösse bedienbar.
+.month-nav__jump {
+  flex: 1 1 100%;
+  order: 1;
+
+  select {
+    width: 100%;
+  }
+
+  @media (min-width: 40rem) {
+    flex: 0 0 auto;
+    order: 0;
+
+    select {
+      width: auto;
+    }
+  }
 }
 
 .month-nav__btn {

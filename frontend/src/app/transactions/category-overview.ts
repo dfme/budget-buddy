@@ -1,33 +1,69 @@
 import { CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, ParamMap, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 
 import { Badge } from '../shared/badge/badge';
+import { Button } from '../shared/button/button';
 import { Card } from '../shared/card/card';
 import { CATEGORIES } from '../shared/category';
 import { DonutChart, DonutSlice } from '../shared/chart/donut-chart';
 import { Input } from '../shared/input/input';
-import { MonthNav } from '../shared/month-nav/month-nav';
+import { MonthNav, MonthOption } from '../shared/month-nav/month-nav';
 import { Notice } from '../shared/notice/notice';
 import { CategorySummary } from './category-summary.model';
 import { Transaction } from './transaction.model';
-import { TransactionService } from './transaction.service';
+import {
+  MAX_TRANSACTION_PAGE_SIZE,
+  TRANSACTION_PAGE_SIZE,
+  TransactionService,
+} from './transaction.service';
 import { TransactionSummaryService } from './transaction-summary.service';
 
 /** Meldung, wenn die Buchungen einer aufgeklappten Kategorie nicht geladen werden konnten. */
 const FAILED_TO_LOAD = 'Die Buchungen konnten nicht geladen werden.';
 
+/** Meldung, wenn das Nachladen weiterer Buchungen fehlschlägt — die geladenen bleiben stehen. */
+const FAILED_TO_LOAD_MORE = 'Weitere Buchungen konnten nicht geladen werden.';
+
+/** Meldung, wenn die Liste nach einer Kategorie-Korrektur nicht aktualisiert werden konnte. */
+const FAILED_TO_REFRESH = 'Die Liste konnte nicht aktualisiert werden.';
+
+/**
+ * Wie viele Seiten am Stück nachgeladen werden können, bevor das Backend das `size`-Limit
+ * ablehnt. Grenze des Fensters, das nach einer Kategorie-Korrektur neu geladen wird.
+ */
+const MAX_PAGES_PER_REQUEST = MAX_TRANSACTION_PAGE_SIZE / TRANSACTION_PAGE_SIZE;
+
+/**
+ * Zulässiger `month`-Query-Parameter. Ein unbrauchbarer Wert darf nicht bis `formatMonth()`
+ * durchkommen — `new Date(NaN)` erzeugte dort ein «Invalid Date» als Überschrift.
+ */
+const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+
 /** Zustand der aktuell aufgeklappten Kategorie. `null`, solange keine offen ist. */
 interface Drilldown {
   /** Deutsches Kategorie-Label, z. B. `"Lebensmittel"`. */
   readonly category: string;
-  /** Die Buchungen dieser Kategorie im angezeigten Monat. */
+  /** Die bereits geladenen Buchungen dieser Kategorie im angezeigten Monat. */
   readonly transactions: readonly Transaction[];
   /** `true`, solange die Liste erstmals geladen wird. */
   readonly loading: boolean;
+  /** `true`, solange eine weitere Seite nachgeladen wird — die bisherigen bleiben sichtbar. */
+  readonly loadingMore: boolean;
   /** Fehlermeldung des Ladevorgangs oder `null`. */
   readonly error: string | null;
+  /** `true`, wenn hinter den geladenen Buchungen weitere folgen (Backend-Signal `hasMore`). */
+  readonly hasMore: boolean;
+  /**
+   * Anzahl angeforderter Seiten. Nicht dasselbe wie {@link transactions}`.length / 20`: nach einer
+   * Korrektur kann das Fenster weniger Einträge enthalten, als es Seiten umfasst. Der Wert
+   * bestimmt, ab welchem Offset die nächste Seite beginnt — er darf deshalb nur wachsen, wenn eine
+   * Seite tatsächlich angefordert wurde.
+   */
+  readonly pagesLoaded: number;
 }
 
 /**
@@ -41,14 +77,26 @@ interface Drilldown {
  * Ausgabenverteilung (FE-CAT-02).
  *
  * <p>Jede Kategorie-Zeile lässt sich aufklappen und zeigt dann die Buchungen dahinter,
- * jede mit einem Dropdown zur Korrektur der Kategorie (FE-CAT-03).
+ * jede mit einem Dropdown zur Korrektur der Kategorie (FE-CAT-03). Die Liste beginnt mit 20
+ * Buchungen und wächst über «Weitere laden» seitenweise (FE-CAT-05, US-13).
  *
  * <p>OnPush + Signals wie im übrigen Frontend; der HTTP-Zugriff liegt in den
  * zustandslosen Services {@link TransactionSummaryService} und {@link TransactionService}.
  */
 @Component({
   selector: 'app-category-overview',
-  imports: [CurrencyPipe, DatePipe, DecimalPipe, MonthNav, Card, Badge, DonutChart, Input, Notice],
+  imports: [
+    CurrencyPipe,
+    DatePipe,
+    DecimalPipe,
+    MonthNav,
+    Card,
+    Badge,
+    Button,
+    DonutChart,
+    Input,
+    Notice,
+  ],
   templateUrl: './category-overview.html',
   styleUrl: './category-overview.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -62,6 +110,8 @@ export class CategoryOverview {
 
   private readonly summaryService = inject(TransactionSummaryService);
   private readonly transactionService = inject(TransactionService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   /** Aktuell angezeigter Monat im Format `YYYY-MM`. */
   readonly month = signal(CategoryOverview.currentMonth());
@@ -106,6 +156,35 @@ export class CategoryOverview {
   /** `true`, wenn der angezeigte Monat der aktuelle Monat ist — sperrt "›". */
   readonly isCurrentMonth = computed(() => this.month() >= CategoryOverview.currentMonth());
 
+  /**
+   * Monate mit Ausgaben aus `GET /transactions/months`, roh wie geliefert. Leer, solange nichts
+   * geladen ist oder der Request fehlgeschlagen ist.
+   */
+  private readonly loadedMonths = signal<readonly string[]>([]);
+
+  /**
+   * Die Monate des Direktsprung-Dropdowns (FE-CAT-04), neuester zuerst.
+   *
+   * <p>Zwei Regeln über der geladenen Liste:
+   *
+   * <ul>
+   *   <li>Der angezeigte Monat ist immer dabei, auch wenn er keine Ausgaben hat. Sonst stünde das
+   *       Dropdown bei leerem Konto oder einem per Deep-Link geöffneten leeren Monat auf einem
+   *       fremden Wert.
+   *   <li>Zukunftsmonate fallen raus — dieselbe Regel, die {@link isCurrentMonth} am Stepper
+   *       durchsetzt. Ein Dropdown, das sie anböte, hebelte die Sperre aus.
+   * </ul>
+   */
+  readonly monthOptions = computed<readonly MonthOption[]>(() => {
+    const current = CategoryOverview.currentMonth();
+    const values = new Set(this.loadedMonths().filter((month) => month <= current));
+    values.add(this.month());
+    return [...values]
+      .sort()
+      .reverse()
+      .map((value) => ({ value, label: CategoryOverview.formatMonth(value) }));
+  });
+
   /** Aufgeklappte Kategorie samt ihren Buchungen, oder `null`, wenn keine offen ist. */
   readonly drilldown = signal<Drilldown | null>(null);
 
@@ -135,20 +214,113 @@ export class CategoryOverview {
    */
   private readonly pendingSaves = new Set<Subscription>();
 
+  /**
+   * `false`, bis die erste URL-Auswertung gelaufen ist. Ohne diese Unterscheidung würde die
+   * Gleichheits-Wache in {@link syncFromUrl} das Erstladen verschlucken, sobald die URL keinen
+   * Parameter trägt — der ausgelesene Monat wäre dann von Anfang an derselbe wie der angezeigte.
+   */
+  private initialLoadDone = false;
+
   constructor() {
-    this.load();
+    // `queryParamMap` liefert den aktuellen Stand sofort und danach jede Änderung. Beides läuft
+    // durch dieselbe Methode: das Erstladen (auch per Deep-Link) und später Browser-Zurück,
+    // -Vorwärts oder eine von Hand editierte Adresse.
+    this.route.queryParamMap
+      .pipe(takeUntilDestroyed())
+      .subscribe((params) => this.syncFromUrl(params));
+    this.loadAvailableMonths();
   }
 
   /** Einen Monat zurück. */
   previousMonth(): void {
-    this.month.set(CategoryOverview.shiftMonth(this.month(), -1));
-    this.load();
+    this.goTo(CategoryOverview.shiftMonth(this.month(), -1));
   }
 
   /** Einen Monat vor. */
   nextMonth(): void {
-    this.month.set(CategoryOverview.shiftMonth(this.month(), 1));
+    this.goTo(CategoryOverview.shiftMonth(this.month(), 1));
+  }
+
+  /**
+   * Springt direkt auf einen Monat (FE-CAT-04, US-12) — unabhängig davon, wie weit er entfernt
+   * ist, und mit genau einem Request statt einem pro übersprungenem Monat.
+   */
+  selectMonth(month: string): void {
+    if (month === this.month()) {
+      return;
+    }
+    this.goTo(month);
+  }
+
+  /**
+   * Wechselt den angezeigten Monat und zieht die URL nach.
+   *
+   * <p>Geladen wird sofort, nicht erst wenn die Navigation gelandet ist: die Anzeige soll nicht
+   * auf den Router warten. Die URL folgt anschliessend, und die Wache in {@link syncFromUrl}
+   * verwirft die Rückmeldung — sonst liefe jeder Wechsel zweimal.
+   */
+  private goTo(month: string): void {
+    this.month.set(month);
     this.load();
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { month },
+      queryParamsHandling: 'merge',
+    });
+  }
+
+  /**
+   * Übernimmt den Monat aus der URL — beim Erstladen und bei jeder äusseren Änderung.
+   *
+   * <p>Die Gleichheits-Wache unten ist der Grund, warum Stepper und Sprung synchron laden dürfen,
+   * ohne dass ein zweiter Request folgt. Wer sie entfernt, bekommt pro Wechsel zwei Requests —
+   * der Test «schreibt den Monat in die URL, ohne ein zweites Mal zu laden» wird dann rot.
+   */
+  private syncFromUrl(params: ParamMap): void {
+    const raw = params.get('month');
+    // Ein Zukunftsmonat ist hier genauso unbrauchbar wie ein kaputtes Format: dort gibt es keine
+    // Buchungen, und der Stepper verbietet den Weg dorthin ohnehin. Ihn erst weiter unten aus dem
+    // Dropdown zu filtern, hiesse Entscheid 5 zu brechen — das <select> stünde dann auf einem
+    // Wert, den seine eigene Liste nicht enthält. Hier abgefangen, halten beide Regeln.
+    const valid =
+      raw !== null && MONTH_PATTERN.test(raw) && raw <= CategoryOverview.currentMonth();
+    const month = valid ? raw : CategoryOverview.currentMonth();
+
+    if (raw !== null && !valid) {
+      // Unbrauchbarer Parameter: die Adresse auf den tatsächlich angezeigten Monat zurechtrücken,
+      // statt eine URL stehen zu lassen, die etwas anderes behauptet als die Seite. `replaceUrl`,
+      // damit die kaputte Adresse nicht im Verlauf liegenbleibt und «Zurück» sie wieder aufruft.
+      void this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { month },
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+      });
+    }
+
+    if (this.initialLoadDone && month === this.month()) {
+      return;
+    }
+    this.initialLoadDone = true;
+    this.month.set(month);
+    this.load();
+  }
+
+  /**
+   * Lädt die Monate für das Direktsprung-Dropdown.
+   *
+   * <p>Einmal beim Aufbau der Seite: die Liste ändert sich nur durch einen Import, und der führt
+   * ohnehin über eine andere Seite hierher zurück.
+   */
+  private loadAvailableMonths(): void {
+    this.transactionService.availableMonths().subscribe({
+      next: (months) => this.loadedMonths.set(months),
+      error: (_err: HttpErrorResponse) => {
+        // Bewusst ohne Meldung: {@link monthOptions} fällt auf den angezeigten Monat zurück, und
+        // Stepper wie Übersicht funktionieren unverändert weiter. Eine rote Meldung für ein
+        // ausgefallenes Komfort-Element stünde in keinem Verhältnis zur Einschränkung.
+      },
+    });
   }
 
   /** `true`, wenn die Buchungen dieser Kategorie gerade aufgeklappt sind. */
@@ -172,8 +344,32 @@ export class CategoryOverview {
       return;
     }
     this.saveErrorMessage.set(null);
-    this.drilldown.set({ category, transactions: [], loading: true, error: null });
-    this.loadDrilldown(category);
+    this.drilldown.set({
+      category,
+      transactions: [],
+      loading: true,
+      loadingMore: false,
+      error: null,
+      hasMore: false,
+      pagesLoaded: 0,
+    });
+    this.loadPage(category, 0);
+  }
+
+  /**
+   * Lädt die nächste Seite Buchungen und hängt sie an (FE-CAT-05, US-13).
+   *
+   * <p>Der Offset kommt aus {@link Drilldown#pagesLoaded}, nicht aus der Anzahl sichtbarer
+   * Buchungen: nach einer Kategorie-Korrektur kann das Fenster einen Eintrag weniger enthalten,
+   * als es Seiten umfasst — die nächste Seite beginnt trotzdem an der Seitengrenze.
+   */
+  loadMore(): void {
+    const open = this.drilldown();
+    if (open === null || !open.hasMore || open.loading || open.loadingMore) {
+      return;
+    }
+    this.drilldown.set({ ...open, loadingMore: true, error: null });
+    this.loadPage(open.category, open.pagesLoaded);
   }
 
   /**
@@ -269,29 +465,113 @@ export class CategoryOverview {
 
     const open = this.drilldown();
     if (open !== null) {
-      this.loadDrilldown(open.category);
+      this.reloadWindow(open);
     }
   }
 
-  /** Lädt die Buchungen einer Kategorie im aktuellen Monat. */
-  private loadDrilldown(category: string): void {
+  /**
+   * Lädt eine Seite Buchungen einer Kategorie im aktuellen Monat.
+   *
+   * <p>Seite 0 ersetzt die Liste (Erstladen), jede weitere hängt an — sonst würde «Weitere laden»
+   * die bereits sichtbaren Buchungen neu setzen, was AC 5 ausschliesst.
+   */
+  private loadPage(category: string, page: number): void {
     this.pendingDrilldownRequest?.unsubscribe();
 
-    this.pendingDrilldownRequest = this.transactionService.list(this.month(), category).subscribe({
-      next: (transactions) =>
-        this.drilldown.update((current) =>
-          // Nach dem Monatswechsel oder Zuklappen gehört die Antwort nicht mehr zur Anzeige.
-          current?.category === category
-            ? { ...current, transactions, loading: false, error: null }
-            : current,
-        ),
-      error: (_err: HttpErrorResponse) =>
-        this.drilldown.update((current) =>
-          current?.category === category
-            ? { ...current, transactions: [], loading: false, error: FAILED_TO_LOAD }
-            : current,
-        ),
-    });
+    this.pendingDrilldownRequest = this.transactionService
+      .list(this.month(), category, page)
+      .subscribe({
+        next: (result) =>
+          this.drilldown.update((current) =>
+            // Nach dem Monatswechsel oder Zuklappen gehört die Antwort nicht mehr zur Anzeige.
+            current?.category === category
+              ? {
+                  ...current,
+                  transactions:
+                    page === 0
+                      ? result.transactions
+                      : [...current.transactions, ...result.transactions],
+                  pagesLoaded: page + 1,
+                  hasMore: result.hasMore,
+                  loading: false,
+                  loadingMore: false,
+                  error: null,
+                }
+              : current,
+          ),
+        error: (_err: HttpErrorResponse) =>
+          this.drilldown.update((current) => {
+            if (current?.category !== category) {
+              return current;
+            }
+            // Beim Erstladen gibt es nichts zu behalten; beim Nachladen dagegen stehen bereits
+            // Buchungen da, und die gehören nicht wegen einer gescheiterten Folgeseite entfernt.
+            // hasMore bleibt in dem Fall stehen, damit der Button einen zweiten Versuch erlaubt.
+            return page === 0
+              ? {
+                  ...current,
+                  transactions: [],
+                  loading: false,
+                  loadingMore: false,
+                  hasMore: false,
+                  error: FAILED_TO_LOAD,
+                }
+              : { ...current, loadingMore: false, error: FAILED_TO_LOAD_MORE };
+          }),
+      });
+  }
+
+  /**
+   * Lädt nach einer Kategorie-Korrektur das gesamte geladene Fenster neu — in einem Request.
+   *
+   * <p>Ein blosses Nachladen von Seite 0 würde die Liste auf 20 Einträge zurückwerfen, sobald der
+   * Nutzer «Weitere laden» benutzt hat. Die Zeile nur lokal zu entfernen wäre der andere
+   * naheliegende Weg und ist falsch: die korrigierte Buchung verlässt serverseitig die Kategorie,
+   * alle dahinter rücken einen Platz vor, und die nächste Seite begänne dann hinter einer Buchung,
+   * die nie jemand gesehen hat. Das Fenster neu zu laden schliesst diese Lücke — entweder es
+   * bleibt voll (die Offsets stimmen weiter) oder die Menge ist hineingeschrumpft und `hasMore`
+   * wird `false`, womit es keine Folgeseite mehr gibt.
+   *
+   * <p>Ab {@link MAX_PAGES_PER_REQUEST} Seiten begrenzt das Backend die Anfrage. Dann wird das
+   * Fenster auf diese Grösse gekürzt und der Button erscheint wieder: die Liste ist kürzer als
+   * vorher, aber keine Buchung wird übersprungen.
+   *
+   * <p>Die <em>Untergrenze</em> von einer Seite sieht nach totem Code aus, ist es aber nicht:
+   * {@code toggleCategory} setzt {@code pagesLoaded} beim Aufklappen auf 0, und eine Korrektur
+   * überlebt das Zuklappen (abgebrochen werden Korrekturen nur beim Monatswechsel). Wer eine
+   * Kategorie korrigiert, zuklappt und wieder aufklappt, bevor der PUT zurück ist, landet genau
+   * hier mit 0 geladenen Seiten. Ohne die Untergrenze ginge die Anfrage mit {@code size=0} raus,
+   * und das Backend antwortete mit 400. Festgehalten im Test «reloads a full page when a
+   * correction lands after the category was reopened».
+   */
+  private reloadWindow(open: Drilldown): void {
+    const pages = Math.min(Math.max(open.pagesLoaded, 1), MAX_PAGES_PER_REQUEST);
+    this.pendingDrilldownRequest?.unsubscribe();
+
+    this.pendingDrilldownRequest = this.transactionService
+      .list(this.month(), open.category, 0, pages * TRANSACTION_PAGE_SIZE)
+      .subscribe({
+        next: (result) =>
+          this.drilldown.update((current) =>
+            current?.category === open.category
+              ? {
+                  ...current,
+                  transactions: result.transactions,
+                  pagesLoaded: pages,
+                  hasMore: result.hasMore,
+                  loading: false,
+                  loadingMore: false,
+                  error: null,
+                }
+              : current,
+          ),
+        error: (_err: HttpErrorResponse) =>
+          this.drilldown.update((current) =>
+            current?.category === open.category
+              ? { ...current, loadingMore: false, error: FAILED_TO_REFRESH }
+              : current,
+          ),
+      });
   }
 
   /**

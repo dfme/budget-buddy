@@ -2,16 +2,19 @@ import { registerLocaleData } from '@angular/common';
 import localeDeCh from '@angular/common/locales/de-CH';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideLocationMocks } from '@angular/common/testing';
 import { LOCALE_ID } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { Location } from '@angular/common';
 import { By } from '@angular/platform-browser';
+import { Router, provideRouter } from '@angular/router';
 import { BaseChartDirective } from 'ng2-charts';
 
 import { CATEGORIES } from '../shared/category';
 import { installCanvasStub, restoreCanvasStub } from '../../testing/canvas';
 import { CategoryOverview } from './category-overview';
 import { CategorySummary } from './category-summary.model';
-import { Transaction } from './transaction.model';
+import { Transaction, TransactionPage } from './transaction.model';
 
 // Der CurrencyPipe nutzt den app-weiten LOCALE_ID (de-CH); die Locale-Daten müssen
 // dafür registriert sein — im echten App-Bootstrap erledigt das app.config.ts.
@@ -77,6 +80,14 @@ const TRANSACTIONS: Transaction[] = [
   },
 ];
 
+/**
+ * Antwort von `GET /transactions/months` (FE-CAT-04). Enthält bewusst nicht den aktuellen Monat:
+ * die Liste kommt aus den vorhandenen Buchungen, und ein frisch angelegter Monat steht noch nicht
+ * darin. Die Jahre spiegeln die Test-PDFs — genau die Spanne, die eine geratene Jahresliste
+ * verfehlen würde.
+ */
+const AVAILABLE_MONTHS = ['2025-06', '2021-03', '2019-08'];
+
 /** URL-Matcher unabhängig vom (vom aktuellen Datum abhängigen) Monat. */
 function expectSummaryRequest(httpMock: HttpTestingController) {
   return httpMock.expectOne((req) => req.url === '/transactions/summary');
@@ -85,6 +96,23 @@ function expectSummaryRequest(httpMock: HttpTestingController) {
 /** Wie {@link expectSummaryRequest}, aber für die Liste der Einzelbuchungen. */
 function expectListRequest(httpMock: HttpTestingController) {
   return httpMock.expectOne((req) => req.url === '/transactions');
+}
+
+/** Antwort-Seite von `GET /transactions` (FE-CAT-05) — ohne Folgeseite, wenn nicht anders gesagt. */
+function page(transactions: Transaction[], hasMore = false): TransactionPage {
+  return { transactions, hasMore };
+}
+
+/** {@link count} Buchungen ab {@link firstId} — Material für die Seitengrenzen. */
+function manyTransactions(count: number, firstId = 1): Transaction[] {
+  return Array.from({ length: count }, (_, index) => ({
+    id: firstId + index,
+    buchungsdatum: '2026-07-15',
+    buchungstext: `BUCHUNG ${firstId + index}`,
+    betrag: 10,
+    income: false,
+    category: 'Lebensmittel',
+  }));
 }
 
 /**
@@ -111,13 +139,29 @@ describe('CategoryOverview', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
+        // Ein Catch-all ohne Component: die Komponente wird hier von Hand erzeugt, nicht vom
+        // Router gerendert. Gebraucht wird er trotzdem, weil goTo() relativ zur aktuellen Route
+        // navigiert — ohne passende Route bräche die Navigation ab, und der Monat käme nie in
+        // die URL. provideLocationMocks() hält das im Speicher statt in der echten History und
+        // liefert das location.back() für den Zurück-Test (FE-CAT-04).
+        provideRouter([{ path: '**', children: [] }]),
+        provideLocationMocks(),
         { provide: LOCALE_ID, useValue: 'de-CH' },
       ],
     }).compileComponents();
 
+    // Ohne initialNavigation() setzt der Router seinen Location-Listener nie auf — er wird hier
+    // ja nicht über ein Bootstrap gestartet. router.navigate() funktionierte trotzdem, aber ein
+    // Browser-Zurück käme nie an: genau der Fall, den FE-CAT-04 abdecken muss.
+    TestBed.inject(Router).initialNavigation();
+
     fixture = TestBed.createComponent(CategoryOverview);
     component = fixture.componentInstance;
     httpMock = TestBed.inject(HttpTestingController);
+    // FE-CAT-04: die Monatsliste wird beim Aufbau geladen. Einmal zentral beantwortet, damit die
+    // Fälle darunter sich nicht damit befassen müssen. AVAILABLE_MONTHS enthält bewusst *nicht*
+    // den aktuellen Monat — so belegt jeder Fall nebenbei, dass er trotzdem wählbar bleibt.
+    httpMock.expectOne('/transactions/months').flush(AVAILABLE_MONTHS);
   });
 
   // `finally`, damit ein fehlgeschlagenes verify() den Canvas-Stub trotzdem zurücknimmt —
@@ -321,41 +365,48 @@ describe('CategoryOverview', () => {
     expect(component.summary()?.totalCount).toBe(3);
   });
 
+  /** Der Aufklapp-Button der Zeile mit diesem Kategorie-Label. */
+  function toggleFor(category: string): HTMLButtonElement {
+    const toggle = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>(
+        '.drilldown-toggle',
+      ),
+    ).find((button) => button.textContent?.trim() === category);
+    expect(toggle).toBeDefined();
+    return toggle!;
+  }
+
+  /** Die Dropdowns der aufgeklappten Buchungen, in Reihenfolge der Liste. */
+  function selects(): HTMLSelectElement[] {
+    return Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLSelectElement>(
+        '.transaction select',
+      ),
+    );
+  }
+
+  /** Die Buchungstexte der aufgeklappten Liste, in Anzeigereihenfolge. */
+  function renderedTexts(): (string | undefined)[] {
+    return Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('.transaction__text'),
+    ).map((el) => el.textContent?.trim());
+  }
+
+  /** Klappt "Lebensmittel" auf und beantwortet den Listen-Request. */
+  function expandLebensmittel(transactions = TRANSACTIONS, hasMore = false) {
+    expectSummaryRequest(httpMock).flush(SUMMARY);
+    fixture.detectChanges();
+
+    toggleFor('Lebensmittel').click();
+    fixture.detectChanges();
+
+    const req = expectListRequest(httpMock);
+    req.flush(page(transactions, hasMore));
+    fixture.detectChanges();
+    return req;
+  }
+
   describe('Kategorie-Korrektur (FE-CAT-03)', () => {
-    /** Klappt "Lebensmittel" auf und beantwortet den Listen-Request mit {@link TRANSACTIONS}. */
-    function expandLebensmittel(transactions = TRANSACTIONS) {
-      expectSummaryRequest(httpMock).flush(SUMMARY);
-      fixture.detectChanges();
-
-      toggleFor('Lebensmittel').click();
-      fixture.detectChanges();
-
-      const req = expectListRequest(httpMock);
-      req.flush(transactions);
-      fixture.detectChanges();
-      return req;
-    }
-
-    /** Der Aufklapp-Button der Zeile mit diesem Kategorie-Label. */
-    function toggleFor(category: string): HTMLButtonElement {
-      const toggle = Array.from(
-        (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>(
-          '.drilldown-toggle',
-        ),
-      ).find((button) => button.textContent?.trim() === category);
-      expect(toggle).toBeDefined();
-      return toggle!;
-    }
-
-    /** Die Dropdowns der aufgeklappten Buchungen, in Reihenfolge der Liste. */
-    function selects(): HTMLSelectElement[] {
-      return Array.from(
-        (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLSelectElement>(
-          '.transaction select',
-        ),
-      );
-    }
-
     it('requests the transactions of the category when a row is expanded', () => {
       expectSummaryRequest(httpMock).flush(SUMMARY);
       fixture.detectChanges();
@@ -369,14 +420,11 @@ describe('CategoryOverview', () => {
       const req = expectListRequest(httpMock);
       expect(req.request.params.get('month')).toBe(component.month());
       expect(req.request.params.get('category')).toBe('Lebensmittel');
-      req.flush(TRANSACTIONS);
+      req.flush(page(TRANSACTIONS));
       fixture.detectChanges();
 
       expect(toggle.getAttribute('aria-expanded')).toBe('true');
-      const rendered = Array.from(
-        (fixture.nativeElement as HTMLElement).querySelectorAll('.transaction__text'),
-      ).map((el) => el.textContent?.trim());
-      expect(rendered).toEqual(['COOP PRONTO BERN', 'MIGROS MM ZENTRUM']);
+      expect(renderedTexts()).toEqual(['COOP PRONTO BERN', 'MIGROS MM ZENTRUM']);
     });
 
     it('collapses the row again on a second click without a further request', () => {
@@ -439,7 +487,7 @@ describe('CategoryOverview', () => {
       // Erfolg lädt Summary und offene Liste nach, damit Donut und Summen nicht auf dem
       // alten Stand stehenbleiben.
       expectSummaryRequest(httpMock).flush(SUMMARY);
-      expectListRequest(httpMock).flush([TRANSACTIONS[1]]);
+      expectListRequest(httpMock).flush(page([TRANSACTIONS[1]]));
       fixture.detectChanges();
 
       expect(component.saveErrorMessage()).toBeNull();
@@ -490,7 +538,7 @@ describe('CategoryOverview', () => {
       // Erst mit dem zweiten PUT wird nachgeladen — dann für beide.
       puts[1].flush({ ...TRANSACTIONS[1], category: 'Transport' });
       expectSummaryRequest(httpMock).flush(SUMMARY);
-      expectListRequest(httpMock).flush([]);
+      expectListRequest(httpMock).flush(page([]));
       fixture.detectChanges();
 
       expect(component.saveErrorMessage()).toBeNull();
@@ -554,6 +602,399 @@ describe('CategoryOverview', () => {
       // Die Buchungen gehören zum alten Monat — sie dürfen unter dem neuen nicht stehenbleiben.
       expect(component.drilldown()).toBeNull();
       expect(selects()).toHaveLength(0);
+    });
+  });
+
+  describe('Direktsprung und URL (FE-CAT-04)', () => {
+    /** Das Direktsprung-Dropdown der Monatsnavigation. */
+    function jump(): HTMLSelectElement {
+      const select = (fixture.nativeElement as HTMLElement).querySelector<HTMLSelectElement>(
+        '.month-nav__jump select',
+      );
+      expect(select).not.toBeNull();
+      return select!;
+    }
+
+    /** Wählt einen Monat so, wie es ein Nutzer täte. */
+    function jumpTo(month: string) {
+      const select = jump();
+      select.value = month;
+      select.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+    }
+
+    /**
+     * Räumt die Instanz aus dem `beforeEach` ab und baut eine neue auf — für die Fälle, die den
+     * Zustand *vor* dem Aufbau brauchen (Deep-Link, fehlgeschlagene Monatsliste).
+     *
+     * <p>Die Reihenfolge ist wesentlich: erst den offenen Request der alten Instanz beantworten,
+     * dann zerstören, dann navigieren. Wer vor dem Zerstören navigiert, weckt die alte
+     * Subscription und bekommt zwei Summary-Requests.
+     */
+    async function recreate(queryParams: Record<string, string> = {}) {
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      fixture.destroy();
+      await TestBed.inject(Router).navigate([], { queryParams });
+      fixture = TestBed.createComponent(CategoryOverview);
+      component = fixture.componentInstance;
+      return httpMock.expectOne('/transactions/months');
+    }
+
+    // AC 1: ein beliebiger Monat ist ohne Zwischenklicks erreichbar.
+    it('offers every month with expenses, newest first', () => {
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      fixture.detectChanges();
+
+      const options = Array.from(jump().options).map((option) => option.value);
+      // Der aktuelle Monat steht vorne, obwohl der Endpoint ihn nicht geliefert hat.
+      expect(options[0]).toBe(component.month());
+      expect(options).toContain('2019-08');
+      expect(options).toEqual([...options].sort().reverse());
+    });
+
+    // AC 2: genau ein Request, nicht einer pro übersprungenem Monat.
+    it('jumps seven years back with a single request', () => {
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      fixture.detectChanges();
+
+      jumpTo('2019-08');
+
+      // expectOne wirft, sobald mehr als ein Request offen ist — und httpMock.verify() im
+      // afterEach fängt jeden weiteren. Ein Stepper-Weg über 80 Monate wäre hier sofort rot.
+      const req = expectSummaryRequest(httpMock);
+      expect(req.request.params.get('month')).toBe('2019-08');
+      req.flush(EMPTY_SUMMARY);
+      fixture.detectChanges();
+
+      expect(component.month()).toBe('2019-08');
+    });
+
+    // AC 3: der gewählte Monat steht in der URL.
+    it('writes the month into the URL, for the jump and for the stepper', async () => {
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      fixture.detectChanges();
+      const location = TestBed.inject(Location);
+
+      jumpTo('2021-03');
+      expectSummaryRequest(httpMock).flush(EMPTY_SUMMARY);
+      await fixture.whenStable();
+      expect(location.path()).toContain('month=2021-03');
+
+      component.previousMonth();
+      expectSummaryRequest(httpMock).flush(EMPTY_SUMMARY);
+      await fixture.whenStable();
+      expect(location.path()).toContain('month=2021-02');
+    });
+
+    // AC 3: Deep-Link und Reload landen im selben Monat.
+    it('starts in the month from the URL', async () => {
+      (await recreate({ month: '2019-08' })).flush(AVAILABLE_MONTHS);
+
+      const req = expectSummaryRequest(httpMock);
+      expect(req.request.params.get('month')).toBe('2019-08');
+      req.flush(EMPTY_SUMMARY);
+      fixture.detectChanges();
+
+      expect(component.month()).toBe('2019-08');
+      expect(component.monthLabel()).toBe('August 2019');
+    });
+
+    it('falls back to the current month when the URL carries nonsense', async () => {
+      (await recreate({ month: 'kaputt' })).flush(AVAILABLE_MONTHS);
+
+      const req = expectSummaryRequest(httpMock);
+      req.flush(SUMMARY);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      // Kein «Invalid Date» in der Überschrift, und die Adresse behauptet danach nicht mehr
+      // etwas anderes als die Anzeige.
+      expect(component.monthLabel()).not.toContain('Invalid');
+      expect(TestBed.inject(Location).path()).toContain(`month=${component.month()}`);
+    });
+
+    // Review-Befund aus PR #171: über einen von Hand gebauten Link war ein Zukunftsmonat im
+    // Dropdown erreichbar — entgegen der Zusicherung, dass die Sperre für beide Bedienwege gilt.
+    it('refuses a future month from the URL like any other unusable parameter', async () => {
+      (await recreate({ month: '2099-01' })).flush(AVAILABLE_MONTHS);
+
+      const req = expectSummaryRequest(httpMock);
+      expect(req.request.params.get('month')).not.toBe('2099-01');
+      req.flush(SUMMARY);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      // Angezeigt wird der aktuelle Monat, die Adresse steht auf demselben Wert, und das Dropdown
+      // enthält keinen Zukunftsmonat — Entscheid 5 und 6 gelten beide.
+      expect(component.month()).toBe(component.monthOptions()[0].value);
+      expect(component.monthOptions().filter((o) => o.value > component.month())).toEqual([]);
+      expect(TestBed.inject(Location).path()).toContain(`month=${component.month()}`);
+    });
+
+    // Der Test, der bei halbierter Kopplung rot wird: eine URL, die nur geschrieben und nie
+    // gelesen wird, lässt die Anzeige beim Zurückgehen stehen.
+    it('follows the browser back button to the previous month', async () => {
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      fixture.detectChanges();
+      const startMonth = component.month();
+
+      jumpTo('2021-03');
+      expectSummaryRequest(httpMock).flush(EMPTY_SUMMARY);
+      await fixture.whenStable();
+      expect(component.month()).toBe('2021-03');
+
+      TestBed.inject(Location).back();
+      // Die Popstate-Navigation landet erst im nächsten Makrotask; whenStable() allein ist hier
+      // zu früh und der Test wäre grün, obwohl noch nichts passiert ist.
+      await new Promise((resolve) => setTimeout(resolve));
+      await fixture.whenStable();
+
+      const back = expectSummaryRequest(httpMock);
+      expect(back.request.params.get('month')).toBe(startMonth);
+      back.flush(SUMMARY);
+      fixture.detectChanges();
+
+      expect(component.month()).toBe(startMonth);
+    });
+
+    it('does not load a second time when its own URL update comes back', async () => {
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      fixture.detectChanges();
+
+      jumpTo('2021-03');
+      expectSummaryRequest(httpMock).flush(EMPTY_SUMMARY);
+      await fixture.whenStable();
+
+      // Die Wache in syncFromUrl verwirft die Rückmeldung der eigenen Navigation. Ohne sie stünde
+      // hier ein zweiter Request offen und httpMock.verify() im afterEach würde umfallen.
+      expect(component.month()).toBe('2021-03');
+    });
+
+    it('survives two jumps in a row without leaving a stale request behind', async () => {
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      fixture.detectChanges();
+
+      jumpTo('2021-03');
+      const first = expectSummaryRequest(httpMock);
+      jumpTo('2019-08');
+
+      // Der zweite Sprung bricht den ersten Request ab — dieselbe Regel wie beim Stepper.
+      expect(first.cancelled).toBe(true);
+      expectSummaryRequest(httpMock).flush(EMPTY_SUMMARY);
+      await fixture.whenStable();
+
+      expect(component.month()).toBe('2019-08');
+    });
+
+    // AC 4 und Entscheid 6: die Zukunftssperre gilt für beide Bedienwege.
+    it('offers no future month, in neither control', async () => {
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      fixture.detectChanges();
+
+      const nextButton = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
+        'button[aria-label="Nächster Monat"]',
+      )!;
+      expect(nextButton.disabled).toBe(true);
+
+      const options = Array.from(jump().options).map((option) => option.value);
+      expect(options.filter((month) => month > component.month())).toEqual([]);
+    });
+
+    // Entscheid 7: ein ausgefallener Monats-Endpoint ist kein Seitenfehler.
+    it('keeps working when the month list cannot be loaded', async () => {
+      (await recreate()).flush(null, { status: 500, statusText: 'Server Error' });
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      fixture.detectChanges();
+
+      // Das Dropdown fällt auf den angezeigten Monat zurück, die Übersicht steht unverändert da.
+      expect(component.monthOptions().map((option) => option.value)).toEqual([component.month()]);
+      expect(component.errorMessage()).toBeNull();
+      expect((fixture.nativeElement as HTMLElement).querySelector('table')).not.toBeNull();
+    });
+  });
+
+  describe('Pagination (FE-CAT-05)', () => {
+    /** Der «Weitere laden»-Button, oder `null`, wenn er nicht angezeigt wird. */
+    function loadMoreButton(): HTMLButtonElement | null {
+      return (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.load-more');
+    }
+
+    // AC 4 + 6: initial 20 Buchungen, Button nur bei weiteren.
+    it('shows the first page and offers to load more', () => {
+      const req = expandLebensmittel(manyTransactions(20), true);
+
+      expect(req.request.params.get('page')).toBe('0');
+      expect(req.request.params.get('size')).toBe('20');
+      expect(renderedTexts()).toHaveLength(20);
+      expect(loadMoreButton()?.textContent?.trim()).toBe('Weitere laden');
+    });
+
+    it('hides the button when the first page is already the last', () => {
+      expandLebensmittel(manyTransactions(12), false);
+
+      expect(renderedTexts()).toHaveLength(12);
+      expect(loadMoreButton()).toBeNull();
+    });
+
+    // AC 5: der Button hängt an, ohne die bereits sichtbaren Buchungen neu zu laden.
+    it('appends the next page to the entries already shown', () => {
+      expandLebensmittel(manyTransactions(20), true);
+
+      loadMoreButton()!.click();
+      fixture.detectChanges();
+
+      const req = expectListRequest(httpMock);
+      expect(req.request.params.get('page')).toBe('1');
+      expect(req.request.params.get('size')).toBe('20');
+      // Genau ein Request — httpMock.verify() im afterEach fällt um, wenn Seite 0 mitgeladen wird.
+      req.flush(page(manyTransactions(5, 21), false));
+      fixture.detectChanges();
+
+      const texts = renderedTexts();
+      expect(texts).toHaveLength(25);
+      expect(texts[0]).toBe('BUCHUNG 1');
+      expect(texts[24]).toBe('BUCHUNG 25');
+    });
+
+    it('hides the button once the last page has been appended', () => {
+      expandLebensmittel(manyTransactions(20), true);
+
+      loadMoreButton()!.click();
+      fixture.detectChanges();
+      expectListRequest(httpMock).flush(page(manyTransactions(3, 21), false));
+      fixture.detectChanges();
+
+      expect(loadMoreButton()).toBeNull();
+    });
+
+    it('keeps the loaded entries when loading the next page fails', () => {
+      expandLebensmittel(manyTransactions(20), true);
+
+      loadMoreButton()!.click();
+      fixture.detectChanges();
+      expectListRequest(httpMock).flush(null, { status: 500, statusText: 'Server Error' });
+      fixture.detectChanges();
+
+      // Die 20 sichtbaren Buchungen gehören nicht wegen einer gescheiterten Folgeseite entfernt,
+      // und der Button bleibt für einen zweiten Versuch stehen.
+      expect(renderedTexts()).toHaveLength(20);
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector('.drilldown .status.error')
+          ?.textContent,
+      ).toContain('Weitere Buchungen');
+      expect(loadMoreButton()).not.toBeNull();
+    });
+
+    // AC 7: die Korrektur funktioniert auch auf einem nachgeladenen Eintrag.
+    it('corrects a category on an appended entry and reloads the whole loaded window', () => {
+      expandLebensmittel(manyTransactions(20), true);
+
+      loadMoreButton()!.click();
+      fixture.detectChanges();
+      expectListRequest(httpMock).flush(page(manyTransactions(20, 21), true));
+      fixture.detectChanges();
+      expect(renderedTexts()).toHaveLength(40);
+
+      // Die 25. Buchung stammt aus der nachgeladenen Seite.
+      selectCategory(selects()[24], 'Restaurant');
+      fixture.detectChanges();
+      const put = httpMock.expectOne('/transactions/25/category');
+      put.flush({ ...manyTransactions(1, 25)[0], category: 'Restaurant' });
+
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      const reload = expectListRequest(httpMock);
+      // Das ganze Fenster in einem Request — nicht Seite 0, sonst fiele die Liste auf 20 zurück.
+      expect(reload.request.params.get('page')).toBe('0');
+      expect(reload.request.params.get('size')).toBe('40');
+      reload.flush(page(manyTransactions(39), true));
+      fixture.detectChanges();
+
+      expect(renderedTexts()).toHaveLength(39);
+      expect(component.saveErrorMessage()).toBeNull();
+    });
+
+    // Der Fall, den ein blosses lokales Entfernen der Zeile verlöre: die Buchung, die durch die
+    // Korrektur von Seite 1 auf Seite 0 rutscht, wäre danach über den Button nicht mehr erreichbar.
+    it('does not lose the entry that moves into the window when one leaves the category', () => {
+      expandLebensmittel(manyTransactions(20), true);
+
+      selectCategory(selects()[0], 'Restaurant');
+      fixture.detectChanges();
+      httpMock
+        .expectOne('/transactions/1/category')
+        .flush({ ...manyTransactions(1)[0], category: 'Restaurant' });
+
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      const reload = expectListRequest(httpMock);
+      expect(reload.request.params.get('size')).toBe('20');
+      // Der Server hat noch 20 Buchungen: die 21. ist an die Stelle der korrigierten gerückt.
+      reload.flush(page(manyTransactions(20, 2), false));
+      fixture.detectChanges();
+
+      const texts = renderedTexts();
+      expect(texts).toHaveLength(20);
+      expect(texts).toContain('BUCHUNG 21');
+      expect(texts).not.toContain('BUCHUNG 1');
+      expect(loadMoreButton()).toBeNull();
+    });
+
+    // Review-Befund aus PR #170: die Untergrenze in reloadWindow sieht wie toter Code aus. Sie ist
+    // es nicht — dieser Ablauf erreicht sie. Ohne sie fragte der Fenster-Reload mit size=0 an,
+    // was das Backend mit 400 abweist, und die aufgeklappte Kategorie stünde mit einer
+    // Fehlermeldung über einer leeren Liste da.
+    it('reloads a full page when a correction lands after the category was reopened', () => {
+      expandLebensmittel(manyTransactions(20), true);
+
+      selectCategory(selects()[0], 'Restaurant');
+      fixture.detectChanges();
+      const put = httpMock.expectOne('/transactions/1/category');
+
+      // Zuklappen bricht nur den Listen-Request ab, nicht die laufende Korrektur — die wird
+      // ausschliesslich beim Monatswechsel gecancelt. Das Wiederaufklappen setzt pagesLoaded
+      // zurück, während der PUT noch unterwegs ist.
+      toggleFor('Lebensmittel').click();
+      fixture.detectChanges();
+      toggleFor('Lebensmittel').click();
+      fixture.detectChanges();
+      const reopen = expectListRequest(httpMock);
+      expect(component.drilldown()?.pagesLoaded).toBe(0);
+
+      put.flush({ ...manyTransactions(1)[0], category: 'Restaurant' });
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+
+      const reload = expectListRequest(httpMock);
+      expect(reload.request.params.get('size')).toBe('20');
+      expect(reload.request.params.get('page')).toBe('0');
+      // Der Reload übernimmt den noch offenen Request des Wiederaufklappens.
+      expect(reopen.cancelled).toBe(true);
+      reload.flush(page(manyTransactions(20), true));
+      fixture.detectChanges();
+
+      expect(component.drilldown()?.transactions).toHaveLength(20);
+      expect(component.drilldown()?.pagesLoaded).toBe(1);
+    });
+
+    it('starts over at the first page when another category is expanded', () => {
+      expandLebensmittel(manyTransactions(20), true);
+
+      loadMoreButton()!.click();
+      fixture.detectChanges();
+      expectListRequest(httpMock).flush(page(manyTransactions(20, 21), true));
+      fixture.detectChanges();
+
+      // Zuklappen und eine andere Kategorie öffnen — das Fenster der alten darf nicht nachwirken.
+      toggleFor('Lebensmittel').click();
+      fixture.detectChanges();
+      toggleFor('Wohnen').click();
+      fixture.detectChanges();
+
+      const req = expectListRequest(httpMock);
+      expect(req.request.params.get('category')).toBe('Wohnen');
+      expect(req.request.params.get('page')).toBe('0');
+      req.flush(page(manyTransactions(2), false));
+      fixture.detectChanges();
+
+      expect(renderedTexts()).toHaveLength(2);
     });
   });
 });
