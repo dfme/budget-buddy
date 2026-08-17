@@ -6,6 +6,12 @@
   } @else if (errorMessage()) {
     <app-notice variant="error">{{ errorMessage() }}</app-notice>
   } @else if (data(); as d) {
+    @if (d.negative) {
+      <app-notice variant="error" class="negative-banner">
+        Achtung: Dein Budget für diese Woche ist überzogen
+      </app-notice>
+    }
+
     <app-card class="safe-to-spend-card" title="Safe-to-Spend">
       <div class="safe-to-spend">
         @if (d.amount !== null) {

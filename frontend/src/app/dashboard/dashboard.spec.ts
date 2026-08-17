@@ -22,6 +22,15 @@ const SINGLE_WEEK: SafeToSpendResponse = {
   incomeSuggestion: null,
 };
 
+/** Budget überzogen — `negative` ist gesetzt, `amount` entsprechend kleiner 0 (BE-STS-03). */
+const NEGATIVE: SafeToSpendResponse = {
+  amount: -120,
+  weeksLeft: 2,
+  negative: true,
+  noIncome: false,
+  incomeSuggestion: null,
+};
+
 const NO_INCOME: SafeToSpendResponse = {
   amount: null,
   weeksLeft: 3,
@@ -89,6 +98,37 @@ describe('Dashboard', () => {
     expect(placeholder.querySelector('.safe-to-spend__amount-currency').textContent).toBe('CHF');
     expect(placeholder.querySelector('[aria-hidden="true"]').textContent).toBe('—');
     expect(placeholder.querySelector('.visually-hidden').textContent).toBe('Kein Betrag verfügbar');
+  });
+
+  it('shows the red overdrawn banner above the card when the budget is negative', () => {
+    expectSafeToSpendRequest(httpMock).flush(NEGATIVE);
+    fixture.detectChanges();
+
+    const banner = fixture.nativeElement.querySelector('.negative-banner');
+    expect(banner).not.toBeNull();
+    expect(banner.textContent.trim()).toBe('Achtung: Dein Budget für diese Woche ist überzogen');
+    // Rot + fett kommen aus der error-Variante von app-notice (notice.scss); die Klasse ist
+    // hier der Nachweis, dass genau diese Variante gewählt wurde.
+    expect(banner.classList).toContain('notice--error');
+    expect(banner.getAttribute('role')).toBe('alert');
+    // "am oberen Rand" (US-06): das Banner steht vor der Card, nicht darunter.
+    expect(banner.compareDocumentPosition(fixture.nativeElement.querySelector('app-card'))).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+  });
+
+  it('hides the overdrawn banner when the budget is not negative', () => {
+    expectSafeToSpendRequest(httpMock).flush(NORMAL);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.negative-banner')).toBeNull();
+  });
+
+  it('shows no overdrawn banner when no income is set and there is no amount at all', () => {
+    expectSafeToSpendRequest(httpMock).flush(NO_INCOME);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.negative-banner')).toBeNull();
   });
 
   it('shows an error notice when the request fails', () => {
