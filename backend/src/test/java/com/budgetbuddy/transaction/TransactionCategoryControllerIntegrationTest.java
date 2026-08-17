@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.budgetbuddy.support.PostgresTestDatabase;
 import com.budgetbuddy.auth.JwtService;
+import com.budgetbuddy.categorization.CategorizationResult;
 import com.budgetbuddy.categorization.Category;
 import com.budgetbuddy.categorization.LookupTableService;
 import jakarta.servlet.http.Cookie;
@@ -108,7 +109,8 @@ class TransactionCategoryControllerIntegrationTest {
 
         // AC 3: nächste Transaktion desselben Händlers wird ohne Claude via Lookup kategorisiert.
         assertThat(lookupTableService.categorize("BAECKEREI MUELLER FILIALE BERN"))
-                .contains(Category.LEBENSMITTEL);
+                .contains(new CategorizationResult(
+                        Category.LEBENSMITTEL, CategorizationResult.Source.LOOKUP));
     }
 
     @Test

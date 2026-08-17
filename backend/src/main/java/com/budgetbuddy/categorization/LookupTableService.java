@@ -24,7 +24,7 @@ public class LookupTableService implements CategorizationPort {
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<Category> categorize(String transactionText) {
+    public Optional<CategorizationResult> categorize(String transactionText) {
         if (transactionText == null || transactionText.isBlank()) {
             return Optional.empty();
         }
@@ -35,6 +35,8 @@ public class LookupTableService implements CategorizationPort {
         }
 
         // Spezifischster Treffer zuerst (Query sortiert nach Pattern-Länge absteigend).
-        return Optional.of(Category.fromLabel(matches.get(0).getCategory()));
+        return Optional.of(new CategorizationResult(
+                Category.fromLabel(matches.get(0).getCategory()),
+                CategorizationResult.Source.LOOKUP));
     }
 }

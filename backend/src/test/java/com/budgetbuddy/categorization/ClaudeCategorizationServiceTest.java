@@ -69,9 +69,9 @@ class ClaudeCategorizationServiceTest {
     void mapsClaudeResponseToCategory() {
         respondWith("Lebensmittel");
 
-        Optional<Category> result = service.categorize("MIGROS BERN");
+        Optional<CategorizationResult> result = service.categorize("MIGROS BERN");
 
-        assertThat(result).contains(Category.LEBENSMITTEL);
+        assertThat(result).contains(claude(Category.LEBENSMITTEL));
     }
 
     @Test
@@ -86,27 +86,29 @@ class ClaudeCategorizationServiceTest {
     void fallsBackToSonstigesOnAnthropicException() {
         failWith(new AnthropicException("Timeout", null));
 
-        Optional<Category> result = service.categorize(TRANSACTION);
+        Optional<CategorizationResult> result = service.categorize(TRANSACTION);
 
-        assertThat(result).contains(Category.SONSTIGES);
+        assertThat(result).contains(claude(Category.SONSTIGES));
     }
 
     @Test
     void fallsBackToSonstigesWhenClaudeReturnsUnknownCategory() {
         respondWith("Kryptowährung");
 
-        Optional<Category> result = service.categorize(TRANSACTION);
+        Optional<CategorizationResult> result = service.categorize(TRANSACTION);
 
-        assertThat(result).contains(Category.SONSTIGES);
+        assertThat(result).contains(claude(Category.SONSTIGES));
     }
 
     @Test
     void fallsBackToSonstigesWhenNoApiKeyConfigured() {
         when(clientProvider.getIfAvailable()).thenReturn(null);
 
-        Optional<Category> result = service.categorize(TRANSACTION);
+        Optional<CategorizationResult> result = service.categorize(TRANSACTION);
 
-        assertThat(result).contains(Category.SONSTIGES);
+        // Kein Request hinaus → CLAUDE_SKIPPED, nicht CLAUDE (Review PR #174): Die Trennung hält
+        // die Laufzeit-Aussage der Import-Summary sauber.
+        assertThat(result).contains(skipped());
         verifyNoInteractions(messageService);
     }
 
@@ -145,14 +147,15 @@ class ClaudeCategorizationServiceTest {
         failWith(new AnthropicException("API down", null));
 
         for (int i = 0; i < ClaudeCategorizationService.FAILURE_THRESHOLD; i++) {
-            assertThat(service.categorize(TRANSACTION)).contains(Category.SONSTIGES);
+            assertThat(service.categorize(TRANSACTION)).contains(claude(Category.SONSTIGES));
         }
         verify(messageService, times(ClaudeCategorizationService.FAILURE_THRESHOLD))
                 .create(any(MessageCreateParams.class));
 
-        // Ab jetzt darf kein Call mehr rausgehen — der Rest des Imports fällt sofort durch.
-        assertThat(service.categorize(TRANSACTION)).contains(Category.SONSTIGES);
-        assertThat(service.categorize(TRANSACTION)).contains(Category.SONSTIGES);
+        // Ab jetzt darf kein Call mehr rausgehen — der Rest des Imports fällt sofort durch, und
+        // zwar als CLAUDE_SKIPPED: ohne Request kostet er auch keine Latenz (Review PR #174).
+        assertThat(service.categorize(TRANSACTION)).contains(skipped());
+        assertThat(service.categorize(TRANSACTION)).contains(skipped());
 
         verify(messageService, times(ClaudeCategorizationService.FAILURE_THRESHOLD))
                 .create(any(MessageCreateParams.class));
@@ -165,7 +168,7 @@ class ClaudeCategorizationServiceTest {
         service.categorize(TRANSACTION);
 
         respondWith("Lebensmittel");
-        assertThat(service.categorize("MIGROS BERN")).contains(Category.LEBENSMITTEL);
+        assertThat(service.categorize("MIGROS BERN")).contains(claude(Category.LEBENSMITTEL));
 
         // Zähler steht wieder auf 0: zwei weitere Fehler dürfen den Breaker noch nicht öffnen.
         failWith(new AnthropicException("Blip", null));
@@ -173,7 +176,7 @@ class ClaudeCategorizationServiceTest {
         service.categorize(TRANSACTION);
 
         respondWith("Transport");
-        assertThat(service.categorize("SBB TICKET")).contains(Category.TRANSPORT);
+        assertThat(service.categorize("SBB TICKET")).contains(claude(Category.TRANSPORT));
     }
 
     @Test
@@ -193,7 +196,7 @@ class ClaudeCategorizationServiceTest {
         when(clock.millis()).thenReturn(ClaudeCategorizationService.COOLDOWN.toMillis() + 1);
         respondWith("Lebensmittel");
 
-        assertThat(service.categorize("MIGROS BERN")).contains(Category.LEBENSMITTEL);
+        assertThat(service.categorize("MIGROS BERN")).contains(claude(Category.LEBENSMITTEL));
         verify(messageService, times(ClaudeCategorizationService.FAILURE_THRESHOLD + 1))
                 .create(any(MessageCreateParams.class));
     }
@@ -212,7 +215,7 @@ class ClaudeCategorizationServiceTest {
 
         // Cooldown abgelaufen → genau ein Trial-Call, der ebenfalls scheitert.
         when(clock.millis()).thenReturn(ClaudeCategorizationService.COOLDOWN.toMillis() + 1);
-        assertThat(service.categorize(TRANSACTION)).contains(Category.SONSTIGES);
+        assertThat(service.categorize(TRANSACTION)).contains(claude(Category.SONSTIGES));
 
         int callsSoFar = ClaudeCategorizationService.FAILURE_THRESHOLD + 1;
         verify(messageService, times(callsSoFar)).create(any(MessageCreateParams.class));
@@ -233,7 +236,7 @@ class ClaudeCategorizationServiceTest {
         respondWith("Kryptowährung");
 
         for (int i = 0; i < ClaudeCategorizationService.FAILURE_THRESHOLD + 2; i++) {
-            assertThat(service.categorize(TRANSACTION)).contains(Category.SONSTIGES);
+            assertThat(service.categorize(TRANSACTION)).contains(claude(Category.SONSTIGES));
         }
 
         // Jeder Aufruf hat Claude erreicht — der Breaker ist nie eingesprungen.
@@ -242,6 +245,16 @@ class ClaudeCategorizationServiceTest {
     }
 
     // --- Helpers ---
+
+    private static CategorizationResult claude(Category category) {
+        return new CategorizationResult(category, CategorizationResult.Source.CLAUDE);
+    }
+
+    /** Claude-Stufe erreicht, aber ohne HTTP-Request beantwortet (Breaker offen / kein Key). */
+    private static CategorizationResult skipped() {
+        return new CategorizationResult(
+                Category.SONSTIGES, CategorizationResult.Source.CLAUDE_SKIPPED);
+    }
 
     private MessageCreateParams captureParams() {
         ArgumentCaptor<MessageCreateParams> captor =

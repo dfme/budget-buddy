@@ -63,7 +63,10 @@ public class AnthropicStartupHealthCheck {
                     "Anthropic-Healthcheck: API-Key ungültig oder widerrufen (HTTP 401). "
                             + "Kategorisierung läuft produktiv im Fallback ('Sonstiges').");
         } catch (AnthropicException e) {
-            log.warn("Anthropic-Healthcheck: Anthropic-API nicht erreichbar ({}).", e.getMessage());
+            // Nur der Exception-Typ, nicht e.getMessage() (Review PR #174): kein Fremdstring aus
+            // dem SDK in der eigenen Log-Zeile. Siehe LogRedaction.describe.
+            log.warn("Anthropic-Healthcheck: Anthropic-API nicht erreichbar ({}).",
+                    LogRedaction.describe(e));
         }
     }
 }

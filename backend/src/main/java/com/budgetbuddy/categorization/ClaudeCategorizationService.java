@@ -76,7 +76,7 @@ public class ClaudeCategorizationService implements CategorizationPort {
     }
 
     @Override
-    public Optional<Category> categorize(String transactionText) {
+    public Optional<CategorizationResult> categorize(String transactionText) {
         if (transactionText == null || transactionText.isBlank()) {
             return Optional.empty();
         }
@@ -84,13 +84,15 @@ public class ClaudeCategorizationService implements CategorizationPort {
         AnthropicClient client = clientProvider.getIfAvailable();
         if (client == null) {
             // Kein API-Key konfiguriert — bereits beim Start geloggt, hier nur noch Fallback.
-            return Optional.of(Category.SONSTIGES);
+            // Kein Request hinaus, daher CLAUDE_SKIPPED statt CLAUDE (Review PR #174).
+            return Optional.of(skippedResult());
         }
 
         if (isBreakerOpen()) {
-            log.debug("Circuit Breaker offen — '{}' ohne Claude-Call als 'Sonstiges' eingestuft.",
-                    transactionText);
-            return Optional.of(Category.SONSTIGES);
+            // Transaktionstext redigiert (BE-PDF-06): auch DEBUG darf keine Zahlungsdaten tragen.
+            log.debug("Circuit Breaker offen — {} ohne Claude-Call als 'Sonstiges' eingestuft.",
+                    LogRedaction.redact(transactionText));
+            return Optional.of(skippedResult());
         }
 
         Message response;
@@ -99,16 +101,29 @@ public class ClaudeCategorizationService implements CategorizationPort {
         } catch (AnthropicException e) {
             // Infrastruktur-Fehler (Timeout, IO, HTTP): zählt für den Breaker.
             recordFailure();
-            log.warn("Claude-Call für '{}' fehlgeschlagen ({}) — Fallback 'Sonstiges'.",
-                    transactionText, e.getMessage());
-            return Optional.of(Category.SONSTIGES);
+            // Nur der Exception-Typ, nicht e.getMessage() (Review PR #174): Die Meldung ist ein
+            // Fremdstring aus dem SDK, und der Transaktionstext ging als Prompt hinaus. Der Typ
+            // beantwortet «429 oder Timeout?» vollständig — siehe LogRedaction.describe.
+            log.warn("Claude-Call für {} fehlgeschlagen ({}) — Fallback 'Sonstiges'.",
+                    LogRedaction.redact(transactionText), LogRedaction.describe(e));
+            return Optional.of(claudeResult(Category.SONSTIGES));
         }
 
         // Ab hier hat die API geantwortet: Erfolg für den Breaker, auch wenn der Inhalt
         // unbrauchbar ist. Ein halluzinierendes Modell ist kein Infrastruktur-Problem und darf
         // den Breaker nicht öffnen.
         recordSuccess();
-        return Optional.of(parseCategory(response, transactionText));
+        return Optional.of(claudeResult(parseCategory(response, transactionText)));
+    }
+
+    private static CategorizationResult claudeResult(Category category) {
+        return new CategorizationResult(category, CategorizationResult.Source.CLAUDE);
+    }
+
+    /** Claude-Stufe erreicht, aber ohne HTTP-Request beantwortet — siehe {@code Source}. */
+    private static CategorizationResult skippedResult() {
+        return new CategorizationResult(
+                Category.SONSTIGES, CategorizationResult.Source.CLAUDE_SKIPPED);
     }
 
     private MessageCreateParams buildParams(String transactionText) {
@@ -151,16 +166,24 @@ public class ClaudeCategorizationService implements CategorizationPort {
                         .findFirst();
 
         if (text.isEmpty()) {
-            log.warn("Claude lieferte für '{}' keine Textantwort — Fallback 'Sonstiges'.",
-                    transactionText);
+            log.warn("Claude lieferte für {} keine Textantwort — Fallback 'Sonstiges'.",
+                    LogRedaction.redact(transactionText));
             return Category.SONSTIGES;
         }
 
         try {
             return Category.fromLabel(text.get());
         } catch (IllegalArgumentException e) {
-            log.warn("Claude lieferte für '{}' die unbekannte Kategorie '{}' — Fallback "
-                            + "'Sonstiges'.", transactionText, text.get());
+            // Auch die Antwort selbst wird redigiert (Review PR #174): Dieser Zweig feuert genau
+            // dann, wenn das Modell die Anweisung NICHT befolgt hat — ein Echo des Prompts, der
+            // den Transaktionstext enthält (buildUserPrompt), ist damit ein naheliegender Fall
+            // und nicht der exotische. MAX_TOKENS = 20 reicht für eine Buchungszeile bequem, und
+            // die Zeile steht auf WARN, also live in den Render-Logs.
+            // Der Diagnosezweck ist «das Modell lieferte etwas Ungültiges», nicht der Wortlaut;
+            // der Hash bleibt korrelierbar. Nebeneffekt: ein '\n' in der Antwort kann keine
+            // Log-Zeile mehr fälschen — .trim() oben entfernt nur aussen.
+            log.warn("Claude lieferte für {} die unbekannte Kategorie {} — Fallback 'Sonstiges'.",
+                    LogRedaction.redact(transactionText), LogRedaction.redact(text.get()));
             return Category.SONSTIGES;
         }
     }

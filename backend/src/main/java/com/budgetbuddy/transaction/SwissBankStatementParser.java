@@ -450,10 +450,10 @@ public class SwissBankStatementParser {
       }
       if (sum.compareTo(delta) == 0) {
         if (solution >= 0) {
+          // Kein Delta-Betrag im Log (BE-PDF-06, Datenminimierung): Beträge sind Zahlungsdaten.
           log.warn(
-              "PostFinance: Saldo-Delta {} mehrdeutig für {} Buchung(en) — alle als Belastung"
+              "PostFinance: Saldo-Delta mehrdeutig für {} Buchung(en) — alle als Belastung"
                   + " übernommen",
-              delta,
               k);
           return;
         }
@@ -461,10 +461,10 @@ public class SwissBankStatementParser {
       }
     }
     if (solution < 0) {
+      // Kein Delta-Betrag im Log (BE-PDF-06, Datenminimierung): Beträge sind Zahlungsdaten.
       log.warn(
-          "PostFinance: Saldo-Delta {} nicht auflösbar für {} Buchung(en) — alle als Belastung"
+          "PostFinance: Saldo-Delta nicht auflösbar für {} Buchung(en) — alle als Belastung"
               + " übernommen",
-          delta,
           k);
       return;
     }

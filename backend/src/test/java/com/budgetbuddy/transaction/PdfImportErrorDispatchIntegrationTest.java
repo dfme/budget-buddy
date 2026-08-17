@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 import com.budgetbuddy.support.PostgresTestDatabase;
 import com.budgetbuddy.auth.JwtService;
 import com.budgetbuddy.categorization.CategorizationPort;
+import com.budgetbuddy.categorization.CategorizationResult;
 import com.budgetbuddy.categorization.Category;
 import java.io.IOException;
 import java.io.InputStream;
@@ -82,7 +83,8 @@ class PdfImportErrorDispatchIntegrationTest {
         userId = jdbcTemplate.queryForObject(
                 "SELECT id FROM users WHERE email = 'lara@example.ch'", Long.class);
         when(categorizationPort.categorize(anyString()))
-                .thenReturn(Optional.of(Category.LEBENSMITTEL));
+                .thenReturn(Optional.of(new CategorizationResult(
+                        Category.LEBENSMITTEL, CategorizationResult.Source.LOOKUP)));
     }
 
     private HttpHeaders authenticatedMultipartHeaders() {
