@@ -49,10 +49,26 @@ Alle drei wurden dem Team vorgelegt und entschieden:
    (`completeOnboarding` ist das bestehende Muster), und `monthlyIncome` ist Teil des `User`-State.
    Läge der Aufruf im Dashboard-Service, bliebe der Auth-State nach dem Übernehmen auf dem alten
    Wert stehen — derselbe Fehler, den `completeOnboarding` mit seinem `tap` bereits vermeidet.
-2. **Banner-Variante `warning`, nicht `error`.** Kein erfasstes Einkommen ist kein Fehler, sondern
-   ein offener Schritt. `warning` meldet sich als `role="status"` (höflich); das assertive
-   `role="alert"` bleibt dem überzogenen Budget aus FE-STS-02 vorbehalten, sonst unterbricht der
-   Screenreader für einen Normalzustand.
+2. **Der Zustand steht in der Card, nicht als Banner darüber — und folgt der Design-Baseline.**
+   Zuerst als Banner oberhalb der Card gebaut (analog FE-STS-02), nach der visuellen Prüfung
+   korrigiert: `app-notice` ist `display: flex` ohne `flex-direction`
+   (`frontend/src/app/shared/notice/notice.scss:4-5`, übernommen aus
+   `design/variant-a/styles.scss:799-806`), und die Row-Richtung ist dort für das Paar
+   **Icon + Text** gedacht. Alle 13 bestehenden Verwendungen im Repo übergeben genau einen
+   Textlauf; mehrere Blöcke darin landeten als Flex-Items nebeneinander statt untereinander.
+
+   Der Aufbau folgt jetzt dem Entwurf in `design/variant-a/index.html:214-231`
+   (`hero hero--muted`), der genau diesen Screen bereits zeigt: Titel und Erläuterung als
+   Fliesstext in der Card, der Vorschlag als `app-notice` mit Icon und Text, der Block-Button
+   darunter **ausserhalb** des Notice.
+
+   Die Variante bleibt `warning`, nicht `error`: kein erfasstes Einkommen ist kein Fehler,
+   sondern ein offener Schritt. `warning` meldet sich als `role="status"` (höflich); das
+   assertive `role="alert"` trägt nur die Fehlermeldung eines fehlgeschlagenen Submits.
+
+   **Nebeneffekt, der den Ausschlag gab:** in der Banner-Variante lag der Button innerhalb der
+   Live-Region, sodass der Screenreader bei jeder Änderung des Hinweises die Button-Beschriftung
+   mitvorlas. Ausserhalb des Notice entfällt das.
 3. **Nach erfolgreichem Übernehmen wird `GET /budget/safe-to-spend` neu geladen.** Der erscheinende
    Betrag ist die Bestätigung; eine reine Erfolgsmeldung liesse den Nutzer mit dem Platzhalter
    zurück.
@@ -71,8 +87,8 @@ Alle drei wurden dem Team vorgelegt und entschieden:
 | `frontend/src/app/auth/auth.service.ts` | neu: `updateIncome(betrag)` → `PUT /users/me/income`, Antwort in den `currentUserState` |
 | `frontend/src/app/auth/auth.service.spec.ts` | Test für `updateIncome` |
 | `frontend/src/app/dashboard/dashboard.ts` | Signals `saving`/`saveErrorMessage`, Computeds `suggestionText`/`lastWeek`, Methode `applySuggestion()` |
-| `frontend/src/app/dashboard/dashboard.html` | No-Income-Banner, Vorschlag + Übernehmen-Button, Letzte-Woche-Hinweis |
-| `frontend/src/app/dashboard/dashboard.scss` | Banner in die bestehende Breiten-Regel aufnehmen, Vorschlagsblock |
+| `frontend/src/app/dashboard/dashboard.html` | No-Income-Zustand in der Card, Vorschlag + Übernehmen-Button, Letzte-Woche-Hinweis |
+| `frontend/src/app/dashboard/dashboard.scss` | No-Income-Block in der Card, Letzte-Woche-Hinweis |
 | `frontend/src/app/dashboard/dashboard.spec.ts` | Tests für Banner, Vorschlag, Übernehmen, Fehlerfall, Letzte Woche |
 | `CLAUDE.md` | neue Zeile `FE-SET-XX` in der Task-ID-Präfix-Tabelle |
 
@@ -93,12 +109,12 @@ E2E-Abdeckung von US-06 ist als eigener Task `E2E-STS-01` erfasst.
 
 `dashboard.spec.ts`:
 
-- Banner erscheint bei `noIncome=true` und trägt beide Textzeilen
-- kein Banner bei `noIncome=false`
+- No-Income-Zustand erscheint bei `noIncome=true`, trägt beide Textzeilen und steht in der Card
+- kein No-Income-Zustand bei `noIncome=false`
 - Vorschlagssatz mit dem formatierten Betrag, wenn `incomeSuggestion` gesetzt ist
 - kein Vorschlagssatz und kein Button, wenn `incomeSuggestion` `null` ist
 - Übernehmen sendet `PUT /users/me/income` mit `{ betrag: 3800 }` **und** lädt Safe-to-Spend neu
-- Fehler beim `PUT` → Fehlermeldung, Banner bleibt stehen
+- Fehler beim `PUT` → Fehlermeldung als `error`-Notice, Zustand bleibt stehen
 - Button ist deaktiviert, solange der Request läuft
 - Letzte-Woche-Hinweis bei `weeksLeft === 1`, nicht bei `> 1`
 
@@ -108,7 +124,9 @@ E2E-Abdeckung von US-06 ist als eigener Task `E2E-STS-01` erfasst.
 
 ## Acceptance Criteria (aus dem Issue)
 
-- [ ] Banner „Kein Einkommen erfasst" erscheint, wenn `noIncome=true`
+- [ ] Hinweis „Kein Einkommen erfasst" erscheint, wenn `noIncome=true` — als Überschrift des
+      No-Income-Blocks in der Safe-to-Spend-Card, nicht als eigenes Banner darüber (siehe
+      Entscheid 2)
 - [ ] Einkommens-Vorschlag wird mit Betrag angezeigt, wenn vorhanden
 - [ ] „Übernehmen"-Button setzt das Einkommen via `PUT /users/me/income`
 
