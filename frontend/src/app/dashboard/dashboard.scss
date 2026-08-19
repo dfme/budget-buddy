@@ -7,7 +7,8 @@
 // Spaltenbreite des Dashboards. Das Negativ-Banner (FE-STS-02) steht am oberen Rand
 // oberhalb der Card (US-06) und teilt sich deren Breite — als eine Regel, damit beide
 // beim Anpassen nicht auseinanderlaufen und das Banner nicht über die volle Seitenbreite
-// läuft, unter der die Card dann eingerückt wirkte.
+// läuft, unter der die Card dann eingerückt wirkte. Der No-Income-Zustand (FE-STS-03)
+// braucht hier nichts: er liegt *in* der Card, nicht darüber.
 .negative-banner,
 .safe-to-spend-card {
   max-width: 28rem;
@@ -48,4 +49,50 @@
   margin: 0;
   color: $c-ink-2;
   font-size: $fs-sm;
+}
+
+// Der Hinweis steht neben dem Wochen-Label, nicht an dessen Stelle: "noch 1 Woche im
+// Monat" sagt, wie lange, dieser Hinweis sagt, warum der Divisor nicht weiter sinkt
+// (US-06). Kleiner und zurückgenommen, damit der Betrag der Blickfang bleibt.
+.safe-to-spend__last-week {
+  margin: 0;
+  color: $c-ink-3;
+  font-size: $fs-sm;
+}
+
+// No-Income-Zustand innerhalb der Card, aufgebaut wie `hero hero--muted` in der
+// Design-Baseline (design/variant-a/index.html): Hinweis, Vorschlag, Button — jeweils
+// untereinander. `align-self: stretch` hebt die Zentrierung der umgebenden
+// `.safe-to-spend`-Spalte auf, damit Notice und Block-Button die Cardbreite nutzen.
+.no-income {
+  align-self: stretch;
+  margin-top: $sp-5;
+  // Linksbündig entgegen der zentrierten Card-Spalte: die Sätze laufen über mehrere
+  // Zeilen, und zentrierter Fliesstext neben einem Icon bricht die gemeinsame Textkante.
+  text-align: left;
+}
+
+// Zweites Flex-Kind des Notice (nach dem Icon). Stapelt Titel und Erläuterung, die im
+// Notice selbst nebeneinander landen würden — dessen `:host` ist eine Flex-Zeile.
+.no-income__text {
+  display: flex;
+  flex-direction: column;
+  gap: $sp-1;
+}
+
+.no-income__headline {
+  font-weight: 600;
+}
+
+.no-income__suggestion {
+  margin: $sp-4 0 0;
+  font-size: $fs-sm;
+}
+
+.no-income__apply {
+  margin-top: $sp-3;
+}
+
+.no-income__error {
+  margin-top: $sp-4;
 }

@@ -65,6 +65,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `FE-PDF-03` | [FE-PDF-03 — Duplikat-Dialog](FE-PDF-03-duplikat-dialog.md) | [#29](https://github.com/dfme/budget-buddy/issues/29) | US-04 | Sprint 4 |
 | `FE-STS-01` | [FE-STS-01 — Safe-to-Spend Dashboard-Widget](FE-STS-01-safe-to-spend-widget.md) | [#33](https://github.com/dfme/budget-buddy/issues/33) | US-06 | Sprint 4 |
 | `FE-STS-02` | [Negativ-Banner](FE-STS-02-negativ-banner.md) | [#34](https://github.com/dfme/budget-buddy/issues/34) | US-06 | Sprint 4 |
+| `FE-STS-03` | [No-Income State und Einkommens-Vorschlag](FE-STS-03-no-income-state-and-suggestion.md) | [#35](https://github.com/dfme/budget-buddy/issues/35) | US-06 | Sprint 4 |
 | `FE-UI-01` | [UI-Design definieren: 3 klickbare Varianten](FE-UI-01-design-varianten.md) | [#80](https://github.com/dfme/budget-buddy/issues/80) | US-05, US-06 | Sprint 3 |
 | `FE-UI-02` | [Design-Token-Fundament (Variante A, theme-fähig)](FE-UI-02-design-token-fundament.md) | [#99](https://github.com/dfme/budget-buddy/issues/99) | — | Sprint 3 |
 | `FE-UI-03` | [Shared-Basiskomponenten (Variante A)](FE-UI-03-shared-basiskomponenten.md) | [#100](https://github.com/dfme/budget-buddy/issues/100) | — | Sprint 3 |

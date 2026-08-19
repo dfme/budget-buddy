@@ -60,6 +60,23 @@ export class AuthService {
       .pipe(tap((user) => this.currentUserState.set(user)));
   }
 
+  /**
+   * Setzt das Monatseinkommen (`PUT /users/me/income`, US-06, FE-STS-03).
+   *
+   * <p>Liegt hier und nicht im `SafeToSpendService`, weil `/users/me` zu diesem Service
+   * gehört und `monthlyIncome` Teil des {@link User}-State ist: die Antwort wird wie bei
+   * {@link completeOnboarding} in den State geschrieben. Ohne das bliebe dort der alte
+   * Wert (`null`) stehen, während das Backend längst ein Einkommen kennt.
+   *
+   * <p>Das Backend validiert `betrag` als `@NotNull @Positive` und antwortet auf 0 oder
+   * negative Beträge mit 400 (`UpdateIncomeRequest`).
+   */
+  updateIncome(betrag: number): Observable<User> {
+    return this.http
+      .put<User>('/users/me/income', { betrag })
+      .pipe(tap((user) => this.currentUserState.set(user)));
+  }
+
   /** Loggt aus; das Backend invalidiert das Cookie (Max-Age=0), wir leeren den State. */
   logout(): Observable<void> {
     return this.http

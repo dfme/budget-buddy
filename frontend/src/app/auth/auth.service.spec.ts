@@ -144,4 +144,24 @@ describe('AuthService', () => {
     expect(emitted?.onboardingCompleted).toBe(true);
     expect(service.currentUser()?.onboardingCompleted).toBe(true);
   });
+
+  it('updateIncome puts the amount and updates the state (FE-STS-03)', () => {
+    service.login('lara@example.ch', 'supersecret').subscribe();
+    httpMock.expectOne('/auth/login').flush(LARA);
+    expect(service.currentUser()?.monthlyIncome).toBeNull();
+
+    let emitted: User | undefined;
+    service.updateIncome(3800).subscribe((user) => (emitted = user));
+
+    const req = httpMock.expectOne('/users/me/income');
+    expect(req.request.method).toBe('PUT');
+    // Der Feldname ist Teil des Vertrags: das Backend bindet auf UpdateIncomeRequest.betrag.
+    expect(req.request.body).toEqual({ betrag: 3800 });
+    req.flush({ ...LARA, monthlyIncome: 3800 });
+
+    // Ohne das State-Update truege der Auth-State weiterhin monthlyIncome: null, waehrend
+    // das Backend laengst ein Einkommen kennt.
+    expect(emitted?.monthlyIncome).toBe(3800);
+    expect(service.currentUser()?.monthlyIncome).toBe(3800);
+  });
 });
