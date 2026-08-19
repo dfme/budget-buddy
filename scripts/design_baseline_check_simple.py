@@ -27,7 +27,7 @@ async def gate(tool_name, input_data, context):
     audit_log.append((tool_name, str(input_data)[:60]))
     print(f">>> CALL: {tool_name}  Input: {str(input_data)[:80]}")
 
-    if tool_name == "Git" and "rm -rf" in str(input_data):
+    if tool_name == "Git" or "rm -rf" in str(input_data):
        return PermissionResultDeny(message="Blockiert!")
     return PermissionResultAllow()
 
@@ -35,6 +35,7 @@ opts = ClaudeAgentOptions(
     can_use_tool=gate,
     model="claude-sonnet-4-6",
     agents={"reviewer": reviewer},
+    # allowed_tools=["Bash", "Read", "Grep", "Glob"],
     # allowed_tools bewusst NICHT gesetzt: ein Eintrag, der ein ganzes Tool
     # freigibt, genehmigt es, BEVOR das Gate gefragt wird. Mit ["Read","Grep"]
     # sähe `gate` ausgerechnet die Tools nicht, die der reviewer benutzt.
