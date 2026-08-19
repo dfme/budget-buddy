@@ -17,7 +17,7 @@ sys.stdout.reconfigure(encoding="utf-8")
 reviewer = AgentDefinition(
     description="Check the Angular frontend against the Variante A «Klarheit» design baseline.",
     prompt="Check the Angular frontend against the Variante A «Klarheit» design baseline. Source of truth is design/variant-a/ (Design-Entscheid FE-UI-01 / ADR-11). When the two sides disagree, the frontend is what gets corrected — never the baseline.",
-    tools=["Read", "Grep", "Glob", "Bash"],
+    tools=["Read", "Grep", "Glob"],
     model="haiku",   # Billig-Modell für die Routine-Rolle
 )
 
@@ -25,13 +25,13 @@ opts = ClaudeAgentOptions(
     model="claude-sonnet-4-6",
     agents={"reviewer": reviewer},
     allowed_tools=["Read", "Grep"],
-    max_turns=15,
-    max_budget_usd=0.50,
+    max_turns=30,
+    max_budget_usd=1.00,
 )
 
 async def main():
     async for msg in query(
-        prompt="Reviewe bitte die Komponente 'dashboard'",
+        prompt="Führe ein Design Baseline Review für die Komponente 'frontend/src/app/dashboard/dashboard.ts' durch. Verwende das gegebene Tool. Mache keine Git Calls. Schaue dir nur die gegebene Komponente an, keine Referenzen.",
         options=opts,
     ):
         if isinstance(msg, AssistantMessage):
