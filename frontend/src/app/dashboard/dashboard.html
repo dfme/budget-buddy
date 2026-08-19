@@ -35,8 +35,14 @@
           </button>
         }
 
+        <!--
+          Bewusst ohne eigenes `role="alert"`: das umgebende app-notice ist bereits eine
+          Live-Region (`role="status"`, `aria-atomic` per Default) und liest bei einer
+          Änderung den ganzen Hinweis neu vor. Eine verschachtelte Live-Region darin wird
+          von Screenreadern uneinheitlich behandelt — mal doppelt, mal gar nicht.
+        -->
         @if (saveErrorMessage(); as saveError) {
-          <p class="no-income__error" role="alert">{{ saveError }}</p>
+          <p class="no-income__error">{{ saveError }}</p>
         }
       </app-notice>
     }
