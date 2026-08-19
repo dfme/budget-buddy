@@ -12,6 +12,35 @@
       </app-notice>
     }
 
+    <!--
+      No-Income-Hinweis (FE-STS-03). Variante `warning`, nicht `error`: ein fehlendes
+      Einkommen ist ein offener Schritt, kein Fehler — `warning` meldet sich als
+      `role="status"` und unterbricht den Screenreader nicht.
+    -->
+    @if (d.noIncome) {
+      <app-notice variant="warning" class="no-income-banner">
+        <p class="no-income__headline">Kein Einkommen erfasst</p>
+        <p class="no-income__hint">Bitte erfasse dein Monatseinkommen in den Einstellungen</p>
+
+        @if (suggestionText(); as suggestion) {
+          <p class="no-income__suggestion">{{ suggestion }}</p>
+          <button
+            appButton
+            type="button"
+            class="no-income__apply"
+            [disabled]="saving()"
+            (click)="applySuggestion()"
+          >
+            {{ saving() ? 'Wird übernommen …' : 'Übernehmen' }}
+          </button>
+        }
+
+        @if (saveErrorMessage(); as saveError) {
+          <p class="no-income__error" role="alert">{{ saveError }}</p>
+        }
+      </app-notice>
+    }
+
     <app-card class="safe-to-spend-card" title="Safe-to-Spend">
       <div class="safe-to-spend">
         @if (d.amount !== null) {
@@ -29,6 +58,9 @@
           </span>
         }
         <p class="safe-to-spend__week-label">{{ weekLabel() }}</p>
+        @if (lastWeek()) {
+          <p class="safe-to-spend__last-week">Letzte Woche des Monats</p>
+        }
       </div>
     </app-card>
   }

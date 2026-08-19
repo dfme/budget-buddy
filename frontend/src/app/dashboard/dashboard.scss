@@ -4,11 +4,12 @@
   display: block;
 }
 
-// Spaltenbreite des Dashboards. Das Negativ-Banner (FE-STS-02) steht am oberen Rand
-// oberhalb der Card (US-06) und teilt sich deren Breite — als eine Regel, damit beide
-// beim Anpassen nicht auseinanderlaufen und das Banner nicht über die volle Seitenbreite
-// läuft, unter der die Card dann eingerückt wirkte.
+// Spaltenbreite des Dashboards. Die Banner (Negativ aus FE-STS-02, No-Income aus
+// FE-STS-03) stehen am oberen Rand oberhalb der Card (US-06) und teilen sich deren
+// Breite — als eine Regel, damit sie beim Anpassen nicht auseinanderlaufen und kein
+// Banner über die volle Seitenbreite läuft, unter der die Card dann eingerückt wirkte.
 .negative-banner,
+.no-income-banner,
 .safe-to-spend-card {
   max-width: 28rem;
   margin: $sp-6 auto 0;
@@ -47,5 +48,34 @@
 .safe-to-spend__week-label {
   margin: 0;
   color: $c-ink-2;
+  font-size: $fs-sm;
+}
+
+// Der Hinweis steht neben dem Wochen-Label, nicht an dessen Stelle: "noch 1 Woche im
+// Monat" sagt, wie lange, dieser Hinweis sagt, warum der Divisor nicht weiter sinkt
+// (US-06). Kleiner und zurückgenommen, damit der Betrag der Blickfang bleibt.
+.safe-to-spend__last-week {
+  margin: 0;
+  color: $c-ink-3;
+  font-size: $fs-sm;
+}
+
+.no-income__headline {
+  margin: 0;
+  font-weight: 600;
+}
+
+.no-income__hint,
+.no-income__suggestion {
+  margin: $sp-1 0 0;
+}
+
+.no-income__apply {
+  margin-top: $sp-3;
+}
+
+.no-income__error {
+  margin: $sp-3 0 0;
+  color: $c-negative;
   font-size: $fs-sm;
 }
