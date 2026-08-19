@@ -12,41 +12,6 @@
       </app-notice>
     }
 
-    <!--
-      No-Income-Hinweis (FE-STS-03). Variante `warning`, nicht `error`: ein fehlendes
-      Einkommen ist ein offener Schritt, kein Fehler — `warning` meldet sich als
-      `role="status"` und unterbricht den Screenreader nicht.
-    -->
-    @if (d.noIncome) {
-      <app-notice variant="warning" class="no-income-banner">
-        <p class="no-income__headline">Kein Einkommen erfasst</p>
-        <p class="no-income__hint">Bitte erfasse dein Monatseinkommen in den Einstellungen</p>
-
-        @if (suggestionText(); as suggestion) {
-          <p class="no-income__suggestion">{{ suggestion }}</p>
-          <button
-            appButton
-            type="button"
-            class="no-income__apply"
-            [disabled]="saving()"
-            (click)="applySuggestion()"
-          >
-            {{ saving() ? 'Wird übernommen …' : 'Übernehmen' }}
-          </button>
-        }
-
-        <!--
-          Bewusst ohne eigenes `role="alert"`: das umgebende app-notice ist bereits eine
-          Live-Region (`role="status"`, `aria-atomic` per Default) und liest bei einer
-          Änderung den ganzen Hinweis neu vor. Eine verschachtelte Live-Region darin wird
-          von Screenreadern uneinheitlich behandelt — mal doppelt, mal gar nicht.
-        -->
-        @if (saveErrorMessage(); as saveError) {
-          <p class="no-income__error">{{ saveError }}</p>
-        }
-      </app-notice>
-    }
-
     <app-card class="safe-to-spend-card" title="Safe-to-Spend">
       <div class="safe-to-spend">
         @if (d.amount !== null) {
@@ -66,6 +31,49 @@
         <p class="safe-to-spend__week-label">{{ weekLabel() }}</p>
         @if (lastWeek()) {
           <p class="safe-to-spend__last-week">Letzte Woche des Monats</p>
+        }
+
+        <!--
+          No-Income-Zustand (FE-STS-03) — Aufbau wie in der Design-Baseline
+          `design/variant-a/index.html` (Abschnitt `hero hero--muted`): Titel und
+          Erläuterung als Fliesstext in der Card, der handlungsauffordernde Teil
+          als app-notice, der Button darunter *ausserhalb* des Notice. Der Button
+          gehört nicht in die Live-Region — sonst liest der Screenreader bei jeder
+          Änderung des Hinweises auch die Button-Beschriftung mit vor.
+        -->
+        @if (d.noIncome) {
+          <div class="no-income">
+            <p class="no-income__headline">Kein Einkommen erfasst</p>
+            <p class="no-income__hint">Bitte erfasse dein Monatseinkommen in den Einstellungen</p>
+
+            @if (suggestionText(); as suggestion) {
+              <!--
+                Zwei Flex-Kinder — Icon und Text — genau wie app-notice es vorsieht:
+                `:host` ist `display: flex` mit `gap`, gedacht für dieses Paar
+                (design/variant-a/styles.scss `.notice`). Mehrere Blöcke direkt darin
+                stellte das Notice nebeneinander statt untereinander.
+              -->
+              <app-notice variant="warning" class="no-income__notice">
+                <span aria-hidden="true">!</span>
+                <span class="no-income__suggestion">{{ suggestion }}</span>
+              </app-notice>
+
+              <button
+                appButton
+                block
+                type="button"
+                class="no-income__apply"
+                [disabled]="saving()"
+                (click)="applySuggestion()"
+              >
+                {{ saving() ? 'Wird übernommen …' : 'Übernehmen' }}
+              </button>
+            }
+
+            @if (saveErrorMessage(); as saveError) {
+              <app-notice variant="error" class="no-income__error">{{ saveError }}</app-notice>
+            }
+          </div>
         }
       </div>
     </app-card>

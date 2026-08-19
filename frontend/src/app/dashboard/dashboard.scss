@@ -4,12 +4,12 @@
   display: block;
 }
 
-// Spaltenbreite des Dashboards. Die Banner (Negativ aus FE-STS-02, No-Income aus
-// FE-STS-03) stehen am oberen Rand oberhalb der Card (US-06) und teilen sich deren
-// Breite — als eine Regel, damit sie beim Anpassen nicht auseinanderlaufen und kein
-// Banner über die volle Seitenbreite läuft, unter der die Card dann eingerückt wirkte.
+// Spaltenbreite des Dashboards. Das Negativ-Banner (FE-STS-02) steht am oberen Rand
+// oberhalb der Card (US-06) und teilt sich deren Breite — als eine Regel, damit beide
+// beim Anpassen nicht auseinanderlaufen und das Banner nicht über die volle Seitenbreite
+// läuft, unter der die Card dann eingerückt wirkte. Der No-Income-Zustand (FE-STS-03)
+// braucht hier nichts: er liegt *in* der Card, nicht darüber.
 .negative-banner,
-.no-income-banner,
 .safe-to-spend-card {
   max-width: 28rem;
   margin: $sp-6 auto 0;
@@ -60,22 +60,35 @@
   font-size: $fs-sm;
 }
 
+// No-Income-Zustand innerhalb der Card, aufgebaut wie `hero hero--muted` in der
+// Design-Baseline (design/variant-a/index.html): Titel, Erläuterung, Hinweis, Button —
+// jeweils untereinander. `align-self: stretch` hebt die Zentrierung der umgebenden
+// `.safe-to-spend`-Spalte auf, damit Notice und Block-Button die Cardbreite nutzen.
+.no-income {
+  align-self: stretch;
+  margin-top: $sp-5;
+}
+
 .no-income__headline {
   margin: 0;
+  font-size: $fs-md;
   font-weight: 600;
 }
 
-.no-income__hint,
-.no-income__suggestion {
+.no-income__hint {
   margin: $sp-1 0 0;
+  color: $c-ink-2;
+  font-size: $fs-sm;
+}
+
+// Linksbündig entgegen der zentrierten Card-Spalte: der Satz läuft über mehrere Zeilen,
+// und zentrierter Fliesstext neben einem Icon bricht die gemeinsame Textkante.
+.no-income__notice,
+.no-income__error {
+  margin-top: $sp-4;
+  text-align: left;
 }
 
 .no-income__apply {
-  margin-top: $sp-3;
-}
-
-.no-income__error {
-  margin: $sp-3 0 0;
-  color: $c-negative;
-  font-size: $fs-sm;
+  margin-top: $sp-4;
 }

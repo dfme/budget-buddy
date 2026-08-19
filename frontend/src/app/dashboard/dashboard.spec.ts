@@ -148,49 +148,59 @@ describe('Dashboard', () => {
     expect(notice).not.toBeNull();
     expect(notice.nativeElement.textContent).toContain('konnte nicht geladen werden');
   });
-  it('shows the no-income banner with both the issue and the US-06 wording', () => {
+  it('shows the no-income state with both the issue and the US-06 wording', () => {
     expectSafeToSpendRequest(httpMock).flush(NO_INCOME);
     fixture.detectChanges();
 
-    const banner = fixture.nativeElement.querySelector('.no-income-banner');
-    expect(banner).not.toBeNull();
-    expect(banner.querySelector('.no-income__headline').textContent.trim()).toBe(
+    const noIncome = fixture.nativeElement.querySelector('.no-income');
+    expect(noIncome).not.toBeNull();
+    expect(noIncome.querySelector('.no-income__headline').textContent.trim()).toBe(
       'Kein Einkommen erfasst',
     );
-    expect(banner.querySelector('.no-income__hint').textContent.trim()).toBe(
+    expect(noIncome.querySelector('.no-income__hint').textContent.trim()).toBe(
       'Bitte erfasse dein Monatseinkommen in den Einstellungen',
     );
-    // `warning`, nicht `error`: ein fehlendes Einkommen ist kein Fehler, der den
-    // Screenreader unterbrechen darf. Das assertive role="alert" gehoert FE-STS-02.
-    expect(banner.classList).not.toContain('notice--error');
-    expect(banner.getAttribute('role')).toBe('status');
+    // Aufbau wie die Design-Baseline (design/variant-a/index.html, `hero hero--muted`):
+    // der Zustand steht *in* der Safe-to-Spend-Card, nicht als Banner darueber.
+    expect(fixture.nativeElement.querySelector('app-card .no-income')).not.toBeNull();
   });
 
-  it('hides the no-income banner when an income is on file', () => {
+  it('hides the no-income state when an income is on file', () => {
     expectSafeToSpendRequest(httpMock).flush(NORMAL);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.no-income-banner')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.no-income')).toBeNull();
   });
 
-  it('renders the income suggestion with the amount in Swiss format', () => {
+  it('renders the income suggestion as an icon-plus-text notice in Swiss format', () => {
     expectSafeToSpendRequest(httpMock).flush(NO_INCOME);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.no-income__suggestion').textContent.trim()).toBe(
+    const notice = fixture.nativeElement.querySelector('.no-income__notice');
+    expect(notice.querySelector('.no-income__suggestion').textContent.trim()).toBe(
       "Regelmässige Gutschrift von 3'800.00 CHF erkannt — als Monatseinkommen übernehmen?",
     );
-    expect(fixture.nativeElement.querySelector('.no-income__apply').textContent.trim()).toBe(
-      'Übernehmen',
-    );
+    // `warning`, nicht `error`: ein fehlendes Einkommen ist kein Fehler, der den
+    // Screenreader unterbrechen darf. Das assertive role="alert" gehoert FE-STS-02.
+    expect(notice.classList).not.toContain('notice--error');
+    expect(notice.getAttribute('role')).toBe('status');
+    // Das Icon ist Dekoration und darf nicht mitgelesen werden.
+    expect(notice.querySelector('[aria-hidden="true"]').textContent.trim()).toBe('!');
+
+    const button = fixture.nativeElement.querySelector('.no-income__apply');
+    expect(button.textContent.trim()).toBe('Übernehmen');
+    // Der Button steht ausserhalb der Live-Region, sonst laese der Screenreader seine
+    // Beschriftung bei jeder Aenderung des Hinweises mit vor.
+    expect(notice.contains(button)).toBe(false);
   });
 
   it('offers no suggestion and no apply button when the heuristic found none', () => {
     expectSafeToSpendRequest(httpMock).flush(NO_INCOME_WITHOUT_SUGGESTION);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.no-income-banner')).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('.no-income__suggestion')).toBeNull();
+    // Titel und Hinweis stehen weiterhin da — nur das Angebot fehlt.
+    expect(fixture.nativeElement.querySelector('.no-income__headline')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.no-income__notice')).toBeNull();
     expect(fixture.nativeElement.querySelector('.no-income__apply')).toBeNull();
   });
 
@@ -210,7 +220,7 @@ describe('Dashboard', () => {
     expectSafeToSpendRequest(httpMock).flush(NORMAL);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.no-income-banner')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.no-income')).toBeNull();
     expect(fixture.debugElement.query(By.css('app-amount')).componentInstance.value()).toBe(500);
   });
 
@@ -233,7 +243,7 @@ describe('Dashboard', () => {
     expectSafeToSpendRequest(httpMock).flush(NORMAL);
   });
 
-  it('keeps the banner and reports the failure when applying the suggestion fails', () => {
+  it('keeps the no-income state and reports the failure when applying the suggestion fails', () => {
     expectSafeToSpendRequest(httpMock).flush(NO_INCOME);
     fixture.detectChanges();
 
@@ -243,10 +253,12 @@ describe('Dashboard', () => {
       .flush(null, { status: 500, statusText: 'Server Error' });
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.no-income-banner')).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('.no-income__error').textContent.trim()).toBe(
-      'Das Einkommen konnte nicht gespeichert werden.',
-    );
+    expect(fixture.nativeElement.querySelector('.no-income')).not.toBeNull();
+    const error = fixture.nativeElement.querySelector('.no-income__error');
+    expect(error.textContent.trim()).toBe('Das Einkommen konnte nicht gespeichert werden.');
+    // Ein fehlgeschlagener Submit ist der Fall, fuer den app-notice das assertive
+    // role="alert" vorsieht (notice.ts) — anders als der No-Income-Zustand selbst.
+    expect(error.getAttribute('role')).toBe('alert');
     // Der Button bleibt bedienbar — ein Serverfehler ist ein Grund zum Wiederholen.
     expect(fixture.nativeElement.querySelector('.no-income__apply').disabled).toBe(false);
   });
