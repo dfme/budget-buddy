@@ -256,6 +256,17 @@ class PdfImportControllerIntegrationTest {
     }
 
     @Test
+    void pdfWithoutTextLayerReturns400WithMissingTextLayerReason() throws Exception {
+        // Leere Seite, kein Text extrahierbar — simuliert ein gescanntes PDF (BE-PDF-08).
+        // Muss von unbekanntem Layout unterscheidbar sein: MissingTextLayerException ist eine
+        // PdfParseException, ging vor dem Fix im generischen UNSUPPORTED_FORMAT unter.
+        mockMvc.perform(multipart("/import/pdf").file(pdfPart(pdfWithLines(List.of())))
+                        .cookie(jwtCookie(userId)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.reason").value("MISSING_TEXT_LAYER"));
+    }
+
+    @Test
     void passwordProtectedPdfReturns400WithPasswordProtectedReason() throws Exception {
         // Führt den PasswordProtectedPdfException-Zweig des PdfImportExceptionHandler am Endpoint
         // aus. Verschlüsselung wird vor dem Parsen erkannt, der Inhalt ist daher belanglos.

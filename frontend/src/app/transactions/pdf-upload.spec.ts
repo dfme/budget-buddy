@@ -173,6 +173,20 @@ describe('PdfUpload', () => {
     );
   });
 
+  it('shows the missing-text-layer message for a 400 with reason MISSING_TEXT_LAYER', () => {
+    component.onDrop(dropEvent([pdfFile()]));
+
+    httpMock
+      .expectOne('/import/pdf')
+      .flush({ reason: 'MISSING_TEXT_LAYER' }, { status: 400, statusText: 'Bad Request' });
+    fixture.detectChanges();
+
+    const notice = fixture.nativeElement.querySelector('app-notice');
+    expect(notice?.textContent).toContain('Das PDF enthält keinen Text');
+    expect(notice?.getAttribute('role')).toBe('alert');
+    expect(notice?.classList.contains('notice--error')).toBe(true);
+  });
+
   it('falls back to the format message for a 400 without a reason body', () => {
     component.onDrop(dropEvent([pdfFile()]));
 
@@ -194,6 +208,19 @@ describe('PdfUpload', () => {
     expect(notice?.textContent).toContain(
       'Der Import hat zu lange gedauert und wurde abgebrochen. Bitte versuche es erneut.',
     );
+    expect(notice?.getAttribute('role')).toBe('alert');
+  });
+
+  it('shows the oversize message for a 413', () => {
+    component.onDrop(dropEvent([pdfFile()]));
+
+    httpMock
+      .expectOne('/import/pdf')
+      .flush(null, { status: 413, statusText: 'Payload Too Large' });
+    fixture.detectChanges();
+
+    const notice = fixture.nativeElement.querySelector('app-notice');
+    expect(notice?.textContent).toContain('Das PDF ist zu gross');
     expect(notice?.getAttribute('role')).toBe('alert');
   });
 

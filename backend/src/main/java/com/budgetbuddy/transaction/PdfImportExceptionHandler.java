@@ -10,18 +10,26 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 /**
  * Bildet die Fehlerfälle des PDF-Upload-Endpoints (BE-PDF-03) auf HTTP-Status ab.
  *
- * <p>Nur die hier fehlenden Mappings: {@link PdfParseException} (inkl. der Subtypen
- * {@link MissingTextLayerException} und {@link UnsupportedStatementFormatException}) und
- * {@link PasswordProtectedPdfException} → 400; Überschreitung des serverseitigen 10-MB-Limits
- * ({@link MaxUploadSizeExceededException}, geworfen beim Multipart-Parsing) → 413.
+ * <p>Nur die hier fehlenden Mappings: {@link MissingTextLayerException},
+ * {@link PdfParseException} (inkl. des verbleibenden Subtyps
+ * {@link UnsupportedStatementFormatException}) und {@link PasswordProtectedPdfException} → 400;
+ * Überschreitung des serverseitigen 10-MB-Limits ({@link MaxUploadSizeExceededException},
+ * geworfen beim Multipart-Parsing) → 413.
+ *
+ * <p>{@link MissingTextLayerException} bekommt einen eigenen Handler, obwohl sie eine
+ * {@link PdfParseException} ist (BE-PDF-08): Spring wählt bei mehreren passenden
+ * {@code @ExceptionHandler}-Methoden automatisch den spezifischeren Typ, unabhängig von der
+ * Deklarationsreihenfolge — ohne den eigenen Handler wäre der Scan-Fall im generischen
+ * {@code UNSUPPORTED_FORMAT} untergegangen, obwohl die Exception selbst eine andere,
+ * hilfreichere Nutzermeldung dokumentiert.
  *
  * <p>Die restlichen Fälle brauchen keinen Handler: {@link DuplicatePdfImportException} (409) und
  * {@link PdfImportTimeoutException} (408) tragen ihr Status-Mapping bereits als
  * {@code @ResponseStatus}, ein fehlender {@code file}-Part liefert Spring als 400.
  *
- * <p>Die beiden 400er tragen einen {@link ImportErrorResponse}-Body mit maschinenlesbarem
- * {@code reason}: Passwort- und Format-Fehler teilen sich den Status und wären sonst für das
- * Frontend nicht unterscheidbar, das daraus zwei getrennte Nutzermeldungen formuliert (FE-PDF-02).
+ * <p>Alle drei 400er tragen einen {@link ImportErrorResponse}-Body mit maschinenlesbarem
+ * {@code reason}: Passwort-, Scan- und Format-Fehler teilen sich den Status und wären sonst für
+ * das Frontend nicht unterscheidbar, das daraus getrennte Nutzermeldungen formuliert (FE-PDF-02).
  * 408/409/413 tragen keinen {@code reason} — dort ist der Status allein eindeutig. Body-los sind
  * sie deshalb aber nicht alle: 408/409 laufen via {@code @ResponseStatus} über Springs
  * ERROR-Dispatch und antworten mit dem Standard-Fehlerbody ({@code timestamp}/{@code status}/…);
@@ -31,10 +39,17 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 @RestControllerAdvice(assignableTypes = PdfImportController.class)
 public class PdfImportExceptionHandler {
 
+    @ExceptionHandler(MissingTextLayerException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ImportErrorResponse handleMissingTextLayer(MissingTextLayerException ex) {
+        // 400 für ein gescanntes PDF ohne Text-Layer — eigener reason statt UNSUPPORTED_FORMAT.
+        return new ImportErrorResponse(ImportErrorResponse.Reason.MISSING_TEXT_LAYER);
+    }
+
     @ExceptionHandler(PdfParseException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ImportErrorResponse handlePdfParse(PdfParseException ex) {
-        // 400 für ein nicht lesbares/unbekanntes PDF-Format (inkl. Subtypen).
+        // 400 für ein nicht lesbares/unbekanntes PDF-Format (verbleibende Subtypen).
         return new ImportErrorResponse(ImportErrorResponse.Reason.UNSUPPORTED_FORMAT);
     }
 
