@@ -152,17 +152,35 @@ describe('Dashboard', () => {
     expectSafeToSpendRequest(httpMock).flush(NO_INCOME);
     fixture.detectChanges();
 
-    const noIncome = fixture.nativeElement.querySelector('.no-income');
-    expect(noIncome).not.toBeNull();
-    expect(noIncome.querySelector('.no-income__headline').textContent.trim()).toBe(
+    const notice = fixture.nativeElement.querySelector('.no-income__notice');
+    expect(notice).not.toBeNull();
+    expect(notice.querySelector('.no-income__headline').textContent.trim()).toBe(
       'Kein Einkommen erfasst',
     );
-    expect(noIncome.querySelector('.no-income__hint').textContent.trim()).toBe(
+    expect(notice.querySelector('.no-income__hint').textContent.trim()).toBe(
       'Bitte erfasse dein Monatseinkommen in den Einstellungen',
     );
     // Aufbau wie die Design-Baseline (design/variant-a/index.html, `hero hero--muted`):
     // der Zustand steht *in* der Safe-to-Spend-Card, nicht als Banner darueber.
     expect(fixture.nativeElement.querySelector('app-card .no-income')).not.toBeNull();
+  });
+
+  // Der Fall, den die erste Fassung falsch hatte: dort hing das Notice am Vorschlag, und
+  // ohne erkanntes Gutschriftsmuster — der haeufigste Fall — blieb nur stiller Fliesstext
+  // uebrig. Der AC verlangt das Banner, sobald noIncome gilt.
+  it('shows the banner even when no suggestion was found', () => {
+    expectSafeToSpendRequest(httpMock).flush(NO_INCOME_WITHOUT_SUGGESTION);
+    fixture.detectChanges();
+
+    const notice = fixture.nativeElement.querySelector('.no-income__notice');
+    expect(notice).not.toBeNull();
+    expect(notice.getAttribute('role')).toBe('status');
+    expect(notice.querySelector('.no-income__headline').textContent.trim()).toBe(
+      'Kein Einkommen erfasst',
+    );
+    expect(notice.querySelector('.no-income__hint').textContent.trim()).toBe(
+      'Bitte erfasse dein Monatseinkommen in den Einstellungen',
+    );
   });
 
   it('hides the no-income state when an income is on file', () => {
@@ -172,14 +190,15 @@ describe('Dashboard', () => {
     expect(fixture.nativeElement.querySelector('.no-income')).toBeNull();
   });
 
-  it('renders the income suggestion as an icon-plus-text notice in Swiss format', () => {
+  it('renders the income suggestion below the notice in Swiss format', () => {
     expectSafeToSpendRequest(httpMock).flush(NO_INCOME);
     fixture.detectChanges();
 
-    const notice = fixture.nativeElement.querySelector('.no-income__notice');
-    expect(notice.querySelector('.no-income__suggestion').textContent.trim()).toBe(
+    expect(fixture.nativeElement.querySelector('.no-income__suggestion').textContent.trim()).toBe(
       "Regelmässige Gutschrift von 3'800.00 CHF erkannt — als Monatseinkommen übernehmen?",
     );
+
+    const notice = fixture.nativeElement.querySelector('.no-income__notice');
     // `warning`, nicht `error`: ein fehlendes Einkommen ist kein Fehler, der den
     // Screenreader unterbrechen darf. Das assertive role="alert" gehoert FE-STS-02.
     expect(notice.classList).not.toContain('notice--error');
@@ -198,9 +217,7 @@ describe('Dashboard', () => {
     expectSafeToSpendRequest(httpMock).flush(NO_INCOME_WITHOUT_SUGGESTION);
     fixture.detectChanges();
 
-    // Titel und Hinweis stehen weiterhin da — nur das Angebot fehlt.
-    expect(fixture.nativeElement.querySelector('.no-income__headline')).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('.no-income__notice')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.no-income__suggestion')).toBeNull();
     expect(fixture.nativeElement.querySelector('.no-income__apply')).toBeNull();
   });
 

@@ -61,34 +61,38 @@
 }
 
 // No-Income-Zustand innerhalb der Card, aufgebaut wie `hero hero--muted` in der
-// Design-Baseline (design/variant-a/index.html): Titel, Erläuterung, Hinweis, Button —
-// jeweils untereinander. `align-self: stretch` hebt die Zentrierung der umgebenden
+// Design-Baseline (design/variant-a/index.html): Hinweis, Vorschlag, Button — jeweils
+// untereinander. `align-self: stretch` hebt die Zentrierung der umgebenden
 // `.safe-to-spend`-Spalte auf, damit Notice und Block-Button die Cardbreite nutzen.
 .no-income {
   align-self: stretch;
   margin-top: $sp-5;
-}
-
-.no-income__headline {
-  margin: 0;
-  font-size: $fs-md;
-  font-weight: 600;
-}
-
-.no-income__hint {
-  margin: $sp-1 0 0;
-  color: $c-ink-2;
-  font-size: $fs-sm;
-}
-
-// Linksbündig entgegen der zentrierten Card-Spalte: der Satz läuft über mehrere Zeilen,
-// und zentrierter Fliesstext neben einem Icon bricht die gemeinsame Textkante.
-.no-income__notice,
-.no-income__error {
-  margin-top: $sp-4;
+  // Linksbündig entgegen der zentrierten Card-Spalte: die Sätze laufen über mehrere
+  // Zeilen, und zentrierter Fliesstext neben einem Icon bricht die gemeinsame Textkante.
   text-align: left;
 }
 
+// Zweites Flex-Kind des Notice (nach dem Icon). Stapelt Titel und Erläuterung, die im
+// Notice selbst nebeneinander landen würden — dessen `:host` ist eine Flex-Zeile.
+.no-income__text {
+  display: flex;
+  flex-direction: column;
+  gap: $sp-1;
+}
+
+.no-income__headline {
+  font-weight: 600;
+}
+
+.no-income__suggestion {
+  margin: $sp-4 0 0;
+  font-size: $fs-sm;
+}
+
 .no-income__apply {
+  margin-top: $sp-3;
+}
+
+.no-income__error {
   margin-top: $sp-4;
 }

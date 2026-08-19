@@ -34,30 +34,37 @@
         }
 
         <!--
-          No-Income-Zustand (FE-STS-03) — Aufbau wie in der Design-Baseline
-          `design/variant-a/index.html` (Abschnitt `hero hero--muted`): Titel und
-          Erläuterung als Fliesstext in der Card, der handlungsauffordernde Teil
-          als app-notice, der Button darunter *ausserhalb* des Notice. Der Button
-          gehört nicht in die Live-Region — sonst liest der Screenreader bei jeder
-          Änderung des Hinweises auch die Button-Beschriftung mit vor.
+          No-Income-Zustand (FE-STS-03) — Aufbau nach der Design-Baseline
+          `design/variant-a/index.html` (Abschnitt `hero hero--muted`): der Zustand steht
+          *in* der Safe-to-Spend-Card, der Hinweis als app-notice, der Button darunter
+          *ausserhalb* des Notice. Der Button gehört nicht in die Live-Region — sonst
+          liest der Screenreader bei jeder Änderung des Hinweises auch die
+          Button-Beschriftung mit vor.
+
+          Das Notice hängt bewusst NICHT am Vorschlag: der AC verlangt das Banner, sobald
+          `noIncome` gilt. Hing es am Vorschlag, blieb im häufigsten Fall — kein erkanntes
+          Gutschriftsmuster — nur stiller Fliesstext übrig und der Hinweis war praktisch
+          unsichtbar.
+
+          Icon und Textblock sind genau die zwei Flex-Kinder, für die app-notice gebaut
+          ist (`:host` ist `display: flex` mit `gap`, siehe design/variant-a/styles.scss
+          `.notice`). Der Textblock stapelt intern; mehrere Blöcke direkt im Notice
+          stellte dieses nebeneinander.
         -->
         @if (d.noIncome) {
           <div class="no-income">
-            <p class="no-income__headline">Kein Einkommen erfasst</p>
-            <p class="no-income__hint">Bitte erfasse dein Monatseinkommen in den Einstellungen</p>
+            <app-notice variant="warning" class="no-income__notice">
+              <span aria-hidden="true">!</span>
+              <span class="no-income__text">
+                <span class="no-income__headline">Kein Einkommen erfasst</span>
+                <span class="no-income__hint">
+                  Bitte erfasse dein Monatseinkommen in den Einstellungen
+                </span>
+              </span>
+            </app-notice>
 
             @if (suggestionText(); as suggestion) {
-              <!--
-                Zwei Flex-Kinder — Icon und Text — genau wie app-notice es vorsieht:
-                `:host` ist `display: flex` mit `gap`, gedacht für dieses Paar
-                (design/variant-a/styles.scss `.notice`). Mehrere Blöcke direkt darin
-                stellte das Notice nebeneinander statt untereinander.
-              -->
-              <app-notice variant="warning" class="no-income__notice">
-                <span aria-hidden="true">!</span>
-                <span class="no-income__suggestion">{{ suggestion }}</span>
-              </app-notice>
-
+              <p class="no-income__suggestion">{{ suggestion }}</p>
               <button
                 appButton
                 block
