@@ -26,8 +26,16 @@ h1 {
   margin-bottom: $sp-4;
 }
 
+// Card gibt auf schmalen Viewports weniger Breite her, als die Tabelle mit allen fünf Spalten
+// (inkl. der beiden Aktions-Buttons) braucht — statt die Spalten unleserlich zu quetschen, scrollt
+// die Tabelle innerhalb der Card.
+.table-scroll {
+  overflow-x: auto;
+}
+
 table {
   width: 100%;
+  min-width: 32rem;
   border-collapse: collapse;
 }
 
@@ -52,6 +60,7 @@ td.actions {
   display: flex;
   justify-content: flex-end;
   gap: $sp-2;
+  white-space: nowrap;
 }
 
 tfoot th,
