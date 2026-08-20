@@ -104,7 +104,9 @@ describe('FixedCostList', () => {
     flushInitialLoad(summaryOf([MIETE], 3000, false));
 
     const root = fixture.nativeElement as HTMLElement;
-    expect(root.querySelector('.table-scroll > table')).not.toBeNull();
+    const wrapper = root.querySelector('.table-scroll');
+    expect(wrapper?.querySelector('table')).not.toBeNull();
+    expect(getComputedStyle(wrapper as HTMLElement).overflowX).toBe('auto');
   });
 
   it('zeigt einen Empty-State ohne Positionen', () => {

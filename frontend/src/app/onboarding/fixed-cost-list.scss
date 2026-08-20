@@ -71,10 +71,14 @@ tfoot td {
 }
 
 // Aufgeklappte Bearbeiten-Zeile: eigene Fläche statt Tabellenzellen, damit das Formular nicht
-// an die schmalen Spaltenbreiten der Ansicht gebunden ist.
+// an die schmalen Spaltenbreiten der Ansicht gebunden ist. `sticky` hält die Zelle beim
+// horizontalen Scrollen (min-width auf der Tabelle) am linken Rand des Viewports sichtbar, statt
+// dass sie mit dem restlichen Zeileninhalt aus dem sichtbaren Bereich läuft.
 tr.editing > td {
   padding: $sp-3 $sp-2;
   background: $c-bg-subtle;
+  position: sticky;
+  left: 0;
 }
 
 tr.editing form {
