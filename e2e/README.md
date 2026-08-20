@@ -12,7 +12,7 @@ deployt wird (ADR-10, Single-Artifact).
 
 ```
 Playwright (chromium) ──► localhost:8081 ──┬── /index.html   SPA aus BOOT-INF/static
-                                           └── /auth, /users API
+                                           └── /api/**        REST-API (INFRA-17)
 ```
 
 Same-Origin ist hier nicht bloss bequem: nur so verhält sich das `SameSite=Strict`-JWT-Cookie im
@@ -108,7 +108,7 @@ Verfügbare Fixtures: `authenticatedPage` (Page mit gültigem Cookie), `authenti
 zugehörige BrowserContext, z. B. für `context.cookies()`) und `testUser` (die erzeugten
 Credentials).
 
-Das httpOnly-Cookie kommt über `context.request.post('/auth/register', …)` in den Browser:
+Das httpOnly-Cookie kommt über `context.request.post('/api/auth/register', …)` in den Browser:
 `context.request` teilt den Cookie-Jar mit dem BrowserContext. `document.cookie` oder
 `addInitScript` sind kein Ersatz — das Cookie ist per Definition für JS unsichtbar (ADR-7).
 

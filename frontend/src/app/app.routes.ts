@@ -29,7 +29,7 @@ export const routes: Routes = [
     loadComponent: () => import('./transactions/pdf-upload').then((m) => m.PdfUpload),
   },
   {
-    // Bewusst NICHT `/fixed-costs`: das ist das API-Prefix von FixedCostController. Ein
+    // Bewusst NICHT `/api/fixed-costs`: das ist das API-Prefix von FixedCostController. Ein
     // gleichnamiger Angular-Pfad würde beim Hard-Reload den Backend-Endpoint statt index.html
     // treffen.
     path: 'fixkosten',

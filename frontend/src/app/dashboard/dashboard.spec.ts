@@ -50,7 +50,7 @@ const NO_INCOME_WITHOUT_SUGGESTION: SafeToSpendResponse = {
 
 /** URL-Matcher, unabhängig von etwaigen zukünftigen Query-Parametern. */
 function expectSafeToSpendRequest(httpMock: HttpTestingController) {
-  return httpMock.expectOne((req) => req.url === '/budget/safe-to-spend');
+  return httpMock.expectOne((req) => req.url === '/api/budget/safe-to-spend');
 }
 
 describe('Dashboard', () => {
@@ -221,13 +221,13 @@ describe('Dashboard', () => {
     expect(fixture.nativeElement.querySelector('.no-income__apply')).toBeNull();
   });
 
-  it('applies the suggestion via PUT /users/me/income and reloads safe-to-spend', () => {
+  it('applies the suggestion via PUT /api/users/me/income and reloads safe-to-spend', () => {
     expectSafeToSpendRequest(httpMock).flush(NO_INCOME);
     fixture.detectChanges();
 
     fixture.nativeElement.querySelector('.no-income__apply').click();
 
-    const put = httpMock.expectOne('/users/me/income');
+    const put = httpMock.expectOne('/api/users/me/income');
     expect(put.request.method).toBe('PUT');
     expect(put.request.body).toEqual({ betrag: 3800 });
     put.flush({ id: 1, email: 'lara@example.ch', monthlyIncome: 3800, onboardingCompleted: true });
@@ -255,7 +255,7 @@ describe('Dashboard', () => {
     expect(button.textContent.trim()).toBe('Wird übernommen …');
 
     httpMock
-      .expectOne('/users/me/income')
+      .expectOne('/api/users/me/income')
       .flush({ id: 1, email: 'lara@example.ch', monthlyIncome: 3800, onboardingCompleted: true });
     expectSafeToSpendRequest(httpMock).flush(NORMAL);
   });
@@ -266,7 +266,7 @@ describe('Dashboard', () => {
 
     fixture.nativeElement.querySelector('.no-income__apply').click();
     httpMock
-      .expectOne('/users/me/income')
+      .expectOne('/api/users/me/income')
       .flush(null, { status: 500, statusText: 'Server Error' });
     fixture.detectChanges();
 

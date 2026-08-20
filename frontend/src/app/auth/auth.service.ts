@@ -5,7 +5,7 @@ import { Observable, catchError, finalize, of, shareReplay, tap } from 'rxjs';
 import { User } from './user.model';
 
 /**
- * Zentraler Auth-State und Kapselung der `/auth`- und `/users/me`-Endpoints (US-01).
+ * Zentraler Auth-State und Kapselung der `/api/auth`- und `/api/users/me`-Endpoints (US-01).
  *
  * <p>Der Login-Status liegt als Signal vor; `isAuthenticated` ist davon abgeleitet.
  * Es gibt bewusst keinen Token-/Header-Code: das httpOnly-JWT-Cookie wird durch den
@@ -18,7 +18,7 @@ export class AuthService {
   private readonly currentUserState = signal<User | null>(null);
 
   /**
-   * Laufendes `GET /users/me` aus {@link ensureCurrentUser}, oder `null`, wenn keines läuft.
+   * Laufendes `GET /api/users/me` aus {@link ensureCurrentUser}, oder `null`, wenn keines läuft.
    * Existiert nur, um gleichzeitige Aufrufer denselben Request teilen zu lassen.
    */
   private profileRequest: Observable<User | null> | null = null;
@@ -32,19 +32,19 @@ export class AuthService {
   /** Legt ein Konto an; bei Erfolg setzt das Backend das JWT-Cookie und wir den State. */
   register(email: string, password: string): Observable<User> {
     return this.http
-      .post<User>('/auth/register', { email, password })
+      .post<User>('/api/auth/register', { email, password })
       .pipe(tap((user) => this.currentUserState.set(user)));
   }
 
   /** Loggt ein; bei Erfolg setzt das Backend das JWT-Cookie und wir den State. */
   login(email: string, password: string): Observable<User> {
     return this.http
-      .post<User>('/auth/login', { email, password })
+      .post<User>('/api/auth/login', { email, password })
       .pipe(tap((user) => this.currentUserState.set(user)));
   }
 
   /**
-   * Schliesst das Onboarding ab (`POST /users/me/onboarding-complete`, US-03, FE-FC-02).
+   * Schliesst das Onboarding ab (`POST /api/users/me/onboarding-complete`, US-03, FE-FC-02).
    *
    * <p>Die Antwort wird in den State geschrieben, nicht bloss quittiert: der
    * `onboardingGuard` liest `onboardingCompleted` aus genau diesem Signal. Bliebe dort
@@ -56,14 +56,14 @@ export class AuthService {
    */
   completeOnboarding(): Observable<User> {
     return this.http
-      .post<User>('/users/me/onboarding-complete', {})
+      .post<User>('/api/users/me/onboarding-complete', {})
       .pipe(tap((user) => this.currentUserState.set(user)));
   }
 
   /**
-   * Setzt das Monatseinkommen (`PUT /users/me/income`, US-06, FE-STS-03).
+   * Setzt das Monatseinkommen (`PUT /api/users/me/income`, US-06, FE-STS-03).
    *
-   * <p>Liegt hier und nicht im `SafeToSpendService`, weil `/users/me` zu diesem Service
+   * <p>Liegt hier und nicht im `SafeToSpendService`, weil `/api/users/me` zu diesem Service
    * gehört und `monthlyIncome` Teil des {@link User}-State ist: die Antwort wird wie bei
    * {@link completeOnboarding} in den State geschrieben. Ohne das bliebe dort der alte
    * Wert (`null`) stehen, während das Backend längst ein Einkommen kennt.
@@ -73,14 +73,14 @@ export class AuthService {
    */
   updateIncome(betrag: number): Observable<User> {
     return this.http
-      .put<User>('/users/me/income', { betrag })
+      .put<User>('/api/users/me/income', { betrag })
       .pipe(tap((user) => this.currentUserState.set(user)));
   }
 
   /** Loggt aus; das Backend invalidiert das Cookie (Max-Age=0), wir leeren den State. */
   logout(): Observable<void> {
     return this.http
-      .post<void>('/auth/logout', {})
+      .post<void>('/api/auth/logout', {})
       .pipe(tap(() => this.currentUserState.set(null)));
   }
 
@@ -99,7 +99,7 @@ export class AuthService {
    * ohne dass ein Fehler propagiert wird.
    */
   loadCurrentUser(): Observable<User | null> {
-    return this.http.get<User>('/users/me').pipe(
+    return this.http.get<User>('/api/users/me').pipe(
       tap((user) => this.currentUserState.set(user)),
       catchError(() => {
         this.currentUserState.set(null);
@@ -109,14 +109,14 @@ export class AuthService {
   }
 
   /**
-   * Das Profil des eingeloggten Users — aus dem State, sonst per `GET /users/me` nachgeladen.
+   * Das Profil des eingeloggten Users — aus dem State, sonst per `GET /api/users/me` nachgeladen.
    *
    * <p>Gemeinsame Grundlage von `authGuard` und `onboardingGuard`: beide hängen am selben
    * Route-Eintrag und brauchen dasselbe Profil.
    *
    * <p><strong>Gleichzeitige Aufrufer teilen sich einen Request.</strong> Angular führt die
    * Guards eines `canActivate`-Arrays nebenläufig aus, nicht nacheinander: beide sehen den
-   * State noch leer und lösen je ein eigenes `GET /users/me` aus. Ein Cache-Check allein
+   * State noch leer und lösen je ein eigenes `GET /api/users/me` aus. Ein Cache-Check allein
    * greift dagegen nicht, weil zum Zeitpunkt des zweiten Aufrufs noch keine Antwort da ist,
    * die er cachen könnte. `shareReplay` bündelt sie deshalb auf einen Request; das Feld wird
    * nach Abschluss geleert, damit ein späterer Aufruf wieder frisch lädt statt eine veraltete

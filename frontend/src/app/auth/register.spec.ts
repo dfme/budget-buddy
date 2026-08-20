@@ -39,7 +39,7 @@ describe('Register', () => {
   it('does not call the backend when the form is empty', () => {
     component.submit();
 
-    httpMock.expectNone('/auth/register');
+    httpMock.expectNone('/api/auth/register');
     expect(component.form.invalid).toBe(true);
     expect(navigate).not.toHaveBeenCalled();
   });
@@ -49,7 +49,7 @@ describe('Register', () => {
 
     component.submit();
 
-    httpMock.expectNone('/auth/register');
+    httpMock.expectNone('/api/auth/register');
     expect(component.form.controls.password.hasError('minlength')).toBe(true);
     expect(navigate).not.toHaveBeenCalled();
   });
@@ -62,7 +62,7 @@ describe('Register', () => {
 
     component.submit();
 
-    const req = httpMock.expectOne('/auth/register');
+    const req = httpMock.expectOne('/api/auth/register');
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual({
       email: 'lara@example.ch',
@@ -81,7 +81,7 @@ describe('Register', () => {
     component.form.setValue({ email: 'lara@example.ch', password: 'supersecret' });
 
     component.submit();
-    httpMock.expectOne('/auth/register').flush(LARA_ONBOARDED);
+    httpMock.expectOne('/api/auth/register').flush(LARA_ONBOARDED);
 
     expect(navigate).toHaveBeenCalledWith(['/dashboard']);
   });
@@ -91,7 +91,7 @@ describe('Register', () => {
 
     component.submit();
 
-    httpMock.expectOne('/auth/register').flush(null, { status: 409, statusText: 'Conflict' });
+    httpMock.expectOne('/api/auth/register').flush(null, { status: 409, statusText: 'Conflict' });
 
     expect(component.errorMessage()).toBe('E-Mail bereits vergeben');
     expect(navigate).not.toHaveBeenCalled();
@@ -104,7 +104,7 @@ describe('Register', () => {
     component.form.setValue({ email: 'lara@example.ch', password: 'supersecret' });
 
     component.submit();
-    httpMock.expectOne('/auth/register').flush(null, { status: 409, statusText: 'Conflict' });
+    httpMock.expectOne('/api/auth/register').flush(null, { status: 409, statusText: 'Conflict' });
     fixture.detectChanges();
 
     const notice: HTMLElement = fixture.nativeElement.querySelector('app-notice');

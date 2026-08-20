@@ -18,21 +18,21 @@ export class FixedCostService {
 
   /** Legt eine Fixkosten-Position an und liefert sie mit vergebener ID zurück. */
   create(request: CreateFixedCostRequest): Observable<FixedCost> {
-    return this.http.post<FixedCost>('/fixed-costs', request);
+    return this.http.post<FixedCost>('/api/fixed-costs', request);
   }
 
   /** Alle Positionen des Users plus Monatssumme, Einkommen und Warn-Flag (FE-FC-03). */
   list(): Observable<FixedCostSummary> {
-    return this.http.get<FixedCostSummary>('/fixed-costs');
+    return this.http.get<FixedCostSummary>('/api/fixed-costs');
   }
 
   /** Überschreibt Bezeichnung, Betrag und Intervall einer bestehenden Position (FE-FC-03). */
   update(id: number, request: CreateFixedCostRequest): Observable<FixedCostDetail> {
-    return this.http.put<FixedCostDetail>(`/fixed-costs/${id}`, request);
+    return this.http.put<FixedCostDetail>(`/api/fixed-costs/${id}`, request);
   }
 
   /** Löscht eine Position endgültig (FE-FC-03). */
   delete(id: number): Observable<void> {
-    return this.http.delete<void>(`/fixed-costs/${id}`);
+    return this.http.delete<void>(`/api/fixed-costs/${id}`);
   }
 }

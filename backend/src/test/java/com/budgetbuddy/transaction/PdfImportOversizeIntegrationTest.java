@@ -76,7 +76,7 @@ class PdfImportOversizeIntegrationTest {
         headers.add(HttpHeaders.COOKIE, "jwt=" + jwtService.generateToken(1L));
 
         ResponseEntity<String> response = restTemplate.postForEntity(
-                "/import/pdf", new HttpEntity<>(body, headers), String.class);
+                "/api/import/pdf", new HttpEntity<>(body, headers), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.PAYLOAD_TOO_LARGE);
     }

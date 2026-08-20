@@ -53,7 +53,7 @@ class AuthControllerTest {
 
     @Test
     void registerCreatesUserSetsCookieAndStoresBcryptHash() throws Exception {
-        mockMvc.perform(post("/auth/register")
+        mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(LARA))
                 .andExpect(status().isCreated())
@@ -72,18 +72,18 @@ class AuthControllerTest {
 
     @Test
     void registerWithDuplicateEmailReturns409() throws Exception {
-        mockMvc.perform(post("/auth/register")
+        mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON).content(LARA))
                 .andExpect(status().isCreated());
 
-        mockMvc.perform(post("/auth/register")
+        mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON).content(LARA))
                 .andExpect(status().isConflict());
     }
 
     @Test
     void registerWithInvalidEmailReturns400() throws Exception {
-        mockMvc.perform(post("/auth/register")
+        mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\": \"not-an-email\", \"password\": \"geheim123\"}"))
                 .andExpect(status().isBadRequest());
@@ -91,11 +91,11 @@ class AuthControllerTest {
 
     @Test
     void loginWithCorrectCredentialsReturns200AndCookie() throws Exception {
-        mockMvc.perform(post("/auth/register")
+        mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON).content(LARA))
                 .andExpect(status().isCreated());
 
-        mockMvc.perform(post("/auth/login")
+        mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON).content(LARA))
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.SET_COOKIE, Matchers.containsString("jwt=")))
@@ -107,11 +107,11 @@ class AuthControllerTest {
 
     @Test
     void loginWithWrongPasswordReturns401() throws Exception {
-        mockMvc.perform(post("/auth/register")
+        mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON).content(LARA))
                 .andExpect(status().isCreated());
 
-        mockMvc.perform(post("/auth/login")
+        mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\": \"lara@example.ch\", \"password\": \"falsch123\"}"))
                 .andExpect(status().isUnauthorized());
@@ -119,7 +119,7 @@ class AuthControllerTest {
 
     @Test
     void loginWithUnknownEmailReturns401() throws Exception {
-        mockMvc.perform(post("/auth/login")
+        mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\": \"nobody@example.ch\", \"password\": \"geheim123\"}"))
                 .andExpect(status().isUnauthorized());
@@ -127,7 +127,7 @@ class AuthControllerTest {
 
     @Test
     void logoutClearsCookieWithMaxAgeZero() throws Exception {
-        mockMvc.perform(post("/auth/logout"))
+        mockMvc.perform(post("/api/auth/logout"))
                 .andExpect(status().isNoContent())
                 .andExpect(header().string(HttpHeaders.SET_COOKIE, Matchers.containsString("jwt=")))
                 .andExpect(header().string(

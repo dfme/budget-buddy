@@ -52,7 +52,7 @@ describe('Shell', () => {
   /** Meldet einen User an, indem der Login-Call gemockt und der State gesetzt wird. */
   function login(user: User = LARA): void {
     auth.login(user.email, 'supersecret').subscribe();
-    httpMock.expectOne('/auth/login').flush(user);
+    httpMock.expectOne('/api/auth/login').flush(user);
     fixture.detectChanges();
   }
 
@@ -212,12 +212,12 @@ describe('Shell', () => {
       navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     });
 
-    it('meldet über die Sidebar ab: POST /auth/logout, State leer, Redirect /login', () => {
+    it('meldet über die Sidebar ab: POST /api/auth/logout, State leer, Redirect /login', () => {
       login();
 
       query<HTMLButtonElement>('.nav__logout')!.click();
 
-      const req = httpMock.expectOne('/auth/logout');
+      const req = httpMock.expectOne('/api/auth/logout');
       expect(req.request.method).toBe('POST');
       req.flush(null);
 
@@ -232,7 +232,7 @@ describe('Shell', () => {
 
       query<HTMLButtonElement>('.account-menu__item')!.click();
 
-      httpMock.expectOne('/auth/logout').flush(null);
+      httpMock.expectOne('/api/auth/logout').flush(null);
 
       expect(auth.isAuthenticated()).toBe(false);
       expect(navigate).toHaveBeenCalledWith(['/login']);
@@ -243,7 +243,7 @@ describe('Shell', () => {
 
       query<HTMLButtonElement>('.nav__logout')!.click();
 
-      httpMock.expectOne('/auth/logout').flush(null, { status: 500, statusText: 'Server Error' });
+      httpMock.expectOne('/api/auth/logout').flush(null, { status: 500, statusText: 'Server Error' });
 
       expect(auth.isAuthenticated()).toBe(false);
       expect(navigate).toHaveBeenCalledWith(['/login']);

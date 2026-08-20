@@ -41,21 +41,21 @@ class FixedCostOpenApiTest {
     void allFixedCostEndpointsAppearInTheOpenApiDocument() throws Exception {
         mockMvc.perform(get("/v3/api-docs"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.paths['/fixed-costs'].get").exists())
-                .andExpect(jsonPath("$.paths['/fixed-costs'].post").exists())
-                .andExpect(jsonPath("$.paths['/fixed-costs/{id}'].get").exists())
-                .andExpect(jsonPath("$.paths['/fixed-costs/{id}'].put").exists())
-                .andExpect(jsonPath("$.paths['/fixed-costs/{id}'].delete").exists())
-                .andExpect(jsonPath("$.paths['/users/me/onboarding-complete'].post").exists());
+                .andExpect(jsonPath("$.paths['/api/fixed-costs'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/fixed-costs'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/fixed-costs/{id}'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/fixed-costs/{id}'].put").exists())
+                .andExpect(jsonPath("$.paths['/api/fixed-costs/{id}'].delete").exists())
+                .andExpect(jsonPath("$.paths['/api/users/me/onboarding-complete'].post").exists());
     }
 
     @Test
     void endpointsCarryASummarySoTheUiIsReadable() throws Exception {
         mockMvc.perform(get("/v3/api-docs"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.paths['/fixed-costs'].post.summary").isNotEmpty())
-                .andExpect(jsonPath("$.paths['/fixed-costs/{id}'].delete.summary").isNotEmpty())
-                .andExpect(jsonPath("$.paths['/users/me/onboarding-complete'].post.summary")
+                .andExpect(jsonPath("$.paths['/api/fixed-costs'].post.summary").isNotEmpty())
+                .andExpect(jsonPath("$.paths['/api/fixed-costs/{id}'].delete.summary").isNotEmpty())
+                .andExpect(jsonPath("$.paths['/api/users/me/onboarding-complete'].post.summary")
                         .isNotEmpty());
     }
 
@@ -73,20 +73,20 @@ class FixedCostOpenApiTest {
         mockMvc.perform(get("/v3/api-docs"))
                 .andExpect(status().isOk())
                 // Request-Schema von POST /fixed-costs
-                .andExpect(jsonPath("$.paths['/fixed-costs'].post.requestBody.content"
+                .andExpect(jsonPath("$.paths['/api/fixed-costs'].post.requestBody.content"
                         + "['application/json'].schema.$ref")
                         .value("#/components/schemas/FixedCostRequest"))
                 // Response-Schema von POST /fixed-costs (201)
-                .andExpect(jsonPath("$.paths['/fixed-costs'].post.responses['201'].content"
+                .andExpect(jsonPath("$.paths['/api/fixed-costs'].post.responses['201'].content"
                         + "['*/*'].schema.$ref").value("#/components/schemas/FixedCostResponse"))
                 // Response-Schema der Übersicht
-                .andExpect(jsonPath("$.paths['/fixed-costs'].get.responses['200'].content"
+                .andExpect(jsonPath("$.paths['/api/fixed-costs'].get.responses['200'].content"
                         + "['*/*'].schema.$ref")
                         .value("#/components/schemas/FixedCostSummaryResponse"))
                 // Fehler-Schema mit Feldname (US-03). Springdoc leitet es aus dem
                 // FixedCostExceptionHandler ab — der Body ist damit auch dokumentiert, nicht nur
                 // implementiert.
-                .andExpect(jsonPath("$.paths['/fixed-costs'].post.responses['400'].content"
+                .andExpect(jsonPath("$.paths['/api/fixed-costs'].post.responses['400'].content"
                         + "['*/*'].schema.$ref")
                         .value("#/components/schemas/FixedCostErrorResponse"));
     }

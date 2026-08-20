@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
  * Security mit 401, bevor der Controller erreicht wird.
  */
 @RestController
-@RequestMapping("/transactions")
+@RequestMapping("/api/transactions")
 @Tag(name = "Transactions", description = "Auswertungen über die Transaktionen des eingeloggten Users")
 public class TransactionSummaryController {
 

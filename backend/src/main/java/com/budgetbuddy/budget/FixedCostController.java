@@ -38,7 +38,7 @@ import org.springframework.web.bind.annotation.RestController;
  * darüber, wer was sehen darf.
  */
 @RestController
-@RequestMapping("/fixed-costs")
+@RequestMapping("/api/fixed-costs")
 @Tag(name = "Fixed Costs", description = "Fixkosten des eingeloggten Users (US-03)")
 public class FixedCostController {
 

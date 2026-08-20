@@ -68,7 +68,7 @@ class PdfImportTimeoutIntegrationTest {
                 new MockMultipartFile("file", "kontoauszug.pdf", "application/pdf", fixture());
         Cookie jwt = new Cookie("jwt", jwtService.generateToken(1L));
 
-        mockMvc.perform(multipart("/import/pdf").file(file).cookie(jwt))
+        mockMvc.perform(multipart("/api/import/pdf").file(file).cookie(jwt))
                 .andExpect(status().isRequestTimeout());
     }
 }

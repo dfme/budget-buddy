@@ -19,12 +19,12 @@ describe('PdfImportService', () => {
 
   afterEach(() => httpMock.verify());
 
-  it('posts the file as multipart form data to /import/pdf', () => {
+  it('posts the file as multipart form data to /api/import/pdf', () => {
     const file = new File(['%PDF-1.4'], 'kontoauszug.pdf', { type: 'application/pdf' });
     let received: ImportResponse | undefined;
     service.importPdf(file).subscribe((response) => (received = response));
 
-    const req = httpMock.expectOne('/import/pdf');
+    const req = httpMock.expectOne('/api/import/pdf');
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toBeInstanceOf(FormData);
     expect((req.request.body as FormData).get('file')).toBe(file);
@@ -37,7 +37,7 @@ describe('PdfImportService', () => {
     const file = new File(['%PDF-1.4'], 'kontoauszug.pdf', { type: 'application/pdf' });
     service.importPdf(file).subscribe();
 
-    const req = httpMock.expectOne('/import/pdf');
+    const req = httpMock.expectOne('/api/import/pdf');
     expect(req.request.params.has('force')).toBe(false);
     req.flush({ count: 42 });
   });
@@ -46,7 +46,7 @@ describe('PdfImportService', () => {
     const file = new File(['%PDF-1.4'], 'kontoauszug.pdf', { type: 'application/pdf' });
     service.importPdf(file, true).subscribe();
 
-    const req = httpMock.expectOne((r) => r.url === '/import/pdf');
+    const req = httpMock.expectOne((r) => r.url === '/api/import/pdf');
     expect(req.request.params.get('force')).toBe('true');
     expect((req.request.body as FormData).get('file')).toBe(file);
     req.flush({ count: 42 });

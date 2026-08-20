@@ -1,5 +1,5 @@
 /**
- * Fehler-Body der 400-Antworten von `POST /import/pdf` — spiegelt
+ * Fehler-Body der 400-Antworten von `POST /api/import/pdf` — spiegelt
  * `ImportErrorResponse.java` (FE-PDF-02, US-04).
  *
  * Der `reason` unterscheidet die beiden 400-Fälle, die sich denselben

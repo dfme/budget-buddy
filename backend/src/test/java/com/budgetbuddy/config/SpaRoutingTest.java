@@ -1,104 +1,156 @@
 package com.budgetbuddy.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.forwardedUrl;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.budgetbuddy.support.PostgresTestDatabase;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.FieldSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.test.context.DynamicPropertySource;
 
 /**
- * Verifiziert INFRA-05 (AC #3): die im JAR gebündelte Angular-SPA wird ohne Authentifizierung
- * ausgeliefert, während die REST-API geschützt bleibt.
+ * Verifiziert INFRA-05 (AC #3) und den Catch-all-Forward aus INFRA-17: die im JAR gebündelte
+ * Angular-SPA wird ohne Authentifizierung ausgeliefert, während die REST-API unter
+ * {@code /api/**} geschützt bleibt.
  *
  * <p>Die {@code index.html}/{@code main-test.js} unter {@code src/test/resources/static/} sind
  * Fixtures — im echten Prod-JAR liefert das {@code -Pprod}-Profil den Angular-Build (INFRA-04).
  *
- * <p>Der Deep-Link-Test läuft parametrisiert über
- * {@link SpaForwardController#CLIENT_ROUTE_PATTERNS} statt über eine eigene Liste (INFRA-14):
- * eine hartkodierte Testliste hätte die 401-Lücke bei {@code /register}, {@code /categories}
- * und {@code /import} nicht gefunden, weil sie genau wie die Produktionslisten unvollständig
- * gewesen wäre.
+ * <p><b>{@code RANDOM_PORT} statt {@code MockMvc} (INFRA-17, AC #4).</b> Ein reiner
+ * Handler-Mapping-Test mit MockMvc würde nur beweisen, dass irgendein Handler existiert — nicht,
+ * dass der ECHTE Servlet-Container dieselbe Route auflöst wie ein Browser. Genau diese Lücke
+ * verpasste {@code PdfImportControllerIntegrationTest} beim ERROR-Dispatch (FE-PDF-02, siehe
+ * {@link com.budgetbuddy.transaction.PdfImportErrorDispatchIntegrationTest}); für die
+ * SPA-Routen ist das Risiko dasselbe, weil {@code SpaForwardController} jetzt einen
+ * Catch-all-Pattern-Match gegen echte Infrastruktur-Handler (Actuator, Springdoc) abgrenzen muss
+ * — eine Verwechslung wäre mit MockMvc, das keine echten Actuator-/Springdoc-Handler-Mappings
+ * registriert, unsichtbar geblieben.
  */
-@SpringBootTest
-@AutoConfigureMockMvc
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 class SpaRoutingTest {
+
+    /** Marker aus der index.html-Fixture — beweist, dass tatsächlich die SPA-Shell ankam. */
+    private static final String SPA_SHELL_MARKER = "spa-index-fixture";
+
+    /** Marker aus der main-test.js-Fixture — beweist, dass das echte Asset ankam. */
+    private static final String STATIC_ASSET_MARKER = "spaAssetFixture";
 
     @DynamicPropertySource
     static void datasourceProperties(DynamicPropertyRegistry registry) {
         PostgresTestDatabase.registerWithoutFlyway(registry, "spa_routing");
     }
 
-    /** Quelle für {@link #spaDeepLinkForwardsToIndexHtml} — siehe Klassen-Javadoc. */
-    static final String[] CLIENT_ROUTES = SpaForwardController.CLIENT_ROUTE_PATTERNS;
-
     @Autowired
-    private MockMvc mockMvc;
+    private TestRestTemplate restTemplate;
 
     @Test
-    void rootServesIndexHtmlWithoutAuth() throws Exception {
-        // AC #3: / ist öffentlich (kein 401) und wird von der Spring-Boot-Welcome-Page auf die
-        // gebündelte index.html weitergeleitet (interner Forward, daher forwardedUrl statt Body).
-        mockMvc.perform(get("/"))
-                .andExpect(status().isOk())
-                .andExpect(forwardedUrl("index.html"));
+    void rootServesIndexHtmlWithoutAuth() {
+        // AC #3: / ist öffentlich (kein 401) und liefert die gebündelte index.html.
+        ResponseEntity<String> response = restTemplate.getForEntity("/", String.class);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        assertThat(response.getBody()).contains(SPA_SHELL_MARKER);
     }
 
-    @ParameterizedTest(name = "{0} → index.html")
-    @FieldSource("CLIENT_ROUTES")
-    void spaDeepLinkForwardsToIndexHtml(String route) throws Exception {
-        // Hard-Reload/Deep-Link einer client-seitigen Route → forward auf index.html, ohne Auth.
-        // Ein 401 hier bedeutet: die Route fehlt in SecurityConfig; ein 404: sie fehlt im
-        // @GetMapping des SpaForwardController.
-        mockMvc.perform(get(route)).andExpect(status().isOk()).andExpect(forwardedUrl("/index.html"));
-    }
+    /**
+     * Repräsentative Angular-Top-Level-Routen (deckungsgleich mit
+     * {@code frontend/src/app/app.routes.ts}) — keine Enumeration mehr, die mit einer
+     * Backend-Liste synchron gehalten werden muss (INFRA-17); dieser Test beweist nur, dass der
+     * Catch-all-Mechanismus für jede von ihnen tatsächlich greift, inklusive
+     * {@code /styleguide}, das vor INFRA-17 aus der alten Liste bewusst ausgeschlossen war.
+     */
+    @ParameterizedTest(name = "{0} → SPA-Shell")
+    @ValueSource(strings = {
+        "/dashboard", "/login", "/register", "/categories", "/import",
+        "/onboarding", "/fixkosten", "/styleguide"
+    })
+    void spaDeepLinkForwardsToIndexHtml(String route) {
+        // Hard-Reload/Deep-Link einer client-seitigen Route → SPA-Shell, ohne Auth.
+        ResponseEntity<String> response = restTemplate.getForEntity(route, String.class);
 
-    @Test
-    void importApiIsNotShadowedBySpaForward() throws Exception {
-        // Regression-Guard für die Kollision, die CLIENT_ROUTE_PATTERNS exakt hält: /import ist
-        // Frontend-Route UND API-Prefix. Mit /import/** wäre dieser Pfad permitAll und der
-        // geplante GET /import/{jobId}/status ohne Auth lesbar (Risiko #2). 401 ist hier das
-        // richtige Ergebnis — nicht 200 mit index.html.
-        mockMvc.perform(get("/import/42/status")).andExpect(status().isUnauthorized());
-    }
-
-    @Test
-    void mappingMatchesRoutePatterns() throws Exception {
-        // CLIENT_ROUTE_PATTERNS und das @GetMapping des Controllers sind zwangsläufig zwei
-        // Literal-Listen (Annotation-Werte müssen konstante Ausdrücke sein). Diese Assertion
-        // verhindert, dass sie auseinanderlaufen — genau das war die Ursache der 401-Lücke.
-        GetMapping mapping = SpaForwardController.class
-                .getDeclaredMethod("forwardToSpa")
-                .getAnnotation(GetMapping.class);
-
-        assertThat(mapping.value())
-                .as("@GetMapping muss deckungsgleich mit CLIENT_ROUTE_PATTERNS sein")
-                .containsExactly(SpaForwardController.CLIENT_ROUTE_PATTERNS);
+        assertThat(response.getStatusCode().value())
+                .as("%s muss die SPA-Shell liefern, nicht 401/404", route)
+                .isEqualTo(200);
+        assertThat(response.getBody()).contains(SPA_SHELL_MARKER);
     }
 
     @Test
-    void staticAssetIsPubliclyServed() throws Exception {
-        // Gehashte JS/CSS-Bundles müssen ohne Auth ladbar sein, sonst startet die SPA nicht.
-        mockMvc.perform(get("/main-test.js"))
-                .andExpect(status().isOk());
+    void nestedClientRouteForwardsToIndexHtml() {
+        // Kind-Route ohne eigenen Eintrag in irgendeiner Liste — der Catch-all deckt Nesting
+        // strukturell ab (vorher hätte das ein weiteres exaktes Pattern gebraucht, INFRA-17).
+        ResponseEntity<String> response =
+                restTemplate.getForEntity("/categories/lebensmittel", String.class);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        assertThat(response.getBody()).contains(SPA_SHELL_MARKER);
     }
 
     @Test
-    void apiRemainsProtected() throws Exception {
+    void importApiIsNotShadowedBySpaForward() {
+        // Regression-Guard: /api/import ist Frontend-Route-Namensvetter UND API-Prefix
+        // (PdfImportController). Der geplante GET /api/import/{jobId}/status muss 401 bleiben,
+        // nicht 200 mit der SPA-Shell — sonst wären Transaktionsdaten ohne Auth lesbar
+        // (Risiko #2).
+        ResponseEntity<String> response =
+                restTemplate.getForEntity("/api/import/42/status", String.class);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(401);
+    }
+
+    @Test
+    void apiRemainsProtected() {
         // Regression-Guard: die SPA-Freigabe darf die geschützte API nicht öffnen.
-        mockMvc.perform(get("/users/me"))
-                .andExpect(status().isUnauthorized());
+        ResponseEntity<String> response = restTemplate.getForEntity("/api/users/me", String.class);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(401);
+    }
+
+    @Test
+    void staticAssetIsPubliclyServedAndNotShadowed() {
+        // Gehashte JS/CSS-Bundles müssen ohne Auth ladbar sein UND ihren echten Inhalt liefern
+        // — nicht versehentlich vom Catch-all auf die SPA-Shell umgeleitet werden.
+        ResponseEntity<String> response = restTemplate.getForEntity("/main-test.js", String.class);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        assertThat(response.getBody()).contains(STATIC_ASSET_MARKER);
+        assertThat(response.getBody()).doesNotContain(SPA_SHELL_MARKER);
+    }
+
+    @Test
+    void actuatorHealthIsNotShadowedByCatchAll() {
+        // Regression-Guard für INFRA-17: /actuator/health hat wie eine Angular-Kind-Route zwei
+        // Segmente ohne Punkt — ohne den expliziten Ausschluss im SpaForwardController-Regex
+        // hätte der Catch-all ihn geschluckt und die SPA-Shell statt echter Health-Daten
+        // geliefert.
+        ResponseEntity<String> response =
+                restTemplate.getForEntity("/actuator/health", String.class);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        assertThat(response.getBody()).doesNotContain(SPA_SHELL_MARKER);
+    }
+
+    @Test
+    void actuatorInfoIsNotShadowedByCatchAll() {
+        // Der CD-Smoke-Test (INFRA-08) liest den Commit-SHA vor jedem Login — muss echtes JSON
+        // bleiben, nicht die SPA-Shell.
+        ResponseEntity<String> response = restTemplate.getForEntity("/actuator/info", String.class);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        assertThat(response.getBody()).doesNotContain(SPA_SHELL_MARKER);
+    }
+
+    @Test
+    void openApiDocsAreNotShadowedByCatchAll() {
+        ResponseEntity<String> response = restTemplate.getForEntity("/v3/api-docs", String.class);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        assertThat(response.getBody()).doesNotContain(SPA_SHELL_MARKER);
     }
 }

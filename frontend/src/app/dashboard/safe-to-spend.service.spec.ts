@@ -31,7 +31,7 @@ describe('SafeToSpendService', () => {
     let received: SafeToSpendResponse | undefined;
     service.getSafeToSpend().subscribe((response) => (received = response));
 
-    const req = httpMock.expectOne('/budget/safe-to-spend');
+    const req = httpMock.expectOne('/api/budget/safe-to-spend');
     expect(req.request.method).toBe('GET');
     req.flush(RESPONSE);
 

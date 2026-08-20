@@ -108,7 +108,7 @@ export class Shell {
   }
 
   /**
-   * Loggt aus (`POST /auth/logout`), leert den Auth-State und leitet auf `/login`.
+   * Loggt aus (`POST /api/auth/logout`), leert den Auth-State und leitet auf `/login`.
    * Auch bei einem fehlgeschlagenen Backend-Call wird der lokale State geleert und
    * umgeleitet — so bleibt der Nutzer nie in einem scheinbar eingeloggten Zustand.
    */

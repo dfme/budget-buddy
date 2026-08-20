@@ -49,14 +49,14 @@ class JwtCookieAuthenticationFilterTest {
     void validCookieGrantsAccessAndExposesUserId() throws Exception {
         String token = jwtService.generateToken(99L);
 
-        mockMvc.perform(get("/test/me").cookie(new Cookie("jwt", token)))
+        mockMvc.perform(get("/api/test/me").cookie(new Cookie("jwt", token)))
                 .andExpect(status().isOk())
                 .andExpect(content().string("99"));
     }
 
     @Test
     void invalidCookieReturns401() throws Exception {
-        mockMvc.perform(get("/test/me").cookie(new Cookie("jwt", "not-a-valid-jwt")))
+        mockMvc.perform(get("/api/test/me").cookie(new Cookie("jwt", "not-a-valid-jwt")))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -68,20 +68,20 @@ class JwtCookieAuthenticationFilterTest {
                 new JwtService(new JwtProperties(jwtProperties.secret(), Duration.ofSeconds(-1)));
         String expired = expiredIssuer.generateToken(99L);
 
-        mockMvc.perform(get("/test/me").cookie(new Cookie("jwt", expired)))
+        mockMvc.perform(get("/api/test/me").cookie(new Cookie("jwt", expired)))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
     void noCookieReturns401() throws Exception {
-        mockMvc.perform(get("/test/me"))
+        mockMvc.perform(get("/api/test/me"))
                 .andExpect(status().isUnauthorized());
     }
 
     @RestController
     static class TestController {
 
-        @GetMapping("/test/me")
+        @GetMapping("/api/test/me")
         String me(Authentication authentication) {
             return authentication.getPrincipal().toString();
         }

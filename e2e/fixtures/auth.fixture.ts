@@ -12,8 +12,8 @@ export interface TestUser {
  * Erzeugt Credentials, die innerhalb eines Laufs garantiert frei sind.
  *
  * Die E-Mail ist unique, weil alle Tests eines Laufs dieselbe Datenbank teilen (ein Backend,
- * ein Schema) und `POST /auth/register` auf eine vergebene Adresse mit 409 antwortet. Eine feste
- * Adresse würde den zweiten Test im Lauf reissen lassen.
+ * ein Schema) und `POST /api/auth/register` auf eine vergebene Adresse mit 409 antwortet. Eine
+ * feste Adresse würde den zweiten Test im Lauf reissen lassen.
  *
  * `.test` als TLD ist per RFC 2606 für Tests reserviert und kann nie einer echten Domain gehören
  * — kein Risiko, dass ein Testlauf versehentlich eine reale Adresse belegt.
@@ -36,7 +36,7 @@ export function uniqueTestUser(): TestUser {
  * Fixture über die API.
  *
  * Der Trick mit dem httpOnly-Cookie: `context.request` teilt den Cookie-Jar mit dem
- * BrowserContext. Ein `POST /auth/register` darüber landet also im Browser, obwohl das Cookie
+ * BrowserContext. Ein `POST /api/auth/register` darüber landet also im Browser, obwohl das Cookie
  * `HttpOnly` ist und JS es nie sehen kann (ADR-7) — genau deshalb wäre `document.cookie` oder
  * `addInitScript` hier kein Ersatz.
  *
@@ -61,20 +61,20 @@ export const test = base.extend<{
     // baseURL explizit: browser.newContext() erbt die `use`-Optionen der Config nicht.
     const context = await browser.newContext({ baseURL });
 
-    const response = await context.request.post('/auth/register', {
+    const response = await context.request.post('/api/auth/register', {
       data: testUser,
     });
     expect(
       response.status(),
-      `Auth-Fixture: POST /auth/register für ${testUser.email} fehlgeschlagen`,
+      `Auth-Fixture: POST /api/auth/register für ${testUser.email} fehlgeschlagen`,
     ).toBe(201);
 
     // Onboarding abschliessen, sonst würde der onboardingGuard jede spätere Navigation auf
     // /dashboard, /categories oder /import in den Wizard zurückwerfen.
-    const onboarded = await context.request.post('/users/me/onboarding-complete');
+    const onboarded = await context.request.post('/api/users/me/onboarding-complete');
     expect(
       onboarded.status(),
-      `Auth-Fixture: POST /users/me/onboarding-complete für ${testUser.email} fehlgeschlagen`,
+      `Auth-Fixture: POST /api/users/me/onboarding-complete für ${testUser.email} fehlgeschlagen`,
     ).toBe(200);
 
     await use(context);

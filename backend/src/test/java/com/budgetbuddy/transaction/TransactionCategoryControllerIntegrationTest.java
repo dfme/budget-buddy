@@ -89,7 +89,7 @@ class TransactionCategoryControllerIntegrationTest {
 
     @Test
     void updatesCategoryPersistsLookupAndEnablesClaudelessCategorization() throws Exception {
-        mockMvc.perform(put("/transactions/" + transactionId + "/category")
+        mockMvc.perform(put("/api/transactions/" + transactionId + "/category")
                         .cookie(jwtCookie(userId))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("Lebensmittel")))
@@ -115,7 +115,7 @@ class TransactionCategoryControllerIntegrationTest {
 
     @Test
     void foreignTransactionReturns404() throws Exception {
-        mockMvc.perform(put("/transactions/" + transactionId + "/category")
+        mockMvc.perform(put("/api/transactions/" + transactionId + "/category")
                         .cookie(jwtCookie(otherUserId))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("Lebensmittel")))
@@ -124,7 +124,7 @@ class TransactionCategoryControllerIntegrationTest {
 
     @Test
     void unknownTransactionReturns404() throws Exception {
-        mockMvc.perform(put("/transactions/999999/category")
+        mockMvc.perform(put("/api/transactions/999999/category")
                         .cookie(jwtCookie(userId))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("Lebensmittel")))
@@ -133,7 +133,7 @@ class TransactionCategoryControllerIntegrationTest {
 
     @Test
     void invalidCategoryReturns400() throws Exception {
-        mockMvc.perform(put("/transactions/" + transactionId + "/category")
+        mockMvc.perform(put("/api/transactions/" + transactionId + "/category")
                         .cookie(jwtCookie(userId))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("Foobar")))
@@ -142,7 +142,7 @@ class TransactionCategoryControllerIntegrationTest {
 
     @Test
     void blankCategoryReturns400() throws Exception {
-        mockMvc.perform(put("/transactions/" + transactionId + "/category")
+        mockMvc.perform(put("/api/transactions/" + transactionId + "/category")
                         .cookie(jwtCookie(userId))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("")))
@@ -151,7 +151,7 @@ class TransactionCategoryControllerIntegrationTest {
 
     @Test
     void withoutJwtReturns401() throws Exception {
-        mockMvc.perform(put("/transactions/" + transactionId + "/category")
+        mockMvc.perform(put("/api/transactions/" + transactionId + "/category")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("Lebensmittel")))
                 .andExpect(status().isUnauthorized());

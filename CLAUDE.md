@@ -299,6 +299,17 @@ backend/
 
 Regel: Kein direkter Zugriff auf Repositories oder Services eines anderen Moduls. Cross-Modul-Kommunikation nur über definierte Interfaces.
 
+### Backend: REST-Endpoints unter `/api/**`
+
+Jeder Controller bekommt `/api` als Präfix im klassenweiten `@RequestMapping` (z. B. `/api/auth`,
+`/api/transactions`). Der Präfix trennt REST-API strukturell von den client-seitigen
+Angular-Routen: `SecurityConfig` gibt jedes GET ausserhalb von `/api/**` als SPA-Shell frei,
+`SpaForwardController` forwardet es per Catch-all auf `index.html` — ohne enumerierte
+Routen-Liste, die mit `app.routes.ts` synchron gehalten werden müsste.
+
+Regel: Kein Controller ohne `/api`-Präfix. Ein neuer Endpoint ausserhalb davon würde entweder vom
+Catch-all geschluckt oder unbeabsichtigt öffentlich sein.
+
 ### Frontend: Feature-Struktur (nach Domäne)
 
 Angular Feature-Folders analog zu den Backend-Modulen, unterhalb von `frontend/src/app/`:

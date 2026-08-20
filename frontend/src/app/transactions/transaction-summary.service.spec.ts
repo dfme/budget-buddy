@@ -30,7 +30,7 @@ describe('TransactionSummaryService', () => {
     let received: CategorySummary | undefined;
     service.getSummary('2026-07').subscribe((summary) => (received = summary));
 
-    const req = httpMock.expectOne('/transactions/summary?month=2026-07');
+    const req = httpMock.expectOne('/api/transactions/summary?month=2026-07');
     expect(req.request.method).toBe('GET');
     expect(req.request.params.get('month')).toBe('2026-07');
     req.flush(SUMMARY);

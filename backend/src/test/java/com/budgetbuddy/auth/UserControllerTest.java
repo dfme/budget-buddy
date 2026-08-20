@@ -65,7 +65,7 @@ class UserControllerTest {
 
     @Test
     void getCurrentUserWithValidJwtReturnsProfile() throws Exception {
-        mockMvc.perform(get("/users/me").cookie(jwtCookie()))
+        mockMvc.perform(get("/api/users/me").cookie(jwtCookie()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value((int) userId))
                 .andExpect(jsonPath("$.email").value("lara@example.ch"))
@@ -75,13 +75,13 @@ class UserControllerTest {
 
     @Test
     void getCurrentUserWithoutJwtReturns401() throws Exception {
-        mockMvc.perform(get("/users/me"))
+        mockMvc.perform(get("/api/users/me"))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
     void updateIncomeWithPositiveAmountPersistsAndReturns200() throws Exception {
-        mockMvc.perform(put("/users/me/income")
+        mockMvc.perform(put("/api/users/me/income")
                         .cookie(jwtCookie())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"betrag\": 5000.50}"))
@@ -96,7 +96,7 @@ class UserControllerTest {
 
     @Test
     void updateIncomeWithZeroReturns400() throws Exception {
-        mockMvc.perform(put("/users/me/income")
+        mockMvc.perform(put("/api/users/me/income")
                         .cookie(jwtCookie())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"betrag\": 0}"))
@@ -105,7 +105,7 @@ class UserControllerTest {
 
     @Test
     void updateIncomeWithNegativeReturns400() throws Exception {
-        mockMvc.perform(put("/users/me/income")
+        mockMvc.perform(put("/api/users/me/income")
                         .cookie(jwtCookie())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"betrag\": -10}"))
@@ -114,7 +114,7 @@ class UserControllerTest {
 
     @Test
     void updateIncomeWithMissingBetragReturns400() throws Exception {
-        mockMvc.perform(put("/users/me/income")
+        mockMvc.perform(put("/api/users/me/income")
                         .cookie(jwtCookie())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
@@ -123,7 +123,7 @@ class UserControllerTest {
 
     @Test
     void updateIncomeWithoutJwtReturns401() throws Exception {
-        mockMvc.perform(put("/users/me/income")
+        mockMvc.perform(put("/api/users/me/income")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"betrag\": 5000.00}"))
                 .andExpect(status().isUnauthorized());
@@ -135,7 +135,7 @@ class UserControllerTest {
     void onboardingCompleteSetsTheFlagInTheDatabase() throws Exception {
         jdbcTemplate.update("UPDATE users SET onboarding_completed = false WHERE id = ?", userId);
 
-        mockMvc.perform(post("/users/me/onboarding-complete").cookie(jwtCookie()))
+        mockMvc.perform(post("/api/users/me/onboarding-complete").cookie(jwtCookie()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.onboardingCompleted").value(true));
 
@@ -148,10 +148,10 @@ class UserControllerTest {
     void onboardingCompleteIsIdempotent() throws Exception {
         jdbcTemplate.update("UPDATE users SET onboarding_completed = false WHERE id = ?", userId);
 
-        mockMvc.perform(post("/users/me/onboarding-complete").cookie(jwtCookie()))
+        mockMvc.perform(post("/api/users/me/onboarding-complete").cookie(jwtCookie()))
                 .andExpect(status().isOk());
         // Zweiter Aufruf ist kein Fehler — der Client muss den Zustand nicht vorher prüfen.
-        mockMvc.perform(post("/users/me/onboarding-complete").cookie(jwtCookie()))
+        mockMvc.perform(post("/api/users/me/onboarding-complete").cookie(jwtCookie()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.onboardingCompleted").value(true));
 
@@ -160,7 +160,7 @@ class UserControllerTest {
 
     @Test
     void onboardingCompleteWithoutJwtReturns401() throws Exception {
-        mockMvc.perform(post("/users/me/onboarding-complete"))
+        mockMvc.perform(post("/api/users/me/onboarding-complete"))
                 .andExpect(status().isUnauthorized());
     }
 

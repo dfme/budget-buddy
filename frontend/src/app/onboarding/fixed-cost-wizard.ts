@@ -24,7 +24,7 @@ import { MIN_BETRAG_CHF, maxTwoDecimals, nonBlank } from './fixed-cost.validator
  * Krankenkasse und Handy am Stück.
  *
  * <p>Der Abschluss des Onboardings hängt seit FE-FC-02 (#25) hier: ein Button unter dem
- * Formular ruft `POST /users/me/onboarding-complete` und navigiert aufs Dashboard. Er
+ * Formular ruft `POST /api/users/me/onboarding-complete` und navigiert aufs Dashboard. Er
  * deckt beide Wege aus US-03 ab — «Keine Fixkosten» bestätigen und «mindestens ein
  * Eintrag gespeichert»; unterschieden werden sie nur durch die Beschriftung, die Aktion
  * ist dieselbe.
@@ -66,7 +66,7 @@ export class FixedCostWizard {
    *
    * <p>Steuert ausschliesslich die Beschriftung des Abschluss-Buttons, nicht seine Wirkung:
    * beide Wege aus US-03 lösen denselben Request aus. Der Wert ist bewusst sitzungslokal
-   * und wird nicht aus `GET /fixed-costs` abgeleitet — ein Request nur für die Wortwahl
+   * und wird nicht aus `GET /api/fixed-costs` abgeleitet — ein Request nur für die Wortwahl
    * eines Buttons wäre nicht zu rechtfertigen, und die bereits erfassten Positionen zeigt
    * ohnehin erst die Liste aus FE-FC-03 (#26).
    */
