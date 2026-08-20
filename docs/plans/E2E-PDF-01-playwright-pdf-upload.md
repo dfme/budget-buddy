@@ -117,6 +117,37 @@ zurück, und welche Händler die Lookup-Tabelle aus V04 kennt, ist nicht Gegenst
 - [ ] Test liegt unter `e2e/tests/` und läuft grün via `npm test` in `e2e/`
 - [ ] Der Test läuft im bestehenden CI-Job `E2E (Playwright)` mit — kein neuer Job nötig
 
+## Nachtrag: Scope-Erweiterung (nach der Plan-Bestätigung)
+
+Beim Betrachten der Testläufe fiel auf, dass Playwright für die neuen Tests **keine Videos**
+aufzeichnet, für die meisten Tests in `auth.spec.ts` dagegen schon. Der Befund gehört nicht zu
+US-04, sondern zur Harness aus #91 — auf ausdrückliche Ansage im selben PR mitgenommen statt als
+Folge-Issue.
+
+**Ursache:** `video`, `trace`, `screenshot` und `baseURL` werden nicht vom Browser aus der Config
+gelesen, sondern von Playwrights `_contextFactory`-Fixture beim Erzeugen des Contexts
+zusammengebaut (`node_modules/playwright/lib/index.js`): sie schreibt `recordVideo` in die
+Context-Optionen und speichert das Video beim Schliessen an den Ort, den der HTML-Report erwartet.
+`authenticatedContext` erzeugte seinen Context aber selbst über `browser.newContext({ baseURL })`
+und ging an dieser Maschinerie vorbei — jeder Test auf dieser Fixture blieb stumm ohne Artefakte.
+Sichtbar war das als „5 Videos bei 6 Tests" in `auth.spec.ts`: ohne Video blieb genau der Test,
+der `authenticatedPage` benutzt.
+
+`contextOptions` als Fixture zu nehmen hätte nicht geholfen — `recordVideo` steht dort nicht drin,
+es entsteht erst in der `_contextFactory`.
+
+**Fix:** `authenticatedContext` setzt auf Playwrights eingebauter `context`-Fixture auf. Damit
+greifen alle `use`-Optionen automatisch; das explizite `baseURL`-Argument und das manuelle
+`context.close()` entfallen.
+
+**Video-Modus:** `retain-on-failure` statt des zum Debuggen gesetzten `on`. Aufgezeichnet wird
+immer, behalten nur beim Fehlschlag — konsistent mit `screenshot: 'only-on-failure'` und mit dem
+bestehenden Grundsatz, dass ein grüner Lauf keine Artefakte hinterlässt. `on` schriebe bei jedem
+grünen CI-Lauf ein Video pro Test.
+
+`spa-routing.spec.ts` bleibt bewusst ohne Video: diese Tests benutzen nur die `request`-Fixture
+(`APIRequestContext`) und öffnen nie eine Browser-Seite — dort gibt es nichts aufzunehmen.
+
 ## Offener Punkt (nicht blockierend)
 
 `Area` ist für #122 im Sprint Board leer (Story Points 3 und Sprint 5 stehen). Gemeldet, nicht

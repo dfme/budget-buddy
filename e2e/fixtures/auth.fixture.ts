@@ -56,11 +56,21 @@ export const test = base.extend<{
     await use(uniqueTestUser());
   },
 
-  /** BrowserContext mit gültigem JWT-Cookie, Konto frisch über die API angelegt. */
-  authenticatedContext: async ({ browser, baseURL, testUser }, use) => {
-    // baseURL explizit: browser.newContext() erbt die `use`-Optionen der Config nicht.
-    const context = await browser.newContext({ baseURL });
-
+  /**
+   * BrowserContext mit gültigem JWT-Cookie, Konto frisch über die API angelegt.
+   *
+   * Aufgesetzt auf Playwrights eingebaute `context`-Fixture statt auf ein eigenes
+   * `browser.newContext()`. Der Unterschied ist nicht kosmetisch: `video`, `trace`, `screenshot`
+   * und `baseURL` aus dem `use`-Block der Config werden nicht vom Browser gelesen, sondern von
+   * Playwrights `_contextFactory` beim Erzeugen des Contexts zusammengebaut — sie schreibt
+   * `recordVideo` hinein und hängt das Video beim Schliessen an den Report. Ein selbst erzeugter
+   * Context geht daran vorbei und liefert stumm keine Artefakte: jeder Test auf dieser Fixture
+   * blieb ohne Video, während die Tests auf der eingebauten `page`-Fixture welche hatten.
+   *
+   * Kein eigenes `context.close()` mehr: das erledigt die eingebaute Fixture — und nur ihr
+   * Schliessen speichert das Video an den Ort, den der Report erwartet.
+   */
+  authenticatedContext: async ({ context, testUser }, use) => {
     const response = await context.request.post('/auth/register', {
       data: testUser,
     });
@@ -78,7 +88,6 @@ export const test = base.extend<{
     ).toBe(200);
 
     await use(context);
-    await context.close();
   },
 
   /** Page im eingeloggten Context — der übliche Einstieg für geschützte Routen. */
