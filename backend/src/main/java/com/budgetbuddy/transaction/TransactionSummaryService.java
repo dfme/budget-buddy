@@ -27,8 +27,8 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>Derselbe Ausgabenbegriff — nur Belastungen, ganzer Monat — trägt den Safe-to-Spend aus US-06.
  * Diese Klasse stellt ihn deshalb zusätzlich als {@link MonthlyExpensePort} bereit, damit das
- * budget-Modul die Summe beziehen kann, ohne auf das {@link TransactionRepository} zuzugreifen
- * (Modulgrenze, CLAUDE.md).
+ * budget-Modul die Belastungen beziehen kann, ohne auf das {@link TransactionRepository}
+ * zuzugreifen (Modulgrenze, CLAUDE.md).
  */
 @Service
 public class TransactionSummaryService implements MonthlyExpensePort {
@@ -87,22 +87,34 @@ public class TransactionSummaryService implements MonthlyExpensePort {
     /**
      * {@inheritDoc}
      *
-     * <p>Liest über dieselbe Query und summiert nach derselben Regel wie
-     * {@link #summarize(long, String)} — die Summe hier und {@code CategorySummaryResponse.total()}
-     * für denselben Monat sind damit zwangsläufig identisch. Summiert wird in Java über
-     * {@link BigDecimal} und nicht per {@code SUM} in SQL; die Begründung steht in
-     * {@link TransactionRepository}.
+     * <p>Liest über dieselbe Query und mit derselben Auswahlregel wie
+     * {@link #summarize(long, String)} — die Beträge hier und die Posten, die
+     * {@code CategorySummaryResponse.total()} für denselben Monat aufsummiert, sind damit
+     * zwangsläufig dieselben.
+     *
+     * <p>Gestrichen wird hier nichts: welche Belastung die Zahlung einer Fixkosten-Position ist,
+     * entscheidet das budget-Modul (ADR-13, BE-STS-04). Die Kategorie-Übersicht zeigt eine per
+     * Dauerauftrag bezahlte Miete deshalb weiterhin — sie ist eine echte Belastung des Kontos und
+     * gehört unter «Wohnen». Nur aus dem Safe-to-Spend-Summanden fällt sie heraus.
+     *
+     * <p>{@code setScale(2)} auf jedem Betrag: die Zusage «Skala 2 nach aussen» ist damit eine
+     * Eigenschaft dieser Schicht statt eine geliehene Eigenschaft der Datenbank — dieselbe
+     * Überlegung wie in {@code FixedCostService.toResponse(...)}. {@link RoundingMode#UNNECESSARY},
+     * weil {@code transactions.betrag} als {@code numeric(10,2)} nie mehr Stellen tragen kann; täte
+     * es das doch, wäre das ein Datendefekt und soll laut scheitern.
      */
     @Override
     @Transactional(readOnly = true)
-    public BigDecimal sumExpenses(long userId, YearMonth month) {
-        BigDecimal sum = BigDecimal.ZERO.setScale(2);
-        for (Transaction tx : transactionRepository
+    public List<BigDecimal> expenseAmounts(long userId, YearMonth month) {
+        List<Transaction> expenses = transactionRepository
                 .findByUserIdAndIncomeFalseAndBuchungsdatumBetween(
-                        userId, month.atDay(1), month.atEndOfMonth())) {
-            sum = sum.add(tx.getBetrag());
+                        userId, month.atDay(1), month.atEndOfMonth());
+
+        List<BigDecimal> amounts = new ArrayList<>(expenses.size());
+        for (Transaction tx : expenses) {
+            amounts.add(tx.getBetrag().setScale(2, RoundingMode.UNNECESSARY));
         }
-        return sum;
+        return List.copyOf(amounts);
     }
 
     /**

@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.budgetbuddy.auth.UserIncomePort;
+import com.budgetbuddy.budget.dto.FixedCostResponse;
 import com.budgetbuddy.budget.dto.FixedCostSummaryResponse;
 import com.budgetbuddy.budget.dto.SafeToSpendResponse;
 import com.budgetbuddy.transaction.IncomeSuggestionPort;
@@ -103,6 +104,95 @@ class SafeToSpendServiceTest {
         givenExpenses("400.03");
 
         assertThat(service.calculate(USER_ID).amount()).isEqualByComparingTo("199.98");
+    }
+
+    // --- BE-STS-04 / ADR-13: Fixkosten mindern den Betrag genau einmal ---
+
+    @Test
+    void aStandingOrderPaidFixedCostIsDeductedExactlyOnce() {
+        // Der Regressionsfall aus #154: Miete 1'200 ist als Fixkosten-Position erfasst und geht
+        // per Dauerauftrag ab, erscheint also zusätzlich als Belastung im importierten Auszug.
+        //
+        //   vorher (Doppelabzug): 3000 − 1200 − (1200 + 300) = 300      ÷ 4 =  75.00
+        //   jetzt:                3000 − 1200 −         300  = 1500     ÷ 4 = 375.00
+        givenToday("2026-02-01");
+        givenIncome("3000.00");
+        givenFixedCostPositions("1200.00", position("Miete", "1200.00", "monatlich", "1200.00"));
+        givenExpenseAmounts("1200.00", "300.00");
+
+        SafeToSpendResponse result = service.calculate(USER_ID);
+
+        assertThat(result.amount()).isEqualByComparingTo("375.00");
+        assertThat(result.negative()).isFalse();
+    }
+
+    @Test
+    void withoutAMatchingDebitTheFixedCostStillCountsOnce() {
+        // Gegenprobe: dieselbe Position, aber in diesem Monat nicht abgebucht (Zahlungsaufschub).
+        // Es darf nichts gestrichen werden — sonst zählte die Position gar nicht.
+        //
+        //   3000 − 1200 − 300 = 1500 ÷ 4 = 375.00
+        givenToday("2026-02-01");
+        givenIncome("3000.00");
+        givenFixedCostPositions("1200.00", position("Miete", "1200.00", "monatlich", "1200.00"));
+        givenExpenseAmounts("300.00");
+
+        SafeToSpendResponse result = service.calculate(USER_ID);
+
+        assertThat(result.amount()).isEqualByComparingTo("375.00");
+    }
+
+    @Test
+    void onlyOneDebitPerFixedCostPositionIsExcluded() {
+        // Nachzahlung: die Miete geht im selben Monat zweimal ab. Die zweite Abbuchung ist eine
+        // echte zusätzliche Belastung und muss durchschlagen — sonst verschluckte die Regel Geld,
+        // das der User tatsächlich ausgegeben hat.
+        //
+        //   3000 − 1200 − 1200 = 600 ÷ 4 = 150.00
+        givenToday("2026-02-01");
+        givenIncome("3000.00");
+        givenFixedCostPositions("1200.00", position("Miete", "1200.00", "monatlich", "1200.00"));
+        givenExpenseAmounts("1200.00", "1200.00");
+
+        SafeToSpendResponse result = service.calculate(USER_ID);
+
+        assertThat(result.amount()).isEqualByComparingTo("150.00");
+    }
+
+    @Test
+    void anAnnualFixedCostIsExcludedAtItsDebitAmountNotItsMonthlyShare() {
+        // Versicherung 1'200 jährlich → Monatsanteil 100.00, Abbuchung aber 1'200 im Zahlungsmonat.
+        // Gestrichen wird die volle Abbuchung; auf der Fixkosten-Seite stehen die 100.00.
+        //
+        //   3000 − 100 − 300 = 2600 ÷ 4 = 650.00
+        // Mit monatsbetrag als Vergleichswert bliebe die 1'200er-Belastung stehen: 350.00.
+        givenToday("2026-02-01");
+        givenIncome("3000.00");
+        givenFixedCostPositions(
+                "100.00", position("Versicherung", "1200.00", "jaehrlich", "100.00"));
+        givenExpenseAmounts("1200.00", "300.00");
+
+        SafeToSpendResponse result = service.calculate(USER_ID);
+
+        assertThat(result.amount()).isEqualByComparingTo("650.00");
+    }
+
+    @Test
+    void twoEquallyPricedPositionsExcludeTwoDebits() {
+        // Zwei Abos zu je 59.00, drei Belastungen über 59.00: zwei fallen weg, die dritte bleibt.
+        //
+        //   2000 − 118 − (59 + 41) = 1782 ÷ 4 = 445.50
+        givenToday("2026-02-01");
+        givenIncome("2000.00");
+        givenFixedCostPositions(
+                "118.00",
+                position("Handy", "59.00", "monatlich", "59.00"),
+                position("Streaming", "59.00", "monatlich", "59.00"));
+        givenExpenseAmounts("59.00", "59.00", "59.00", "41.00");
+
+        SafeToSpendResponse result = service.calculate(USER_ID);
+
+        assertThat(result.amount()).isEqualByComparingTo("445.50");
     }
 
     // --- AC2: Divisor ist mindestens 1 (kein Division-by-Zero) ---
@@ -200,7 +290,7 @@ class SafeToSpendServiceTest {
         // «Keine Division wird ausgeführt» (US-06): belegt dadurch, dass die beiden anderen
         // Eingabewerte gar nicht erst gelesen werden. Ein null-Betrag allein zeigte das nicht.
         verify(fixedCostService, never()).list(anyLong());
-        verify(monthlyExpensePort, never()).sumExpenses(anyLong(), any());
+        verify(monthlyExpensePort, never()).expenseAmounts(anyLong(), any());
     }
 
     // --- BE-STS-02: Einkommens-Vorschlag ---
@@ -255,11 +345,11 @@ class SafeToSpendServiceTest {
         when(clock.instant()).thenReturn(Instant.parse("2026-07-31T23:30:00Z"));
         givenIncome("1000.00");
         givenFixedCosts("0.00");
-        when(monthlyExpensePort.sumExpenses(eq(USER_ID), any())).thenReturn(new BigDecimal("0.00"));
+        when(monthlyExpensePort.expenseAmounts(eq(USER_ID), any())).thenReturn(List.of());
 
         SafeToSpendResponse result = service.calculate(USER_ID);
 
-        verify(monthlyExpensePort).sumExpenses(USER_ID, YearMonth.of(2026, 8));
+        verify(monthlyExpensePort).expenseAmounts(USER_ID, YearMonth.of(2026, 8));
         // August hat 31 Tage: ein voller Monat ergibt 5 Wochen, der Juli-Rest hätte 1 ergeben.
         assertThat(result.weeksLeft()).isEqualTo(5);
     }
@@ -277,7 +367,7 @@ class SafeToSpendServiceTest {
 
         verify(userIncomePort).findMonthlyIncome(USER_ID);
         verify(fixedCostService).list(USER_ID);
-        verify(monthlyExpensePort).sumExpenses(USER_ID, YearMonth.of(2026, 8));
+        verify(monthlyExpensePort).expenseAmounts(USER_ID, YearMonth.of(2026, 8));
     }
 
     // --- Helfer ---
@@ -299,9 +389,38 @@ class SafeToSpendServiceTest {
                         List.of(), new BigDecimal(summeMonatlich), null, false));
     }
 
+    /**
+     * Stellt die Belastungen des Monats als <em>eine</em> Buchung in dieser Höhe ein. Für alle
+     * Tests ohne erfasste Fixkosten-Positionen ist das gleichbedeutend mit der früheren
+     * Monatssumme — ohne Positionen streicht der {@link FixedCostDebitMatcher} nichts.
+     */
     private void givenExpenses(String summe) {
-        when(monthlyExpensePort.sumExpenses(eq(USER_ID), any()))
-                .thenReturn(new BigDecimal(summe));
+        when(monthlyExpensePort.expenseAmounts(eq(USER_ID), any()))
+                .thenReturn(List.of(new BigDecimal(summe)));
+    }
+
+    /** Stellt die Belastungen des Monats als einzelne Buchungen ein (BE-STS-04). */
+    private void givenExpenseAmounts(String... betraege) {
+        when(monthlyExpensePort.expenseAmounts(eq(USER_ID), any()))
+                .thenReturn(List.of(betraege).stream().map(BigDecimal::new).toList());
+    }
+
+    /**
+     * Stellt erfasste Fixkosten-Positionen samt Monatssumme ein — anders als
+     * {@link #givenFixedCosts(String)}, das die Liste leer lässt. Erst damit hat der
+     * {@link FixedCostDebitMatcher} etwas, woran er streichen kann.
+     */
+    private void givenFixedCostPositions(String summeMonatlich, FixedCostResponse... positionen) {
+        when(fixedCostService.list(USER_ID))
+                .thenReturn(new FixedCostSummaryResponse(
+                        List.of(positionen), new BigDecimal(summeMonatlich), null, false));
+    }
+
+    /** Fixkosten-Position, wie {@code FixedCostService.list(...)} sie liefert. */
+    private static FixedCostResponse position(
+            String bezeichnung, String betrag, String intervall, String monatsbetrag) {
+        return new FixedCostResponse(
+                1L, bezeichnung, new BigDecimal(betrag), intervall, new BigDecimal(monatsbetrag));
     }
 
     /**
