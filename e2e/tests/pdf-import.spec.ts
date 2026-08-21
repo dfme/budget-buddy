@@ -18,9 +18,14 @@ test.describe('PDF-Import', () => {
    * Fallback parst: `Saldovortrag` als Startsaldo, danach `dd.MM.yyyy`-Zeilen mit Betrag und
    * laufendem Saldo. Fünf Buchungen aus Juni 2025.
    *
-   * Die Datei ist bewusst unkomprimiert und damit im git-Diff lesbar — bei einer Fixture, deren
-   * Kerneigenschaft «enthält keine echten Kontodaten» ist, wäre ein Binär-Blob die falsche
-   * Ablageform.
+   * Die Datei ist bewusst unkomprimiert: reines ASCII, das `cat`, jeder Editor und `git diff`
+   * lesbar ausgeben — bei einer Fixture, deren Kerneigenschaft «enthält keine echten Kontodaten»
+   * ist, wäre ein Binär-Blob die falsche Ablageform.
+   *
+   * Nur im PR-Review auf GitHub greift das nicht: dort steht «Binary files differ», weil GitHub
+   * nach der Endung klassifiziert. Ein `.gitattributes` mit gesetztem `diff`-Attribut ändert das
+   * nicht — nachgemessen an einem Commit, der nur diese Datei anfasst (Files-API weiterhin
+   * `has_patch: false`). Wer den Inhalt prüfen will, tut das an der ausgecheckten Datei.
    */
   const FIXTURE_PDF = join(__dirname, '..', 'fixtures', 'pdf', 'kontoauszug-synthetisch.pdf');
 

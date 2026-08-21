@@ -23,10 +23,16 @@ CI-Job und `authenticatedPage`-Fixture stehen, das Gerüst wird nicht dupliziert
 
 Das PDF wird als unkomprimiertes Text-Layer-PDF von Hand geschrieben (Content-Stream ohne
 `FlateDecode`, `Helvetica`/`WinAnsiEncoding`, korrekt berechnete xref-Offsets). Es ist damit reines
-ASCII von ~1.2 KB und steht als Klartext im Diff — ein Reviewer sieht ohne Werkzeug, dass keine
-echten Kontodaten enthalten sind. Ein von PDFBox erzeugtes PDF läge als Blob im Repo, und genau
-das ist bei einer Fixture, deren Kerneigenschaft „enthält keine echten Kontodaten" ist, die
-falsche Ablageform.
+ASCII von ~1.4 KB: `cat`, jeder Editor und `git diff` geben den Auszug im Klartext aus. Ein von
+PDFBox erzeugtes PDF läge als Blob im Repo, und genau das ist bei einer Fixture, deren
+Kerneigenschaft „enthält keine echten Kontodaten" ist, die falsche Ablageform.
+
+**Korrektur nach dem Review (#188):** Die ursprüngliche Formulierung hier lautete „ein Reviewer
+sieht **ohne Werkzeug**, dass keine echten Kontodaten enthalten sind". Das gilt lokal, aber nicht
+im GitHub-PR — dort steht „Binary files differ", weil GitHub nach der Endung klassifiziert und
+nicht nach dem Inhalt (Files-API: `additions: 0, has_patch: false`). Der Nutzen der Ablageform war
+damit an der Stelle überschätzt, an der tatsächlich reviewt wird. Der Entscheid bleibt trotzdem
+richtig — auditierbar ist die Datei, nur eben an der ausgecheckten Kopie.
 
 Kein Generator-Skript im Repo: die Datei ist das Artefakt, sie ist lesbar, und ein Skript wäre
 zusätzliche Oberfläche für etwas, das genau einmal erzeugt wird.
@@ -95,7 +101,7 @@ Der Task **ist** der Test — es kommen keine Unit-Tests dazu.
 
 | Fall | Ablauf | Assertion |
 | --- | --- | --- |
-| Happy Path | `authenticatedPage` → `/import` → `setInputFiles(fixture)` | `app-notice.notice--info[role=status]` mit `5 Transaktionen erkannt.`; anschliessend Quergegenprobe auf `/categories?month=2025-06`: die Tabelle hat Zeilen und zeigt **nicht** „Keine Ausgaben in diesem Monat." |
+| Happy Path | `authenticatedPage` → `/import` → `setInputFiles(fixture)` | `app-notice.notice--info[role=status]` mit `5 Transaktionen erkannt.`; anschliessend Quergegenprobe auf `/categories?month=2025-06`: die Tabelle hat Zeilen |
 | Fehlerpfad | `authenticatedPage` → `/import` → `setInputFiles({name:'kaputt.pdf', mimeType:'application/pdf', buffer})` | `app-notice.notice--error[role=alert]` mit der Format-Meldung; `.notice--info` nicht vorhanden |
 
 Die Quergegenprobe im Happy Path ist bewusst Teil des Falls: die Erfolgsmeldung trägt nur die Zahl
@@ -147,6 +153,29 @@ grünen CI-Lauf ein Video pro Test.
 
 `spa-routing.spec.ts` bleibt bewusst ohne Video: diese Tests benutzen nur die `request`-Fixture
 (`APIRequestContext`) und öffnen nie eine Browser-Seite — dort gibt es nichts aufzunehmen.
+
+## Nachtrag: Befunde aus dem Review zu #188
+
+Der Review war ein `APPROVED` ohne blockierende Befunde. Vier nicht-blockierende Punkte wurden
+nachgeprüft — alle vier bestätigt — und im selben PR nachgezogen:
+
+1. **Fixture-Lesbarkeit auf GitHub** — siehe die Korrektur oben unter Entscheid 1. Der naheliegende
+   Fix, `.gitattributes` mit gesetztem `diff`-Attribut für den Fixture-Pfad, wurde **ausprobiert und
+   verworfen**: auf einem Wegwerf-Branch, auf dem `.gitattributes` auf beiden Seiten des Vergleichs
+   lag und sich nur das PDF änderte, meldete die Files-API weiterhin `has_patch: false`. GitHub
+   ignoriert das Attribut für `.pdf`. Statt einer wirkungslosen Datei im Repo steht die Einschränkung
+   jetzt dort, wo sie hingehört: im Plan, im Spec-Kommentar und in `e2e/README.md`.
+2. **Redundante Leerzustands-Assertion entfernt** — `tbody tr` und «Keine Ausgaben in diesem Monat.»
+   liegen in gegenseitig ausschliessenden `@else if`-Zweigen von `category-overview.html`. Nach dem
+   Warten auf die Tabellenzeile konnte die Negativ-Assertion nicht mehr fehlschlagen; der Kommentar
+   versprach einen Schutz, den der Ausdruck nicht liefert.
+3. **Timeout auf 60s** als benannte Konstante `IMPORT_RESULT_TIMEOUT_MS`. `PdfImportService` prüft
+   sein Zeitbudget (Default 30s) nur zwischen den Phasen; der letzte Claude-Call kann es um bis zu
+   20s überziehen, real also ~50s. Mit 30s hätte ein legitim langsamer Import als Testfehler
+   gegolten, sobald die Testinstanz je einen `ANTHROPIC_API_KEY` bekommt.
+4. **Index-Drift behoben** — `scripts/plans-index.sh` liess zwei vorbestehende Zeilen (`FE-PDF-03`,
+   `FE-STS-01`) mit Titel-Präfix abweichen. Nicht von diesem PR verursacht, aber schon im Review zu
+   #184 vertagt und deshalb hier miterledigt.
 
 ## Offener Punkt (nicht blockierend)
 
