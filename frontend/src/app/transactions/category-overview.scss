@@ -130,6 +130,12 @@ tfoot td {
   margin-bottom: $sp-4;
 }
 
+// Fehler beim Nachladen, unterhalb der bereits sichtbaren Buchungen (FE-UI-07): als Banner
+// braucht er Abstand zur Liste, den der frühere zentrierte Statustext über sein Padding hatte.
+.drilldown__error {
+  margin-top: $sp-3;
+}
+
 .status {
   text-align: center;
   padding: $sp-5 0;
@@ -137,9 +143,4 @@ tfoot td {
 
 .status.empty {
   color: $c-ink-2;
-}
-
-.status.error {
-  color: $c-negative;
-  font-weight: 600;
 }

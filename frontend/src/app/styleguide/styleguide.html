@@ -78,6 +78,19 @@
     <app-notice variant="error">E-Mail oder Passwort falsch</app-notice>
   </div>
 
+  <h3 class="sg-label sg-label--sub">Mit Titel</h3>
+  <div class="sg-stack">
+    <app-notice title="Kein Einkommen erfasst">
+      Bitte erfasse dein Monatseinkommen in den Einstellungen
+    </app-notice>
+    <app-notice variant="info" title="Kontoauszug importiert">
+      42 Transaktionen erkannt und kategorisiert.
+    </app-notice>
+    <app-notice variant="error" title="Import fehlgeschlagen">
+      Das PDF ist passwortgeschützt — bitte lade eine ungeschützte Version hoch.
+    </app-notice>
+  </div>
+
   <h2 class="sg-label">Chip</h2>
   <div class="sg-row sg-row--wrap">
     <button appChip [selected]="chipSelected()" (click)="chipSelected.set(true)">
