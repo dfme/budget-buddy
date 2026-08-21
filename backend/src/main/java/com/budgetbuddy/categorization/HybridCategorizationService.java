@@ -1,5 +1,8 @@
 package com.budgetbuddy.categorization;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,6 +16,12 @@ import org.springframework.stereotype.Service;
  *
  * <p>Die Reihenfolge ist der Kern von ADR-6: Der Lookup deckt ~70–80% der Transaktionen kostenlos
  * ab, sodass pro Import nur ~20–30% überhaupt einen API-Call auslösen.
+ *
+ * <p><strong>{@link #categorizeAll} hält die Stufen getrennt</strong> (ADR-13, BE-PDF-09): Erst
+ * läuft der Lookup über <em>alle</em> Texte, dann geht der Rest in einem Zug an Claude. Würde
+ * stattdessen der Default aus {@link CategorizationPort} greifen, liefe die Kette pro Text einmal
+ * durch und jede unbekannte Transaktion löste wieder ihren eigenen Request aus — genau die
+ * Sequenzialität, die #192 verursacht hat.
  *
  * <p>{@link Primary}, weil es drei {@link CategorizationPort}-Beans gibt: Aufrufer, die den Port
  * injizieren, sollen die vollständige Kette bekommen und nicht versehentlich eine Einzelstufe.
@@ -38,21 +47,47 @@ public class HybridCategorizationService implements CategorizationPort {
 
     @Override
     public Optional<CategorizationResult> categorize(String transactionText) {
-        if (transactionText == null || transactionText.isBlank()) {
-            return Optional.empty();
+        return categorizeAll(Collections.singletonList(transactionText)).get(0);
+    }
+
+    @Override
+    public List<Optional<CategorizationResult>> categorizeAll(List<String> transactionTexts) {
+        List<Optional<CategorizationResult>> results =
+                new ArrayList<>(Collections.nCopies(transactionTexts.size(), Optional.empty()));
+
+        // Stufe 1: bekannte Händler → fertig, kein API-Call.
+        List<Integer> unknown = new ArrayList<>();
+        for (int i = 0; i < transactionTexts.size(); i++) {
+            String text = transactionTexts.get(i);
+            if (text == null || text.isBlank()) {
+                continue;
+            }
+            Optional<CategorizationResult> fromLookup = lookupTableService.categorize(text);
+            if (fromLookup.isPresent()) {
+                // Transaktionstext redigiert (BE-PDF-06): auch DEBUG darf keine Zahlungsdaten tragen.
+                log.debug("{} via Lookup-Tabelle als '{}' kategorisiert.",
+                        LogRedaction.redact(text), fromLookup.get().category().getLabel());
+                results.set(i, fromLookup);
+            } else {
+                unknown.add(i);
+            }
         }
 
-        // Stufe 1: bekannter Händler → fertig, kein API-Call.
-        Optional<CategorizationResult> fromLookup = lookupTableService.categorize(transactionText);
-        if (fromLookup.isPresent()) {
-            // Transaktionstext redigiert (BE-PDF-06): auch DEBUG darf keine Zahlungsdaten tragen.
-            log.debug("{} via Lookup-Tabelle als '{}' kategorisiert.",
-                    LogRedaction.redact(transactionText), fromLookup.get().category().getLabel());
-            return fromLookup;
+        if (unknown.isEmpty()) {
+            return results;
         }
 
-        // Stufe 2: unbekannt → Claude.
-        return Optional.of(categorizeWithClaude(transactionText));
+        // Stufe 2: alles Unbekannte in einem Zug an Claude.
+        List<String> unknownTexts = unknown.stream().map(transactionTexts::get).toList();
+        List<Optional<CategorizationResult>> fromClaude = categorizeWithClaude(unknownTexts);
+        for (int position = 0; position < unknown.size(); position++) {
+            results.set(
+                    unknown.get(position),
+                    Optional.of(fromClaude.get(position).orElse(
+                            new CategorizationResult(
+                                    Category.SONSTIGES, CategorizationResult.Source.CLAUDE))));
+        }
+        return results;
     }
 
     /**
@@ -60,17 +95,13 @@ public class HybridCategorizationService implements CategorizationPort {
      * bereits selbst ab. Der Catch hier deckt alles darüber hinaus ab — ein unerwarteter
      * Laufzeitfehler aus dem SDK darf den synchronen Import-Flow nicht abbrechen (Churn-Risiko #1).
      */
-    private CategorizationResult categorizeWithClaude(String transactionText) {
+    private List<Optional<CategorizationResult>> categorizeWithClaude(List<String> texts) {
         try {
-            return claudeCategorizationService
-                    .categorize(transactionText)
-                    .orElse(new CategorizationResult(
-                            Category.SONSTIGES, CategorizationResult.Source.CLAUDE));
+            return claudeCategorizationService.categorizeAll(texts);
         } catch (RuntimeException e) {
-            log.warn("Unerwarteter Fehler bei der Claude-Kategorisierung von {} — Fallback "
-                    + "'Sonstiges'.", LogRedaction.redact(transactionText), e);
-            return new CategorizationResult(
-                    Category.SONSTIGES, CategorizationResult.Source.CLAUDE);
+            log.warn("Unerwarteter Fehler bei der Claude-Kategorisierung von {} Transaktion(en) — "
+                    + "Fallback 'Sonstiges'.", texts.size(), e);
+            return Collections.nCopies(texts.size(), Optional.empty());
         }
     }
 }
