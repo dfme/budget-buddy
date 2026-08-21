@@ -26,6 +26,23 @@ import org.testcontainers.containers.PostgreSQLContainer;
  * <p>Isoliert wird stattdessen über eine eigene Datenbank je Testklasse — dasselbe Prinzip wie die
  * frühere Temp-Datei pro Klasse unter SQLite: kein Test sieht die Zeilen eines anderen, und
  * Reihenfolge-Abhängigkeiten können gar nicht erst entstehen.
+ *
+ * <h2>Ein kleiner HikariCP-Pool pro Kontext</h2>
+ *
+ * <p>Dieser Container läuft mit {@code max_connections=100} über alle Testklassen. Jede Klasse
+ * bekommt via {@code @DynamicPropertySource} einen eigenen {@code ApplicationContext}
+ * (unterschiedliche Methodenreferenz = unterschiedlicher Cache-Key), und Spring hält bis zu 32
+ * Kontexte gleichzeitig im Cache (Default {@code spring.test.context.cache.maxSize}) — jeder mit
+ * einem eigenen HikariCP-Pool. Mit dem HikariCP-Default ({@code maximumPoolSize=10}) reichen
+ * schon rund zehn gleichzeitig gecachte Kontexte, um die 100 Verbindungen des Containers
+ * auszuschöpfen; ab dann hängt der nächste Kontextaufbau im HikariCP-{@code connectionTimeout}
+ * fest, und der volle Lauf wirkt wie eingefroren, bis Spring den Kontext nach dem ersten
+ * Fehlschlag als dauerhaft gescheitert markiert ({@code "ApplicationContext failure threshold
+ * exceeded"}). {@link #register} setzt die Pool-Grösse deshalb auf 2 — das reicht für
+ * sequenzielle Tests bequem und hält den Bedarf selbst bei allen 32 gecachten Kontexten unter
+ * dem Limit. Die Grenze sitzt hier statt in {@code application-test.properties}, weil sie für
+ * jede Klasse gelten muss, die sich diesen Container teilt — nicht nur für die mit
+ * {@code @ActiveProfiles("test")}.
  */
 public final class PostgresTestDatabase {
 
@@ -91,6 +108,7 @@ public final class PostgresTestDatabase {
         registry.add("spring.datasource.username", container::getUsername);
         registry.add("spring.datasource.password", container::getPassword);
         registry.add("spring.flyway.enabled", () -> String.valueOf(flywayEnabled));
+        registry.add("spring.datasource.hikari.maximum-pool-size", () -> "2");
     }
 
     /**
