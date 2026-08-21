@@ -14,7 +14,7 @@ const MIETE: FixedCost = {
   intervall: 'monatlich',
 };
 
-/** Antwort von POST /users/me/onboarding-complete. */
+/** Antwort von POST /api/users/me/onboarding-complete. */
 const LARA_ONBOARDED: User = {
   id: 1,
   email: 'lara@example.ch',
@@ -49,7 +49,7 @@ describe('FixedCostWizard', () => {
     component.submit();
     fixture.detectChanges();
 
-    httpMock.expectNone('/fixed-costs');
+    httpMock.expectNone('/api/fixed-costs');
     expect(component.form.controls.bezeichnung.touched).toBe(true);
     expect(component.form.controls.betrag.touched).toBe(true);
     expect(component.bezeichnungError()).toBe('Bezeichnung ist erforderlich.');
@@ -72,7 +72,7 @@ describe('FixedCostWizard', () => {
     component.submit();
     fixture.detectChanges();
 
-    httpMock.expectNone('/fixed-costs');
+    httpMock.expectNone('/api/fixed-costs');
     expect(component.form.valid).toBe(false);
     expect(component.bezeichnungError()).toBe('Bezeichnung ist erforderlich.');
   });
@@ -93,7 +93,7 @@ describe('FixedCostWizard', () => {
 
     component.submit();
 
-    httpMock.expectNone('/fixed-costs');
+    httpMock.expectNone('/api/fixed-costs');
     expect(component.form.controls.betrag.hasError('min')).toBe(true);
     expect(component.betragError()).toBe('Betrag muss grösser als 0 sein.');
   });
@@ -114,7 +114,7 @@ describe('FixedCostWizard', () => {
 
       component.submit();
 
-      httpMock.expectNone('/fixed-costs');
+      httpMock.expectNone('/api/fixed-costs');
       expect(component.form.controls.betrag.hasError('maxDecimals')).toBe(true);
       expect(component.betragError()).toBe('Betrag darf höchstens zwei Nachkommastellen haben.');
     },
@@ -177,12 +177,12 @@ describe('FixedCostWizard', () => {
 
   // --- AC4: Submit + Erfolgs-Feedback ---
 
-  it('sendet POST /fixed-costs und zeigt Erfolgs-Feedback', () => {
+  it('sendet POST /api/fixed-costs und zeigt Erfolgs-Feedback', () => {
     component.form.setValue({ bezeichnung: 'Miete', betrag: 1200, intervall: 'monatlich' });
 
     component.submit();
 
-    const req = httpMock.expectOne('/fixed-costs');
+    const req = httpMock.expectOne('/api/fixed-costs');
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual({
       bezeichnung: 'Miete',
@@ -205,7 +205,7 @@ describe('FixedCostWizard', () => {
 
     component.submit();
     httpMock
-      .expectOne('/fixed-costs')
+      .expectOne('/api/fixed-costs')
       .flush({ id: 2, bezeichnung: 'Serafe', betrag: 335, intervall: 'jaehrlich' });
 
     // Mehrere Positionen am Stueck erfassbar: das Formular bleibt stehen, aber leer.
@@ -219,7 +219,7 @@ describe('FixedCostWizard', () => {
 
     component.submit();
 
-    const req = httpMock.expectOne('/fixed-costs');
+    const req = httpMock.expectOne('/api/fixed-costs');
     expect(req.request.body.bezeichnung).toBe('Miete');
     req.flush(MIETE);
   });
@@ -229,7 +229,7 @@ describe('FixedCostWizard', () => {
 
     component.submit();
     httpMock
-      .expectOne('/fixed-costs')
+      .expectOne('/api/fixed-costs')
       .flush('boom', { status: 500, statusText: 'Internal Server Error' });
     fixture.detectChanges();
 
@@ -245,7 +245,7 @@ describe('FixedCostWizard', () => {
     component.form.setValue({ bezeichnung: 'Miete', betrag: 1200, intervall: 'monatlich' });
 
     component.submit();
-    httpMock.expectOne('/fixed-costs').flush('bad', { status: 400, statusText: 'Bad Request' });
+    httpMock.expectOne('/api/fixed-costs').flush('bad', { status: 400, statusText: 'Bad Request' });
 
     expect(component.errorMessage()).toContain('vom Server abgelehnt');
   });
@@ -253,7 +253,7 @@ describe('FixedCostWizard', () => {
   it('raeumt die alte Erfolgsmeldung weg, bevor der naechste Versuch laeuft', () => {
     component.form.setValue({ bezeichnung: 'Miete', betrag: 1200, intervall: 'monatlich' });
     component.submit();
-    httpMock.expectOne('/fixed-costs').flush(MIETE);
+    httpMock.expectOne('/api/fixed-costs').flush(MIETE);
     expect(component.savedBezeichnung()).toBe('Miete');
 
     component.form.setValue({ bezeichnung: 'Handy', betrag: 40, intervall: 'monatlich' });
@@ -262,7 +262,7 @@ describe('FixedCostWizard', () => {
     // Waehrend der zweite Request laeuft, darf die Meldung des ersten nicht stehen bleiben.
     expect(component.savedBezeichnung()).toBeNull();
     expect(component.submitting()).toBe(true);
-    httpMock.expectOne('/fixed-costs').flush({ ...MIETE, id: 3, bezeichnung: 'Handy', betrag: 40 });
+    httpMock.expectOne('/api/fixed-costs').flush({ ...MIETE, id: 3, bezeichnung: 'Handy', betrag: 40 });
   });
 
   // --- FE-FC-02: Onboarding abschliessen ---
@@ -271,13 +271,13 @@ describe('FixedCostWizard', () => {
   function saveMiete(): void {
     component.form.setValue({ bezeichnung: 'Miete', betrag: 1200, intervall: 'monatlich' });
     component.submit();
-    httpMock.expectOne('/fixed-costs').flush(MIETE, { status: 201, statusText: 'Created' });
+    httpMock.expectOne('/api/fixed-costs').flush(MIETE, { status: 201, statusText: 'Created' });
   }
 
   it('schliesst das Onboarding ab und navigiert aufs Dashboard', () => {
     component.finishOnboarding();
 
-    const req = httpMock.expectOne('/users/me/onboarding-complete');
+    const req = httpMock.expectOne('/api/users/me/onboarding-complete');
     expect(req.request.method).toBe('POST');
     req.flush(LARA_ONBOARDED);
     fixture.detectChanges();
@@ -297,7 +297,7 @@ describe('FixedCostWizard', () => {
 
     button!.click();
 
-    httpMock.expectOne('/users/me/onboarding-complete').flush(LARA_ONBOARDED);
+    httpMock.expectOne('/api/users/me/onboarding-complete').flush(LARA_ONBOARDED);
     expect(navigate).toHaveBeenCalledWith(['/dashboard']);
   });
 
@@ -324,7 +324,7 @@ describe('FixedCostWizard', () => {
     saveMiete();
 
     component.finishOnboarding();
-    httpMock.expectOne('/users/me/onboarding-complete').flush(LARA_ONBOARDED);
+    httpMock.expectOne('/api/users/me/onboarding-complete').flush(LARA_ONBOARDED);
 
     expect(navigate).toHaveBeenCalledWith(['/dashboard']);
   });
@@ -332,7 +332,7 @@ describe('FixedCostWizard', () => {
   it('bleibt im Wizard und meldet den Fehler, wenn der Abschluss scheitert', () => {
     component.finishOnboarding();
     httpMock
-      .expectOne('/users/me/onboarding-complete')
+      .expectOne('/api/users/me/onboarding-complete')
       .flush('boom', { status: 500, statusText: 'Internal Server Error' });
     fixture.detectChanges();
 
@@ -350,7 +350,7 @@ describe('FixedCostWizard', () => {
   it('raeumt die alte Fehlermeldung weg, bevor der naechste Abschlussversuch laeuft', () => {
     component.finishOnboarding();
     httpMock
-      .expectOne('/users/me/onboarding-complete')
+      .expectOne('/api/users/me/onboarding-complete')
       .flush('boom', { status: 500, statusText: 'Internal Server Error' });
     expect(component.completeError()).not.toBeNull();
 
@@ -358,6 +358,6 @@ describe('FixedCostWizard', () => {
 
     expect(component.completeError()).toBeNull();
     expect(component.completing()).toBe(true);
-    httpMock.expectOne('/users/me/onboarding-complete').flush(LARA_ONBOARDED);
+    httpMock.expectOne('/api/users/me/onboarding-complete').flush(LARA_ONBOARDED);
   });
 });

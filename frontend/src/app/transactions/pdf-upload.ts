@@ -28,7 +28,7 @@ export type ImportOutcome =
  *
  * <p>Dropzone mit Drag-and-Drop plus File-Picker als tastaturbedienbare
  * Alternative. Vor dem Upload wird client-seitig validiert (nur `.pdf`,
- * max. 10 MB); während `POST /import/pdf` läuft, zeigt die Dropzone einen
+ * max. 10 MB); während `POST /api/import/pdf` läuft, zeigt die Dropzone einen
  * Spinner und nimmt keine weiteren Dateien an.
  *
  * <p>Der Ausgang landet differenziert in {@link importOutcome}: Erfolg trägt

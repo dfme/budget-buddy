@@ -84,7 +84,7 @@ class TransactionSummaryControllerIntegrationTest {
 
     @Test
     void returnsExpenseSummaryForMonth() throws Exception {
-        mockMvc.perform(get("/transactions/summary").param("month", "2026-07").cookie(jwtCookie()))
+        mockMvc.perform(get("/api/transactions/summary").param("month", "2026-07").cookie(jwtCookie()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.month").value("2026-07"))
                 .andExpect(jsonPath("$.totalCount").value(2))
@@ -102,7 +102,7 @@ class TransactionSummaryControllerIntegrationTest {
 
     @Test
     void excludesIncomeAndOtherMonths() throws Exception {
-        mockMvc.perform(get("/transactions/summary").param("month", "2026-07").cookie(jwtCookie()))
+        mockMvc.perform(get("/api/transactions/summary").param("month", "2026-07").cookie(jwtCookie()))
                 .andExpect(status().isOk())
                 // Weder Einkommen (Juli, Gutschrift) noch Wohnen (Juni) erscheinen.
                 .andExpect(jsonPath("$.categories[?(@.category == 'Einkommen')]").isEmpty())
@@ -111,7 +111,7 @@ class TransactionSummaryControllerIntegrationTest {
 
     @Test
     void emptyMonthReturnsEmptySummary() throws Exception {
-        mockMvc.perform(get("/transactions/summary").param("month", "2026-01").cookie(jwtCookie()))
+        mockMvc.perform(get("/api/transactions/summary").param("month", "2026-01").cookie(jwtCookie()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalCount").value(0))
                 .andExpect(jsonPath("$.totalAmount").value(0))
@@ -120,19 +120,19 @@ class TransactionSummaryControllerIntegrationTest {
 
     @Test
     void invalidMonthReturns400() throws Exception {
-        mockMvc.perform(get("/transactions/summary").param("month", "2026-13").cookie(jwtCookie()))
+        mockMvc.perform(get("/api/transactions/summary").param("month", "2026-13").cookie(jwtCookie()))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
     void missingMonthReturns400() throws Exception {
-        mockMvc.perform(get("/transactions/summary").cookie(jwtCookie()))
+        mockMvc.perform(get("/api/transactions/summary").cookie(jwtCookie()))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
     void withoutJwtReturns401() throws Exception {
-        mockMvc.perform(get("/transactions/summary").param("month", "2026-07"))
+        mockMvc.perform(get("/api/transactions/summary").param("month", "2026-07"))
                 .andExpect(status().isUnauthorized());
     }
 }

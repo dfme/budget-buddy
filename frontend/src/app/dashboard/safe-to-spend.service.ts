@@ -5,7 +5,7 @@ import { Observable } from 'rxjs';
 import { SafeToSpendResponse } from './safe-to-spend.model';
 
 /**
- * Kapselt den Zugriff auf `GET /budget/safe-to-spend` (BE-STS-03, US-06).
+ * Kapselt den Zugriff auf `GET /api/budget/safe-to-spend` (BE-STS-03, US-06).
  *
  * <p>Bewusst zustandslos: der UI-State (laden/Fehler/Daten) liegt in der
  * {@link Dashboard}-Komponente als Signals — analog zum Muster von
@@ -18,6 +18,6 @@ export class SafeToSpendService {
 
   /** Lädt den wöchentlichen Safe-to-Spend-Betrag des eingeloggten Users. */
   getSafeToSpend(): Observable<SafeToSpendResponse> {
-    return this.http.get<SafeToSpendResponse>('/budget/safe-to-spend');
+    return this.http.get<SafeToSpendResponse>('/api/budget/safe-to-spend');
   }
 }

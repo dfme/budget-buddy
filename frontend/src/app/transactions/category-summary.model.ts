@@ -18,7 +18,7 @@ export interface CategorySummaryItem {
 }
 
 /**
- * Antwort von `GET /transactions/summary?month=YYYY-MM` (Spiegel des Backend-DTOs
+ * Antwort von `GET /api/transactions/summary?month=YYYY-MM` (Spiegel des Backend-DTOs
  * `CategorySummaryResponse`, BE-CAT-05).
  */
 export interface CategorySummary {

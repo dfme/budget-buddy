@@ -34,7 +34,7 @@ describe('AuthService', () => {
   it('register posts credentials and sets the auth state', () => {
     service.register('lara@example.ch', 'supersecret').subscribe();
 
-    const req = httpMock.expectOne('/auth/register');
+    const req = httpMock.expectOne('/api/auth/register');
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual({
       email: 'lara@example.ch',
@@ -49,7 +49,7 @@ describe('AuthService', () => {
   it('login posts credentials and sets the auth state', () => {
     service.login('lara@example.ch', 'supersecret').subscribe();
 
-    const req = httpMock.expectOne('/auth/login');
+    const req = httpMock.expectOne('/api/auth/login');
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual({
       email: 'lara@example.ch',
@@ -63,11 +63,11 @@ describe('AuthService', () => {
 
   it('logout hits the endpoint and clears the auth state', () => {
     service.login('lara@example.ch', 'supersecret').subscribe();
-    httpMock.expectOne('/auth/login').flush(LARA);
+    httpMock.expectOne('/api/auth/login').flush(LARA);
     expect(service.isAuthenticated()).toBe(true);
 
     service.logout().subscribe();
-    const req = httpMock.expectOne('/auth/logout');
+    const req = httpMock.expectOne('/api/auth/logout');
     expect(req.request.method).toBe('POST');
     req.flush(null);
 
@@ -75,11 +75,11 @@ describe('AuthService', () => {
     expect(service.isAuthenticated()).toBe(false);
   });
 
-  it('loadCurrentUser restores the state from GET /users/me', () => {
+  it('loadCurrentUser restores the state from GET /api/users/me', () => {
     let emitted: User | null | undefined;
     service.loadCurrentUser().subscribe((user) => (emitted = user));
 
-    const req = httpMock.expectOne('/users/me');
+    const req = httpMock.expectOne('/api/users/me');
     expect(req.request.method).toBe('GET');
     req.flush(LARA);
 
@@ -96,7 +96,7 @@ describe('AuthService', () => {
       error: () => (errored = true),
     });
 
-    httpMock.expectOne('/users/me').flush(null, { status: 401, statusText: 'Unauthorized' });
+    httpMock.expectOne('/api/users/me').flush(null, { status: 401, statusText: 'Unauthorized' });
 
     expect(errored).toBe(false);
     expect(emitted).toBeNull();
@@ -106,20 +106,20 @@ describe('AuthService', () => {
 
   it('ensureCurrentUser returns the loaded profile without a request', () => {
     service.login('lara@example.ch', 'supersecret').subscribe();
-    httpMock.expectOne('/auth/login').flush(LARA);
+    httpMock.expectOne('/api/auth/login').flush(LARA);
 
     let emitted: User | null | undefined;
     service.ensureCurrentUser().subscribe((user) => (emitted = user));
 
     expect(emitted).toEqual(LARA);
-    httpMock.expectNone('/users/me');
+    httpMock.expectNone('/api/users/me');
   });
 
-  it('ensureCurrentUser falls back to GET /users/me when the state is empty', () => {
+  it('ensureCurrentUser falls back to GET /api/users/me when the state is empty', () => {
     let emitted: User | null | undefined;
     service.ensureCurrentUser().subscribe((user) => (emitted = user));
 
-    const req = httpMock.expectOne('/users/me');
+    const req = httpMock.expectOne('/api/users/me');
     expect(req.request.method).toBe('GET');
     req.flush(LARA);
 
@@ -129,13 +129,13 @@ describe('AuthService', () => {
 
   it('completeOnboarding posts to the endpoint and updates the state', () => {
     service.login('lara@example.ch', 'supersecret').subscribe();
-    httpMock.expectOne('/auth/login').flush(LARA);
+    httpMock.expectOne('/api/auth/login').flush(LARA);
     expect(service.currentUser()?.onboardingCompleted).toBe(false);
 
     let emitted: User | undefined;
     service.completeOnboarding().subscribe((user) => (emitted = user));
 
-    const req = httpMock.expectOne('/users/me/onboarding-complete');
+    const req = httpMock.expectOne('/api/users/me/onboarding-complete');
     expect(req.request.method).toBe('POST');
     req.flush({ ...LARA, onboardingCompleted: true });
 
@@ -147,13 +147,13 @@ describe('AuthService', () => {
 
   it('updateIncome puts the amount and updates the state (FE-STS-03)', () => {
     service.login('lara@example.ch', 'supersecret').subscribe();
-    httpMock.expectOne('/auth/login').flush(LARA);
+    httpMock.expectOne('/api/auth/login').flush(LARA);
     expect(service.currentUser()?.monthlyIncome).toBeNull();
 
     let emitted: User | undefined;
     service.updateIncome(3800).subscribe((user) => (emitted = user));
 
-    const req = httpMock.expectOne('/users/me/income');
+    const req = httpMock.expectOne('/api/users/me/income');
     expect(req.request.method).toBe('PUT');
     // Der Feldname ist Teil des Vertrags: das Backend bindet auf UpdateIncomeRequest.betrag.
     expect(req.request.body).toEqual({ betrag: 3800 });

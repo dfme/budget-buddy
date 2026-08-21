@@ -22,10 +22,10 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>Bei Register/Login wird ein signiertes JWT (HS256) als httpOnly-Cookie gesetzt; ab dann
  * authentifiziert der {@link JwtCookieAuthenticationFilter} alle Requests. Logout invalidiert das
- * Cookie via {@code Max-Age=0}. {@code /auth/**} ist in {@code SecurityConfig} öffentlich.
+ * Cookie via {@code Max-Age=0}. {@code /api/auth/**} ist in {@code SecurityConfig} öffentlich.
  */
 @RestController
-@RequestMapping("/auth")
+@RequestMapping("/api/auth")
 @Tag(name = "Auth", description = "Registrierung, Login und Logout")
 public class AuthController {
 

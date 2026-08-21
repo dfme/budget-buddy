@@ -81,7 +81,7 @@ const TRANSACTIONS: Transaction[] = [
 ];
 
 /**
- * Antwort von `GET /transactions/months` (FE-CAT-04). Enthält bewusst nicht den aktuellen Monat:
+ * Antwort von `GET /api/transactions/months` (FE-CAT-04). Enthält bewusst nicht den aktuellen Monat:
  * die Liste kommt aus den vorhandenen Buchungen, und ein frisch angelegter Monat steht noch nicht
  * darin. Die Jahre spiegeln die Test-PDFs — genau die Spanne, die eine geratene Jahresliste
  * verfehlen würde.
@@ -90,15 +90,15 @@ const AVAILABLE_MONTHS = ['2025-06', '2021-03', '2019-08'];
 
 /** URL-Matcher unabhängig vom (vom aktuellen Datum abhängigen) Monat. */
 function expectSummaryRequest(httpMock: HttpTestingController) {
-  return httpMock.expectOne((req) => req.url === '/transactions/summary');
+  return httpMock.expectOne((req) => req.url === '/api/transactions/summary');
 }
 
 /** Wie {@link expectSummaryRequest}, aber für die Liste der Einzelbuchungen. */
 function expectListRequest(httpMock: HttpTestingController) {
-  return httpMock.expectOne((req) => req.url === '/transactions');
+  return httpMock.expectOne((req) => req.url === '/api/transactions');
 }
 
-/** Antwort-Seite von `GET /transactions` (FE-CAT-05) — ohne Folgeseite, wenn nicht anders gesagt. */
+/** Antwort-Seite von `GET /api/transactions` (FE-CAT-05) — ohne Folgeseite, wenn nicht anders gesagt. */
 function page(transactions: Transaction[], hasMore = false): TransactionPage {
   return { transactions, hasMore };
 }
@@ -161,7 +161,7 @@ describe('CategoryOverview', () => {
     // FE-CAT-04: die Monatsliste wird beim Aufbau geladen. Einmal zentral beantwortet, damit die
     // Fälle darunter sich nicht damit befassen müssen. AVAILABLE_MONTHS enthält bewusst *nicht*
     // den aktuellen Monat — so belegt jeder Fall nebenbei, dass er trotzdem wählbar bleibt.
-    httpMock.expectOne('/transactions/months').flush(AVAILABLE_MONTHS);
+    httpMock.expectOne('/api/transactions/months').flush(AVAILABLE_MONTHS);
   });
 
   // `finally`, damit ein fehlgeschlagenes verify() den Canvas-Stub trotzdem zurücknimmt —
@@ -467,7 +467,7 @@ describe('CategoryOverview', () => {
       fixture.detectChanges();
 
       // Noch nichts geflusht — der PUT ist offen, die Anzeige steht aber schon auf dem neuen Wert.
-      const put = httpMock.expectOne('/transactions/1/category');
+      const put = httpMock.expectOne('/api/transactions/1/category');
       expect(put.request.method).toBe('PUT');
       expect(put.request.body).toEqual({ category: 'Restaurant' });
 
@@ -502,7 +502,7 @@ describe('CategoryOverview', () => {
       expect(selects()[0].value).toBe('Restaurant');
 
       httpMock
-        .expectOne('/transactions/1/category')
+        .expectOne('/api/transactions/1/category')
         .flush(null, { status: 500, statusText: 'Server Error' });
       fixture.detectChanges();
 
@@ -549,7 +549,7 @@ describe('CategoryOverview', () => {
 
       selectCategory(selects()[0], 'Restaurant');
       fixture.detectChanges();
-      const put = httpMock.expectOne('/transactions/1/category');
+      const put = httpMock.expectOne('/api/transactions/1/category');
 
       // Monatswechsel, bevor der Server geantwortet hat.
       component.previousMonth();
@@ -637,7 +637,7 @@ describe('CategoryOverview', () => {
       await TestBed.inject(Router).navigate([], { queryParams });
       fixture = TestBed.createComponent(CategoryOverview);
       component = fixture.componentInstance;
-      return httpMock.expectOne('/transactions/months');
+      return httpMock.expectOne('/api/transactions/months');
     }
 
     // AC 1: ein beliebiger Monat ist ohne Zwischenklicks erreichbar.
@@ -898,7 +898,7 @@ describe('CategoryOverview', () => {
       // Die 25. Buchung stammt aus der nachgeladenen Seite.
       selectCategory(selects()[24], 'Restaurant');
       fixture.detectChanges();
-      const put = httpMock.expectOne('/transactions/25/category');
+      const put = httpMock.expectOne('/api/transactions/25/category');
       put.flush({ ...manyTransactions(1, 25)[0], category: 'Restaurant' });
 
       expectSummaryRequest(httpMock).flush(SUMMARY);
@@ -921,7 +921,7 @@ describe('CategoryOverview', () => {
       selectCategory(selects()[0], 'Restaurant');
       fixture.detectChanges();
       httpMock
-        .expectOne('/transactions/1/category')
+        .expectOne('/api/transactions/1/category')
         .flush({ ...manyTransactions(1)[0], category: 'Restaurant' });
 
       expectSummaryRequest(httpMock).flush(SUMMARY);
@@ -947,7 +947,7 @@ describe('CategoryOverview', () => {
 
       selectCategory(selects()[0], 'Restaurant');
       fixture.detectChanges();
-      const put = httpMock.expectOne('/transactions/1/category');
+      const put = httpMock.expectOne('/api/transactions/1/category');
 
       // Zuklappen bricht nur den Listen-Request ab, nicht die laufende Korrektur — die wird
       // ausschliesslich beim Monatswechsel gecancelt. Das Wiederaufklappen setzt pagesLoaded

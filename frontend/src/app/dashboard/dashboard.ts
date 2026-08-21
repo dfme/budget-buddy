@@ -28,7 +28,7 @@ import { SafeToSpendService } from './safe-to-spend.service';
  *
  * <p>OnPush + Signals wie im übrigen Frontend; der lesende HTTP-Zugriff liegt im
  * zustandslosen {@link SafeToSpendService}, der schreibende im {@link AuthService},
- * dem `/users/me` und der `User`-State gehören.
+ * dem `/api/users/me` und der `User`-State gehören.
  */
 @Component({
   selector: 'app-dashboard',
@@ -99,7 +99,7 @@ export class Dashboard {
   }
 
   /**
-   * Übernimmt den Einkommens-Vorschlag als Monatseinkommen (`PUT /users/me/income`).
+   * Übernimmt den Einkommens-Vorschlag als Monatseinkommen (`PUT /api/users/me/income`).
    *
    * <p>Nach Erfolg wird Safe-to-Spend neu geladen: der dann erscheinende Betrag ist die
    * Bestätigung, dass die Übernahme gewirkt hat. Eine blosse Erfolgsmeldung liesse den

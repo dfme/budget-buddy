@@ -26,7 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
  * mit den übrigen Transaktions-Endpoints.
  */
 @RestController
-@RequestMapping("/transactions")
+@RequestMapping("/api/transactions")
 @Tag(name = "Transactions", description = "Auswertungen über die Transaktionen des eingeloggten Users")
 public class TransactionListController {
 

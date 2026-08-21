@@ -2,8 +2,6 @@ package com.budgetbuddy.config;
 
 import com.budgetbuddy.auth.JwtCookieAuthenticationFilter;
 import com.budgetbuddy.auth.JwtService;
-import java.util.Arrays;
-import java.util.stream.Stream;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -30,22 +28,40 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  * Info. Info meldet nur den deployten Commit-SHA (INFRA-08) und muss ohne Auth erreichbar sein,
  * weil der CD-Smoke-Test die Version vor dem Login prüft.
  *
- * <p>Zusätzlich werden die im JAR gebündelte Angular-SPA und ihre statischen Assets
- * öffentlich per GET ausgeliefert (INFRA-05, ADR-10 Single-Artifact). Da die API keinen
- * gemeinsamen Prefix hat (z.B. {@code /users/me}), bleiben die freigegebenen Pfade bewusst
- * eng gefasst (Default-Deny), statt GET pauschal zu öffnen — versehentliche Exposition wäre
- * bei Transaktionsdaten Risiko #2 (Datenleck). Neue Frontend-Routen werden ausschliesslich in
- * {@link SpaForwardController#CLIENT_ROUTE_PATTERNS} gepflegt; diese Klasse leitet ihre
- * Freigabe daraus ab.
+ * <p>Alle REST-Endpoints liegen unter dem gemeinsamen Präfix {@code /api/**} (INFRA-17); das
+ * macht die Freigabe der im JAR gebündelten Angular-SPA (INFRA-05, ADR-10 Single-Artifact)
+ * strukturell statt enumerativ: jedes GET ausserhalb von {@code /api/**} ist die SPA-Shell oder
+ * ein statisches Asset und damit öffentlich, jedes GET/POST/... unter {@code /api/**} (ausser
+ * {@code /api/auth/**}) verlangt Auth. Vorher mussten {@code SecurityConfig} und
+ * {@link SpaForwardController} jede neue Angular-Route einzeln kennen — das lief zweimal
+ * auseinander (INFRA-14, #126). Die einzige verbleibende Enumeration sind die Infrastruktur-Pfade
+ * unterhalb von {@link #PUBLIC_PATHS}, die weder API noch SPA-Route sind.
+ *
+ * <p><b>{@code GET /** permitAll} ist Default-Allow statt Default-Deny für alles ausserhalb
+ * {@code /api/**}</b> — abgesichert durch die Konvention „jeder Controller unter {@code /api}"
+ * (CLAUDE.md) und die Invariante {@code ControllerApiPrefixTest}, die bei einem Verstoss rot
+ * wird, statt den Fund dem nächsten manuellen Review zu überlassen (Review zu PR #187: ohne
+ * diese Regel war {@code GET /actuator} — der bare Pfad, nicht {@code /actuator/health} —
+ * unauthentifiziert erreichbar). Aus demselben Grund steht {@code /actuator/**} unten explizit
+ * auf {@code authenticated()}: Actuator kann künftig weitere, sensiblere Endpoints exponieren
+ * ({@code management.endpoints.web.exposure.include}), und der GET-Catch-all darf sie nicht
+ * automatisch mitöffnen.
  */
 @Configuration
 public class SecurityConfig {
 
     private static final String[] PUBLIC_PATHS = {
-        "/auth/**",
+        "/api/auth/**",
+        // Swagger UI und OpenAPI-Docs sind GET-only und damit ohnehin von "GET /** permitAll"
+        // unten gedeckt; sie stehen trotzdem explizit als Defense-in-Depth, falls der Catch-all
+        // je enger gefasst wird.
         "/v3/api-docs/**",
         "/swagger-ui/**",
         "/swagger-ui.html",
+        // Anders als Swagger/OpenAPI-Docs braucht Actuator eine eigene Deny-Regel
+        // (".requestMatchers("/actuator/**").authenticated()" unten): ohne sie wäre jeder
+        // Actuator-Pfad — auch ein künftig per exposure.include hinzugefügter — über
+        // "GET /** permitAll" automatisch öffentlich.
         "/actuator/health",
         "/actuator/info",
         // Springs ERROR-Dispatch: @ResponseStatus auf einer Exception (z.B. 408 Timeout,
@@ -57,32 +73,6 @@ public class SecurityConfig {
         "/error"
     };
 
-    /**
-     * Öffentlich per GET erreichbare statische Build-Artefakte der SPA (flach unter
-     * {@code static/}: {@code main-*.js}, {@code styles-*.css}, {@code favicon.ico},
-     * {@code 3rdpartylicenses.txt}, optional {@code assets/**}) plus die Einstiegsseite
-     * {@code /} bzw. {@code /index.html}.
-     */
-    private static final String[] SPA_ASSET_GET_PATHS = {
-        "/", "/index.html", "/favicon.ico", "/*.js", "/*.css", "/*.txt", "/assets/**"
-    };
-
-    /**
-     * Statische Assets plus die client-seitigen Angular-Routen (Deep-Link/Hard-Reload →
-     * {@link SpaForwardController}).
-     *
-     * <p>Die Routen-Patterns kommen aus {@link SpaForwardController#CLIENT_ROUTE_PATTERNS}
-     * statt aus einer zweiten Liste: die frühere Duplizierung war die Ursache dafür, dass
-     * {@code /register}, {@code /categories} und {@code /import} in Produktion mit 401
-     * geantwortet haben — sie standen im Angular-Router, aber in keiner der beiden
-     * Backend-Listen (INFRA-14).
-     */
-    private static final String[] SPA_GET_PATHS =
-            Stream.concat(
-                            Arrays.stream(SPA_ASSET_GET_PATHS),
-                            Arrays.stream(SpaForwardController.CLIENT_ROUTE_PATTERNS))
-                    .toArray(String[]::new);
-
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http, JwtService jwtService) throws Exception {
         http
@@ -91,7 +81,9 @@ public class SecurityConfig {
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(PUBLIC_PATHS).permitAll()
-                .requestMatchers(HttpMethod.GET, SPA_GET_PATHS).permitAll()
+                .requestMatchers("/actuator/**").authenticated()
+                .requestMatchers("/api/**").authenticated()
+                .requestMatchers(HttpMethod.GET, "/**").permitAll()
                 .anyRequest().authenticated())
             .httpBasic(AbstractHttpConfigurer::disable)
             .formLogin(AbstractHttpConfigurer::disable)

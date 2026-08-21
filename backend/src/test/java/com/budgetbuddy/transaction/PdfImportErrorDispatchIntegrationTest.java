@@ -117,7 +117,7 @@ class PdfImportErrorDispatchIntegrationTest {
         });
 
         ResponseEntity<String> response = restTemplate.postForEntity(
-                "/import/pdf", new HttpEntity<>(body, authenticatedMultipartHeaders()),
+                "/api/import/pdf", new HttpEntity<>(body, authenticatedMultipartHeaders()),
                 String.class);
 
         // Vor der /error-Freigabe kam hier 401 an — der authErrorInterceptor hätte den Nutzer
@@ -132,7 +132,7 @@ class PdfImportErrorDispatchIntegrationTest {
         // Auch Springs eigener 400 (fehlender file-Part, MissingServletRequestPartException)
         // läuft über sendError() und den ERROR-Dispatch — gleiche Fehlerklasse wie 408/409.
         ResponseEntity<String> response = restTemplate.postForEntity(
-                "/import/pdf",
+                "/api/import/pdf",
                 new HttpEntity<>(new LinkedMultiValueMap<String, Object>(),
                         authenticatedMultipartHeaders()),
                 String.class);

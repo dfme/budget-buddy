@@ -41,7 +41,7 @@ import org.springframework.web.multipart.MultipartFile;
  * ohne ausdrückliche Bestätigung bleibt es beim Duplikatschutz.
  */
 @RestController
-@RequestMapping("/import")
+@RequestMapping("/api/import")
 @Tag(name = "Import", description = "PDF-Import von Kontoauszügen für den eingeloggten User")
 public class PdfImportController {
 

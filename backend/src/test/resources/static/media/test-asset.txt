@@ -1,0 +1,6 @@
+Test-Fixture fuer SpaRoutingTest (INFRA-17): steht stellvertretend fuer Binaerassets, die
+@angular/build:application aus Templates/SCSS heraus unter media/ ablegt (Build-Option
+outputPath.media). Belegt, dass ein verschachteltes statisches Asset ohne Auth per GET
+ausgeliefert wird und nicht vom SpaForwardController-Catch-all verschluckt wird. Nicht im
+Prod-JAR.
+spa-media-asset-fixture

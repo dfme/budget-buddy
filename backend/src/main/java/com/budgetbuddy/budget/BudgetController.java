@@ -26,7 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
  * user-gebundene Ports liest.
  */
 @RestController
-@RequestMapping("/budget")
+@RequestMapping("/api/budget")
 @Tag(name = "Budget", description = "Safe-to-Spend des eingeloggten Users (US-06)")
 public class BudgetController {
 

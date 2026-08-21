@@ -28,7 +28,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class TransactionListOpenApiTest {
 
-    private static final String LIST_GET = "$.paths['/transactions'].get";
+    private static final String LIST_GET = "$.paths['/api/transactions'].get";
 
     @DynamicPropertySource
     static void datasourceProperties(DynamicPropertyRegistry registry) {
@@ -57,8 +57,8 @@ class TransactionListOpenApiTest {
     void theMonthsEndpointIsDocumented() throws Exception {
         mockMvc.perform(get("/v3/api-docs"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.paths['/transactions/months'].get").exists())
-                .andExpect(jsonPath("$.paths['/transactions/months'].get.summary").isNotEmpty());
+                .andExpect(jsonPath("$.paths['/api/transactions/months'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/transactions/months'].get.summary").isNotEmpty());
     }
 
     @Test

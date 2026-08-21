@@ -5,7 +5,7 @@ import { Observable } from 'rxjs';
 import { CategorySummary } from './category-summary.model';
 
 /**
- * Kapselt den Zugriff auf `GET /transactions/summary` (BE-CAT-05, US-05).
+ * Kapselt den Zugriff auf `GET /api/transactions/summary` (BE-CAT-05, US-05).
  *
  * <p>Bewusst zustandslos: der UI-State (laden/Fehler/Daten) liegt in der
  * {@link CategoryOverview}-Komponente als Signals — analog zum Muster von
@@ -22,7 +22,7 @@ export class TransactionSummaryService {
    * @param month Monat im Format `YYYY-MM` (z. B. `2026-07`).
    */
   getSummary(month: string): Observable<CategorySummary> {
-    return this.http.get<CategorySummary>('/transactions/summary', {
+    return this.http.get<CategorySummary>('/api/transactions/summary', {
       params: new HttpParams().set('month', month),
     });
   }

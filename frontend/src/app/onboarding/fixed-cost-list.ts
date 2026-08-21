@@ -18,7 +18,7 @@ import { MIN_BETRAG_CHF, maxTwoDecimals, nonBlank } from './fixed-cost.validator
 /**
  * Übersicht aller Fixkosten-Positionen mit Bearbeiten und Löschen (FE-FC-03, US-03).
  *
- * <p>Lädt `GET /fixed-costs` beim Start in ein einziges {@link summary}-Signal — Positionen,
+ * <p>Lädt `GET /api/fixed-costs` beim Start in ein einziges {@link summary}-Signal — Positionen,
  * Monatssumme, Einkommen und `exceedsIncome` kommen serverseitig bereits berechnet zusammen
  * (`FixedCostSummaryResponse`), damit stimmen Tabelle und Warnung immer überein. Jede
  * schreibende Aktion (Bearbeiten, Löschen) lädt danach neu, statt den State lokal
@@ -28,7 +28,7 @@ import { MIN_BETRAG_CHF, maxTwoDecimals, nonBlank } from './fixed-cost.validator
  * <p>Bearbeiten klappt die betroffene Zeile in ein vorausgefülltes Formular auf — dieselben
  * Validatoren wie im Onboarding-Wizard ({@link nonBlank}, {@link maxTwoDecimals}), aus
  * `fixed-cost.validators.ts` geteilt statt dupliziert. Löschen fragt über {@link Modal} nach,
- * bevor `DELETE /fixed-costs/{id}` läuft.
+ * bevor `DELETE /api/fixed-costs/{id}` läuft.
  */
 @Component({
   selector: 'app-fixed-cost-list',
