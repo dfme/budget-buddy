@@ -60,8 +60,8 @@ public class PdfImportController {
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Import erfolgreich; Anzahl Transaktionen"),
         @ApiResponse(responseCode = "400",
-                description = "Ungültiges oder passwortgeschütztes PDF; der Body unterscheidet "
-                        + "die beiden Fälle über den maschinenlesbaren reason",
+                description = "Ungültiges, gescanntes (kein Text-Layer) oder passwortgeschütztes "
+                        + "PDF; der Body unterscheidet die Fälle über den maschinenlesbaren reason",
                 content = @Content(schema = @Schema(implementation = ImportErrorResponse.class))),
         @ApiResponse(responseCode = "401", description = "Nicht authentifiziert", content = @Content),
         @ApiResponse(responseCode = "408",

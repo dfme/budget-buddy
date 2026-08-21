@@ -249,10 +249,21 @@ class PdfImportControllerIntegrationTest {
     void invalidPdfReturns400WithUnsupportedFormatReason() throws Exception {
         byte[] notAPdf = "Dies ist kein PDF".getBytes(StandardCharsets.UTF_8);
 
-        // Der reason macht die beiden 400er für das Frontend unterscheidbar (FE-PDF-02).
+        // Der reason macht die 400er für das Frontend unterscheidbar (FE-PDF-02).
         mockMvc.perform(multipart("/import/pdf").file(pdfPart(notAPdf)).cookie(jwtCookie(userId)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.reason").value("UNSUPPORTED_FORMAT"));
+    }
+
+    @Test
+    void pdfWithoutTextLayerReturns400WithMissingTextLayerReason() throws Exception {
+        // Leere Seite, kein Text extrahierbar — simuliert ein gescanntes PDF (BE-PDF-08).
+        // Muss von unbekanntem Layout unterscheidbar sein: MissingTextLayerException ist eine
+        // PdfParseException, ging vor dem Fix im generischen UNSUPPORTED_FORMAT unter.
+        mockMvc.perform(multipart("/import/pdf").file(pdfPart(pdfWithLines(List.of())))
+                        .cookie(jwtCookie(userId)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.reason").value("MISSING_TEXT_LAYER"));
     }
 
     @Test
