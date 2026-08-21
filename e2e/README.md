@@ -83,6 +83,7 @@ die im JAR gebündelte SPA aus«) schlägt dann als Einziger fehl und nennt gena
 | --- | --- |
 | `tests/auth.spec.ts` | Register → Login → geschützte Route, Cookie-Flags, Fehlerpfad |
 | `tests/spa-routing.spec.ts` | Deep-Link-Status-Codes des Artefakts (SPA offen, API geschützt) |
+| `tests/fixed-cost-wizard.spec.ts` | Fixkosten-Wizard (US-03): Happy Path bis in die Liste, Fehlerpfad mit Validierung |
 | `fixtures/auth.fixture.ts` | Auth-Fixture: eingeloggte Session als Vorbedingung |
 | `support/backend.ts` | Port, Basis-URL, JAR-Auflösung, Test-JWT-Secret |
 | `support/database.ts` | Verbindungsdaten der E2E-Datenbank und `resetDatabase()` |
@@ -125,9 +126,12 @@ klar benannter Fallback in `support/backend.ts`, damit ein Lauf ohne Env-Setup f
 
 ## Scope
 
-Enthalten ist der Auth-Flow als Verifikation der Harness. Die acht Must-Have-Story-Fälle (je
-Happy Path + Fehlerpfad für US-03, US-04, US-05, US-06) sind Folgearbeit — der
-US-03-Happy-Path hängt am Fixkosten-Feature, weil er dessen Wizard und Endpoints voraussetzt.
+Vorgesehen sind je ein Happy Path und ein Fehlerpfad pro Must-Have-Story (US-03…US-06), dazu der
+Auth-Flow als Verifikation der Harness selbst. Abgedeckt ist davon bislang **US-03**
+(Fixkosten-Wizard, E2E-FC-01); US-04, US-05 und US-06 sind Folgearbeit.
+
+Die Fälle hängen nicht an einzelnen Feature-Issues, sondern je an einem eigenen Task pro Story:
+die zwei Testfälle liessen sich keinem der Feature-Issues sinnvoll zuordnen.
 
 Chromium genügt für den MVP: geprüft werden Flows und Cookie-Handling, nicht
 Rendering-Unterschiede.
