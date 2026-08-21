@@ -464,6 +464,7 @@ Vollständige ADRs: [docs/adr/README.md](docs/adr/README.md)
 | [ADR-10](docs/adr/ADR-10-hosting-plattform.md)         | Render (Frankfurt/EU), SPA gebündelt im JAR, nDSG-Risiko akzeptiert                  | Exoscale/Nine.ch (CH, teurer), SPA auf CDN (zwei Pipelines)                         |
 | [ADR-11](docs/adr/ADR-11-ui-design-system.md)          | UI-Design-Richtung «Klarheit» (Variante A); Komponenten-Unterbau offen bis FE-UI-02 | Variante B (0 Stimmen), Variante C «Ledger» (starker Zweiter, Elemente übernehmbar) |
 | [ADR-12](docs/adr/ADR-12-datenpersistenz-produktion.md) | PostgreSQL 18 bei Neon (Frankfurt/EU, Free); supersedet ADR-5                       | SQLite auf Persistent Disk ($7.25/Mt), Render Postgres Free (läuft nach 30 Tagen ab), Supabase (pausiert nach 7 Tagen) |
+| [ADR-13](docs/adr/ADR-13-fixkosten-transaktions-zuordnung.md) | Fixkosten-Doppelabzug: betragsbasiertes 1:1-Matching zur Berechnungszeit, kein Schemawechsel | Explizite Verknüpfung `transactions.fixed_cost_id` (Upgrade-Pfad, braucht #159), anteiliger Abzug (löst «genau einmal» nicht), Fixkosten nur aus PDF ableiten (streicht US-03), ganze Kategorien ausnehmen (zu grob) |
 
 ## Project Skills
 

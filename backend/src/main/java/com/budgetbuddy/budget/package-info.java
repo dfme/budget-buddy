@@ -11,8 +11,12 @@
  * {@code UserRepository} (Modulgrenze, CLAUDE.md).
  *
  * <p>Der {@code SafeToSpendService} liest über dieselbe Kante das Einkommen und über
- * {@code com.budgetbuddy.transaction.MonthlyExpensePort} die Ausgabensumme des laufenden Monats —
+ * {@code com.budgetbuddy.transaction.MonthlyExpensePort} die Belastungen des laufenden Monats —
  * kein Zugriff auf das {@code TransactionRepository}. Die Fixkosten bezieht er modul-intern über
  * den {@code FixedCostService}, damit dort und hier dieselbe gerundete Monatssumme gilt.
+ *
+ * <p>Welche dieser Belastungen die Zahlung einer Fixkosten-Position ist, entscheidet der
+ * {@code FixedCostDebitMatcher} — bewusst hier und nicht im transaction-Modul: die Regel vergleicht
+ * gegen Fixkosten-Beträge und ist damit Fachlogik dieses Moduls (BE-STS-04, ADR-13).
  */
 package com.budgetbuddy.budget;
