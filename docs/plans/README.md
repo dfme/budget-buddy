@@ -75,6 +75,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `FE-UI-04` | [App-Shell: Navigation, Topbar/Sidebar, Konto/Logout (Variante A)](FE-UI-04-app-shell.md) | [#101](https://github.com/dfme/budget-buddy/issues/101) | — | Sprint 3 |
 | `FE-UI-05` | [Chart-Integration: ng2-charts + Donut/Bar-Basiskomponenten (Variante A)](FE-UI-05-chart-integration.md) | [#102](https://github.com/dfme/budget-buddy/issues/102) | US-06 | Sprint 3 |
 | `FE-UI-06` | [Bestehende Screens auf Variante-A-Fundament migrieren](FE-UI-06-variante-a-migration.md) | [#104](https://github.com/dfme/budget-buddy/issues/104) | US-01, US-05 | Sprint 3 |
+| `FE-UI-07` | [Notice-Komponente: Icon und optionaler Titel](FE-UI-07-notice-icon-titel.md) | [#181](https://github.com/dfme/budget-buddy/issues/181) | — | Sprint 5 |
 | `INFRA-01` | [Plan: [INFRA-01] Spring Boot Skeleton anlegen](INFRA-01-spring-boot-skeleton.md) | [#1](https://github.com/dfme/budget-buddy/issues/1) | — | Sprint 1 |
 | `INFRA-02` | [Angular Skeleton anlegen](INFRA-02-angular-skeleton.md) | [#2](https://github.com/dfme/budget-buddy/issues/2) | — | Sprint 1 |
 | `INFRA-03` | [INFRA-03 — GitHub Actions CI einrichten](INFRA-03-github-actions-ci.md) | [#3](https://github.com/dfme/budget-buddy/issues/3) | — | Sprint 1 |
