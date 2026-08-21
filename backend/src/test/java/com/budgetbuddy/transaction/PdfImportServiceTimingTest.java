@@ -31,6 +31,13 @@ import org.springframework.transaction.support.TransactionTemplate;
  * keine Parallelität) und der Deadline-Check ist kooperativ, nicht präventiv — ein bereits
  * laufender Categorize-Call wird nicht abgebrochen, selbst wenn er das Budget sprengt.
  *
+ * <p>Je Aussage genau eine tragende Assertion: die Sequenzialität belegt die Gesamtdauer in
+ * {@code manyUnknownTransactions_categorizationIsSequentialNotBatched} (mindestens
+ * {@code count × Einzelverzögerung}), die Kooperativität die Überschreitung des Budgets in
+ * {@code manyUnknownTransactions_exceedingDeadlineMidLoop_abortsWithoutFinishingAll}. Der
+ * Exception-Typ und die Call-Anzahl allein unterscheiden kooperativ und präventiv <em>nicht</em>:
+ * beide wären auch bei einem Thread-Interrupt erfüllt.
+ *
  * <p>Im Unterschied zu {@link PdfImportServiceTest} läuft hier eine echte {@link Clock}
  * (kein deterministisches Mock): erst damit misst {@code Thread.sleep} in der gefakten
  * {@link CategorizationPort} eine reale Wall-Clock-Dauer, statt gegen vorskriptete Instants zu
