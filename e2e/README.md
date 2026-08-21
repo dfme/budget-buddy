@@ -83,7 +83,9 @@ die im JAR gebündelte SPA aus«) schlägt dann als Einziger fehl und nennt gena
 | --- | --- |
 | `tests/auth.spec.ts` | Register → Login → geschützte Route, Cookie-Flags, Fehlerpfad |
 | `tests/spa-routing.spec.ts` | Deep-Link-Status-Codes des Artefakts (SPA offen, API geschützt) |
+| `tests/pdf-import.spec.ts` | PDF-Upload (US-04): Happy Path mit Anzahl-Meldung, Fehlerpfad mit unlesbarem PDF |
 | `fixtures/auth.fixture.ts` | Auth-Fixture: eingeloggte Session als Vorbedingung |
+| `fixtures/pdf/` | Synthetische Kontoauszug-PDFs — unkomprimiertes ASCII, lokal mit `cat` oder `git diff` prüfbar (GitHub zeigt sie als binär) |
 | `support/backend.ts` | Port, Basis-URL, JAR-Auflösung, Test-JWT-Secret |
 | `support/database.ts` | Verbindungsdaten der E2E-Datenbank und `resetDatabase()` |
 | `global-setup.ts` | Ruft `resetDatabase()` einmal pro Lauf auf, nach dem Start der Instanz |
@@ -117,7 +119,13 @@ Das httpOnly-Cookie kommt über `context.request.post('/api/auth/register', …)
 Der Job `E2E (Playwright)` in [`.github/workflows/build.yml`](../.github/workflows/build.yml)
 läuft bei jedem Pull Request (via `ci.yml`) **und** vor jedem Deploy auf main (via `cd.yml`) —
 ein Push auf main soll nicht ohne E2E deployen. Bei Fehlschlag lädt der Job den HTML-Report als
-Artifact `playwright-report` hoch (7 Tage).
+Artifact `playwright-report` hoch (7 Tage) — mitsamt Screenshot, Trace und Video des
+fehlgeschlagenen Tests. Ein grüner Lauf erzeugt keines davon (`screenshot: 'only-on-failure'`,
+`trace: 'on-first-retry'`, `video: 'retain-on-failure'`).
+
+Diese Artefakte hängen daran, dass ein Test seinen BrowserContext von Playwright bekommt und
+nicht selbst erzeugt — siehe die Anmerkung in `fixtures/auth.fixture.ts`. Wer eine eigene Fixture
+mit `browser.newContext()` baut, verliert sie stillschweigend.
 
 `JWT_SECRET` wird im Job zufällig erzeugt (`openssl rand -hex 32`) und ist bewusst kein
 Repo-Secret: der Wert signiert nur Tokens gegen die Wegwerf-Datenbank des Runs. Lokal greift ein
@@ -125,9 +133,13 @@ klar benannter Fallback in `support/backend.ts`, damit ein Lauf ohne Env-Setup f
 
 ## Scope
 
-Enthalten ist der Auth-Flow als Verifikation der Harness. Die acht Must-Have-Story-Fälle (je
-Happy Path + Fehlerpfad für US-03, US-04, US-05, US-06) sind Folgearbeit — der
-US-03-Happy-Path hängt am Fixkosten-Feature, weil er dessen Wizard und Endpoints voraussetzt.
+Vorgesehen sind je ein Happy Path und ein Fehlerpfad pro Must-Have-Story (US-03…US-06), dazu der
+Auth-Flow als Verifikation der Harness selbst. Abgedeckt ist davon bislang **US-04** (PDF-Upload,
+E2E-PDF-01); US-03, US-05 und US-06 sind Folgearbeit.
+
+Die Fälle hängen nicht an einzelnen Feature-Issues, sondern je an einem eigenen Task pro Story:
+US-04 allein besteht aus acht Issues, die zwei Testfälle liessen sich keinem davon sinnvoll
+zuordnen.
 
 Chromium genügt für den MVP: geprüft werden Flows und Cookie-Handling, nicht
 Rendering-Unterschiede.

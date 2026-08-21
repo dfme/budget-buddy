@@ -100,6 +100,15 @@ describe('FixedCostList', () => {
     expect(text()).toContain('jährlich');
   });
 
+  it('rendert die Tabelle innerhalb eines horizontal scrollbaren Containers', () => {
+    flushInitialLoad(summaryOf([MIETE], 3000, false));
+
+    const root = fixture.nativeElement as HTMLElement;
+    const wrapper = root.querySelector('.table-scroll');
+    expect(wrapper?.querySelector('table')).not.toBeNull();
+    expect(getComputedStyle(wrapper as HTMLElement).overflowX).toBe('auto');
+  });
+
   it('zeigt einen Empty-State ohne Positionen', () => {
     flushInitialLoad(summaryOf([], null, false));
 

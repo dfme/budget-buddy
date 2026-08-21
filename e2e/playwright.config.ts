@@ -48,6 +48,13 @@ export default defineConfig({
     // Nur bei Fehlschlag/Retry, damit ein grüner Lauf keine Artefakte produziert.
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+    // `retain-on-failure` statt `on`: aufgezeichnet wird immer, behalten nur beim Fehlschlag —
+    // ein grüner Lauf hinterlässt nichts, ein roter das Video im HTML-Report, den der CI-Job
+    // bei Fehlschlag als Artifact hochlädt. Damit steht es neben dem Screenshot, deckt aber
+    // den Fall ab, den ein Standbild nicht erklärt: eine Navigation, die woanders endet als
+    // erwartet. `on` wäre die Debug-Einstellung — jeder grüne Lauf schriebe ein Video pro Test.
+    // Wer einem laufenden Test zusehen will, nimmt `npm run test:ui`.
+    video: 'retain-on-failure',
   },
 
   // Chromium genügt für den MVP: die Tests prüfen Flows und Cookie-Handling, nicht
