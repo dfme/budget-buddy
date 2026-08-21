@@ -249,7 +249,7 @@ class PdfImportControllerIntegrationTest {
     void invalidPdfReturns400WithUnsupportedFormatReason() throws Exception {
         byte[] notAPdf = "Dies ist kein PDF".getBytes(StandardCharsets.UTF_8);
 
-        // Der reason macht die beiden 400er für das Frontend unterscheidbar (FE-PDF-02).
+        // Der reason macht die 400er für das Frontend unterscheidbar (FE-PDF-02).
         mockMvc.perform(multipart("/import/pdf").file(pdfPart(notAPdf)).cookie(jwtCookie(userId)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.reason").value("UNSUPPORTED_FORMAT"));

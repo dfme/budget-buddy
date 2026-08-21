@@ -186,6 +186,10 @@ export class PdfUpload {
    * 408 trägt den Retry-Hinweis; 413 hat seit BE-PDF-08 eine eigene Meldung (serverseitiges
    * 10-MB-Limit, `PdfImportController`); alles Übrige bleibt generisch.
    *
+   * <p>Der 413 ist über die UI nicht erreichbar: `selectFile` prüft die Grösse gegen
+   * `MAX_PDF_BYTES` und ist der einzige Pfad zu `upload()`. Die Meldung ist bewusst ein Netz für
+   * einen 413 aus anderer Quelle (z. B. Reverse Proxy) — sie schliesst keine Nutzerlücke.
+   *
    * <p>Der 409 landet im Normalfall gar nicht hier — er öffnet den Dialog. Die Meldung greift
    * für den abgebrochenen Dialog und als Netz für einen 409 aus einer anderen Quelle; sie trägt
    * deshalb **keinen** Retry-Hinweis: bei einem Duplikat scheitert ein zweiter Versuch identisch.

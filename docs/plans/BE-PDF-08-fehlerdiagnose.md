@@ -32,7 +32,7 @@ Das ist strukturell unvereinbar mit der Timeout-Kette, die real erst nach ~30–
 Bei einer sofortigen Ablehnung (<1s) sind diese Pfade nicht erreicht — der Fehler passiert *vor*
 jedem Claude-Call, direkt beim PDF-Parsen.
 
-**Wahrscheinlichste Ursache: einer der vier synchronen, sofortigen Ablehnungspfade**, alle
+**Wahrscheinlichste Ursache: einer der drei synchronen, sofortigen Ablehnungspfade**, alle
 deterministisch bei jedem Retry derselben Datei (passt zu "schlägt zuverlässig/jedes Mal fehl"):
 
 1. `UnsupportedStatementFormatException` (`SwissBankStatementParser.java:193`) — Text vorhanden,
@@ -41,10 +41,23 @@ deterministisch bei jedem Retry derselben Datei (passt zu "schlägt zuverlässig
 2. `MissingTextLayerException` (`SwissBankStatementParser.java:173`) — gescanntes PDF ohne
    extrahierbaren Text.
 3. `PasswordProtectedPdfException` — verschlüsseltes PDF.
-4. `MaxUploadSizeExceededException` → 413 — Datei über dem 10-MB-Limit.
+
+**Ausgeschlossen: `MaxUploadSizeExceededException` → 413** (Datei über dem 10-MB-Limit). Der
+Melder hat die deployte App im Browser benutzt — auf diesem Weg ist der Fall nicht erzeugbar, weil
+das Frontend die Dateigrösse **vor** dem Upload prüft und gar keinen Request absetzt:
+
+- `pdf-upload.ts:133` — `if (file.size > MAX_PDF_BYTES)` setzt die lokale Meldung "Maximale
+  Dateigrösse: 10 MB" und kehrt zurück; `upload()` wird nie erreicht. `selectFile` ist der einzige
+  Pfad dorthin (`confirmDuplicateImport` reicht die bereits geprüfte Datei weiter).
+- Belegt durch den bestehenden Test `pdf-upload.spec.ts:131` — "rejects a file larger than 10 MB
+  without calling the backend".
+- Die Grenzen sind byte-identisch: `MAX_PDF_BYTES = 10 * 1024 * 1024` = 10485760, und
+  `spring.servlet.multipart.max-file-size=10MB` parst Spring ebenfalls als 10485760. Beide
+  vergleichen strikt `>`, es bleibt also nicht einmal ein Off-by-one-Fenster.
+  `max-request-size=11MB` greift bei einer ≤ 10-MiB-Datei plus Multipart-Overhead ebenfalls nicht.
 
 Ohne das Original-PDF (aus Datenschutzgründen nicht verfügbar) oder die exakte
-Fehlermeldung/den Status, den der Melder client-seitig sah, lässt sich zwischen diesen vieren
+Fehlermeldung/den Status, den der Melder client-seitig sah, lässt sich zwischen diesen dreien
 nicht abschliessend unterscheiden. Das bleibt eine offene Frage — siehe Kommentar auf #173.
 
 **Konkreter, unabhängig vom exakten Fall relevanter Bug gefunden:**
@@ -72,7 +85,7 @@ Dieser Fix bleibt bewusst klein und diagnosebezogen — keine Architekturänderu
    Sequenzialität der Kategorisierungs-Loop und den kooperativen (nicht präventiven)
    Deadline-Check messbar, statt nur in der Doku behauptet.
 4. Root-Cause-Befund als Kommentar auf #173, **Issue bleibt offen** (kein `Closes #173` im PR) —
-   die exakte Ursache unter den vier Kandidaten ist nicht zu 100% bestätigt, das ist eine
+   die exakte Ursache unter den drei Kandidaten ist nicht zu 100% bestätigt, das ist eine
    Entscheidung des Melders/Teams, kein Automatismus.
 
 ## Betroffene Files

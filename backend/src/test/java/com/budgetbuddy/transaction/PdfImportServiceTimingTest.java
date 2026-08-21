@@ -99,8 +99,16 @@ class PdfImportServiceTimingTest {
         // count * perCallDelay (2.4s) sprengt das 1s-Budget deutlich — die Deadline wird
         // zwischen zwei Calls erkannt, aber der laufende Call selbst wird nie unterbrochen: das
         // ist exakt der in PdfImportService.java:33-37 dokumentierte kooperative Mechanismus.
+        Instant start = Instant.now();
         assertThatThrownBy(() -> service.importPdf(USER_ID, PDF_BYTES, false))
                 .isInstanceOf(PdfImportTimeoutException.class);
+        Duration elapsed = Duration.between(start, Instant.now());
+
+        // Der eigentliche Nachweis "kooperativ statt präventiv": ein präventiver Abbruch
+        // (Thread-Interrupt im laufenden Call) käme *innerhalb* des Budgets zurück. Weil der
+        // angefangene Call zu Ende gelassen wird, überschreitet die reale Dauer das Budget —
+        // um bis zu einen vollen Call (~1.2s bei 1s Budget, also reichlich Luft, nicht flaky).
+        assertThat(elapsed).isGreaterThan(Duration.ofSeconds(timeoutSeconds));
 
         // Keine exakte Anzahl fixiert (Thread-Scheduling-Jitter) — nur, dass der Import
         // abgebrochen wurde, bevor alle Transaktionen kategorisiert waren.
