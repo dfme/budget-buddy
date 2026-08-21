@@ -106,3 +106,23 @@ Die übrigen 15 Aufruforte. Sie projizieren Text, erben das Icon und bleiben son
 - [ ] Alle 19 Aufruforte geprüft und, wo nötig, migriert; das handgeschriebene Icon im No-Income-Hinweis (`dashboard.html`, FE-STS-03) ist entfernt
 - [ ] Styleguide (`/styleguide`) zeigt die Varianten mit und ohne Titel
 - [ ] Tests decken ab: Icon je Variante, Titel oberhalb des Inhalts, `role` unverändert
+
+## Nachtrag aus der Umsetzung
+
+Zwei Annahmen des Plans haben nicht gehalten. Beide sind während der Implementierung belegt und
+korrigiert worden; der Plantext oben bleibt als Stand der Bestätigung stehen.
+
+1. **`title` landet zusätzlich als DOM-Attribut.** Schreibt ein Aufrufort `title="…"` statisch,
+   setzt Angular den Input **und** belässt das globale HTML-Attribut am Host — nachgewiesen mit
+   einer Wegwerf-Probe (`hasTitleAttr: true`). Folge wären ein nativer Tooltip über dem ganzen
+   Banner und ein Accessible Name auf der `role="status"`-Region, der den sichtbaren Titel
+   doppelt. Behoben mit dem Host-Binding `'[attr.title]': 'null'` in `notice.ts`; die Probe ist
+   durch einen echten Regressionstest ersetzt (`notice.spec.ts`, «lässt das globale
+   title-Attribut nicht im DOM stehen»). `card.ts` hat dieselbe Konstellation — vorbestehend und
+   ausserhalb dieses Scopes.
+2. **Die E2E-Tests brauchten doch eine Anpassung.** Der Plan sagte, die Selektoren blieben gültig
+   und kein E2E-Test müsse angefasst werden. Das galt für die *Selektoren*, nicht für die beiden
+   `toHaveText()`-Assertions in `e2e/tests/pdf-import.spec.ts`: die prüfen den gesamten Textinhalt
+   des Hosts, in den das Icon nun einfliesst. Gegenprobe gefahren — mit der alten Fassung schlägt
+   der Happy Path fehl (`locator resolved to <app-notice …>`, 14 Versuche). Beide Assertions
+   zielen jetzt auf `.notice__body`.

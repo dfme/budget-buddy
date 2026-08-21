@@ -36,6 +36,13 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: $c-ink-3;
+
+  // Untertitel innerhalb eines Abschnitts — engerer Abstand als der Abschnittswechsel.
+  &--sub {
+    margin-top: $sp-4;
+    text-transform: none;
+    letter-spacing: 0;
+  }
 }
 
 .sg-row {

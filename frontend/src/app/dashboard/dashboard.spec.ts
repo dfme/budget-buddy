@@ -115,7 +115,11 @@ describe('Dashboard', () => {
 
     const banner = fixture.nativeElement.querySelector('.negative-banner');
     expect(banner).not.toBeNull();
-    expect(banner.textContent.trim()).toBe('Achtung: Dein Budget für diese Woche ist überzogen');
+    // `.notice__body` statt des ganzen Banners: seit FE-UI-07 rendert app-notice sein Icon
+    // selbst, das im textContent des Hosts mitliefe.
+    expect(banner.querySelector('.notice__body').textContent.trim()).toBe(
+      'Achtung: Dein Budget für diese Woche ist überzogen',
+    );
     // Rot + fett kommen aus der error-Variante von app-notice (notice.scss); die Klasse ist
     // hier der Nachweis, dass genau diese Variante gewählt wurde.
     expect(banner.classList).toContain('notice--error');
@@ -154,10 +158,12 @@ describe('Dashboard', () => {
 
     const notice = fixture.nativeElement.querySelector('.no-income__notice');
     expect(notice).not.toBeNull();
-    expect(notice.querySelector('.no-income__headline').textContent.trim()).toBe(
+    // Titel und Erlaeuterung kommen seit FE-UI-07 aus app-notice: der Titel aus dem
+    // [title]-Input, die Erlaeuterung als projizierter Inhalt darunter.
+    expect(notice.querySelector('.notice__title').textContent.trim()).toBe(
       'Kein Einkommen erfasst',
     );
-    expect(notice.querySelector('.no-income__hint').textContent.trim()).toBe(
+    expect(notice.querySelector('.notice__body').textContent).toContain(
       'Bitte erfasse dein Monatseinkommen in den Einstellungen',
     );
     // Aufbau wie die Design-Baseline (design/variant-a/index.html, `hero hero--muted`):
@@ -175,10 +181,10 @@ describe('Dashboard', () => {
     const notice = fixture.nativeElement.querySelector('.no-income__notice');
     expect(notice).not.toBeNull();
     expect(notice.getAttribute('role')).toBe('status');
-    expect(notice.querySelector('.no-income__headline').textContent.trim()).toBe(
+    expect(notice.querySelector('.notice__title').textContent.trim()).toBe(
       'Kein Einkommen erfasst',
     );
-    expect(notice.querySelector('.no-income__hint').textContent.trim()).toBe(
+    expect(notice.querySelector('.notice__body').textContent).toContain(
       'Bitte erfasse dein Monatseinkommen in den Einstellungen',
     );
   });
@@ -203,8 +209,11 @@ describe('Dashboard', () => {
     // Screenreader unterbrechen darf. Das assertive role="alert" gehoert FE-STS-02.
     expect(notice.classList).not.toContain('notice--error');
     expect(notice.getAttribute('role')).toBe('status');
-    // Das Icon ist Dekoration und darf nicht mitgelesen werden.
-    expect(notice.querySelector('[aria-hidden="true"]').textContent.trim()).toBe('!');
+    // Das Icon liefert app-notice seit FE-UI-07 selbst; es ist Dekoration und darf nicht
+    // mitgelesen werden.
+    const noticeIcon = notice.querySelector('.notice__icon');
+    expect(noticeIcon.textContent.trim()).toBe('!');
+    expect(noticeIcon.getAttribute('aria-hidden')).toBe('true');
 
     const button = fixture.nativeElement.querySelector('.no-income__apply');
     expect(button.textContent.trim()).toBe('Übernehmen');
@@ -272,7 +281,9 @@ describe('Dashboard', () => {
 
     expect(fixture.nativeElement.querySelector('.no-income')).not.toBeNull();
     const error = fixture.nativeElement.querySelector('.no-income__error');
-    expect(error.textContent.trim()).toBe('Das Einkommen konnte nicht gespeichert werden.');
+    expect(error.querySelector('.notice__body').textContent.trim()).toBe(
+      'Das Einkommen konnte nicht gespeichert werden.',
+    );
     // Ein fehlgeschlagener Submit ist der Fall, fuer den app-notice das assertive
     // role="alert" vorsieht (notice.ts) — anders als der No-Income-Zustand selbst.
     expect(error.getAttribute('role')).toBe('alert');

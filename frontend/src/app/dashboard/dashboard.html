@@ -46,21 +46,13 @@
           Gutschriftsmuster — nur stiller Fliesstext übrig und der Hinweis war praktisch
           unsichtbar.
 
-          Icon und Textblock sind genau die zwei Flex-Kinder, für die app-notice gebaut
-          ist (`:host` ist `display: flex` mit `gap`, siehe design/variant-a/styles.scss
-          `.notice`). Der Textblock stapelt intern; mehrere Blöcke direkt im Notice
-          stellte dieses nebeneinander.
+          Icon und Titel liefert app-notice seit FE-UI-07 selbst; hier steht nur noch der
+          erläuternde Satz.
         -->
         @if (d.noIncome) {
           <div class="no-income">
-            <app-notice variant="warning" class="no-income__notice">
-              <span aria-hidden="true">!</span>
-              <span class="no-income__text">
-                <span class="no-income__headline">Kein Einkommen erfasst</span>
-                <span class="no-income__hint">
-                  Bitte erfasse dein Monatseinkommen in den Einstellungen
-                </span>
-              </span>
+            <app-notice variant="warning" class="no-income__notice" title="Kein Einkommen erfasst">
+              Bitte erfasse dein Monatseinkommen in den Einstellungen
             </app-notice>
 
             @if (suggestionText(); as suggestion) {

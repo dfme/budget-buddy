@@ -72,18 +72,6 @@
   text-align: left;
 }
 
-// Zweites Flex-Kind des Notice (nach dem Icon). Stapelt Titel und Erläuterung, die im
-// Notice selbst nebeneinander landen würden — dessen `:host` ist eine Flex-Zeile.
-.no-income__text {
-  display: flex;
-  flex-direction: column;
-  gap: $sp-1;
-}
-
-.no-income__headline {
-  font-weight: 600;
-}
-
 .no-income__suggestion {
   margin: $sp-4 0 0;
   font-size: $fs-sm;

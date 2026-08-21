@@ -15,7 +15,7 @@
   @if (loading()) {
     <p class="status">Lädt …</p>
   } @else if (errorMessage()) {
-    <p class="status error">{{ errorMessage() }}</p>
+    <app-notice variant="error">{{ errorMessage() }}</app-notice>
   } @else if (isEmpty()) {
     <p class="status empty">Keine Ausgaben in diesem Monat.</p>
   } @else if (summary(); as data) {
@@ -87,7 +87,7 @@
                         darf die bereits sichtbaren Buchungen nicht durch eine Meldung ersetzen.
                       -->
                       @if (open.error) {
-                        <p class="status error">{{ open.error }}</p>
+                        <app-notice variant="error">{{ open.error }}</app-notice>
                       } @else {
                         <p class="status empty">Keine Buchungen in dieser Kategorie.</p>
                       }
@@ -132,7 +132,9 @@
                       </ul>
 
                       @if (open.error) {
-                        <p class="status error">{{ open.error }}</p>
+                        <app-notice class="drilldown__error" variant="error">{{
+                          open.error
+                        }}</app-notice>
                       }
 
                       @if (open.hasMore) {
