@@ -42,6 +42,9 @@ class SpaRoutingTest {
     /** Marker aus der main-test.js-Fixture — beweist, dass das echte Asset ankam. */
     private static final String STATIC_ASSET_MARKER = "spaAssetFixture";
 
+    /** Marker aus der media/test-asset.txt-Fixture — beweist, dass das echte Asset ankam. */
+    private static final String MEDIA_ASSET_MARKER = "spa-media-asset-fixture";
+
     @DynamicPropertySource
     static void datasourceProperties(DynamicPropertyRegistry registry) {
         PostgresTestDatabase.registerWithoutFlyway(registry, "spa_routing");
@@ -121,6 +124,63 @@ class SpaRoutingTest {
         assertThat(response.getStatusCode().value()).isEqualTo(200);
         assertThat(response.getBody()).contains(STATIC_ASSET_MARKER);
         assertThat(response.getBody()).doesNotContain(SPA_SHELL_MARKER);
+    }
+
+    @Test
+    void nestedMediaAssetIsPubliclyServedAndNotShadowed() {
+        // Regression-Guard (Review zu PR #187): @angular/build:application legt aus
+        // Templates/SCSS referenzierte Binärassets standardmässig unter media/ ab
+        // (outputPath.media). Das erste Pfadsegment "media" enthält keinen Punkt und wäre ohne
+        // den expliziten Ausschluss im SpaForwardController-Regex vom zweiten Pattern
+        // (/{path}/**) verschluckt worden — die Datei hätte 200 mit der SPA-Shell statt ihres
+        // echten Inhalts geliefert.
+        ResponseEntity<String> response =
+                restTemplate.getForEntity("/media/test-asset.txt", String.class);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        assertThat(response.getBody()).contains(MEDIA_ASSET_MARKER);
+        assertThat(response.getBody()).doesNotContain(SPA_SHELL_MARKER);
+    }
+
+    @Test
+    void segmentStartingWithInfraWordIsNotFalselyExcluded() {
+        // Regression-Guard (Review zu PR #187): der Negative-Lookahead im
+        // SpaForwardController-Regex prüfte vor dem Fix nur, ob das Segment mit einem
+        // Ausschlusswort BEGINNT, nicht ob es ihm ENTSPRICHT — /apix wäre also fälschlich
+        // ausgeschlossen worden (404 statt SPA-Shell), obwohl "apix" kein Infrastruktur-Pfad
+        // ist. Der $-Anker in der Ausschlussgruppe erzwingt jetzt exakte Übereinstimmung.
+        ResponseEntity<String> response = restTemplate.getForEntity("/apix", String.class);
+
+        assertThat(response.getStatusCode().value())
+                .as("/apix ist keine Infrastruktur-Route und muss die SPA-Shell bekommen")
+                .isEqualTo(200);
+        assertThat(response.getBody()).contains(SPA_SHELL_MARKER);
+    }
+
+    @Test
+    void bareActuatorPathRequiresAuth() {
+        // Regression-Guard (Review zu PR #187): /actuator (ohne Unterpfad) stand vor dem Fix in
+        // keiner Liste und wurde durch "GET /** permitAll" unbeabsichtigt öffentlich — nur
+        // /actuator/health und /actuator/info sind bewusst freigegeben.
+        ResponseEntity<String> response = restTemplate.getForEntity("/actuator", String.class);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(401);
+    }
+
+    @Test
+    void swaggerUiIsNotShadowedByCatchAll() {
+        // Regression-Guard aus dem Teststrategie-Versprechen des Plans (nachgetragen, Review zu
+        // PR #187): /swagger-ui.html redirected auf /swagger-ui/index.html — die reale
+        // Swagger-UI-Seite darf dabei nicht durch die SPA-Shell ersetzt werden.
+        ResponseEntity<String> response = restTemplate.getForEntity("/swagger-ui.html", String.class);
+
+        assertThat(response.getStatusCode().is2xxSuccessful()
+                || response.getStatusCode().is3xxRedirection())
+                .as("Status war " + response.getStatusCode())
+                .isTrue();
+        if (response.getBody() != null) {
+            assertThat(response.getBody()).doesNotContain(SPA_SHELL_MARKER);
+        }
     }
 
     @Test

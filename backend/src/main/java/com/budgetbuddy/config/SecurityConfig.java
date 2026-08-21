@@ -36,15 +36,32 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  * {@link SpaForwardController} jede neue Angular-Route einzeln kennen — das lief zweimal
  * auseinander (INFRA-14, #126). Die einzige verbleibende Enumeration sind die Infrastruktur-Pfade
  * unterhalb von {@link #PUBLIC_PATHS}, die weder API noch SPA-Route sind.
+ *
+ * <p><b>{@code GET /** permitAll} ist Default-Allow statt Default-Deny für alles ausserhalb
+ * {@code /api/**}</b> — abgesichert durch die Konvention „jeder Controller unter {@code /api}"
+ * (CLAUDE.md) und die Invariante {@code ControllerApiPrefixTest}, die bei einem Verstoss rot
+ * wird, statt den Fund dem nächsten manuellen Review zu überlassen (Review zu PR #187: ohne
+ * diese Regel war {@code GET /actuator} — der bare Pfad, nicht {@code /actuator/health} —
+ * unauthentifiziert erreichbar). Aus demselben Grund steht {@code /actuator/**} unten explizit
+ * auf {@code authenticated()}: Actuator kann künftig weitere, sensiblere Endpoints exponieren
+ * ({@code management.endpoints.web.exposure.include}), und der GET-Catch-all darf sie nicht
+ * automatisch mitöffnen.
  */
 @Configuration
 public class SecurityConfig {
 
     private static final String[] PUBLIC_PATHS = {
         "/api/auth/**",
+        // Swagger UI und OpenAPI-Docs sind GET-only und damit ohnehin von "GET /** permitAll"
+        // unten gedeckt; sie stehen trotzdem explizit als Defense-in-Depth, falls der Catch-all
+        // je enger gefasst wird.
         "/v3/api-docs/**",
         "/swagger-ui/**",
         "/swagger-ui.html",
+        // Anders als Swagger/OpenAPI-Docs braucht Actuator eine eigene Deny-Regel
+        // (".requestMatchers("/actuator/**").authenticated()" unten): ohne sie wäre jeder
+        // Actuator-Pfad — auch ein künftig per exposure.include hinzugefügter — über
+        // "GET /** permitAll" automatisch öffentlich.
         "/actuator/health",
         "/actuator/info",
         // Springs ERROR-Dispatch: @ResponseStatus auf einer Exception (z.B. 408 Timeout,
@@ -64,6 +81,7 @@ public class SecurityConfig {
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(PUBLIC_PATHS).permitAll()
+                .requestMatchers("/actuator/**").authenticated()
                 .requestMatchers("/api/**").authenticated()
                 .requestMatchers(HttpMethod.GET, "/**").permitAll()
                 .anyRequest().authenticated())
