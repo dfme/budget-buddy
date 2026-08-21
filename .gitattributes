@@ -1,0 +1,9 @@
+# Die E2E-Kontoauszug-Fixtures sind von Hand geschriebene, unkomprimierte PDFs: reines ASCII,
+# damit im Diff nachlesbar ist, dass sie keine echten Kontodaten enthalten. Git erkennt das
+# selbst (keine NUL-Bytes) und diffed sie als Text — GitHub dagegen klassifiziert nach der
+# Endung und zeigt "Binary files differ". Das gesetzte `diff`-Attribut sagt beiden ausdrücklich,
+# dass diese Dateien Text sind.
+#
+# Bewusst nur dieser Pfad und nicht `*.pdf`: die Fixtures unter backend/src/test/resources/pdf/
+# sind echte, komprimierte Bank-PDFs und damit tatsächlich binär.
+e2e/fixtures/pdf/*.pdf diff

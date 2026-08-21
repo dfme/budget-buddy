@@ -30,6 +30,18 @@ test.describe('PDF-Import', () => {
   /** Monat der Fixture-Buchungen, als Deep-Link-Parameter der Kategorie-Übersicht (FE-CAT-04). */
   const FIXTURE_MONTH = '2025-06';
 
+  /**
+   * Wartezeit auf das Ergebnis-Banner. Bewusst grösser als das Worst-Case-Budget des Backends:
+   * `PdfImportService` prüft sein Zeitbudget (`budgetbuddy.import.timeout-seconds`, Default 30)
+   * nur zwischen den Phasen, der letzte Claude-Call kann es um bis zu 20s überziehen — real also
+   * ~50s (Javadoc dort). Ein knapperer Wert würde einen legitim langsamen Import als Testfehler
+   * ausweisen, während das Backend noch innerhalb seiner eigenen Grenze arbeitet.
+   *
+   * Heute schlägt das nicht zu: die Testinstanz läuft ohne ANTHROPIC_API_KEY, die Kategorisierung
+   * dauert Millisekunden. Bekäme sie je einen Key, wäre die Kopplung sonst ein Flake.
+   */
+  const IMPORT_RESULT_TIMEOUT_MS = 60_000;
+
   test('Happy Path: Upload meldet die Anzahl erkannter Transaktionen', async ({
     authenticatedPage: page,
   }) => {
@@ -44,9 +56,9 @@ test.describe('PDF-Import', () => {
     // Der Erfolg meldet sich als `variant="info"` und damit höflich (role="status") — ein
     // gelungener Import soll den Screenreader nicht unterbrechen (`notice.ts`).
     const success = page.locator('app-notice.notice--info[role="status"]');
-    // Grosszügiger Timeout: der Upload läuft synchron durch Parsing, Kategorisierung und
-    // Persistierung (CLAUDE.md, «Backend: Import Flow»), nicht bloss durch einen Request.
-    await expect(success).toBeVisible({ timeout: 30_000 });
+    // Der Upload läuft synchron durch Parsing, Kategorisierung und Persistierung (CLAUDE.md,
+    // «Backend: Import Flow»), nicht bloss durch einen Request.
+    await expect(success).toBeVisible({ timeout: IMPORT_RESULT_TIMEOUT_MS });
     await expect(success).toHaveText(`${FIXTURE_TRANSACTION_COUNT} Transaktionen erkannt.`);
 
     // Gegenprobe zur Zahl im Banner: die stammt direkt aus der HTTP-Response. Dass die Buchungen
@@ -55,13 +67,15 @@ test.describe('PDF-Import', () => {
     // und der ist bei einer Fixture aus Juni 2025 zwangsläufig leer.
     await page.goto(`/categories?month=${FIXTURE_MONTH}`);
 
-    // Erst auf die Tabelle warten, dann den Leerzustand ausschliessen: umgekehrt liefe die
-    // Negativ-Assertion womöglich noch während `loading()` und ginge trivial durch.
-    // Welche Kategorien in der Tabelle stehen, ist hier bewusst nicht Gegenstand: ohne
-    // ANTHROPIC_API_KEY fällt in der Testinstanz alles Unbekannte auf `Sonstiges` zurück
-    // (`AnthropicProperties`), und der Rest hängt an den Seed-Daten aus Migration V04.
+    // Die sichtbare Tabellenzeile ist der ganze Beweis: `loading`, `errorMessage`, `isEmpty` und
+    // `summary` liegen in gegenseitig ausschliessenden @else-if-Zweigen (`category-overview.html`).
+    // Ist eine Zeile da, kann der Leerzustand «Keine Ausgaben in diesem Monat.» nicht im DOM sein
+    // — eine zusätzliche Negativ-Assertion darauf könnte hier gar nicht mehr fehlschlagen.
+    //
+    // Welche Kategorien in der Zeile stehen, ist bewusst nicht Gegenstand: ohne ANTHROPIC_API_KEY
+    // fällt in der Testinstanz alles Unbekannte auf `Sonstiges` zurück (`AnthropicProperties`),
+    // und der Rest hängt an den Seed-Daten aus Migration V04.
     await expect(page.locator('tbody tr').first()).toBeVisible();
-    await expect(page.getByText('Keine Ausgaben in diesem Monat.')).toHaveCount(0);
   });
 
   test('Fehlerpfad: unlesbares PDF meldet einen Fehler und keinen Erfolg', async ({
@@ -84,7 +98,7 @@ test.describe('PDF-Import', () => {
     // die Host-Bindings aus `notice.ts`: role="alert" (assertiv) und die Klasse notice--error.
     // Beide zu prüfen ist genauer als `getByRole('alert')` allein.
     const failure = page.locator('app-notice.notice--error[role="alert"]');
-    await expect(failure).toBeVisible({ timeout: 30_000 });
+    await expect(failure).toBeVisible({ timeout: IMPORT_RESULT_TIMEOUT_MS });
     await expect(failure).toHaveText(
       'Das PDF konnte nicht als Kontoauszug gelesen werden. Bitte lade den Original-Kontoauszug deiner Bank hoch.',
     );
