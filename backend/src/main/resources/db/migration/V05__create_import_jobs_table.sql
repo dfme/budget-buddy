@@ -30,3 +30,8 @@ CREATE TABLE import_jobs (
 -- Jede Statusabfrage filtert auf den Job UND seinen Besitzer (Mandantentrennung, siehe
 -- ImportJobRepository.findByIdAndUserId).
 CREATE INDEX idx_import_jobs_user_id ON import_jobs(user_id);
+
+-- nDSG-Hinweis für US-02 (Konto löschen): Diese Tabelle ist ab jetzt eine weitere abhängige
+-- Tabelle am User. Die Kontolöschung muss import_jobs mitlöschen — ohne das scheitert sie am
+-- Fremdschlüssel. Bewusst KEIN "ON DELETE CASCADE": Die Löschung soll eine bewusste, testbare
+-- Operation im Code sein (CLAUDE.md, Security-Review-Punkt 8), keine stille Nebenwirkung.

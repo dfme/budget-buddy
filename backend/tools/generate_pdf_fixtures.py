@@ -2,7 +2,8 @@
 """Generate synthetic Swiss bank statement PDFs (Peter Muster) as parser test fixtures.
 
 Regenerates the fixtures in src/test/resources/pdf/ used by
-SwissBankStatementParserFixtureTest (BE-PDF-01). All statements are fully
+SwissBankStatementParserFixtureTest (BE-PDF-01) and
+PdfImportLargeStatementIntegrationTest (BE-PDF-09). All statements are fully
 synthetic: fictional holder "Peter Muster", example IBAN
 CH93 0076 2011 6238 5295 7, balance-consistent transaction chains so that
 SwissBankStatementParser's saldo-delta direction logic resolves correctly.
@@ -13,12 +14,18 @@ IMPORTANT: The fixture test asserts the exact printed totals (Total/Umsatztotal
 lines). If you change any amount here, keep every balance chain consistent and
 update the assertions in SwissBankStatementParserFixtureTest accordingly.
 
+NOTE: reportlab stamps a creation date into every PDF, so a run rewrites ALL
+fixtures byte-wise even when their content is unchanged. Restore the files you
+did not mean to touch before committing (git checkout -- <file>), otherwise the
+PR carries unreviewable binary diffs.
+
 Usage:
     pip install reportlab
     python3 backend/tools/generate_pdf_fixtures.py
 """
 
 import os
+from decimal import Decimal
 
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
@@ -360,9 +367,209 @@ JUNI_ROWS = [
 # Juni debits: 54.30+4.50+12.95+129.90+199.90+85.90+20.90+78.60+14.80+92.40+31.15+89.00 = 814.30
 
 
+# =============================== Raiffeisen ===================================
+# Generisches Layout (Datum Valuta Text Betrag Saldo) — der Fallback-Zweig von
+# SwissBankStatementParser, für den es bisher keine Fixture gab.
+#
+# Dieser Auszug ist bewusst GROSS: 110 Buchungen. Er bildet den Auszug aus
+# Issue #192 nach, an dem der synchrone Import zweimal ins 30-Sekunden-Budget
+# lief und dabei den gesamten Import verwarf. Die kleinen Fixtures (28 bzw. 12
+# Buchungen) zeigen das nicht — bei ihnen greift weder die Bündelung sichtbar
+# noch ein Zeitbudget.
+#
+# Die Zeilen werden aus einem Muster erzeugt statt einzeln getippt: 110
+# handgeschriebene Zeilen wären im Review unlesbar, und die Saldokette müsste
+# von Hand konsistent gehalten werden. Erzeugt rechnet sie sich selbst aus.
+
+RAIFFEISEN_FILENAME = "Raiffeisen_Kontoauszug_110_Buchungen.pdf"
+RAIFFEISEN_COUNT = 110
+RAIFFEISEN_START_SALDO = Decimal("12000.00")
+
+# Wiederkehrende Schweizer Händler — die Fixture prüft damit zugleich die
+# Lookup-Tabelle (US-05): ein Teil dieser Namen steht in den Seeds von V04.
+RAIFFEISEN_MERCHANTS = [
+    ("Kartenzahlung Migros M Bern", "45.60"),
+    ("Kartenzahlung Coop-2001 Bern", "38.90"),
+    ("Kartenzahlung SBB CFF FFS Bern", "12.40"),
+    ("LSV Swisscom (Schweiz) AG", "89.90"),
+    ("Kartenzahlung Denner Satellit", "27.35"),
+    ("TWINT Kiosk Bahnhof", "8.50"),
+    ("LSV CSS Kranken-Versicherung", "310.20"),
+    ("Kartenzahlung Aldi Suisse Bern", "52.15"),
+    ("Onlinekauf digitec Galaxus AG", "189.00"),
+    ("Kartenzahlung Restaurant Rosengarten", "68.50"),
+    ("Kartenzahlung Coop Pronto Shop", "23.45"),
+    ("LSV Serafe AG Radio und TV", "27.90"),
+    ("Kartenzahlung Lidl Schweiz Bern", "41.80"),
+    ("Onlinekauf Zalando SE", "129.90"),
+    ("Kartenzahlung Apotheke am Markt", "35.20"),
+    ("Bezug Bancomat Bahnhof Bern", "200.00"),
+    ("Kartenzahlung Migros M Zuerich HB", "23.80"),
+    ("LSV Netflix International", "20.90"),
+    ("Kartenzahlung Cafe Adriano", "14.80"),
+    ("Kartenzahlung Fitnesscenter Aktiv", "89.00"),
+    ("ESR Stadtwerke Bern", "78.50"),
+    ("Dauerauftrag Miete Muster Immobilien AG", "1250.00"),
+]
+
+# Ohne Gutschriften liefe der Saldo ins Minus, und der Parser bekäme keinen
+# einzigen Einnahmefall zu sehen. Alle 30 Buchungen entspricht bei einer Buchung
+# pro Tag grob einem Monatslohn.
+RAIFFEISEN_SALARY = ("Gutschrift Lohn Muster Consulting GmbH", "6800.00")
+RAIFFEISEN_SALARY_EVERY = 30
+
+
+def _swiss(amount):
+    """Decimal -> 9'876.50 (Apostroph-Tausendertrenner, CLAUDE.md)."""
+    sign = "-" if amount < 0 else ""
+    digits, _, frac = f"{abs(amount):.2f}".partition(".")
+    grouped = ""
+    for i, ch in enumerate(digits):
+        if i > 0 and (len(digits) - i) % 3 == 0:
+            grouped += "'"
+        grouped += ch
+    return f"{sign}{grouped}.{frac}"
+
+
+def _raiffeisen_rows():
+    """Baut die Buchungen samt selbst gerechneter Saldokette.
+
+    Returns (rows, totals) mit rows = [(datum, text, betrag, saldo, is_credit)]
+    und totals = (belastungen, gutschriften, schlusssaldo).
+    """
+    from datetime import date, timedelta
+
+    rows = []
+    saldo = RAIFFEISEN_START_SALDO
+    debits = Decimal("0.00")
+    credits = Decimal("0.00")
+    day = date(2026, 1, 2)
+    # Eigener Zähler für die Händlerliste: Liefe sie über den Schleifenindex,
+    # fiele genau der Eintrag aus, dessen Index auf einen Lohn-Slot trifft.
+    merchant = 0
+
+    for i in range(RAIFFEISEN_COUNT):
+        if i % RAIFFEISEN_SALARY_EVERY == RAIFFEISEN_SALARY_EVERY - 1:
+            text, amount = RAIFFEISEN_SALARY
+            betrag = Decimal(amount)
+            saldo += betrag
+            credits += betrag
+            is_credit = True
+        else:
+            text, amount = RAIFFEISEN_MERCHANTS[merchant % len(RAIFFEISEN_MERCHANTS)]
+            merchant += 1
+            betrag = Decimal(amount)
+            saldo -= betrag
+            debits += betrag
+            is_credit = False
+        stamp = (day + timedelta(days=i)).strftime("%d.%m.%Y")
+        rows.append((stamp, text, betrag, saldo, is_credit))
+
+    return rows, (debits, credits, saldo)
+
+
+def _raiffeisen_page_count(rows, row_floor):
+    """Zählt die Seiten vorab, damit «Seite x/y» stimmt.
+
+    Spiegelt die Höhenarithmetik des Layouts unten — Kopf, Saldovortrag-Zeile und
+    dy=11 pro Buchung — plus die Schlussseite mit den Totalen. Eine Simulation
+    statt einer Konstante, weil eine zusätzliche Kopfzeile die Zahl sonst still
+    falsch machen würde.
+    """
+    header_height = 6 * 11 + 8 + 10 + 3 * 9 + 8 + 13  # Absender, Empfänger, Konto, Spaltenkopf
+    y = H - 50 - header_height - 13  # -13 für die Saldovortrag-Zeile auf Seite 1
+    pages = 1
+    for _ in rows:
+        if y < row_floor:
+            pages += 1
+            y = H - 50 - header_height
+        y -= 11
+    return pages + 1  # Schlussseite mit den Totalen
+
+
+def raiffeisen():
+    c = canvas.Canvas(os.path.join(OUT, RAIFFEISEN_FILENAME), pagesize=A4)
+    c.setTitle("Kontoauszug")
+    c.setAuthor(AUTHOR)
+
+    X_DATE, X_VAL, X_TEXT, X_AMT, X_SALDO = 40, 95, 150, 450, 550
+    rows, (debits, credits, end_saldo) = _raiffeisen_rows()
+
+    def header(p, page_no, page_total):
+        p.text(40, "Raiffeisenbank Musterhausen", 10, "Helvetica-Bold")
+        p.text(40, "Bahnhofstrasse 1, 8000 Zürich")
+        p.gap()
+        p.text(300, "Herr")
+        for line in HOLDER:
+            p.text(300, line)
+        p.gap(10)
+        p.text(40, "Kontoauszug Privatkonto CHF", 10, "Helvetica-Bold")
+        p.text(40, "IBAN CH9300762011623852957", 9)
+        p.text(40, "01.01.2026 - 30.04.2026", 9)
+        p.gap(8)
+        p.row(
+            [(X_DATE, "Buchung", "l"), (X_VAL, "Valuta", "l"), (X_TEXT, "Text", "l"),
+             (X_AMT, "Belastung Gutschrift", "r"), (X_SALDO, "Saldo", "r")],
+            8, "Helvetica-Bold", 13)
+        c.setFont("Helvetica", 7)
+        c.drawRightString(W - 40, 32, f"Seite {page_no}/{page_total}")
+
+    # Seitenumbruch nach POSITION, nicht nach Zeilenzahl.
+    #
+    # Erst gelernt, dann so gebaut: Mit einer festen Zeilenzahl pro Seite landete
+    # die 107. Buchung auf Höhe y≈13 und verschmolz beim Extrahieren mit dem
+    # Fusszeilen-Marker bei y=20 zu einer Zeile. Die Zeile begann damit nicht mehr
+    # mit einem Datum, GENERIC_ROW griff nicht — und der Auszug lieferte still 109
+    # statt 110 Buchungen. Ein Auszug mit fünf Zeilen hätte das nie gezeigt.
+    #
+    # ROW_FLOOR hält jede Buchung klar über dem Marker; der assert unten macht
+    # einen künftigen Layout-Fehler laut statt still.
+    ROW_FLOOR = 60
+
+    page_total = _raiffeisen_page_count(rows, ROW_FLOOR)
+
+    page_no = 1
+    p = Page(c)
+    header(p, page_no, page_total)
+    p.row([(X_TEXT, "Saldovortrag", "l"), (X_SALDO, _swiss(RAIFFEISEN_START_SALDO), "r")],
+          8, "Helvetica-Bold", 13)
+
+    for stamp, text, betrag, saldo, _is_credit in rows:
+        if p.y < ROW_FLOOR:
+            footer_marker(c)
+            c.showPage()
+            page_no += 1
+            p = Page(c)
+            header(p, page_no, page_total)
+        assert p.y >= ROW_FLOOR, "Buchungszeile zu nah an der Fusszeile"
+        p.row([(X_DATE, stamp, "l"), (X_VAL, stamp, "l"), (X_TEXT, text, "l"),
+               (X_AMT, _swiss(betrag), "r"), (X_SALDO, _swiss(saldo), "r")], dy=11)
+
+    footer_marker(c)
+    c.showPage()
+
+    p = Page(c)
+    header(p, page_no + 1, page_total)
+    p.gap(6)
+    p.row([(X_TEXT, "Total Belastungen", "l"), (X_AMT, _swiss(debits), "r")],
+          8, "Helvetica-Bold", 13)
+    p.row([(X_TEXT, "Total Gutschriften", "l"), (X_AMT, _swiss(credits), "r")],
+          8, "Helvetica-Bold", 13)
+    p.row([(X_TEXT, "Schlusssaldo", "l"), (X_SALDO, _swiss(end_saldo), "r")],
+          8, "Helvetica-Bold", 16)
+    footer_marker(c)
+    c.showPage()
+    c.save()
+
+    print(f"  {RAIFFEISEN_COUNT} Buchungen, "
+          f"Belastungen {_swiss(debits)}, Gutschriften {_swiss(credits)}, "
+          f"Schlusssaldo {_swiss(end_saldo)}")
+
+
 if __name__ == "__main__":
     postfinance()
     ubs()
+    raiffeisen()
     viseca("Kreditkarten Rechnung April 2025 - CH9300762011623852957 - 2025-04-25.pdf",
            "25.04.2025", "950.20", ("25.03.25", "26.03.25"), APRIL_ROWS, "1'025.85")
     viseca("Kreditkarten Rechnung Juni 2025 - CH9300762011623852957 - 2025-06-25.pdf",

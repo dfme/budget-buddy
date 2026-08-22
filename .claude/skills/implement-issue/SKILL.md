@@ -321,8 +321,8 @@ Treffer, der auf die Musterdefinition oben zeigt, ist kein Befund — jeder ande
 
 - Grössenlimit steht in `application.properties` (`max-file-size=10MB`, `max-request-size=11MB`).
   Der Check ist damit eine **Regressionsbremse**, keine Lückensuche: lockert ein PR diese Werte
-  oder umgeht sie, ist das begründungspflichtig. Der Import läuft laut CLAUDE.md synchron — ohne
-  Limit ist er ein DoS-Hebel, keine Komfortlücke.
+  oder umgeht sie, ist das begründungspflichtig. Das Parsen läuft laut CLAUDE.md weiterhin im
+  Request (ADR-13) — ohne Limit ist es ein DoS-Hebel, keine Komfortlücke.
 - Endung und `Content-Type` sind keine Beweise für den Inhalt. Was zählt, ist das Verhalten von
   PDFBox: `Loader.loadPDF()` in try-with-resources, `ParseException` als Fehler an den Caller
   (CLAUDE.md), passwortgeschützte PDFs mit klarer Meldung statt Stacktrace.
