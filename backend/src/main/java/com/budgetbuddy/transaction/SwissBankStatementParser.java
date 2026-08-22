@@ -131,18 +131,103 @@ public class SwissBankStatementParser {
       Pattern.compile(
           "(?i)^(?:total|umsatztotal|kontostand|anfangssaldo|schlusssaldo|saldovortrag)\\b");
 
+  // Bausteine von DETAIL_NOISE. Einzeln benannt statt als ein langer Alternativ-Ausdruck: Jeder
+  // trägt eine eigene Begründung, und die Fälle stammen aus verschiedenen Layouts.
+
   /**
-   * Zeilen ohne Kategorisierungswert: reine Label-Zeilen, Gegenpartei-IBAN und die maskierte
-   * Kartennummer samt Limite auf Viseca-Abrechnungen.
+   * Reine Label-Zeile. Ihr Wert steht in der Zeile <em>darunter</em> und soll durch — genau
+   * deshalb muss das Label weg: Es belegt sonst einen der {@link #MAX_DETAIL_LINES} Plätze, den
+   * der Wert danach nicht mehr bekommt.
    */
+  private static final String NOISE_LABEL =
+      "^(?:absender|empfänger|empfaenger|mitteilungen|sender referenz|referenz"
+          + "|payment id|bestellnummer|zahlungszweck):?$";
+
+  /** Gegenpartei-IBAN — mit Leerzeichen gedruckt (UBS) oder ohne (PostFinance). */
+  private static final String NOISE_IBAN = "^[A-Z]{2}\\d{2}[\\d ]{10,}$";
+
+  /**
+   * Maskierte Karten- oder Kontonummer. Ohne Wortgrenzen, weil beide Layouts sie anders setzen:
+   * PostFinance druckt {@code KARTEN NR. XXXX4417} (kein {@code \b} zwischen X und Ziffer),
+   * Viseca {@code 5500 20XX XXXX 5446}. Die frühere Fassung {@code \bXXXX\b} traf nur die
+   * zweite und liess die Kartennummer jeder PostFinance-Kartenzahlung in den Prompt.
+   */
+  private static final String NOISE_MASKED_NUMBER = "X{4}";
+
+  /**
+   * Postanschrift der Gegenpartei: {@code Bahnhofstrasse 1} bzw. {@code 8000 Zürich}.
+   *
+   * <p>Trägt nichts zur Kategorie bei — der Name der Gegenpartei steht eine Zeile darüber und
+   * bleibt erhalten — und ist zugleich das Personendatum, das am wenigsten im Claude-Prompt zu
+   * suchen hat (BE-PDF-06). Auf echten PostFinance-Auszügen belegen Strasse und Ort zusammen
+   * zwei der drei Plätze, sodass der Verwendungszweck darunter wegfällt.
+   *
+   * <p>Heuristik mit bekanntem Rand: Eine Zweckzeile, die mit einer vierstelligen Zahl
+   * <em>beginnt</em> ({@code 2026 PRAEMIE}), fiele mit heraus. Beobachtet wurde die Form
+   * bisher nicht — die Jahreszahl steht in allen vorliegenden Auszügen am Ende.
+   */
+  private static final String NOISE_ADDRESS =
+      "^[1-9]\\d{3}\\s+\\p{L}[\\p{L}.\\-' ]*$"
+          + "|^\\p{L}[\\p{L}.\\-' ]*(?:strasse|str\\.|weg|gasse|platz|allee|ring)\\s*\\d+[a-z]?$";
+
+  /** Auftragsnummer hinter ihrem Label ({@code DAUERAUFTRAG: 90-11223344}). */
+  private static final String NOISE_ORDER_NUMBER = "^dauerauftrag:\\s*\\d";
+
+  /**
+   * Undurchsichtige Referenz als eigene Zeile ({@code 250704111222333444AB},
+   * {@code C040725R010A}) — der Wert unter Labels wie {@code PAYMENT ID} oder
+   * {@code BESTELLNUMMER}.
+   *
+   * <p>Erst durch {@link #NOISE_LABEL} überhaupt sichtbar geworden: Vorher belegte das Label
+   * den Platz, jetzt würde ihn sein Wert belegen. Beides ist für die Kategorisierung wertlos.
+   *
+   * <p>Zehn Zeichen ohne Leerzeichen, nur Grossbuchstaben und Ziffern, mindestens eine Ziffer.
+   * Die Ziffernbedingung hält Händlernamen heraus: {@code SWISSCOM} hat keine, und Namen mit
+   * Ziffer ({@code COOP-1234 BERN}) tragen Leerzeichen oder Bindestrich.
+   */
+  private static final String NOISE_OPAQUE_REFERENCE = "^(?=[0-9A-Z]*\\d)[0-9A-Z]{10,}$";
+
+  /** Platzhalter, den PostFinance in leer gebliebene Felder druckt. */
+  private static final String NOISE_PLACEHOLDER = "^n/a$";
+
+  /** Kartenlimite unter der Zahlungszeile auf Viseca-Abrechnungen. */
+  private static final String NOISE_CARD_LIMIT = "^Kartenlimite\\b";
+
+  /**
+   * Seitennummerierung im Fuss.
+   *
+   * <p>Sie steht physisch am Seitenende, im extrahierten Text aber direkt hinter der letzten
+   * Buchung der Seite — kurz genug für {@link #MAX_DETAIL_LENGTH}, ohne Datum und ohne Betrag.
+   * Ohne diesen Eintrag hängt an jeder Seite genau eine Buchung, deren Kategorisierungs-Input
+   * auf „… Seite 2/4" endet. Jeder mehrseitige Auszug ist betroffen.
+   */
+  private static final String NOISE_PAGE_NUMBER = "^Seite\\s*:?\\s*\\d+\\s*(?:/|von)\\s*\\d+$";
+
+  /** Zeilen ohne Kategorisierungswert — siehe die Bausteine oben. */
   private static final Pattern DETAIL_NOISE =
       Pattern.compile(
-          "(?i)^(?:absender|empfänger|empfaenger):?$"
-              + "|^[A-Z]{2}\\d{2}[\\d ]{10,}$"
-              + "|\\bXXXX\\b"
-              + "|^Kartenlimite\\b");
+          "(?i)"
+              + String.join(
+                  "|",
+                  NOISE_LABEL,
+                  NOISE_IBAN,
+                  NOISE_MASKED_NUMBER,
+                  NOISE_ADDRESS,
+                  NOISE_ORDER_NUMBER,
+                  NOISE_OPAQUE_REFERENCE,
+                  NOISE_PLACEHOLDER,
+                  NOISE_CARD_LIMIT,
+                  NOISE_PAGE_NUMBER));
 
-  /** Maximale Anzahl Detailzeilen pro Buchung. */
+  /**
+   * Maximale Anzahl Detailzeilen pro Buchung.
+   *
+   * <p>Bewusst bei 3 belassen, obwohl echte PostFinance-Blöcke bis zu acht Zeilen haben. Die
+   * Grenze begrenzt, was pro Transaktion in den Claude-Prompt geht — an Kosten wie an
+   * Personendaten (BE-PDF-06). Das beobachtete Problem war nie die Grenze selbst, sondern dass
+   * Rauschen das Rennen um die drei Plätze gewann und die sprechende Zeile verdrängte; behoben
+   * wird das über {@link #DETAIL_NOISE}, nicht über ein höheres Limit.
+   */
   private static final int MAX_DETAIL_LINES = 3;
 
   /**
@@ -427,13 +512,29 @@ public class SwissBankStatementParser {
    * eine Kombination möglich, bleiben alle Buchungen Belastungen und es wird gewarnt — eine
    * willkürlich gewählte Kombination könnte einzelne Richtungen falsch setzen, obwohl die Summe
    * stimmt.
+   *
+   * <p>Buchungen über {@code 0.00} nehmen an der Suche nicht teil. Sie verschieben den Saldo
+   * nicht und haben damit keine bestimmbare Richtung — {@code +0.00} und {@code -0.00} lösen
+   * beide auf, was jeden Block mit einer solchen Zeile als „mehrdeutig" abstempeln würde. Auf
+   * echten PostFinance-Auszügen ist das kein Randfall: Eine kostenlose Gebührenzeile
+   * ({@code PREIS FÜR … 0.00}) steht dort am Monatsende. Sie bleiben Belastung (Default) und
+   * die Warnung ist wieder den echten Fällen vorbehalten.
    */
   private static void assignDirections(List<MutableRow> block, BigDecimal before, BigDecimal after) {
     if (before == null || block.isEmpty()) {
       return;
     }
     BigDecimal delta = after.subtract(before);
-    int k = block.size();
+    List<MutableRow> resolvable = new ArrayList<>(block.size());
+    for (MutableRow row : block) {
+      if (row.betrag.signum() != 0) {
+        resolvable.add(row);
+      }
+    }
+    if (resolvable.isEmpty()) {
+      return;
+    }
+    int k = resolvable.size();
     if (k > 16) {
       log.warn(
           "PostFinance: {} Buchungen im Saldo-Block — Richtungen nicht auflösbar, alle als"
@@ -445,7 +546,7 @@ public class SwissBankStatementParser {
     for (int mask = 0; mask < (1 << k); mask++) {
       BigDecimal sum = BigDecimal.ZERO.setScale(2);
       for (int i = 0; i < k; i++) {
-        BigDecimal b = block.get(i).betrag;
+        BigDecimal b = resolvable.get(i).betrag;
         sum = sum.add((mask >> i & 1) == 1 ? b.negate() : b);
       }
       if (sum.compareTo(delta) == 0) {
@@ -469,7 +570,7 @@ public class SwissBankStatementParser {
       return;
     }
     for (int i = 0; i < k; i++) {
-      block.get(i).isIncome = (solution >> i & 1) == 0;
+      resolvable.get(i).isIncome = (solution >> i & 1) == 0;
     }
   }
 
