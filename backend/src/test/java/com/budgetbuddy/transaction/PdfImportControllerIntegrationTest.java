@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.awaitility.Awaitility.await;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -13,11 +15,13 @@ import com.budgetbuddy.categorization.CategorizationPort;
 import com.budgetbuddy.categorization.CategorizationResult;
 import com.budgetbuddy.categorization.Category;
 import jakarta.servlet.http.Cookie;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
@@ -77,6 +81,12 @@ class PdfImportControllerIntegrationTest {
     @Autowired private TransactionRepository transactionRepository;
 
     /** Ersetzt die Hybrid-Kette (den {@code @Primary}-{@link CategorizationPort}) im Kontext. */
+    @Autowired
+    private ImportJobRepository importJobRepository;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
     @MockitoBean(name = "hybridCategorizationService")
     private CategorizationPort categorizationPort;
 
@@ -85,6 +95,8 @@ class PdfImportControllerIntegrationTest {
     @BeforeEach
     void seed() {
         transactionRepository.deleteAll();
+        // Vor den Usern: import_jobs.user_id ist ein Fremdschlüssel auf users (Flyway V05).
+        importJobRepository.deleteAll();
         jdbcTemplate.update("DELETE FROM users");
         jdbcTemplate.update(
                 "INSERT INTO users (email, password_hash, monthly_income, onboarding_completed)"
@@ -92,9 +104,45 @@ class PdfImportControllerIntegrationTest {
                 "lara@example.ch", "bcrypt-hash", new BigDecimal("2200.00"), true);
         userId = jdbcTemplate.queryForObject(
                 "SELECT id FROM users WHERE email = 'lara@example.ch'", Long.class);
-        when(categorizationPort.categorize(anyString()))
-                .thenReturn(Optional.of(new CategorizationResult(
-                        Category.LEBENSMITTEL, CategorizationResult.Source.LOOKUP)));
+        // Seit ADR-13 fragt der Import gebündelt ab: categorizeAll, nicht categorize.
+        when(categorizationPort.categorizeAll(org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(invocation -> {
+                    List<String> texts = invocation.getArgument(0);
+                    return java.util.Collections.nCopies(texts.size(),
+                            Optional.of(new CategorizationResult(
+                                    Category.LEBENSMITTEL, CategorizationResult.Source.LOOKUP)));
+                });
+    }
+
+    /**
+     * Lädt ein PDF hoch und wartet, bis der Hintergrundlauf durch ist — die Testvariante dessen,
+     * was das Frontend mit {@code GET /api/import/{jobId}/status} tut.
+     *
+     * <p>Seit ADR-13 antwortet der Upload mit {@code 202} und der Job-ID; wer direkt danach die
+     * Datenbank prüft, prüft einen Zwischenstand. Alle Persistenz-Assertions unten hängen deshalb
+     * an diesem Helfer.
+     *
+     * @return die Job-ID.
+     */
+    private long uploadAndAwait(byte[] pdf, long uid, boolean force) throws Exception {
+        var request = multipart("/api/import/pdf").file(pdfPart(pdf)).cookie(jwtCookie(uid));
+        if (force) {
+            // queryParam statt param: der Client hängt das Flag an die URL, und nur queryParam
+            // erzeugt im Test wirklich einen Query-String statt bloss einen Eintrag in der
+            // Parameter-Map. Sonst prüft der Test einen Pfad, den der Client gar nicht nimmt.
+            request = request.queryParam("force", "true");
+        }
+        String body = mockMvc.perform(request)
+                .andExpect(status().isAccepted())
+                .andReturn().getResponse().getContentAsString();
+        long jobId = objectMapper.readTree(body).get("jobId").asLong();
+
+        await().atMost(Duration.ofSeconds(30))
+                .pollInterval(Duration.ofMillis(50))
+                .until(() -> importJobRepository.findById(jobId)
+                        .map(job -> job.getStatus() != ImportJobStatus.RUNNING)
+                        .orElse(false));
+        return jobId;
     }
 
     private Cookie jwtCookie(long uid) {
@@ -161,56 +209,96 @@ class PdfImportControllerIntegrationTest {
     }
 
     @Test
-    void validPdfReturns200WithTransactionCount() throws Exception {
+    void validPdfReturns202WithJobIdAndTotal() throws Exception {
         mockMvc.perform(multipart("/api/import/pdf").file(pdfPart(fixture())).cookie(jwtCookie(userId)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.count").value(28));
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.jobId").isNumber())
+                // Der Nenner der Fortschrittsanzeige steht schon in der Upload-Antwort: Das Parsen
+                // lief synchron, nur die Kategorisierung ist noch unterwegs (ADR-13).
+                .andExpect(jsonPath("$.total").value(28));
 
-        // Kreuzprobe: die 28 Transaktionen sind auch wirklich persistiert.
-        assertThat(transactionRepository.count()).isEqualTo(28);
+        await().atMost(Duration.ofSeconds(30))
+                .until(() -> transactionRepository.count() == 28);
+    }
+
+    /**
+     * Der Endpoint, an dem die Fortschrittsanzeige hängt: Er zählt bis {@code total} hoch und
+     * endet auf {@code DONE}.
+     */
+    @Test
+    void statusEndpointReportsProgressAndCompletion() throws Exception {
+        long jobId = uploadAndAwait(fixture(), userId, false);
+
+        mockMvc.perform(get("/api/import/{jobId}/status", jobId).cookie(jwtCookie(userId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("DONE"))
+                .andExpect(jsonPath("$.total").value(28))
+                .andExpect(jsonPath("$.processed").value(28))
+                .andExpect(jsonPath("$.degraded").value(false));
+    }
+
+    /**
+     * Mandantentrennung am neuen Endpoint: Job-IDs sind fortlaufend und damit ratbar. Ein fremder
+     * Job muss sich wie ein nicht existierender verhalten — ein 403 würde bereits verraten, dass
+     * dort gerade jemand anders importiert.
+     */
+    @Test
+    void statusOfForeignJobReturns404() throws Exception {
+        jdbcTemplate.update(
+                "INSERT INTO users (email, password_hash, monthly_income, onboarding_completed)"
+                        + " VALUES (?, ?, ?, ?)",
+                "fremd@example.ch", "bcrypt-hash", new BigDecimal("3000.00"), true);
+        long otherUserId = jdbcTemplate.queryForObject(
+                "SELECT id FROM users WHERE email = 'fremd@example.ch'", Long.class);
+        long jobId = uploadAndAwait(fixture(), userId, false);
+
+        mockMvc.perform(get("/api/import/{jobId}/status", jobId).cookie(jwtCookie(otherUserId)))
+                .andExpect(status().isNotFound());
     }
 
     @Test
-    void recognizedStatementWithoutBookingsReturns200WithCountZero() throws Exception {
+    void statusWithoutJwtReturns401() throws Exception {
+        mockMvc.perform(get("/api/import/{jobId}/status", 1L))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void recognizedStatementWithoutBookingsReturns202WithTotalZero() throws Exception {
         // BE-PDF-05 (#95): Format erkannt (Saldovortrag-Zeile), aber keine Buchung — Konto ohne
-        // Bewegung. Erfolg mit count=0 statt 400 "Format nicht unterstützt" (Team-Entscheid).
+        // Bewegung. Erfolg mit total=0 statt 400 "Format nicht unterstützt" (Team-Entscheid).
         byte[] emptyStatement = pdfWithLines(List.of(
                 "Kontoauszug Maerz 2024",
                 "Saldovortrag 1'000.00",
                 "Schlusssaldo 1'000.00"));
 
-        mockMvc.perform(multipart("/api/import/pdf")
-                        .file(pdfPart(emptyStatement)).cookie(jwtCookie(userId)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.count").value(0));
+        long jobId = uploadAndAwait(emptyStatement, userId, false);
 
         assertThat(transactionRepository.count()).isZero();
+        // Der Job ist sofort fertig — sonst wartete das Frontend auf einen Lauf, den es nicht gibt.
+        mockMvc.perform(get("/api/import/{jobId}/status", jobId).cookie(jwtCookie(userId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("DONE"))
+                .andExpect(jsonPath("$.total").value(0));
     }
 
     @Test
     void duplicatePdfReturns409() throws Exception {
-        mockMvc.perform(multipart("/api/import/pdf").file(pdfPart(fixture())).cookie(jwtCookie(userId)))
-                .andExpect(status().isOk());
+        uploadAndAwait(fixture(), userId, false);
 
+        // Der Duplikatcheck läuft weiterhin synchron im Request — der 409 kommt als HTTP-Status
+        // zurück und nicht erst über den Job-Status (ADR-13).
         mockMvc.perform(multipart("/api/import/pdf").file(pdfPart(fixture())).cookie(jwtCookie(userId)))
                 .andExpect(status().isConflict());
     }
 
     @Test
-    void duplicatePdfWithForceReturns200AndReplacesPreviousImport() throws Exception {
-        mockMvc.perform(multipart("/api/import/pdf").file(pdfPart(fixture())).cookie(jwtCookie(userId)))
-                .andExpect(status().isOk());
+    void duplicatePdfWithForceReturns202AndReplacesPreviousImport() throws Exception {
+        uploadAndAwait(fixture(), userId, false);
         List<Long> firstImportIds = transactionRepository.findAll().stream()
                 .map(Transaction::getId).toList();
 
         // FE-PDF-03: «Trotzdem importieren» wiederholt denselben Upload mit force=true.
-        // queryParam statt param: der Client hängt das Flag an die URL, und nur queryParam
-        // erzeugt im Test wirklich einen Query-String statt bloss einen Eintrag in der
-        // Parameter-Map. Sonst prüft der Test einen Pfad, den der Client gar nicht nimmt.
-        mockMvc.perform(multipart("/api/import/pdf").file(pdfPart(fixture()))
-                        .queryParam("force", "true").cookie(jwtCookie(userId)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.count").value(28));
+        uploadAndAwait(fixture(), userId, true);
 
         // Ersetzt, nicht angehängt: dieselbe Anzahl wie nach dem Erstimport …
         assertThat(transactionRepository.count()).isEqualTo(28);
@@ -230,15 +318,10 @@ class PdfImportControllerIntegrationTest {
 
         // Dasselbe PDF bei beiden Usern (Gemeinschaftskonto) — der Force-Import des einen darf
         // die Buchungen des anderen nicht anfassen (Mandantentrennung).
-        mockMvc.perform(multipart("/api/import/pdf").file(pdfPart(fixture())).cookie(jwtCookie(userId)))
-                .andExpect(status().isOk());
-        mockMvc.perform(multipart("/api/import/pdf").file(pdfPart(fixture()))
-                        .cookie(jwtCookie(otherUserId)))
-                .andExpect(status().isOk());
+        uploadAndAwait(fixture(), userId, false);
+        uploadAndAwait(fixture(), otherUserId, false);
 
-        mockMvc.perform(multipart("/api/import/pdf").file(pdfPart(fixture()))
-                        .queryParam("force", "true").cookie(jwtCookie(userId)))
-                .andExpect(status().isOk());
+        uploadAndAwait(fixture(), userId, true);
 
         assertThat(transactionRepository.findAll()).filteredOn(tx -> tx.getUserId() == otherUserId)
                 .hasSize(28);

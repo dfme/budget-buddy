@@ -1,8 +1,13 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ImportJobStatusResponse } from './import-response.model';
 import { PdfUpload } from './pdf-upload';
+
+/** Job-ID, die das Backend-Double in allen Tests zurückgibt. */
+const JOB_ID = 7;
 
 function pdfFile(name = 'kontoauszug.pdf'): File {
   return new File(['%PDF-1.4'], name, { type: 'application/pdf' });
@@ -32,7 +37,34 @@ describe('PdfUpload', () => {
     button.click();
   }
 
+  /**
+   * Beantwortet den Upload und danach den ersten Status-Poll — der vollständige zweistufige
+   * Import (ADR-13). Ohne den zweiten Schritt bliebe die Komponente im Fortschrittszustand
+   * stehen, denn `POST /api/import/pdf` meldet seit BE-PDF-09 nur noch den Start.
+   */
+  function completeImport(total: number, patch: Partial<ImportJobStatusResponse> = {}): void {
+    httpMock.expectOne('/api/import/pdf').flush({ jobId: JOB_ID, total });
+    if (total === 0) {
+      // Erkannter Auszug ohne Buchungen: Es gibt keinen Lauf zu verfolgen (BE-PDF-05).
+      fixture.detectChanges();
+      return;
+    }
+    // Unter Faketimern braucht auch die 0-Verzögerung des ersten Polls einen Tick.
+    vi.advanceTimersByTime(1);
+    httpMock.expectOne(`/api/import/${JOB_ID}/status`).flush({
+      status: 'DONE',
+      total,
+      processed: total,
+      degraded: false,
+      ...patch,
+    });
+    fixture.detectChanges();
+  }
+
   beforeEach(async () => {
+    // Vitest-Faketimer statt fakeAsync/tick: Das Projekt läuft zoneless, zone-testing.js ist
+    // deshalb gar nicht geladen. Der Poll-Takt aus PdfImportService hängt an einem Timer.
+    vi.useFakeTimers();
     await TestBed.configureTestingModule({
       imports: [PdfUpload],
       providers: [provideHttpClient(), provideHttpClientTesting()],
@@ -44,39 +76,111 @@ describe('PdfUpload', () => {
     fixture.detectChanges();
   });
 
-  afterEach(() => httpMock.verify());
+  afterEach(() => {
+    httpMock.verify();
+    vi.useRealTimers();
+  });
 
-  it('uploads a dropped PDF and shows the spinner while the request is pending', () => {
+  it('shows the spinner while parsing and the progress bar while categorizing', () => {
     component.onDrop(dropEvent([pdfFile()]));
     fixture.detectChanges();
 
+    // Phase 1 — das PDF wird geparst: Es gibt noch keinen Nenner, also nur den Spinner.
     expect(component.uploading()).toBe(true);
     expect(fixture.nativeElement.querySelector('.spinner')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('app-meter')).toBeNull();
 
     const req = httpMock.expectOne('/api/import/pdf');
     expect(req.request.method).toBe('POST');
-    req.flush({ count: 42 });
+    req.flush({ jobId: JOB_ID, total: 42 });
+    fixture.detectChanges();
+
+    // Phase 2 — die Kategorisierung läuft: Der Balken ersetzt den Spinner und kennt seinen Nenner.
+    expect(component.uploading()).toBe(true);
+    expect(fixture.nativeElement.querySelector('.spinner')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-meter')).not.toBeNull();
+    expect(component.progress()).toEqual({ processed: 0, total: 42 });
+
+    vi.advanceTimersByTime(1);
+    httpMock.expectOne(`/api/import/${JOB_ID}/status`).flush({
+      status: 'RUNNING',
+      total: 42,
+      processed: 20,
+      degraded: false,
+    });
+    fixture.detectChanges();
+
+    expect(component.progressPercent()).toBe(48);
+    expect(fixture.nativeElement.textContent).toContain('20 von 42 Transaktionen kategorisiert');
+
+    vi.advanceTimersByTime(700);
+    httpMock.expectOne(`/api/import/${JOB_ID}/status`).flush({
+      status: 'DONE',
+      total: 42,
+      processed: 42,
+      degraded: false,
+    });
     fixture.detectChanges();
 
     expect(component.uploading()).toBe(false);
-    expect(component.importOutcome()).toEqual({ kind: 'success', count: 42 });
-    expect(fixture.nativeElement.querySelector('.spinner')).toBeNull();
+    expect(component.importOutcome()).toEqual({ kind: 'success', count: 42, degraded: false });
+    expect(fixture.nativeElement.querySelector('app-meter')).toBeNull();
+  });
+
+  /**
+   * AC2 aus #192: Ein Import, der serverseitig ins Zeitbudget lief, ist trotzdem vollständig
+   * gespeichert. Die Meldung bleibt deshalb eine Erfolgsmeldung und erklärt nur, warum ein Teil
+   * unter «Sonstiges» steht.
+   */
+  it('reports a degraded import as a success with an explanation', () => {
+    component.onDrop(dropEvent([pdfFile()]));
+    completeImport(108, { degraded: true });
+
+    expect(component.importOutcome()).toEqual({ kind: 'success', count: 108, degraded: true });
+    const notice = fixture.nativeElement.querySelector('app-notice');
+    expect(notice?.getAttribute('role')).toBe('status');
+    expect(notice?.textContent).toContain('108 Transaktionen erkannt.');
+    expect(notice?.textContent).toContain('nicht automatisch kategorisiert');
+  });
+
+  it('shows an error when the background job fails', () => {
+    component.onDrop(dropEvent([pdfFile()]));
+    completeImport(12, { status: 'FAILED', processed: 5 });
+
+    expect(component.uploading()).toBe(false);
+    const notice = fixture.nativeElement.querySelector('app-notice');
+    expect(notice?.getAttribute('role')).toBe('alert');
+    expect(notice?.textContent).toContain('Der Import ist fehlgeschlagen');
+  });
+
+  it('shows an error when the status request itself fails', () => {
+    component.onDrop(dropEvent([pdfFile()]));
+    httpMock.expectOne('/api/import/pdf').flush({ jobId: JOB_ID, total: 12 });
+
+    vi.advanceTimersByTime(1);
+    httpMock
+      .expectOne(`/api/import/${JOB_ID}/status`)
+      .flush(null, { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+
+    // Ein unbekannter Ausgang darf nicht als Erfolg durchgehen — der Nutzer prüfte sonst nicht nach.
+    expect(component.uploading()).toBe(false);
+    expect(fixture.nativeElement.querySelector('app-notice')?.getAttribute('role')).toBe('alert');
   });
 
   it('uploads a file selected via the file picker', () => {
     const input = { files: [pdfFile()], value: 'C:\\fakepath\\kontoauszug.pdf' };
     component.onFilePicked({ target: input } as unknown as Event);
 
-    httpMock.expectOne('/api/import/pdf').flush({ count: 3 });
+    completeImport(3);
 
-    expect(component.importOutcome()).toEqual({ kind: 'success', count: 3 });
+    expect(component.importOutcome()).toEqual({ kind: 'success', count: 3, degraded: false });
     expect(input.value).toBe('');
   });
 
   it('shows the imported transaction count as a polite status message', () => {
     component.onDrop(dropEvent([pdfFile()]));
-    httpMock.expectOne('/api/import/pdf').flush({ count: 42 });
-    fixture.detectChanges();
+    completeImport(42);
 
     const notice = fixture.nativeElement.querySelector('app-notice');
     expect(notice?.textContent).toContain('42 Transaktionen erkannt.');
@@ -85,11 +189,11 @@ describe('PdfUpload', () => {
   });
 
   it('explains the zero-transaction case instead of showing a bare count', () => {
-    // BE-PDF-05: erkannter Auszug ohne Buchungen liefert 200 {count: 0}. Die Meldung muss
+    // BE-PDF-05: erkannter Auszug ohne Buchungen liefert 202 {total: 0}. Die Meldung muss
     // einordnen (Konto ohne Bewegung vs. falsches PDF), bleibt aber ein freundliches info-Notice.
+    // Kein Status-Poll: Es gibt keinen Lauf zu verfolgen.
     component.onDrop(dropEvent([pdfFile()]));
-    httpMock.expectOne('/api/import/pdf').flush({ count: 0 });
-    fixture.detectChanges();
+    completeImport(0);
 
     const notice = fixture.nativeElement.querySelector('app-notice');
     expect(notice?.textContent).toContain('Keine Transaktionen erkannt.');
@@ -99,8 +203,7 @@ describe('PdfUpload', () => {
 
   it('uses the singular for exactly one imported transaction', () => {
     component.onDrop(dropEvent([pdfFile()]));
-    httpMock.expectOne('/api/import/pdf').flush({ count: 1 });
-    fixture.detectChanges();
+    completeImport(1);
 
     expect(fixture.nativeElement.querySelector('app-notice')?.textContent).toContain(
       '1 Transaktion erkannt.',
@@ -124,8 +227,8 @@ describe('PdfUpload', () => {
   it('accepts a dropped file without MIME type when the name ends in .pdf', () => {
     component.onDrop(dropEvent([new File(['%PDF-1.4'], 'Kontoauszug.PDF', { type: '' })]));
 
-    httpMock.expectOne('/api/import/pdf').flush({ count: 1 });
-    expect(component.importOutcome()).toEqual({ kind: 'success', count: 1 });
+    completeImport(1);
+    expect(component.importOutcome()).toEqual({ kind: 'success', count: 1, degraded: false });
   });
 
   it('rejects a file larger than 10 MB without calling the backend', () => {
@@ -201,7 +304,9 @@ describe('PdfUpload', () => {
   it('shows the timeout message with a retry hint for a 408', () => {
     component.onDrop(dropEvent([pdfFile()]));
 
-    httpMock.expectOne('/api/import/pdf').flush(null, { status: 408, statusText: 'Request Timeout' });
+    httpMock
+      .expectOne('/api/import/pdf')
+      .flush(null, { status: 408, statusText: 'Request Timeout' });
     fixture.detectChanges();
 
     const notice = fixture.nativeElement.querySelector('app-notice');
@@ -284,10 +389,17 @@ describe('PdfUpload', () => {
     const req = httpMock.expectOne((r) => r.url === '/api/import/pdf');
     expect(req.request.params.get('force')).toBe('true');
     expect((req.request.body as FormData).get('file')).toBe(file);
-    req.flush({ count: 28 });
+    req.flush({ jobId: JOB_ID, total: 28 });
+    vi.advanceTimersByTime(1);
+    httpMock.expectOne(`/api/import/${JOB_ID}/status`).flush({
+      status: 'DONE',
+      total: 28,
+      processed: 28,
+      degraded: false,
+    });
     fixture.detectChanges();
 
-    expect(component.importOutcome()).toEqual({ kind: 'success', count: 28 });
+    expect(component.importOutcome()).toEqual({ kind: 'success', count: 28, degraded: false });
     expect(fixture.nativeElement.querySelector('app-modal')).toBeNull();
     expect(fixture.nativeElement.querySelector('app-notice')?.textContent).toContain(
       '28 Transaktionen erkannt.',
@@ -303,15 +415,15 @@ describe('PdfUpload', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('app-modal')).toBeNull();
-    httpMock.expectOne('/api/import/pdf').flush({ count: 5 });
+    completeImport(5);
   });
 
   it('ignores a drop while an upload is already running', () => {
     component.onDrop(dropEvent([pdfFile()]));
     component.onDrop(dropEvent([pdfFile()]));
 
-    httpMock.expectOne('/api/import/pdf').flush({ count: 1 });
-    expect(component.importOutcome()).toEqual({ kind: 'success', count: 1 });
+    completeImport(1);
+    expect(component.importOutcome()).toEqual({ kind: 'success', count: 1, degraded: false });
   });
 
   it('marks the dropzone while a file hovers over it and clears the mark on leave', () => {

@@ -1,56 +1,48 @@
 package com.budgetbuddy.transaction;
 
-import com.budgetbuddy.categorization.CategorizationPort;
-import com.budgetbuddy.categorization.CategorizationResult;
-import com.budgetbuddy.categorization.Category;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.task.TaskRejectedException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Orchestriert den PDF-Import-Flow (BE-PDF-02, US-04): SHA-256-Hash → Duplikatcheck →
- * PDFBox-Parse ({@link SwissBankStatementParser}) → Kategorisierung ({@link CategorizationPort},
- * via {@code @Primary} die Hybrid-Kette aus ADR-6) → Persistierung.
+ * Synchroner Teil des PDF-Import-Flows (BE-PDF-02, US-04): SHA-256-Hash → Duplikatcheck →
+ * PDFBox-Parse ({@link SwissBankStatementParser}) → {@link ImportJob} anlegen. Kategorisierung und
+ * Persistierung übernimmt danach der {@link ImportJobRunner} im Hintergrund.
+ *
+ * <p><strong>Warum dieser Schnitt</strong> (ADR-13, BE-PDF-09): Das Parsen dauert ~2s, die
+ * Kategorisierung ~28s (#192). Nur der lange Teil wandert in den Hintergrund. Der kurze bleibt im
+ * Request, und damit bleiben auch alle Fehler, die er erzeugt, gewöhnliche HTTP-Fehler:
+ * passwortgeschützt/gescannt/unbekanntes Layout → 400 mit {@code reason}, Duplikat → 409,
+ * zu gross → 413. Ein Fehler, den der Nutzer sofort erfährt, ist besser als einer, den er sich
+ * über einen Job-Status abholen muss.
  *
  * <p><strong>Kein PDF in der DB:</strong> Von den PDF-Bytes wird ausschliesslich der SHA-256-Hash
  * gespeichert ({@code transactions.pdf_sha256}) — er dient als Duplikat-Schlüssel pro User.
  *
- * <p><strong>Timeout (kooperativ):</strong> Nach dem Parse sowie vor jedem Kategorisierungs-Call
- * wird die injizierte {@link Clock} gegen das Zeitbudget geprüft
- * ({@code budgetbuddy.import.timeout-seconds}, Default 30). Überschritten →
- * {@link PdfImportTimeoutException}; da der einzige Schreibzugriff das abschliessende
- * {@code saveAll} ist, wird dann nichts persistiert (kein Partial-Import).
- * Kooperativ heisst: Ein laufender Schritt wird nie abgebrochen, nur der nächste
- * verhindert — die reale Obergrenze ist damit Deadline + ein vollständiger Claude-Call
- * (10s SDK-Timeout × 2 Versuche, BE-CAT-02), bei Default 30s also ~50s. Ein präemptiver
- * Thread-Abbruch würde diese Lücke schliessen, wäre hier aber nur Komplexität ohne Zusatznutzen,
- * da SDK-Timeout und Circuit Breaker den Einzelcall bereits begrenzen.
+ * <p><strong>Zeitbudget (kooperativ):</strong> Nach dem Parse wird die injizierte {@link Clock}
+ * gegen {@code budgetbuddy.import.timeout-seconds} (Default 30) geprüft. Seit ADR-13 gilt dieses
+ * Budget <em>nur noch fürs Parsen</em>: PDFBox kennt kein eigenes Timeout, ein pathologisches PDF
+ * könnte den Request sonst beliebig lange binden. Überschritten →
+ * {@link PdfImportTimeoutException} → 408, und weil noch kein Job existiert, ist auch nichts
+ * halb angefangen. Für den Hintergrundlauf gilt ein eigener, weit grösserer Watchdog
+ * ({@link ImportJobRunner}).
  *
- * <p><strong>Bewusst kein {@code @Transactional} um den ganzen Flow:</strong> Das würde die
- * JDBC-Connection über sämtliche Claude-Calls halten — bis ~50s pro Import bei einem
- * Default-Pool von 10 Connections. Atomar sein muss nur der abschliessende Schreibblock; der
- * läuft über ein {@link TransactionTemplate} und umfasst im Force-Fall (FE-PDF-03) auch das
- * Löschen des vorherigen Imports, damit zwischen Delete und Insert kein Fehler die alten Zeilen
- * ersatzlos entfernen kann.
- * Der Duplikatcheck liest davor transaktionslos — der damit mögliche TOCTOU-Race bei parallelem
- * Doppel-Upload bestand schon mit Methoden-Transaktion (eine Transaktion allein sperrt die
- * gelesenen Zeilen nicht) und ist als Follow-up dokumentiert (eigene {@code pdf_imports}-Tabelle).
- * Unter PostgreSQL ist er wahrscheinlicher als vorher, weil parallele Writes nicht mehr wie in
- * SQLite serialisiert werden (DB-05, ADR-12).
- *
- * <p><strong>Jede Transaktion erhält eine Kategorie</strong> (AC BE-PDF-02): Liefert die
- * Kategorisierung {@link java.util.Optional#empty()} (leerer Text), fällt sie auf
- * {@link Category#SONSTIGES}.
+ * <p><strong>Bewusst kein {@code @Transactional} um den Flow:</strong> Der Duplikatcheck liest
+ * transaktionslos — der damit mögliche TOCTOU-Race bei parallelem Doppel-Upload bestand schon mit
+ * Methoden-Transaktion (eine Transaktion allein sperrt die gelesenen Zeilen nicht) und ist als
+ * Follow-up dokumentiert (eigene {@code pdf_imports}-Tabelle). Unter PostgreSQL ist er
+ * wahrscheinlicher als vorher, weil parallele Writes nicht mehr wie in SQLite serialisiert werden
+ * (DB-05, ADR-12).
  */
 @Service
 public class PdfImportService {
@@ -58,29 +50,29 @@ public class PdfImportService {
     private static final Logger log = LoggerFactory.getLogger(PdfImportService.class);
 
     private final SwissBankStatementParser parser;
-    private final CategorizationPort categorizationPort;
     private final TransactionRepository transactionRepository;
-    private final TransactionTemplate transactionTemplate;
+    private final ImportJobRepository importJobRepository;
+    private final ImportJobRunner importJobRunner;
     private final Clock clock;
-    private final Duration timeout;
+    private final Duration parseTimeout;
 
     public PdfImportService(
             SwissBankStatementParser parser,
-            CategorizationPort categorizationPort,
             TransactionRepository transactionRepository,
-            TransactionTemplate transactionTemplate,
+            ImportJobRepository importJobRepository,
+            ImportJobRunner importJobRunner,
             Clock clock,
             @Value("${budgetbuddy.import.timeout-seconds:30}") long timeoutSeconds) {
         this.parser = parser;
-        this.categorizationPort = categorizationPort;
         this.transactionRepository = transactionRepository;
-        this.transactionTemplate = transactionTemplate;
+        this.importJobRepository = importJobRepository;
+        this.importJobRunner = importJobRunner;
         this.clock = clock;
-        this.timeout = Duration.ofSeconds(timeoutSeconds);
+        this.parseTimeout = Duration.ofSeconds(timeoutSeconds);
     }
 
     /**
-     * Importiert alle Transaktionen aus einem Kontoauszug-PDF für den angegebenen User.
+     * Liest einen Kontoauszug ein und startet den Kategorisierungslauf.
      *
      * @param userId ID des eingeloggten Users (aus dem JWT).
      * @param pdfBytes vollständiger Inhalt der PDF-Datei; wird nicht persistiert.
@@ -90,102 +82,76 @@ public class PdfImportService {
      *     Duplikat-Dialog (FE-PDF-03, US-04) — ohne diese Bestätigung entstehen keine Dubletten.
      *     Manuelle Kategorie-Korrekturen überleben das Ersetzen, weil sie als Lookup-Pattern in
      *     {@code category_lookup} liegen (ADR-6, Schritt 3) und beim Re-Import wieder greifen.
-     * @return Hash und Anzahl der importierten Transaktionen. 0 nur bei erkanntem Format ohne
-     *     Buchungen (Konto ohne Bewegung, BE-PDF-05) — dann wird nichts persistiert und ein
-     *     erneuter Upload desselben PDFs gilt nicht als Duplikat. Ein PDF ohne erkennbares
-     *     Format wirft im Parser (BE-PDF-04).
+     * @return der angelegte Job mit der Anzahl erkannter Transaktionen als {@code total}. Bei 0
+     *     erkannten Buchungen (Konto ohne Bewegung, BE-PDF-05) ist er bereits abgeschlossen —
+     *     dann wird nichts persistiert und ein erneuter Upload desselben PDFs gilt nicht als
+     *     Duplikat. Ein PDF ohne erkennbares Format wirft im Parser (BE-PDF-04).
      * @throws DuplicatePdfImportException wenn dieser User dasselbe PDF bereits importiert hat
      *     und {@code force} nicht gesetzt ist.
-     * @throws PdfImportTimeoutException wenn das Zeitbudget überschritten wurde.
+     * @throws PdfImportTimeoutException wenn das Parsen das Zeitbudget überschritten hat.
      * @throws PasswordProtectedPdfException wenn das PDF verschlüsselt ist.
      * @throws PdfParseException wenn das PDF nicht gelesen oder keine Transaktion extrahiert
      *     werden kann — inkl. der Subtypen {@link MissingTextLayerException} (Scan ohne
      *     Textlayer) und {@link UnsupportedStatementFormatException} (unbekanntes Layout).
      */
-    public ImportResult importPdf(long userId, byte[] pdfBytes, boolean force) {
-        Instant deadline = clock.instant().plus(timeout);
+    public ImportJob startImport(long userId, byte[] pdfBytes, boolean force) {
+        Instant deadline = clock.instant().plus(parseTimeout);
 
         String pdfSha256 = sha256Hex(pdfBytes);
         if (!force && transactionRepository.existsByUserIdAndPdfSha256(userId, pdfSha256)) {
             throw new DuplicatePdfImportException(pdfSha256);
         }
 
-        // Phasendauern (BE-PDF-06): Parse (PDFBox, lokal, CPU-gebunden) und Kategorisierung
-        // (Claude, Netz) getrennt gemessen — sie haben verschiedene Ursachen und Fixes.
-        // Zeitquelle ist bewusst die injizierte Clock, nicht System.nanoTime(): nanoTime() wäre
-        // monoton und immun gegen NTP-Sprünge, aber nicht über die Clock testbar. Für die hier
-        // interessierende Grössenordnung («0.4s oder 22s» — Auslösebedingung des @Async-Upgrade-
-        // Pfads in CLAUDE.md) genügt die Clock.
+        // Phasendauer (BE-PDF-06): Der Parse ist CPU-gebunden und lokal, die Kategorisierung
+        // netzgebunden — sie haben verschiedene Ursachen und Fixes und werden getrennt gemessen
+        // (die zweite Hälfte loggt der ImportJobRunner). Zeitquelle ist bewusst die injizierte
+        // Clock, nicht System.nanoTime(): nanoTime() wäre monoton und immun gegen NTP-Sprünge,
+        // aber nicht über die Clock testbar.
         Instant parseStart = clock.instant();
         List<ParsedTransaction> parsed = parser.parse(pdfBytes);
         Instant parseEnd = clock.instant();
-        Duration parseDuration = Duration.between(parseStart, parseEnd);
-        // PDFBox kennt kein Timeout — ein pathologisches PDF kann den Parse beliebig lange
-        // beschäftigen. Ohne diesen Check würde die Deadline erst greifen, wenn auch noch
-        // kategorisiert wird (realistischster Ausfallpfad ganz ohne Claude-Beteiligung).
         if (parseEnd.isAfter(deadline)) {
             log.warn("PDF-Import für User {} nach dem Parsen abgebrochen (Timeout {}s).",
-                    userId, timeout.toSeconds());
-            throw new PdfImportTimeoutException(timeout);
+                    userId, parseTimeout.toSeconds());
+            throw new PdfImportTimeoutException(parseTimeout);
+        }
+        log.info("PDF-Import für User {}: {} Transaktion(en) erkannt (Parse {} ms).",
+                userId, parsed.size(), Duration.between(parseStart, parseEnd).toMillis());
+
+        ImportJob job = importJobRepository.save(new ImportJob(userId, parsed.size(), parseEnd));
+        if (parsed.isEmpty()) {
+            // Erkannter Auszug ohne Buchungen (BE-PDF-05): nichts zu kategorisieren, nichts zu
+            // persistieren. Der Job wird sofort abgeschlossen, damit das Frontend nicht auf einen
+            // Lauf wartet, den es nicht gibt.
+            job.finishSuccessfully(false, parseEnd);
+            return importJobRepository.save(job);
         }
 
-        // Lookup-/Claude-Verhältnis (BE-PDF-06): die aussagekräftigste Einzelzahl des Flows —
-        // ADR-6 rechnet mit 70–80% Lookup-Treffern, erst diese Zählung macht das überprüfbar.
-        // Leere Texte (Optional.empty → Sonstiges) zählen in keiner der Quellen; die Summe kann
-        // dann kleiner sein als die Gesamtzahl.
-        // «ohne Call» steht getrennt (Review PR #174): offener Circuit Breaker und fehlender
-        // API-Key liefern Sonstiges ohne HTTP-Request. Für die ADR-6-Trefferquote zählt es wie
-        // Claude (der Lookup kannte den Text nicht), für die Laufzeit nicht — sonst läse sich
-        // «12 via Claude» neben «Kategorisierung 180 ms» widersprüchlich.
-        int viaLookup = 0;
-        int viaClaude = 0;
-        int ohneCall = 0;
-        List<Transaction> entities = new ArrayList<>(parsed.size());
-        for (ParsedTransaction tx : parsed) {
-            if (clock.instant().isAfter(deadline)) {
-                log.warn("PDF-Import für User {} nach {} von {} Transaktionen abgebrochen "
-                        + "(Timeout {}s).", userId, entities.size(), parsed.size(),
-                        timeout.toSeconds());
-                throw new PdfImportTimeoutException(timeout);
-            }
-            // fullText() = Buchungszeile + Detailzeilen (Empfänger) — der Input, mit dem beide
-            // Stufen der Hybrid-Kategorisierung etwas anfangen können (ADR-6).
-            String category;
-            var result = categorizationPort.categorize(tx.fullText()).orElse(null);
-            if (result == null) {
-                category = Category.SONSTIGES.getLabel();
-            } else {
-                category = result.category().getLabel();
-                switch (result.source()) {
-                    case LOOKUP -> viaLookup++;
-                    case CLAUDE -> viaClaude++;
-                    case CLAUDE_SKIPPED -> ohneCall++;
-                }
-            }
-            entities.add(new Transaction(userId, tx.buchungsdatum(), tx.buchungstext(),
-                    tx.betrag(), tx.isIncome(), category, pdfSha256));
+        try {
+            importJobRunner.run(job, parsed, pdfSha256, force);
+        } catch (TaskRejectedException e) {
+            // Pool und Queue voll. Statt den Upload-Request zu blockieren oder einen eigenen
+            // Fehlerstatus zu erfinden, endet das im regulären Job-Fehlerpfad: Das Frontend
+            // pollt ohnehin und zeigt dieselbe Meldung wie bei jedem anderen Job-Fehler.
+            log.error("Import-Job {} für User {} konnte nicht gestartet werden (Executor voll).",
+                    job.getId(), userId, e);
+            job.fail(clock.instant());
+            return importJobRepository.save(job);
         }
-        Duration categorizationDuration = Duration.between(parseEnd, clock.instant());
+        return job;
+    }
 
-        // Ersetzen statt Anhängen: Delete und Insert in einer Transaktion, damit ein Fehler
-        // dazwischen nicht die alten Zeilen ersatzlos entfernt. Die abgeleitete Delete-Query
-        // braucht ohnehin eine laufende Transaktion — SimpleJpaRepository deckt nur seine
-        // eigenen CRUD-Methoden ab, nicht deleteBy…-Ableitungen.
-        transactionTemplate.executeWithoutResult(status -> {
-            if (force) {
-                long removed = transactionRepository.deleteByUserIdAndPdfSha256(userId, pdfSha256);
-                log.info("Force-Import für User {}: {} Transaktion(en) des vorherigen Imports "
-                        + "ersetzt.", userId, removed);
-            }
-            transactionRepository.saveAll(entities);
-        });
-        // Eine Summary-Zeile pro Import auf INFO (BE-PDF-06) — bewusst keine Zeile pro
-        // Transaktion, application-prod.properties fährt com.budgetbuddy=INFO.
-        log.info("PDF-Import für User {}: {} Transaktion(en) importiert (Parse {} ms, "
-                        + "Kategorisierung {} ms; {} via Lookup, {} via Claude, {} ohne Call).",
-                userId, entities.size(), parseDuration.toMillis(),
-                categorizationDuration.toMillis(), viaLookup, viaClaude, ohneCall);
-        return new ImportResult(pdfSha256, entities.size());
+    /**
+     * Liest den Stand eines Jobs für die Fortschrittsanzeige.
+     *
+     * <p>Die Einschränkung auf {@code userId} steht hier und nicht erst im Controller: Sie gehört
+     * dorthin, wo die Query abgesetzt wird — sonst wäre sie von einem zweiten Aufrufer aus
+     * umgehbar.
+     *
+     * @return der Job, wenn er diesem User gehört, sonst {@link Optional#empty()}.
+     */
+    public Optional<ImportJob> findJob(long userId, Long jobId) {
+        return importJobRepository.findByIdAndUserId(jobId, userId);
     }
 
     private static String sha256Hex(byte[] pdfBytes) {
