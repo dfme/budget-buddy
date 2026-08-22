@@ -107,7 +107,8 @@ Nicht angefasst: `fixtures/auth.fixture.ts`, `playwright.config.ts`,
    etwas prüft.
 4. `e2e/README.md` nachziehen: Zeile für die neue Spec in die Aufbau-Tabelle, Scope-Absatz von
    „US-04 abgedeckt" auf „US-03 und US-04 abgedeckt".
-5. Ganze Suite grün fahren, nicht nur die neue Spec: die bestehenden 17 Tests müssen bleiben.
+5. Ganze Suite grün fahren, nicht nur die neue Spec: die bestehenden Tests müssen bleiben (nach
+   dem Merge von #187 und #188 sind es 21, mit den zwei neuen Fällen also 23).
 
 ## Test-Strategie
 
