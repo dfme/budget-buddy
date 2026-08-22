@@ -1,0 +1,59 @@
+%PDF-1.4
+% SYNTHETISCHE TESTFIXTURE - E2E-PDF-01 (#122), keine echten Kontodaten.
+% Bank, Konto, Buchungen und Betraege sind frei erfunden; es gibt keine Testbank
+% Musterhausen AG. Bewusst unkomprimiert, damit der Auszug im git-Diff lesbar bleibt.
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 625 >>
+stream
+BT
+/F1 10 Tf
+14 TL
+50 780 Td
+(Testbank Musterhausen AG                    SYNTHETISCHER TESTAUSZUG) Tj
+T*
+(Kontoauszug Privatkonto  01.06.2025 - 30.06.2025) Tj
+T*
+(Buchungsdatum Valuta Text Belastung Gutschrift Saldo) Tj
+T*
+(Saldovortrag 2'400.00) Tj
+T*
+(02.06.2025 02.06.2025 MIGROS BERN BAHNHOF 45.60 2'354.40) Tj
+T*
+(05.06.2025 05.06.2025 SBB MOBILE TICKET 12.40 2'342.00) Tj
+T*
+(10.06.2025 10.06.2025 LOHN JUNI TESTFIRMA AG 3'200.00 5'542.00) Tj
+T*
+(15.06.2025 15.06.2025 MIETE JUNI TESTVERWALTUNG 1'250.00 4'292.00) Tj
+T*
+(20.06.2025 20.06.2025 DIGITEC GALAXUS AG 189.00 4'103.00) Tj
+T*
+(Schlusssaldo 4'103.00) Tj
+T*
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000249 00000 n 
+0000000298 00000 n 
+0000000355 00000 n 
+0000000481 00000 n 
+0000001156 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1253
+%%EOF

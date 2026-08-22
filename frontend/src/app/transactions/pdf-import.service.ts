@@ -5,7 +5,7 @@ import { Observable } from 'rxjs';
 import { ImportResponse } from './import-response.model';
 
 /**
- * Kapselt den Upload an `POST /import/pdf` (BE-PDF-03, US-04).
+ * Kapselt den Upload an `POST /api/import/pdf` (BE-PDF-03, US-04).
  *
  * <p>Bewusst zustandslos: der UI-State (Spinner/Fehler/Ergebnis) liegt in der
  * {@link PdfUpload}-Komponente als Signals — analog zum Muster von
@@ -30,6 +30,6 @@ export class PdfImportService {
     // Der Parameter entfällt im Normalfall ganz: das Backend defaultet auf false, und eine
     // URL ohne force=false ist im Netzwerk-Log eindeutig als regulärer Import lesbar.
     const options = force ? { params: { force: true } } : {};
-    return this.http.post<ImportResponse>('/import/pdf', formData, options);
+    return this.http.post<ImportResponse>('/api/import/pdf', formData, options);
   }
 }

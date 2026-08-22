@@ -28,7 +28,7 @@ export type ImportOutcome =
  *
  * <p>Dropzone mit Drag-and-Drop plus File-Picker als tastaturbedienbare
  * Alternative. Vor dem Upload wird client-seitig validiert (nur `.pdf`,
- * max. 10 MB); während `POST /import/pdf` läuft, zeigt die Dropzone einen
+ * max. 10 MB); während `POST /api/import/pdf` läuft, zeigt die Dropzone einen
  * Spinner und nimmt keine weiteren Dateien an.
  *
  * <p>Der Ausgang landet differenziert in {@link importOutcome}: Erfolg trägt
@@ -179,11 +179,16 @@ export class PdfUpload {
   }
 
   /**
-   * Mappt den Backend-Fehler auf eine Nutzermeldung (FE-PDF-02).
+   * Mappt den Backend-Fehler auf eine Nutzermeldung (FE-PDF-02, MISSING_TEXT_LAYER seit BE-PDF-08).
    *
-   * <p>Die beiden 400er unterscheidet der `reason` im Body (`ImportErrorResponse.java`);
+   * <p>Die drei 400er unterscheidet der `reason` im Body (`ImportErrorResponse.java`);
    * ein 400 ohne bekannten `reason` (z. B. fehlender file-Part) fällt auf die Format-Meldung.
-   * 408 trägt den Retry-Hinweis; 413 und alles Übrige bleiben generisch.
+   * 408 trägt den Retry-Hinweis; 413 hat seit BE-PDF-08 eine eigene Meldung (serverseitiges
+   * 10-MB-Limit, `PdfImportController`); alles Übrige bleibt generisch.
+   *
+   * <p>Der 413 ist über die UI nicht erreichbar: `selectFile` prüft die Grösse gegen
+   * `MAX_PDF_BYTES` und ist der einzige Pfad zu `upload()`. Die Meldung ist bewusst ein Netz für
+   * einen 413 aus anderer Quelle (z. B. Reverse Proxy) — sie schliesst keine Nutzerlücke.
    *
    * <p>Der 409 landet im Normalfall gar nicht hier — er öffnet den Dialog. Die Meldung greift
    * für den abgebrochenen Dialog und als Netz für einen 409 aus einer anderen Quelle; sie trägt
@@ -193,15 +198,22 @@ export class PdfUpload {
     if (error instanceof HttpErrorResponse) {
       if (error.status === 400) {
         const reason = (error.error as Partial<ImportErrorResponse> | null)?.reason;
-        return reason === 'PASSWORD_PROTECTED'
-          ? 'Das PDF ist passwortgeschützt. Bitte entferne das Passwort und lade es erneut hoch.'
-          : 'Das PDF konnte nicht als Kontoauszug gelesen werden. Bitte lade den Original-Kontoauszug deiner Bank hoch.';
+        if (reason === 'PASSWORD_PROTECTED') {
+          return 'Das PDF ist passwortgeschützt. Bitte entferne das Passwort und lade es erneut hoch.';
+        }
+        if (reason === 'MISSING_TEXT_LAYER') {
+          return 'Das PDF enthält keinen Text (vermutlich ein Scan). Bitte lade den Original-Kontoauszug aus dem E-Banking herunter, statt ihn zu scannen.';
+        }
+        return 'Das PDF konnte nicht als Kontoauszug gelesen werden. Bitte lade den Original-Kontoauszug deiner Bank hoch.';
       }
       if (error.status === 408) {
         return 'Der Import hat zu lange gedauert und wurde abgebrochen. Bitte versuche es erneut.';
       }
       if (error.status === 409) {
         return DUPLICATE_MESSAGE;
+      }
+      if (error.status === 413) {
+        return 'Das PDF ist zu gross (max. 10 MB). Bitte lade eine kleinere Datei hoch.';
       }
     }
     return 'Der Import ist fehlgeschlagen — bitte versuche es erneut.';

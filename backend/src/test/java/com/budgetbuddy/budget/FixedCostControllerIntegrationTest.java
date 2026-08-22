@@ -73,7 +73,7 @@ class FixedCostControllerIntegrationTest {
 
     @Test
     void postCreatesTheEntryAndAnswersWith201() throws Exception {
-        mockMvc.perform(post("/fixed-costs")
+        mockMvc.perform(post("/api/fixed-costs")
                         .cookie(jwtCookie(lara))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("Miete", "1200.00", "monatlich")))
@@ -91,7 +91,7 @@ class FixedCostControllerIntegrationTest {
     void getReturnsTheSingleEntryWith200() throws Exception {
         long id = createEntry(lara, "Miete", "1200.00", "monatlich");
 
-        mockMvc.perform(get("/fixed-costs/" + id).cookie(jwtCookie(lara)))
+        mockMvc.perform(get("/api/fixed-costs/" + id).cookie(jwtCookie(lara)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(id))
                 .andExpect(jsonPath("$.bezeichnung").value("Miete"));
@@ -101,7 +101,7 @@ class FixedCostControllerIntegrationTest {
     void putUpdatesTheEntryWith200() throws Exception {
         long id = createEntry(lara, "Miete", "1200.00", "monatlich");
 
-        mockMvc.perform(put("/fixed-costs/" + id)
+        mockMvc.perform(put("/api/fixed-costs/" + id)
                         .cookie(jwtCookie(lara))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("Serafe", "335.00", "jaehrlich")))
@@ -116,7 +116,7 @@ class FixedCostControllerIntegrationTest {
     void deleteRemovesTheEntryAndAnswersWith204AndNoBody() throws Exception {
         long id = createEntry(lara, "Miete", "1200.00", "monatlich");
 
-        mockMvc.perform(delete("/fixed-costs/" + id).cookie(jwtCookie(lara)))
+        mockMvc.perform(delete("/api/fixed-costs/" + id).cookie(jwtCookie(lara)))
                 .andExpect(status().isNoContent())
                 .andExpect(content().string(""));
 
@@ -128,7 +128,7 @@ class FixedCostControllerIntegrationTest {
         createEntry(lara, "Miete", "1200.00", "monatlich");
         createEntry(lara, "Handy", "100.00", "quartalsweise");
 
-        mockMvc.perform(get("/fixed-costs").cookie(jwtCookie(lara)))
+        mockMvc.perform(get("/api/fixed-costs").cookie(jwtCookie(lara)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.fixedCosts.length()").value(2))
                 // 1200.00 + 33.33 — die Summe der bereits gerundeten Zeilen
@@ -141,7 +141,7 @@ class FixedCostControllerIntegrationTest {
     void listWarnsWhenFixedCostsReachTheIncome() throws Exception {
         createEntry(lara, "Miete", "4200.00", "monatlich");
 
-        mockMvc.perform(get("/fixed-costs").cookie(jwtCookie(lara)))
+        mockMvc.perform(get("/api/fixed-costs").cookie(jwtCookie(lara)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.exceedsIncome").value(true));
     }
@@ -153,7 +153,7 @@ class FixedCostControllerIntegrationTest {
         long id = createEntry(lara, "Serafe", "335.00", "jaehrlich");
 
         // Ohne String-Feld im DTO stünde hier "JAEHRLICH" — Jacksons Default für ein Enum.
-        mockMvc.perform(get("/fixed-costs/" + id).cookie(jwtCookie(lara)))
+        mockMvc.perform(get("/api/fixed-costs/" + id).cookie(jwtCookie(lara)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.intervall").value("jaehrlich"));
     }
@@ -162,7 +162,7 @@ class FixedCostControllerIntegrationTest {
     void betragIsSerializedAsJsonNumberNotAsString() throws Exception {
         long id = createEntry(lara, "Handy", "39.90", "monatlich");
 
-        mockMvc.perform(get("/fixed-costs/" + id).cookie(jwtCookie(lara)))
+        mockMvc.perform(get("/api/fixed-costs/" + id).cookie(jwtCookie(lara)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.betrag").isNumber())
                 .andExpect(jsonPath("$.monatsbetrag").isNumber());
@@ -171,7 +171,7 @@ class FixedCostControllerIntegrationTest {
     @Test
     void requestAcceptsIntervallAsAsciiLabel() throws Exception {
         // Gegenrichtung: der Wizard sendet das Label, nicht den Enum-Namen.
-        mockMvc.perform(post("/fixed-costs")
+        mockMvc.perform(post("/api/fixed-costs")
                         .cookie(jwtCookie(lara))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("Handy", "100.00", "quartalsweise")))
@@ -182,7 +182,7 @@ class FixedCostControllerIntegrationTest {
     @Test
     void enumConstantNameIsRejectedAsIntervall() throws Exception {
         // Hält die Richtung des Contracts fest: ASCII-Label ja, Konstantenname nein.
-        mockMvc.perform(post("/fixed-costs")
+        mockMvc.perform(post("/api/fixed-costs")
                         .cookie(jwtCookie(lara))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("Handy", "100.00", "MONATLICH")))
@@ -196,14 +196,14 @@ class FixedCostControllerIntegrationTest {
     void aForeignEntryIsNotReadableUpdatableOrDeletable() throws Exception {
         long id = createEntry(lara, "Miete", "1200.00", "monatlich");
 
-        mockMvc.perform(get("/fixed-costs/" + id).cookie(jwtCookie(marc)))
+        mockMvc.perform(get("/api/fixed-costs/" + id).cookie(jwtCookie(marc)))
                 .andExpect(status().isNotFound());
-        mockMvc.perform(put("/fixed-costs/" + id)
+        mockMvc.perform(put("/api/fixed-costs/" + id)
                         .cookie(jwtCookie(marc))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("Gekapert", "1.00", "monatlich")))
                 .andExpect(status().isNotFound());
-        mockMvc.perform(delete("/fixed-costs/" + id).cookie(jwtCookie(marc)))
+        mockMvc.perform(delete("/api/fixed-costs/" + id).cookie(jwtCookie(marc)))
                 .andExpect(status().isNotFound());
 
         // Ein 404 allein beweist nicht, dass nichts geschrieben wurde.
@@ -218,7 +218,7 @@ class FixedCostControllerIntegrationTest {
         createEntry(lara, "Miete", "1200.00", "monatlich");
         createEntry(marc, "Fitness", "89.00", "monatlich");
 
-        mockMvc.perform(get("/fixed-costs").cookie(jwtCookie(marc)))
+        mockMvc.perform(get("/api/fixed-costs").cookie(jwtCookie(marc)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.fixedCosts.length()").value(1))
                 .andExpect(jsonPath("$.fixedCosts[0].bezeichnung").value("Fitness"));
@@ -226,14 +226,14 @@ class FixedCostControllerIntegrationTest {
 
     @Test
     void unknownIdReturns404() throws Exception {
-        mockMvc.perform(get("/fixed-costs/999999").cookie(jwtCookie(lara)))
+        mockMvc.perform(get("/api/fixed-costs/999999").cookie(jwtCookie(lara)))
                 .andExpect(status().isNotFound());
     }
 
     @Test
     void notFoundCarriesNoBody() throws Exception {
         // Bewusst body-los: jede Zusatzauskunft verriete, ob eine fremde ID existiert.
-        mockMvc.perform(delete("/fixed-costs/999999").cookie(jwtCookie(lara)))
+        mockMvc.perform(delete("/api/fixed-costs/999999").cookie(jwtCookie(lara)))
                 .andExpect(status().isNotFound())
                 .andExpect(content().string(""));
     }
@@ -242,24 +242,24 @@ class FixedCostControllerIntegrationTest {
 
     @Test
     void withoutJwtEveryEndpointReturns401() throws Exception {
-        mockMvc.perform(get("/fixed-costs")).andExpect(status().isUnauthorized());
-        mockMvc.perform(get("/fixed-costs/1")).andExpect(status().isUnauthorized());
-        mockMvc.perform(post("/fixed-costs")
+        mockMvc.perform(get("/api/fixed-costs")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/fixed-costs/1")).andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/fixed-costs")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("Miete", "1200.00", "monatlich")))
                 .andExpect(status().isUnauthorized());
-        mockMvc.perform(put("/fixed-costs/1")
+        mockMvc.perform(put("/api/fixed-costs/1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("Miete", "1200.00", "monatlich")))
                 .andExpect(status().isUnauthorized());
-        mockMvc.perform(delete("/fixed-costs/1")).andExpect(status().isUnauthorized());
+        mockMvc.perform(delete("/api/fixed-costs/1")).andExpect(status().isUnauthorized());
     }
 
     // --- 400 mit Feldname (US-03: feldspezifische Meldung) ---
 
     @Test
     void blankBezeichnungReturns400WithFieldName() throws Exception {
-        mockMvc.perform(post("/fixed-costs")
+        mockMvc.perform(post("/api/fixed-costs")
                         .cookie(jwtCookie(lara))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("   ", "1200.00", "monatlich")))
@@ -270,7 +270,7 @@ class FixedCostControllerIntegrationTest {
 
     @Test
     void zeroBetragReturns400WithFieldName() throws Exception {
-        mockMvc.perform(post("/fixed-costs")
+        mockMvc.perform(post("/api/fixed-costs")
                         .cookie(jwtCookie(lara))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("Miete", "0.00", "monatlich")))
@@ -280,7 +280,7 @@ class FixedCostControllerIntegrationTest {
 
     @Test
     void betragWithThreeDecimalsReturns400WithFieldName() throws Exception {
-        mockMvc.perform(post("/fixed-costs")
+        mockMvc.perform(post("/api/fixed-costs")
                         .cookie(jwtCookie(lara))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("Miete", "12.345", "monatlich")))
@@ -296,7 +296,7 @@ class FixedCostControllerIntegrationTest {
         // Betrag — jetzt hängt die Assertion an der Meldung, die den Wert wirklich gesehen hat.
         String payload = "<script>alert(1)</script>" + "A".repeat(120);
 
-        mockMvc.perform(post("/fixed-costs")
+        mockMvc.perform(post("/api/fixed-costs")
                         .cookie(jwtCookie(lara))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(payload, "1200.00", "monatlich")))
@@ -309,7 +309,7 @@ class FixedCostControllerIntegrationTest {
     @Test
     void intervallErrorMessageDoesNotEchoTheSubmittedValue() throws Exception {
         // Gegenstück für das dritte Feld: auch der Intervall-Wert kommt aus der Fremdeingabe.
-        mockMvc.perform(post("/fixed-costs")
+        mockMvc.perform(post("/api/fixed-costs")
                         .cookie(jwtCookie(lara))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("Miete", "1200.00", "<script>alert(1)</script>")))
@@ -325,7 +325,7 @@ class FixedCostControllerIntegrationTest {
         // Der praktische Fall: "12,50" ist in einem Schweizer Wizard eine naheliegende Eingabe und
         // kommt als String an. Jackson bricht ab, bevor der Controller läuft — ohne eigenen Handler
         // gäbe es hier einen 400 ohne field, obwohl OpenAPI den Body zusagt.
-        mockMvc.perform(post("/fixed-costs")
+        mockMvc.perform(post("/api/fixed-costs")
                         .cookie(jwtCookie(lara))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"bezeichnung\":\"Miete\",\"betrag\":\"12,50\","
@@ -339,7 +339,7 @@ class FixedCostControllerIntegrationTest {
 
     @Test
     void missingBodyReturns400WithRequestAsField() throws Exception {
-        mockMvc.perform(post("/fixed-costs")
+        mockMvc.perform(post("/api/fixed-costs")
                         .cookie(jwtCookie(lara))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
@@ -348,7 +348,7 @@ class FixedCostControllerIntegrationTest {
 
     @Test
     void malformedJsonReturns400WithRequestAsField() throws Exception {
-        mockMvc.perform(post("/fixed-costs")
+        mockMvc.perform(post("/api/fixed-costs")
                         .cookie(jwtCookie(lara))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"bezeichnung\":"))
@@ -361,14 +361,14 @@ class FixedCostControllerIntegrationTest {
         // Der eigentliche Contract-Punkt: #26 liest err.error.field und darf nie undefined sehen.
         // Fachliche Validierung (Service) und Parsing-Fehler (Jackson) laufen über verschiedene
         // Pfade und müssen denselben Body liefern.
-        mockMvc.perform(post("/fixed-costs")
+        mockMvc.perform(post("/api/fixed-costs")
                         .cookie(jwtCookie(lara))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("Miete", "0.00", "monatlich")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.field").isNotEmpty());
 
-        mockMvc.perform(post("/fixed-costs")
+        mockMvc.perform(post("/api/fixed-costs")
                         .cookie(jwtCookie(lara))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"bezeichnung\":\"Miete\",\"betrag\":\"abc\","
@@ -381,7 +381,7 @@ class FixedCostControllerIntegrationTest {
     void malformedBodyOnUpdateAlsoCarriesAField() throws Exception {
         long id = createEntry(lara, "Miete", "1200.00", "monatlich");
 
-        mockMvc.perform(put("/fixed-costs/" + id)
+        mockMvc.perform(put("/api/fixed-costs/" + id)
                         .cookie(jwtCookie(lara))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"bezeichnung\":\"Miete\",\"betrag\":\"12,50\","
@@ -394,7 +394,7 @@ class FixedCostControllerIntegrationTest {
     void invalidUpdateReturns400WithFieldName() throws Exception {
         long id = createEntry(lara, "Miete", "1200.00", "monatlich");
 
-        mockMvc.perform(put("/fixed-costs/" + id)
+        mockMvc.perform(put("/api/fixed-costs/" + id)
                         .cookie(jwtCookie(lara))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("Miete", "-1.00", "monatlich")))
@@ -425,7 +425,7 @@ class FixedCostControllerIntegrationTest {
     /** Legt eine Position über den Service-Pfad an und liefert ihre ID. */
     private long createEntry(long userId, String bezeichnung, String betrag, String intervall)
             throws Exception {
-        String response = mockMvc.perform(post("/fixed-costs")
+        String response = mockMvc.perform(post("/api/fixed-costs")
                         .cookie(jwtCookie(userId))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(bezeichnung, betrag, intervall)))

@@ -39,7 +39,7 @@ describe('Login', () => {
   it('does not call the backend when the form is empty', () => {
     component.submit();
 
-    httpMock.expectNone('/auth/login');
+    httpMock.expectNone('/api/auth/login');
     expect(component.form.invalid).toBe(true);
     expect(navigate).not.toHaveBeenCalled();
   });
@@ -51,7 +51,7 @@ describe('Login', () => {
 
     component.submit();
 
-    const req = httpMock.expectOne('/auth/login');
+    const req = httpMock.expectOne('/api/auth/login');
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual({
       email: 'lara@example.ch',
@@ -68,7 +68,7 @@ describe('Login', () => {
     component.form.setValue({ email: 'lara@example.ch', password: 'supersecret' });
 
     component.submit();
-    httpMock.expectOne('/auth/login').flush(LARA_ONBOARDED);
+    httpMock.expectOne('/api/auth/login').flush(LARA_ONBOARDED);
 
     expect(navigate).toHaveBeenCalledWith(['/dashboard']);
   });
@@ -78,7 +78,7 @@ describe('Login', () => {
 
     component.submit();
 
-    httpMock.expectOne('/auth/login').flush(null, { status: 401, statusText: 'Unauthorized' });
+    httpMock.expectOne('/api/auth/login').flush(null, { status: 401, statusText: 'Unauthorized' });
 
     expect(component.errorMessage()).toBe('E-Mail oder Passwort falsch');
     expect(navigate).not.toHaveBeenCalled();
@@ -91,7 +91,7 @@ describe('Login', () => {
     component.form.setValue({ email: 'lara@example.ch', password: 'wrong-password' });
 
     component.submit();
-    httpMock.expectOne('/auth/login').flush(null, { status: 401, statusText: 'Unauthorized' });
+    httpMock.expectOne('/api/auth/login').flush(null, { status: 401, statusText: 'Unauthorized' });
     fixture.detectChanges();
 
     const notice: HTMLElement = fixture.nativeElement.querySelector('app-notice');

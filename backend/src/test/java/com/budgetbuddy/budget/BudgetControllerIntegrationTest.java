@@ -69,7 +69,7 @@ class BudgetControllerIntegrationTest {
             .atZone(ZoneId.of("Europe/Zurich"))
             .toInstant();
 
-    private static final String PFAD = "/budget/safe-to-spend";
+    private static final String PFAD = "/api/budget/safe-to-spend";
 
     @DynamicPropertySource
     static void datasourceProperties(DynamicPropertyRegistry registry) {

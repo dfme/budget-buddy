@@ -5,7 +5,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 
 /**
- * Leitet client-seitige Angular-Routen auf {@code index.html} weiter (INFRA-05).
+ * Leitet client-seitige Angular-Routen auf {@code index.html} weiter (INFRA-05, INFRA-17).
  *
  * <p>Die SPA nutzt HTML5-Pushstate-Routing. Beim Hard-Reload oder Deep-Link (z.B.
  * {@code /dashboard}) trifft die Anfrage zuerst den Server; ohne diese Weiterleitung gäbe
@@ -16,48 +16,59 @@ import org.springframework.web.bind.annotation.GetMapping;
  *
  * <p>{@code @Hidden}: kein REST-Endpoint — nicht in der OpenAPI-/Swagger-Doku führen.
  *
- * <p>{@link #CLIENT_ROUTE_PATTERNS} ist die einzige Liste der client-seitigen Routen;
- * {@code SecurityConfig} leitet seine GET-Freigabe daraus ab. Echte API-Pfade (z.B.
- * {@code /users/**}) dürfen hier nie gemappt werden.
+ * <p><b>Catch-all statt Enumeration (INFRA-17).</b> Seit alle REST-Endpoints unter
+ * {@code /api/**} liegen ({@code SecurityConfig}), muss diese Klasse Angular-Routen nicht mehr
+ * einzeln kennen: jede GET-Anfrage ausserhalb von {@code /api}, den Infrastruktur-Pfaden
+ * ({@code actuator}, {@code error}, {@code v3}, {@code swagger-ui}) und den statischen Assets
+ * ({@code assets/**}, {@code media/**} sowie jedes Segment mit Dateiendung, z.B. {@code main.js})
+ * ist eine client-seitige Route. Vorher mussten diese Klasse und {@code SecurityConfig} dieselbe
+ * Routen-Liste unabhängig pflegen; das lief zweimal auseinander (INFRA-14, #126) — insbesondere
+ * bei {@code /register}, {@code /categories} und {@code /import}, die im Angular-Router standen,
+ * aber in keiner der beiden Backend-Listen. Die Trennung von API und SPA läuft jetzt strukturell
+ * über den Pfad-Präfix statt über zwei von Hand synchron gehaltene Listen.
+ *
+ * <p><b>{@code media}: von {@code @angular/build:application} tatsächlich erzeugtes Verzeichnis
+ * für aus Templates/SCSS referenzierte Binärassets (Build-Option {@code outputPath.media}) —
+ * anders als {@code assets}, das in diesem Projekt nirgends anfällt ({@code angular.json} mappt
+ * {@code public/**} auf die Dist-Wurzel). Ohne den Ausschluss hätte das zweite Pattern unten
+ * ({@code /{path}/**}) ein nachgeladenes Binärasset wie {@code /media/logo.png} auf
+ * {@code index.html} statt auf die echte Datei geforwardet — still, mit 200 statt 404 (Review
+ * zu PR #187).
+ *
+ * <p>Zwei Patterns, weil eine Angular-Kind-Route wie {@code /categories/lebensmittel} mehr als
+ * ein Segment hat und Spring-Pfadvariablen nicht über Segmentgrenzen hinweg matchen:
+ *
+ * <ul>
+ *   <li>{@link #NOT_INFRA_SEGMENT} allein: genau ein Segment, z.B. {@code /dashboard}
+ *   <li>{@link #NOT_INFRA_SEGMENT} + {@code /**}: erstes Segment plus beliebig viele weitere,
+ *       z.B. {@code /categories/lebensmittel}
+ * </ul>
+ *
+ * <p>Die Ausschlussliste im Regex wächst nur bei einem neuen Infrastruktur-Pfad ausserhalb von
+ * {@code /api} — nicht bei jeder neuen Frontend-Route.
  */
 @Hidden
 @Controller
 public class SpaForwardController {
 
     /**
-     * Client-seitige Angular-Routen, die per Deep-Link/Hard-Reload auf {@code index.html}
-     * weitergeleitet und dafür öffentlich per GET erreichbar sein müssen.
+     * Regex für ein einzelnes Pfadsegment, das weder ein bekannter Nicht-SPA-Pfad noch ein
+     * Dateiname mit Endung ist. Muss als String-Konstante ausgedrückt sein — Annotation-Werte
+     * sind auf konstante Ausdrücke beschränkt, kein dynamischer Aufbau zur Laufzeit.
      *
-     * <p>Deckungsgleich zu {@code frontend/src/app/app.routes.ts}. {@code SpaRoutingTest} prüft
-     * beides: dass jedes Pattern hier tatsächlich weiterleitet und dass die Liste identisch mit
-     * dem {@code @GetMapping} unten ist.
-     *
-     * <p><b>Exakte Pfade, kein {@code /**}.</b> {@code /import} ist gleichzeitig Frontend-Route
-     * UND API-Prefix ({@code PdfImportController}: {@code POST /import/pdf}, geplant
-     * {@code GET /import/{jobId}/status}). Ein Wildcard-Pattern {@code /import/**} würde von
-     * {@code SecurityConfig} als {@code permitAll} übernommen und den Status-Endpoint bei seiner
-     * Einführung ohne Auth erreichbar machen — Transaktionsdaten öffentlich, Risiko #2. Exakte
-     * Pfade schliessen das aus.
-     *
-     * <p>Bewusst NICHT enthalten: {@code /styleguide}. Die Route hängt am {@code devOnlyGuard}
-     * und soll in Produktion nicht erreichbar sein.
-     *
-     * <p>Bei neuen Frontend-Routen hier ergänzen — auch bei Kind-Routen (z.B.
-     * {@code /categories/lebensmittel}), die ein exaktes Pattern nicht mitabdeckt. Dann ein
-     * eng gefasstes Pattern wählen ({@code /categories/*}), nie {@code /**} über einem
-     * API-Prefix.
+     * <p>Die Ausschlussliste steht als nicht-erfassende Gruppe mit {@code $}-Anker
+     * ({@code (?:...)$}), nicht als lose Alternation. Ohne den Anker prüft der Negative-Lookahead
+     * nur, ob das Segment mit einem der Wörter <em>beginnt</em> — {@code /apix}, {@code /errors}
+     * oder {@code /assetsfoo} wären dann fälschlich ausgeschlossen und landeten auf 404 statt auf
+     * der SPA-Shell (Review zu PR #187, gegen das gebaute {@code -Pprod}-JAR reproduziert). Der
+     * Anker erzwingt eine exakte Segment-Übereinstimmung.
      */
-    static final String[] CLIENT_ROUTE_PATTERNS = {
-        "/dashboard", "/login", "/register", "/categories", "/import", "/onboarding", "/fixkosten"
-    };
+    private static final String NOT_INFRA_SEGMENT =
+            "^(?!(?:api|actuator|error|v3|swagger-ui|assets|media)$)[^.]*$";
 
-    /**
-     * Die Patterns stehen hier als Literale, weil Annotation-Werte auf konstante Ausdrücke
-     * beschränkt sind und ein Array-Feld keiner ist. {@code SpaRoutingTest} hält die beiden
-     * Listen per Assertion zusammen.
-     */
     @GetMapping({
-        "/dashboard", "/login", "/register", "/categories", "/import", "/onboarding", "/fixkosten"
+        "/{path:" + NOT_INFRA_SEGMENT + "}",
+        "/{path:" + NOT_INFRA_SEGMENT + "}/**"
     })
     public String forwardToSpa() {
         return "forward:/index.html";

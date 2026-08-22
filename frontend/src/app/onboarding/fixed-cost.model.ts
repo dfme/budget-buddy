@@ -25,7 +25,7 @@ export const INTERVALL_OPTIONS: readonly IntervallOption[] = [
 ];
 
 /**
- * Request-Body von `POST /fixed-costs` und `PUT /fixed-costs/{id}` (FE-FC-01, FE-FC-03).
+ * Request-Body von `POST /api/fixed-costs` und `PUT /api/fixed-costs/{id}` (FE-FC-01, FE-FC-03).
  *
  * `betrag` ist eine JSON-Zahl, kein String: das Backend nutzt `BigDecimal` (ADR-9),
  * serialisiert aber ohne String-Serializer — Jackson liefert und erwartet damit `number`.
@@ -39,13 +39,13 @@ export interface CreateFixedCostRequest {
   intervall: Intervall;
 }
 
-/** Antwort von `POST /fixed-costs` — die angelegte Position inklusive vergebener ID. */
+/** Antwort von `POST /api/fixed-costs` — die angelegte Position inklusive vergebener ID. */
 export interface FixedCost extends CreateFixedCostRequest {
   id: number;
 }
 
 /**
- * Eine Fixkosten-Position, wie sie `GET /fixed-costs` und `PUT /fixed-costs/{id}` liefern
+ * Eine Fixkosten-Position, wie sie `GET /api/fixed-costs` und `PUT /api/fixed-costs/{id}` liefern
  * (FE-FC-03) — zusätzlich zu {@link FixedCost} der auf einen Monat normalisierte Betrag, der
  * in die Safe-to-Spend-Rechnung eingeht. Spiegelt `FixedCostResponse` im Backend.
  */
@@ -55,7 +55,7 @@ export interface FixedCostDetail extends FixedCost {
 }
 
 /**
- * Antwort von `GET /fixed-costs` (FE-FC-03) — die Positionen plus die daraus abgeleiteten
+ * Antwort von `GET /api/fixed-costs` (FE-FC-03) — die Positionen plus die daraus abgeleiteten
  * Werte für die Einkommens-Warnung aus US-03. Spiegelt `FixedCostSummaryResponse` im Backend.
  */
 export interface FixedCostSummary {

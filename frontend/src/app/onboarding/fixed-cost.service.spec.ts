@@ -19,7 +19,7 @@ describe('FixedCostService', () => {
 
   afterEach(() => httpMock.verify());
 
-  it('posts the entry to /fixed-costs and returns it with its id', () => {
+  it('posts the entry to /api/fixed-costs and returns it with its id', () => {
     const created: FixedCost = {
       id: 7,
       bezeichnung: 'Miete',
@@ -32,7 +32,7 @@ describe('FixedCostService', () => {
       .create({ bezeichnung: 'Miete', betrag: 1200, intervall: 'monatlich' })
       .subscribe((response) => (received = response));
 
-    const req = httpMock.expectOne('/fixed-costs');
+    const req = httpMock.expectOne('/api/fixed-costs');
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual({
       bezeichnung: 'Miete',
@@ -47,14 +47,14 @@ describe('FixedCostService', () => {
   it('sends betrag as a JSON number, not a string', () => {
     service.create({ bezeichnung: 'Serafe', betrag: 335.5, intervall: 'jaehrlich' }).subscribe();
 
-    const req = httpMock.expectOne('/fixed-costs');
+    const req = httpMock.expectOne('/api/fixed-costs');
     // Hält den Contract aus fixed-cost.model.ts ehrlich: das Backend nutzt BigDecimal
     // ohne String-Serializer. Kippt die Annahme mit #12, wird diese Assertion rot.
     expect(typeof req.request.body.betrag).toBe('number');
     req.flush({ id: 1, bezeichnung: 'Serafe', betrag: 335.5, intervall: 'jaehrlich' });
   });
 
-  it('lädt die Übersicht über GET /fixed-costs', () => {
+  it('lädt die Übersicht über GET /api/fixed-costs', () => {
     const summary: FixedCostSummary = {
       fixedCosts: [{ id: 7, bezeichnung: 'Miete', betrag: 1200, intervall: 'monatlich', monatsbetrag: 1200 }],
       summeMonatlich: 1200,
@@ -65,14 +65,14 @@ describe('FixedCostService', () => {
 
     service.list().subscribe((response) => (received = response));
 
-    const req = httpMock.expectOne('/fixed-costs');
+    const req = httpMock.expectOne('/api/fixed-costs');
     expect(req.request.method).toBe('GET');
     req.flush(summary);
 
     expect(received).toEqual(summary);
   });
 
-  it('sendet PUT /fixed-costs/{id} und liefert die aktualisierte Position', () => {
+  it('sendet PUT /api/fixed-costs/{id} und liefert die aktualisierte Position', () => {
     const updated: FixedCostDetail = {
       id: 7,
       bezeichnung: 'Miete',
@@ -86,7 +86,7 @@ describe('FixedCostService', () => {
       .update(7, { bezeichnung: 'Miete', betrag: 1250, intervall: 'monatlich' })
       .subscribe((response) => (received = response));
 
-    const req = httpMock.expectOne('/fixed-costs/7');
+    const req = httpMock.expectOne('/api/fixed-costs/7');
     expect(req.request.method).toBe('PUT');
     expect(req.request.body).toEqual({
       bezeichnung: 'Miete',
@@ -98,12 +98,12 @@ describe('FixedCostService', () => {
     expect(received).toEqual(updated);
   });
 
-  it('sendet DELETE /fixed-costs/{id}', () => {
+  it('sendet DELETE /api/fixed-costs/{id}', () => {
     let completed = false;
 
     service.delete(7).subscribe(() => (completed = true));
 
-    const req = httpMock.expectOne('/fixed-costs/7');
+    const req = httpMock.expectOne('/api/fixed-costs/7');
     expect(req.request.method).toBe('DELETE');
     req.flush(null, { status: 204, statusText: 'No Content' });
 

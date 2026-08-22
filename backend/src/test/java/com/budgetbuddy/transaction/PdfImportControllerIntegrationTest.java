@@ -162,7 +162,7 @@ class PdfImportControllerIntegrationTest {
 
     @Test
     void validPdfReturns200WithTransactionCount() throws Exception {
-        mockMvc.perform(multipart("/import/pdf").file(pdfPart(fixture())).cookie(jwtCookie(userId)))
+        mockMvc.perform(multipart("/api/import/pdf").file(pdfPart(fixture())).cookie(jwtCookie(userId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.count").value(28));
 
@@ -179,7 +179,7 @@ class PdfImportControllerIntegrationTest {
                 "Saldovortrag 1'000.00",
                 "Schlusssaldo 1'000.00"));
 
-        mockMvc.perform(multipart("/import/pdf")
+        mockMvc.perform(multipart("/api/import/pdf")
                         .file(pdfPart(emptyStatement)).cookie(jwtCookie(userId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.count").value(0));
@@ -189,16 +189,16 @@ class PdfImportControllerIntegrationTest {
 
     @Test
     void duplicatePdfReturns409() throws Exception {
-        mockMvc.perform(multipart("/import/pdf").file(pdfPart(fixture())).cookie(jwtCookie(userId)))
+        mockMvc.perform(multipart("/api/import/pdf").file(pdfPart(fixture())).cookie(jwtCookie(userId)))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(multipart("/import/pdf").file(pdfPart(fixture())).cookie(jwtCookie(userId)))
+        mockMvc.perform(multipart("/api/import/pdf").file(pdfPart(fixture())).cookie(jwtCookie(userId)))
                 .andExpect(status().isConflict());
     }
 
     @Test
     void duplicatePdfWithForceReturns200AndReplacesPreviousImport() throws Exception {
-        mockMvc.perform(multipart("/import/pdf").file(pdfPart(fixture())).cookie(jwtCookie(userId)))
+        mockMvc.perform(multipart("/api/import/pdf").file(pdfPart(fixture())).cookie(jwtCookie(userId)))
                 .andExpect(status().isOk());
         List<Long> firstImportIds = transactionRepository.findAll().stream()
                 .map(Transaction::getId).toList();
@@ -207,7 +207,7 @@ class PdfImportControllerIntegrationTest {
         // queryParam statt param: der Client hängt das Flag an die URL, und nur queryParam
         // erzeugt im Test wirklich einen Query-String statt bloss einen Eintrag in der
         // Parameter-Map. Sonst prüft der Test einen Pfad, den der Client gar nicht nimmt.
-        mockMvc.perform(multipart("/import/pdf").file(pdfPart(fixture()))
+        mockMvc.perform(multipart("/api/import/pdf").file(pdfPart(fixture()))
                         .queryParam("force", "true").cookie(jwtCookie(userId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.count").value(28));
@@ -230,13 +230,13 @@ class PdfImportControllerIntegrationTest {
 
         // Dasselbe PDF bei beiden Usern (Gemeinschaftskonto) — der Force-Import des einen darf
         // die Buchungen des anderen nicht anfassen (Mandantentrennung).
-        mockMvc.perform(multipart("/import/pdf").file(pdfPart(fixture())).cookie(jwtCookie(userId)))
+        mockMvc.perform(multipart("/api/import/pdf").file(pdfPart(fixture())).cookie(jwtCookie(userId)))
                 .andExpect(status().isOk());
-        mockMvc.perform(multipart("/import/pdf").file(pdfPart(fixture()))
+        mockMvc.perform(multipart("/api/import/pdf").file(pdfPart(fixture()))
                         .cookie(jwtCookie(otherUserId)))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(multipart("/import/pdf").file(pdfPart(fixture()))
+        mockMvc.perform(multipart("/api/import/pdf").file(pdfPart(fixture()))
                         .queryParam("force", "true").cookie(jwtCookie(userId)))
                 .andExpect(status().isOk());
 
@@ -249,17 +249,28 @@ class PdfImportControllerIntegrationTest {
     void invalidPdfReturns400WithUnsupportedFormatReason() throws Exception {
         byte[] notAPdf = "Dies ist kein PDF".getBytes(StandardCharsets.UTF_8);
 
-        // Der reason macht die beiden 400er für das Frontend unterscheidbar (FE-PDF-02).
-        mockMvc.perform(multipart("/import/pdf").file(pdfPart(notAPdf)).cookie(jwtCookie(userId)))
+        // Der reason macht die 400er für das Frontend unterscheidbar (FE-PDF-02).
+        mockMvc.perform(multipart("/api/import/pdf").file(pdfPart(notAPdf)).cookie(jwtCookie(userId)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.reason").value("UNSUPPORTED_FORMAT"));
+    }
+
+    @Test
+    void pdfWithoutTextLayerReturns400WithMissingTextLayerReason() throws Exception {
+        // Leere Seite, kein Text extrahierbar — simuliert ein gescanntes PDF (BE-PDF-08).
+        // Muss von unbekanntem Layout unterscheidbar sein: MissingTextLayerException ist eine
+        // PdfParseException, ging vor dem Fix im generischen UNSUPPORTED_FORMAT unter.
+        mockMvc.perform(multipart("/api/import/pdf").file(pdfPart(pdfWithLines(List.of())))
+                        .cookie(jwtCookie(userId)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.reason").value("MISSING_TEXT_LAYER"));
     }
 
     @Test
     void passwordProtectedPdfReturns400WithPasswordProtectedReason() throws Exception {
         // Führt den PasswordProtectedPdfException-Zweig des PdfImportExceptionHandler am Endpoint
         // aus. Verschlüsselung wird vor dem Parsen erkannt, der Inhalt ist daher belanglos.
-        mockMvc.perform(multipart("/import/pdf")
+        mockMvc.perform(multipart("/api/import/pdf")
                         .file(pdfPart(passwordProtectedPdf())).cookie(jwtCookie(userId)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.reason").value("PASSWORD_PROTECTED"));
@@ -267,13 +278,13 @@ class PdfImportControllerIntegrationTest {
 
     @Test
     void withoutJwtReturns401() throws Exception {
-        mockMvc.perform(multipart("/import/pdf").file(pdfPart(fixture())))
+        mockMvc.perform(multipart("/api/import/pdf").file(pdfPart(fixture())))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
     void missingFilePartReturns400() throws Exception {
-        mockMvc.perform(multipart("/import/pdf").cookie(jwtCookie(userId)))
+        mockMvc.perform(multipart("/api/import/pdf").cookie(jwtCookie(userId)))
                 .andExpect(status().isBadRequest());
     }
 }

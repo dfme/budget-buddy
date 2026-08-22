@@ -80,7 +80,7 @@ test.describe('Auth-Flow', () => {
   }) => {
     // Konto out-of-band anlegen: die `request`-Fixture hat einen eigenen Cookie-Jar, der
     // Browser bleibt also anonym. Sonst wäre der Login-Pfad nicht isoliert vom Register-Pfad.
-    const registered = await request.post('/auth/register', { data: testUser });
+    const registered = await request.post('/api/auth/register', { data: testUser });
     expect(registered.status()).toBe(201);
 
     await page.goto('/login');
@@ -96,7 +96,7 @@ test.describe('Auth-Flow', () => {
 
   test('Fehlerpfad: geschützte Route ohne Cookie leitet auf /login', async ({ page }) => {
     // Jeder Test bekommt einen frischen Context, dieser hier ist also anonym. Erwartet wird der
-    // authGuard: /users/me antwortet 401, der Guard leitet weiter — ein E2E-Beweis, dass die
+    // authGuard: /api/users/me antwortet 401, der Guard leitet weiter — ein E2E-Beweis, dass die
     // geschützte Route nicht doch die Shell zeigt.
     await page.goto('/dashboard');
 

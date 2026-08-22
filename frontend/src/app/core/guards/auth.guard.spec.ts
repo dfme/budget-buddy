@@ -42,10 +42,10 @@ describe('authGuard', () => {
 
   afterEach(() => httpMock.verify());
 
-  it('grants access from the loaded state without hitting /users/me', () => {
+  it('grants access from the loaded state without hitting /api/users/me', () => {
     // State setzen, ohne Backend-Call
     auth.login('lara@example.ch', 'supersecret').subscribe();
-    httpMock.expectOne('/auth/login').flush(LARA);
+    httpMock.expectOne('/api/auth/login').flush(LARA);
     expect(auth.isAuthenticated()).toBe(true);
 
     const result = runGuard();
@@ -54,17 +54,17 @@ describe('authGuard', () => {
     (result as Observable<boolean | UrlTree>).subscribe((value) => (resolved = value));
 
     expect(resolved).toBe(true);
-    httpMock.expectNone('/users/me');
+    httpMock.expectNone('/api/users/me');
   });
 
-  it('restores state via /users/me and grants access when the cookie is valid', () => {
+  it('restores state via /api/users/me and grants access when the cookie is valid', () => {
     const result = runGuard();
     expect(isObservable(result)).toBe(true);
 
     let resolved: boolean | UrlTree | undefined;
     (result as Observable<boolean | UrlTree>).subscribe((value) => (resolved = value));
 
-    const req = httpMock.expectOne('/users/me');
+    const req = httpMock.expectOne('/api/users/me');
     expect(req.request.method).toBe('GET');
     req.flush(LARA);
 
@@ -72,13 +72,13 @@ describe('authGuard', () => {
     expect(auth.isAuthenticated()).toBe(true);
   });
 
-  it('redirects to /login when not authenticated and /users/me returns 401', () => {
+  it('redirects to /login when not authenticated and /api/users/me returns 401', () => {
     const result = runGuard();
 
     let resolved: boolean | UrlTree | undefined;
     (result as Observable<boolean | UrlTree>).subscribe((value) => (resolved = value));
 
-    httpMock.expectOne('/users/me').flush(null, { status: 401, statusText: 'Unauthorized' });
+    httpMock.expectOne('/api/users/me').flush(null, { status: 401, statusText: 'Unauthorized' });
 
     const expectedTree = TestBed.inject(Router).createUrlTree(['/login']);
     expect(resolved).toBeInstanceOf(UrlTree);

@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
  * antwortet Spring Security mit 401, bevor der Controller erreicht wird.
  */
 @RestController
-@RequestMapping("/users/me")
+@RequestMapping("/api/users/me")
 @Tag(name = "User", description = "Profil des eingeloggten Users")
 public class UserController {
 

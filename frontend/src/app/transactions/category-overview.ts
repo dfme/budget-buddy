@@ -157,7 +157,7 @@ export class CategoryOverview {
   readonly isCurrentMonth = computed(() => this.month() >= CategoryOverview.currentMonth());
 
   /**
-   * Monate mit Ausgaben aus `GET /transactions/months`, roh wie geliefert. Leer, solange nichts
+   * Monate mit Ausgaben aus `GET /api/transactions/months`, roh wie geliefert. Leer, solange nichts
    * geladen ist oder der Request fehlgeschlagen ist.
    */
   private readonly loadedMonths = signal<readonly string[]>([]);

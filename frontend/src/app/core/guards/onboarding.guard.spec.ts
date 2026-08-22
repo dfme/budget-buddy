@@ -57,7 +57,7 @@ describe('onboardingGuard', () => {
   /** Setzt den Auth-State ohne Umweg über den Guard. */
   function login(user: User): void {
     auth.login(user.email, 'supersecret').subscribe();
-    httpMock.expectOne('/auth/login').flush(user);
+    httpMock.expectOne('/api/auth/login').flush(user);
   }
 
   // --- AC1: nicht onboardeter User landet im Wizard ---
@@ -78,14 +78,14 @@ describe('onboardingGuard', () => {
     expect(resolve(runGuard())).toBe(true);
   });
 
-  // --- AC3: Status kommt aus GET /users/me ---
+  // --- AC3: Status kommt aus GET /api/users/me ---
 
-  it('holt das Profil per GET /users/me, wenn der State leer ist', () => {
+  it('holt das Profil per GET /api/users/me, wenn der State leer ist', () => {
     const result = runGuard();
     let resolved: boolean | UrlTree | undefined;
     result.subscribe((value) => (resolved = value));
 
-    const req = httpMock.expectOne('/users/me');
+    const req = httpMock.expectOne('/api/users/me');
     expect(req.request.method).toBe('GET');
     req.flush(LARA);
 
@@ -99,14 +99,14 @@ describe('onboardingGuard', () => {
 
     expect(resolve(runGuard())).toBe(true);
     // Wichtig, weil `authGuard` unmittelbar davor am selben Route-Eintrag laeuft: sonst
-    // stuende pro Navigation ein zusaetzliches GET /users/me auf der Leitung.
-    httpMock.expectNone('/users/me');
+    // stuende pro Navigation ein zusaetzliches GET /api/users/me auf der Leitung.
+    httpMock.expectNone('/api/users/me');
   });
 
   // --- Zusammenspiel mit dem authGuard ---
 
   it('ueberlaesst die Entscheidung ueber anonyme Nutzer dem authGuard', () => {
-    // Kein Cookie: /users/me antwortet 401. Dieser Guard gibt `true` zurueck, statt selbst
+    // Kein Cookie: /api/users/me antwortet 401. Dieser Guard gibt `true` zurueck, statt selbst
     // auf /onboarding umzuleiten — sonst landete ein Ausgeloggter im Wizard statt im Login.
     // Er aeussert im Anonymfall gar keine Meinung, deshalb bleibt der UrlTree des authGuard
     // der einzige und gewinnt, ohne dass eine Ausfuehrungsreihenfolge noetig waere.
@@ -114,14 +114,14 @@ describe('onboardingGuard', () => {
     let resolved: boolean | UrlTree | undefined;
     result.subscribe((value) => (resolved = value));
 
-    httpMock.expectOne('/users/me').flush(null, { status: 401, statusText: 'Unauthorized' });
+    httpMock.expectOne('/api/users/me').flush(null, { status: 401, statusText: 'Unauthorized' });
 
     expect(resolved).toBe(true);
   });
 
   it('teilt sich den Profil-Request mit dem parallel laufenden authGuard', () => {
     // Angular fuehrt die Guards eines canActivate-Arrays nebenlaeufig aus: beide sehen den
-    // State leer und wuerden je ein eigenes GET /users/me ausloesen. Ein Cache-Check allein
+    // State leer und wuerden je ein eigenes GET /api/users/me ausloesen. Ein Cache-Check allein
     // half nicht — zum Zeitpunkt des zweiten Aufrufs gibt es noch keine Antwort zu cachen.
     const fromAuth = TestBed.runInInjectionContext(() =>
       authGuard({} as ActivatedRouteSnapshot, {} as RouterStateSnapshot),
@@ -134,7 +134,7 @@ describe('onboardingGuard', () => {
     fromOnboarding.subscribe((value) => (onboardingResolved = value));
 
     // expectOne schlaegt fehl, sobald zwei Requests offen sind — genau der Regressionsfall.
-    httpMock.expectOne('/users/me').flush(LARA);
+    httpMock.expectOne('/api/users/me').flush(LARA);
 
     expect(authResolved).toBe(true);
     expect(onboardingResolved).toBeInstanceOf(UrlTree);
@@ -144,11 +144,11 @@ describe('onboardingGuard', () => {
     // Sonst haette der erste 401 den Nutzer dauerhaft als anonym festgeschrieben — ein
     // Login danach koennte den State nicht mehr ueber diesen Weg herstellen.
     runGuard().subscribe();
-    httpMock.expectOne('/users/me').flush(null, { status: 401, statusText: 'Unauthorized' });
+    httpMock.expectOne('/api/users/me').flush(null, { status: 401, statusText: 'Unauthorized' });
 
     let resolved: boolean | UrlTree | undefined;
     runGuard().subscribe((value) => (resolved = value));
-    httpMock.expectOne('/users/me').flush(LARA_ONBOARDED);
+    httpMock.expectOne('/api/users/me').flush(LARA_ONBOARDED);
 
     expect(resolved).toBe(true);
   });
@@ -174,7 +174,7 @@ describe('onboardingGuard am echten Router', () => {
   afterEach(() => httpMock.verify());
 
   /**
-   * Beantwortet das `GET /users/me` des Guards; `null` steht fuer «kein gueltiges Cookie».
+   * Beantwortet das `GET /api/users/me` des Guards; `null` steht fuer «kein gueltiges Cookie».
    *
    * <p>Das `setTimeout(0)` ist noetig, nicht kosmetisch: `navigateByUrl` startet die
    * Navigation asynchron, der Guard laeuft erst in einem spaeteren Tick. Ohne das Warten
@@ -182,7 +182,7 @@ describe('onboardingGuard am echten Router', () => {
    */
   async function answerProfile(user: User | null): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 0));
-    const req = httpMock.expectOne('/users/me');
+    const req = httpMock.expectOne('/api/users/me');
     if (user === null) {
       req.flush(null, { status: 401, statusText: 'Unauthorized' });
     } else {

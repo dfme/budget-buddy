@@ -116,7 +116,7 @@ class TransactionListControllerIntegrationTest {
 
     @Test
     void returnsExpensesOfTheMonthNewestFirst() throws Exception {
-        mockMvc.perform(get("/transactions").param("month", "2026-07").cookie(jwtCookie(laraId)))
+        mockMvc.perform(get("/api/transactions").param("month", "2026-07").cookie(jwtCookie(laraId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.transactions.length()").value(2))
                 .andExpect(jsonPath("$.hasMore").value(false))
@@ -133,7 +133,7 @@ class TransactionListControllerIntegrationTest {
 
     @Test
     void excludesIncomeAndOtherMonths() throws Exception {
-        mockMvc.perform(get("/transactions").param("month", "2026-07").cookie(jwtCookie(laraId)))
+        mockMvc.perform(get("/api/transactions").param("month", "2026-07").cookie(jwtCookie(laraId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath(
                         "$.transactions[?(@.buchungstext == 'LOHN ARBEITGEBER')]").isEmpty())
@@ -143,7 +143,7 @@ class TransactionListControllerIntegrationTest {
     @Test
     void doesNotLeakTransactionsOfAnotherUser() throws Exception {
         // Marc fragt denselben Monat ab und sieht ausschliesslich seine eigene Buchung.
-        mockMvc.perform(get("/transactions").param("month", "2026-07").cookie(jwtCookie(marcId)))
+        mockMvc.perform(get("/api/transactions").param("month", "2026-07").cookie(jwtCookie(marcId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.transactions.length()").value(1))
                 .andExpect(jsonPath("$.transactions[0].buchungstext").value("MARCS KAFFEE"))
@@ -158,7 +158,7 @@ class TransactionListControllerIntegrationTest {
         seedFreizeit(laraId);
         save(marcId, "2026-07-15", "MARCS FREIZEIT", "10.00", false, "Freizeit");
 
-        mockMvc.perform(get("/transactions").param("month", "2026-07")
+        mockMvc.perform(get("/api/transactions").param("month", "2026-07")
                         .param("category", "Freizeit").cookie(jwtCookie(marcId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.transactions.length()").value(1))
@@ -168,7 +168,7 @@ class TransactionListControllerIntegrationTest {
 
     @Test
     void filtersByCategory() throws Exception {
-        mockMvc.perform(get("/transactions").param("month", "2026-07")
+        mockMvc.perform(get("/api/transactions").param("month", "2026-07")
                         .param("category", "Lebensmittel").cookie(jwtCookie(laraId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.transactions.length()").value(1))
@@ -178,7 +178,7 @@ class TransactionListControllerIntegrationTest {
     @Test
     void filterOnSonstigesMatchesUncategorizedTransactions() throws Exception {
         // Das coalesce in der Query bildet dieselbe Regel ab wie labelOf() auf dem Antwortpfad.
-        mockMvc.perform(get("/transactions").param("month", "2026-07")
+        mockMvc.perform(get("/api/transactions").param("month", "2026-07")
                         .param("category", "Sonstiges").cookie(jwtCookie(laraId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.transactions.length()").value(1))
@@ -191,7 +191,7 @@ class TransactionListControllerIntegrationTest {
         // Category-Enum nicht kennt. Eine Validierung des Filters ergäbe hier eine 400.
         save(laraId, "2026-07-08", "NEUE KATEGORIE AG", "12.00", false, "Kryptowährung");
 
-        mockMvc.perform(get("/transactions").param("month", "2026-07")
+        mockMvc.perform(get("/api/transactions").param("month", "2026-07")
                         .param("category", "Kryptowährung").cookie(jwtCookie(laraId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.transactions.length()").value(1))
@@ -200,7 +200,7 @@ class TransactionListControllerIntegrationTest {
 
     @Test
     void emptyMonthReturnsEmptyList() throws Exception {
-        mockMvc.perform(get("/transactions").param("month", "2026-01").cookie(jwtCookie(laraId)))
+        mockMvc.perform(get("/api/transactions").param("month", "2026-01").cookie(jwtCookie(laraId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.transactions.length()").value(0))
                 .andExpect(jsonPath("$.hasMore").value(false));
@@ -208,13 +208,13 @@ class TransactionListControllerIntegrationTest {
 
     @Test
     void invalidMonthReturns400() throws Exception {
-        mockMvc.perform(get("/transactions").param("month", "2026-13").cookie(jwtCookie(laraId)))
+        mockMvc.perform(get("/api/transactions").param("month", "2026-13").cookie(jwtCookie(laraId)))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
     void missingMonthReturns400() throws Exception {
-        mockMvc.perform(get("/transactions").cookie(jwtCookie(laraId)))
+        mockMvc.perform(get("/api/transactions").cookie(jwtCookie(laraId)))
                 .andExpect(status().isBadRequest());
     }
 
@@ -222,7 +222,7 @@ class TransactionListControllerIntegrationTest {
     void unmatchedCategoryReturnsEmptyList() throws Exception {
         // Der Filter validiert das Vokabular bewusst nicht — sonst liessen sich genau die Zeilen
         // nicht aufklappen, die mit einem unerwarteten Label in der Übersicht stehen.
-        mockMvc.perform(get("/transactions").param("month", "2026-07")
+        mockMvc.perform(get("/api/transactions").param("month", "2026-07")
                         .param("category", "Lebensmitel").cookie(jwtCookie(laraId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.transactions.length()").value(0));
@@ -230,7 +230,7 @@ class TransactionListControllerIntegrationTest {
 
     @Test
     void withoutJwtReturns401() throws Exception {
-        mockMvc.perform(get("/transactions").param("month", "2026-07"))
+        mockMvc.perform(get("/api/transactions").param("month", "2026-07"))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -239,7 +239,7 @@ class TransactionListControllerIntegrationTest {
         // AC 3: ein Aufruf ohne Begrenzung liefert eine definierte Menge, keinen stillen Vollload.
         seedFreizeit(laraId);
 
-        mockMvc.perform(get("/transactions").param("month", "2026-07")
+        mockMvc.perform(get("/api/transactions").param("month", "2026-07")
                         .param("category", "Freizeit").cookie(jwtCookie(laraId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.transactions.length()").value(20))
@@ -253,7 +253,7 @@ class TransactionListControllerIntegrationTest {
         // Alle 21 am selben Tag, aufsteigend gespeichert → Reihenfolge ist ID absteigend, also
         // FREIZEIT 21 … FREIZEIT 02 auf Seite 0 und FREIZEIT 01 allein auf Seite 1. Damit ist
         // belegt, dass die Seitengrenze weder etwas überspringt noch etwas doppelt zeigt.
-        mockMvc.perform(get("/transactions").param("month", "2026-07")
+        mockMvc.perform(get("/api/transactions").param("month", "2026-07")
                         .param("category", "Freizeit").param("page", "0").param("size", "20")
                         .cookie(jwtCookie(laraId)))
                 .andExpect(status().isOk())
@@ -261,7 +261,7 @@ class TransactionListControllerIntegrationTest {
                 .andExpect(jsonPath("$.transactions[19].buchungstext").value("FREIZEIT 02"))
                 .andExpect(jsonPath("$.hasMore").value(true));
 
-        mockMvc.perform(get("/transactions").param("month", "2026-07")
+        mockMvc.perform(get("/api/transactions").param("month", "2026-07")
                         .param("category", "Freizeit").param("page", "1").param("size", "20")
                         .cookie(jwtCookie(laraId)))
                 .andExpect(status().isOk())
@@ -276,12 +276,12 @@ class TransactionListControllerIntegrationTest {
         // Begrenzung tragen. Laras Juli: 21 Freizeit-Buchungen plus die zwei aus dem Seed.
         seedFreizeit(laraId);
 
-        mockMvc.perform(get("/transactions").param("month", "2026-07").cookie(jwtCookie(laraId)))
+        mockMvc.perform(get("/api/transactions").param("month", "2026-07").cookie(jwtCookie(laraId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.transactions.length()").value(20))
                 .andExpect(jsonPath("$.hasMore").value(true));
 
-        mockMvc.perform(get("/transactions").param("month", "2026-07").param("page", "1")
+        mockMvc.perform(get("/api/transactions").param("month", "2026-07").param("page", "1")
                         .cookie(jwtCookie(laraId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.transactions.length()").value(3))
@@ -294,7 +294,7 @@ class TransactionListControllerIntegrationTest {
         // mit der Grösse des bereits geladenen Fensters. Ohne ihn fiele die Liste auf 20 zurück.
         seedFreizeit(laraId);
 
-        mockMvc.perform(get("/transactions").param("month", "2026-07")
+        mockMvc.perform(get("/api/transactions").param("month", "2026-07")
                         .param("category", "Freizeit").param("page", "0").param("size", "40")
                         .cookie(jwtCookie(laraId)))
                 .andExpect(status().isOk())
@@ -306,7 +306,7 @@ class TransactionListControllerIntegrationTest {
     void pageBeyondTheEndIsEmptyInsteadOfAnError() throws Exception {
         seedFreizeit(laraId);
 
-        mockMvc.perform(get("/transactions").param("month", "2026-07")
+        mockMvc.perform(get("/api/transactions").param("month", "2026-07")
                         .param("category", "Freizeit").param("page", "9")
                         .cookie(jwtCookie(laraId)))
                 .andExpect(status().isOk())
@@ -316,7 +316,7 @@ class TransactionListControllerIntegrationTest {
 
     @Test
     void negativePageReturns400() throws Exception {
-        mockMvc.perform(get("/transactions").param("month", "2026-07").param("page", "-1")
+        mockMvc.perform(get("/api/transactions").param("month", "2026-07").param("page", "-1")
                         .cookie(jwtCookie(laraId)))
                 .andExpect(status().isBadRequest());
     }
@@ -324,7 +324,7 @@ class TransactionListControllerIntegrationTest {
     @Test
     void sizeAboveTheMaximumReturns400() throws Exception {
         // Ohne diese Grenze liesse sich der Vollload, den US-13 ausschliesst, per size wiederholen.
-        mockMvc.perform(get("/transactions").param("month", "2026-07")
+        mockMvc.perform(get("/api/transactions").param("month", "2026-07")
                         .param("size", String.valueOf(TransactionListService.MAX_PAGE_SIZE + 1))
                         .cookie(jwtCookie(laraId)))
                 .andExpect(status().isBadRequest());
@@ -334,7 +334,7 @@ class TransactionListControllerIntegrationTest {
     void listsTheMonthsWithExpensesNewestFirst() throws Exception {
         // Laras Juli hat zwei Ausgaben — sie erscheinen als ein Monat, nicht als zwei. Der Juni
         // kommt aus der MIETE-Buchung.
-        mockMvc.perform(get("/transactions/months").cookie(jwtCookie(laraId)))
+        mockMvc.perform(get("/api/transactions/months").cookie(jwtCookie(laraId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2))
                 .andExpect(jsonPath("$[0]").value("2026-07"))
@@ -347,7 +347,7 @@ class TransactionListControllerIntegrationTest {
         // festgelegte Jahresspanne träfe genau diese Monate nicht.
         save(laraId, "2019-08-04", "ALTER AUSZUG", "42.00", false, "Sonstiges");
 
-        mockMvc.perform(get("/transactions/months").cookie(jwtCookie(laraId)))
+        mockMvc.perform(get("/api/transactions/months").cookie(jwtCookie(laraId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(3))
                 .andExpect(jsonPath("$[2]").value("2019-08"));
@@ -359,7 +359,7 @@ class TransactionListControllerIntegrationTest {
         // anzuzeigen — er gehört nicht ins Dropdown.
         save(laraId, "2026-05-25", "LOHN ARBEITGEBER", "3000.00", true, "Einkommen");
 
-        mockMvc.perform(get("/transactions/months").cookie(jwtCookie(laraId)))
+        mockMvc.perform(get("/api/transactions/months").cookie(jwtCookie(laraId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@ == '2026-05')]").isEmpty());
     }
@@ -370,11 +370,11 @@ class TransactionListControllerIntegrationTest {
         // Aussage über eine Person, auch ohne Beträge.
         save(marcId, "2020-01-09", "MARCS ALTE BUCHUNG", "15.00", false, "Shopping");
 
-        mockMvc.perform(get("/transactions/months").cookie(jwtCookie(laraId)))
+        mockMvc.perform(get("/api/transactions/months").cookie(jwtCookie(laraId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@ == '2020-01')]").isEmpty());
 
-        mockMvc.perform(get("/transactions/months").cookie(jwtCookie(marcId)))
+        mockMvc.perform(get("/api/transactions/months").cookie(jwtCookie(marcId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2))
                 .andExpect(jsonPath("$[0]").value("2026-07"))
@@ -385,20 +385,20 @@ class TransactionListControllerIntegrationTest {
     void userWithoutExpensesGetsAnEmptyMonthList() throws Exception {
         long neu = createUser("neu@example.ch");
 
-        mockMvc.perform(get("/transactions/months").cookie(jwtCookie(neu)))
+        mockMvc.perform(get("/api/transactions/months").cookie(jwtCookie(neu)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(0));
     }
 
     @Test
     void monthsWithoutJwtReturns401() throws Exception {
-        mockMvc.perform(get("/transactions/months"))
+        mockMvc.perform(get("/api/transactions/months"))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
     void sizeBelowOneReturns400() throws Exception {
-        mockMvc.perform(get("/transactions").param("month", "2026-07").param("size", "0")
+        mockMvc.perform(get("/api/transactions").param("month", "2026-07").param("size", "0")
                         .cookie(jwtCookie(laraId)))
                 .andExpect(status().isBadRequest());
     }

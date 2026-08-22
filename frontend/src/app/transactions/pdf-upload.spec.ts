@@ -53,7 +53,7 @@ describe('PdfUpload', () => {
     expect(component.uploading()).toBe(true);
     expect(fixture.nativeElement.querySelector('.spinner')).not.toBeNull();
 
-    const req = httpMock.expectOne('/import/pdf');
+    const req = httpMock.expectOne('/api/import/pdf');
     expect(req.request.method).toBe('POST');
     req.flush({ count: 42 });
     fixture.detectChanges();
@@ -67,7 +67,7 @@ describe('PdfUpload', () => {
     const input = { files: [pdfFile()], value: 'C:\\fakepath\\kontoauszug.pdf' };
     component.onFilePicked({ target: input } as unknown as Event);
 
-    httpMock.expectOne('/import/pdf').flush({ count: 3 });
+    httpMock.expectOne('/api/import/pdf').flush({ count: 3 });
 
     expect(component.importOutcome()).toEqual({ kind: 'success', count: 3 });
     expect(input.value).toBe('');
@@ -75,7 +75,7 @@ describe('PdfUpload', () => {
 
   it('shows the imported transaction count as a polite status message', () => {
     component.onDrop(dropEvent([pdfFile()]));
-    httpMock.expectOne('/import/pdf').flush({ count: 42 });
+    httpMock.expectOne('/api/import/pdf').flush({ count: 42 });
     fixture.detectChanges();
 
     const notice = fixture.nativeElement.querySelector('app-notice');
@@ -88,7 +88,7 @@ describe('PdfUpload', () => {
     // BE-PDF-05: erkannter Auszug ohne Buchungen liefert 200 {count: 0}. Die Meldung muss
     // einordnen (Konto ohne Bewegung vs. falsches PDF), bleibt aber ein freundliches info-Notice.
     component.onDrop(dropEvent([pdfFile()]));
-    httpMock.expectOne('/import/pdf').flush({ count: 0 });
+    httpMock.expectOne('/api/import/pdf').flush({ count: 0 });
     fixture.detectChanges();
 
     const notice = fixture.nativeElement.querySelector('app-notice');
@@ -99,7 +99,7 @@ describe('PdfUpload', () => {
 
   it('uses the singular for exactly one imported transaction', () => {
     component.onDrop(dropEvent([pdfFile()]));
-    httpMock.expectOne('/import/pdf').flush({ count: 1 });
+    httpMock.expectOne('/api/import/pdf').flush({ count: 1 });
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('app-notice')?.textContent).toContain(
@@ -118,13 +118,13 @@ describe('PdfUpload', () => {
     // AC: Auch Client-Validierungsfehler sind Fehler — rot und assertiv statt amber (#28).
     expect(notice?.getAttribute('role')).toBe('alert');
     expect(notice?.classList.contains('notice--error')).toBe(true);
-    httpMock.expectNone('/import/pdf');
+    httpMock.expectNone('/api/import/pdf');
   });
 
   it('accepts a dropped file without MIME type when the name ends in .pdf', () => {
     component.onDrop(dropEvent([new File(['%PDF-1.4'], 'Kontoauszug.PDF', { type: '' })]));
 
-    httpMock.expectOne('/import/pdf').flush({ count: 1 });
+    httpMock.expectOne('/api/import/pdf').flush({ count: 1 });
     expect(component.importOutcome()).toEqual({ kind: 'success', count: 1 });
   });
 
@@ -135,21 +135,21 @@ describe('PdfUpload', () => {
     component.onDrop(dropEvent([oversized]));
 
     expect(component.errorMessage()).toBe('Maximale Dateigrösse: 10 MB');
-    httpMock.expectNone('/import/pdf');
+    httpMock.expectNone('/api/import/pdf');
   });
 
   it('rejects a drop of multiple files', () => {
     component.onDrop(dropEvent([pdfFile('januar.pdf'), pdfFile('februar.pdf')]));
 
     expect(component.errorMessage()).toBe('Bitte lade nur eine Datei aufs Mal hoch.');
-    httpMock.expectNone('/import/pdf');
+    httpMock.expectNone('/api/import/pdf');
   });
 
   it('shows the password message for a 400 with reason PASSWORD_PROTECTED', () => {
     component.onDrop(dropEvent([pdfFile()]));
 
     httpMock
-      .expectOne('/import/pdf')
+      .expectOne('/api/import/pdf')
       .flush({ reason: 'PASSWORD_PROTECTED' }, { status: 400, statusText: 'Bad Request' });
     fixture.detectChanges();
 
@@ -164,7 +164,7 @@ describe('PdfUpload', () => {
     component.onDrop(dropEvent([pdfFile()]));
 
     httpMock
-      .expectOne('/import/pdf')
+      .expectOne('/api/import/pdf')
       .flush({ reason: 'UNSUPPORTED_FORMAT' }, { status: 400, statusText: 'Bad Request' });
     fixture.detectChanges();
 
@@ -173,10 +173,24 @@ describe('PdfUpload', () => {
     );
   });
 
+  it('shows the missing-text-layer message for a 400 with reason MISSING_TEXT_LAYER', () => {
+    component.onDrop(dropEvent([pdfFile()]));
+
+    httpMock
+      .expectOne('/api/import/pdf')
+      .flush({ reason: 'MISSING_TEXT_LAYER' }, { status: 400, statusText: 'Bad Request' });
+    fixture.detectChanges();
+
+    const notice = fixture.nativeElement.querySelector('app-notice');
+    expect(notice?.textContent).toContain('Das PDF enthält keinen Text');
+    expect(notice?.getAttribute('role')).toBe('alert');
+    expect(notice?.classList.contains('notice--error')).toBe(true);
+  });
+
   it('falls back to the format message for a 400 without a reason body', () => {
     component.onDrop(dropEvent([pdfFile()]));
 
-    httpMock.expectOne('/import/pdf').flush(null, { status: 400, statusText: 'Bad Request' });
+    httpMock.expectOne('/api/import/pdf').flush(null, { status: 400, statusText: 'Bad Request' });
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('app-notice')?.textContent).toContain(
@@ -187,7 +201,7 @@ describe('PdfUpload', () => {
   it('shows the timeout message with a retry hint for a 408', () => {
     component.onDrop(dropEvent([pdfFile()]));
 
-    httpMock.expectOne('/import/pdf').flush(null, { status: 408, statusText: 'Request Timeout' });
+    httpMock.expectOne('/api/import/pdf').flush(null, { status: 408, statusText: 'Request Timeout' });
     fixture.detectChanges();
 
     const notice = fixture.nativeElement.querySelector('app-notice');
@@ -197,11 +211,24 @@ describe('PdfUpload', () => {
     expect(notice?.getAttribute('role')).toBe('alert');
   });
 
+  it('shows the oversize message for a 413', () => {
+    component.onDrop(dropEvent([pdfFile()]));
+
+    httpMock
+      .expectOne('/api/import/pdf')
+      .flush(null, { status: 413, statusText: 'Payload Too Large' });
+    fixture.detectChanges();
+
+    const notice = fixture.nativeElement.querySelector('app-notice');
+    expect(notice?.textContent).toContain('Das PDF ist zu gross');
+    expect(notice?.getAttribute('role')).toBe('alert');
+  });
+
   it('stops the spinner and shows a generic error for other failures', () => {
     component.onDrop(dropEvent([pdfFile()]));
 
     httpMock
-      .expectOne('/import/pdf')
+      .expectOne('/api/import/pdf')
       .flush(null, { status: 500, statusText: 'Internal Server Error' });
     fixture.detectChanges();
 
@@ -214,7 +241,7 @@ describe('PdfUpload', () => {
   it('opens the duplicate dialog instead of an error message on a 409', () => {
     component.onDrop(dropEvent([pdfFile('juli.pdf')]));
 
-    httpMock.expectOne('/import/pdf').flush(null, { status: 409, statusText: 'Conflict' });
+    httpMock.expectOne('/api/import/pdf').flush(null, { status: 409, statusText: 'Conflict' });
     fixture.detectChanges();
 
     // AC 1: der Dialog erscheint …
@@ -229,14 +256,14 @@ describe('PdfUpload', () => {
 
   it('closes the dialog without importing when the user cancels', () => {
     component.onDrop(dropEvent([pdfFile()]));
-    httpMock.expectOne('/import/pdf').flush(null, { status: 409, statusText: 'Conflict' });
+    httpMock.expectOne('/api/import/pdf').flush(null, { status: 409, statusText: 'Conflict' });
     fixture.detectChanges();
 
     clickModalButton('Abbrechen');
     fixture.detectChanges();
 
     // AC 2: kein zweiter Request, Dialog weg …
-    httpMock.expectNone('/import/pdf');
+    httpMock.expectNone('/api/import/pdf');
     expect(fixture.nativeElement.querySelector('app-modal')).toBeNull();
     // … und die Erklärung bleibt stehen, ohne den für ein Duplikat falschen Retry-Rat.
     const notice = fixture.nativeElement.querySelector('app-notice');
@@ -247,14 +274,14 @@ describe('PdfUpload', () => {
   it('repeats the upload with force=true when the user confirms', () => {
     const file = pdfFile();
     component.onDrop(dropEvent([file]));
-    httpMock.expectOne('/import/pdf').flush(null, { status: 409, statusText: 'Conflict' });
+    httpMock.expectOne('/api/import/pdf').flush(null, { status: 409, statusText: 'Conflict' });
     fixture.detectChanges();
 
     clickModalButton('Trotzdem importieren');
     fixture.detectChanges();
 
     // AC 3: derselbe Upload noch einmal, diesmal mit Force-Flag.
-    const req = httpMock.expectOne((r) => r.url === '/import/pdf');
+    const req = httpMock.expectOne((r) => r.url === '/api/import/pdf');
     expect(req.request.params.get('force')).toBe('true');
     expect((req.request.body as FormData).get('file')).toBe(file);
     req.flush({ count: 28 });
@@ -269,21 +296,21 @@ describe('PdfUpload', () => {
 
   it('closes a stale dialog when the next file is selected', () => {
     component.onDrop(dropEvent([pdfFile('juli.pdf')]));
-    httpMock.expectOne('/import/pdf').flush(null, { status: 409, statusText: 'Conflict' });
+    httpMock.expectOne('/api/import/pdf').flush(null, { status: 409, statusText: 'Conflict' });
     fixture.detectChanges();
 
     component.onDrop(dropEvent([pdfFile('august.pdf')]));
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('app-modal')).toBeNull();
-    httpMock.expectOne('/import/pdf').flush({ count: 5 });
+    httpMock.expectOne('/api/import/pdf').flush({ count: 5 });
   });
 
   it('ignores a drop while an upload is already running', () => {
     component.onDrop(dropEvent([pdfFile()]));
     component.onDrop(dropEvent([pdfFile()]));
 
-    httpMock.expectOne('/import/pdf').flush({ count: 1 });
+    httpMock.expectOne('/api/import/pdf').flush({ count: 1 });
     expect(component.importOutcome()).toEqual({ kind: 'success', count: 1 });
   });
 

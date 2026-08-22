@@ -24,7 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
  * mit dem {@link TransactionSummaryController}.
  */
 @RestController
-@RequestMapping("/transactions")
+@RequestMapping("/api/transactions")
 @Tag(name = "Transactions", description = "Auswertungen über die Transaktionen des eingeloggten Users")
 public class TransactionCategoryController {
 

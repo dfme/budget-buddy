@@ -1,5 +1,5 @@
 /**
- * Antwort von `GET /budget/safe-to-spend` (Spiegel des Backend-DTOs
+ * Antwort von `GET /api/budget/safe-to-spend` (Spiegel des Backend-DTOs
  * `SafeToSpendResponse`, BE-STS-03).
  *
  * Beträge kommen als JSON-Zahl über die REST-Grenze: das Backend nutzt

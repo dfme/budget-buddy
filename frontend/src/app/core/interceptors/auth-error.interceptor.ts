@@ -7,19 +7,19 @@ import { AuthService } from '../../auth/auth.service';
 
 /**
  * Endpoints, deren 401 NICHT zu einem Redirect führt:
- * - `/auth/login`, `/auth/register`: Ein 401 bedeutet hier "falsche Credentials"
+ * - `/api/auth/login`, `/api/auth/register`: Ein 401 bedeutet hier "falsche Credentials"
  *   und wird von den Formular-Komponenten selbst behandelt.
- * - `/users/me`: Bootstrap-Call von {@link AuthService.loadCurrentUser}, dem
+ * - `/api/users/me`: Bootstrap-Call von {@link AuthService.loadCurrentUser}, dem
  *   `authGuard` und dem `onboardingGuard`. Ein Redirect hier würde eine
  *   Doppel-Navigation/Loop auslösen.
  *
- * <p>Verglichen wird der <strong>ganze</strong> Pfad, nicht sein Anfang: unter `/users/me`
- * hängen inzwischen normale geschützte Aufrufe (`POST /users/me/onboarding-complete`,
- * `PUT /users/me/income`), und die sind keine Bootstrap-Calls. Ein Teilstring-Vergleich
+ * <p>Verglichen wird der <strong>ganze</strong> Pfad, nicht sein Anfang: unter `/api/users/me`
+ * hängen inzwischen normale geschützte Aufrufe (`POST /api/users/me/onboarding-complete`,
+ * `PUT /api/users/me/income`), und die sind keine Bootstrap-Calls. Ein Teilstring-Vergleich
  * nähme sie mit aus und liesse den Nutzer bei abgelaufenem Cookie mit einer irreführenden
  * Fehlermeldung im Formular sitzen, statt ihn zum Login zu schicken.
  */
-const AUTH_BOOTSTRAP_PATHS = ['/auth/login', '/auth/register', '/users/me'];
+const AUTH_BOOTSTRAP_PATHS = ['/api/auth/login', '/api/auth/register', '/api/users/me'];
 
 /**
  * Globales 401-Handling (US-01, FE-AUTH-04). Ein `401` auf einem geschützten Call

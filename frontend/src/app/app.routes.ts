@@ -29,9 +29,11 @@ export const routes: Routes = [
     loadComponent: () => import('./transactions/pdf-upload').then((m) => m.PdfUpload),
   },
   {
-    // Bewusst NICHT `/fixed-costs`: das ist das API-Prefix von FixedCostController. Ein
-    // gleichnamiger Angular-Pfad würde beim Hard-Reload den Backend-Endpoint statt index.html
-    // treffen.
+    // Vor INFRA-17 kollidierte `/fixed-costs` mit dem gleichnamigen API-Prefix von
+    // FixedCostController (ein Angular-Pfad hätte beim Hard-Reload den Backend-Endpoint statt
+    // index.html getroffen). Seit alle REST-Endpoints unter /api/** liegen, wäre der Name
+    // frei — bleibt trotzdem `fixkosten`, eine Umbenennung hätte hier keinen Mehrwert und
+    // würde nur Links/Bookmarks brechen.
     path: 'fixkosten',
     canActivate: [authGuard, onboardingGuard],
     loadComponent: () => import('./onboarding/fixed-cost-list').then((m) => m.FixedCostList),

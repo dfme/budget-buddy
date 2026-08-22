@@ -9,7 +9,7 @@ import { AuthService } from '../../auth/auth.service';
  * (US-03, FE-FC-02).
  *
  * <p>Der Status kommt aus `onboardingCompleted` des Profils, das
- * {@link AuthService.ensureCurrentUser} aus dem State liefert oder per `GET /users/me`
+ * {@link AuthService.ensureCurrentUser} aus dem State liefert oder per `GET /api/users/me`
  * nachlädt. Ist er `false`, wird auf `/onboarding` umgeleitet — der Safe-to-Spend-Betrag
  * ist ohne Fixkosten wertlos, und Lara soll die Zahl nicht sehen, bevor sie stimmt.
  *

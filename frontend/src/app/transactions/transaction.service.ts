@@ -18,8 +18,8 @@ export const TRANSACTION_PAGE_SIZE = 20;
 export const MAX_TRANSACTION_PAGE_SIZE = 100;
 
 /**
- * Kapselt den Zugriff auf die Einzeltransaktionen: `GET /transactions` (FE-CAT-03, FE-CAT-05) und
- * `PUT /transactions/{id}/category` (BE-CAT-04, US-05).
+ * Kapselt den Zugriff auf die Einzeltransaktionen: `GET /api/transactions` (FE-CAT-03, FE-CAT-05) und
+ * `PUT /api/transactions/{id}/category` (BE-CAT-04, US-05).
  *
  * <p>Zustandslos wie {@link TransactionSummaryService} — der UI-State (offene Kategorie, geladene
  * Seiten, laden/Fehler) liegt in der {@link CategoryOverview}-Komponente als Signals. Das
@@ -50,7 +50,7 @@ export class TransactionService {
     if (category) {
       params = params.set('category', category);
     }
-    return this.http.get<TransactionPage>('/transactions', { params });
+    return this.http.get<TransactionPage>('/api/transactions', { params });
   }
 
   /**
@@ -62,7 +62,7 @@ export class TransactionService {
    * aus leeren Jahren.
    */
   availableMonths(): Observable<string[]> {
-    return this.http.get<string[]>('/transactions/months');
+    return this.http.get<string[]>('/api/transactions/months');
   }
 
   /**
@@ -74,6 +74,6 @@ export class TransactionService {
    * @param category Deutsches Kategorie-Label, z. B. `"Lebensmittel"`.
    */
   updateCategory(id: number, category: string): Observable<Transaction> {
-    return this.http.put<Transaction>(`/transactions/${id}/category`, { category });
+    return this.http.put<Transaction>(`/api/transactions/${id}/category`, { category });
   }
 }
