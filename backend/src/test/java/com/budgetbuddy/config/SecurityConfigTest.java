@@ -52,6 +52,24 @@ class SecurityConfigTest {
     }
 
     @Test
+    void livenessProbeIsPublic() throws Exception {
+        // Render pingt /actuator/health/liveness (render.yaml healthCheckPath, INFRA-28).
+        // Ein 401 hier liesse den Service auf Render als unhealthy erscheinen und den Deploy
+        // zurückrollen — PUBLIC_PATHS listet den Pfad deshalb exakt.
+        mockMvc.perform(get("/actuator/health/liveness"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void otherHealthGroupsStayProtected() throws Exception {
+        // Gegenprobe zur Freigabe oben: Freigegeben ist der exakte Liveness-Pfad, nicht
+        // /actuator/health/**. Die ebenfalls von probes.enabled erzeugte Readiness-Gruppe
+        // bleibt damit hinter der Authentifizierung.
+        mockMvc.perform(get("/actuator/health/readiness"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void infoEndpointIsPublic() throws Exception {
         // Der CD-Smoke-Test liest den deployten Commit vor jedem Login (INFRA-08).
         mockMvc.perform(get("/actuator/info"))

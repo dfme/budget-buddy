@@ -103,8 +103,13 @@ Dazu kommen:
   Konsequenzen.
 - **Kein vollwertiges Backup.** Neon Free bietet ~6 h PITR. Für ein Kursprojekt akzeptiert; ein
   echtes Backup-Fenster kostet Geld (ADR-5, Variante 7).
-- **Grenzen des Free-Plans:** 0,5 GB Storage und 100 CU-h pro Projekt. Für MVP-Scale
-  (~1.000 User × ~1.000 Transaktionen) unkritisch, aber keine Wachstumsreserve.
+- **Grenzen des Free-Plans:** 0,5 GB Storage und 100 CU-h pro Projekt. Der Storage ist für
+  MVP-Scale (~1.000 User × ~1.000 Transaktionen) unkritisch — das Compute-Kontingent ist es
+  nicht: 100 CU-h sind bei der Free-Computegrösse von 0,25 CU rund 400 Stunden und damit keine
+  17 Tage Dauerbetrieb. Es reicht nur, solange Scale-to-Zero tatsächlich greift. Am 23.08.2026
+  waren 80 % verbraucht, ohne dass ein Nutzer die App angefasst hätte: Renders Dauerping auf den
+  DB-behafteten `/actuator/health` hielt den Compute seit INFRA-24 wach (abgestellt in
+  INFRA-28).
 - **`sslmode=require` verschlüsselt, authentifiziert den Server aber nicht.** Die Verbindung ist
   gegen Mitlesen geschützt, nicht gegen einen aktiven Man-in-the-Middle: pgjdbc prüft in diesem
   Modus weder Zertifikatskette noch Hostname. Dagegen hülfe nur `sslmode=verify-full`, und das ist
