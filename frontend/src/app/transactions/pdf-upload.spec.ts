@@ -168,6 +168,34 @@ describe('PdfUpload', () => {
     expect(fixture.nativeElement.querySelector('app-notice')?.getAttribute('role')).toBe('alert');
   });
 
+  it('tells the user to reload when the job never leaves RUNNING', () => {
+    // Der Ausgang ist hier weder Erfolg noch Fehlschlag: Der Import kann durchgelaufen sein,
+    // während nur die Anzeige den Anschluss verloren hat. «Erneut versuchen» wäre der falsche
+    // Rat — er erzeugte womöglich eine Dublette.
+    component.onDrop(dropEvent([pdfFile()]));
+    httpMock.expectOne('/api/import/pdf').flush({ jobId: JOB_ID, total: 12 });
+
+    for (let elapsed = 0; elapsed < 30 * 60 * 1000; elapsed += 700) {
+      vi.advanceTimersByTime(elapsed === 0 ? 1 : 700);
+      const pending = httpMock.match(`/api/import/${JOB_ID}/status`);
+      if (pending.length === 0) {
+        break;
+      }
+      for (const request of pending) {
+        request.flush({ status: 'RUNNING', total: 12, processed: 3, degraded: false });
+      }
+    }
+    fixture.detectChanges();
+
+    expect(component.uploading()).toBe(false);
+    const notice = fixture.nativeElement.querySelector('app-notice');
+    expect(notice?.getAttribute('role')).toBe('alert');
+    expect(notice?.textContent).toContain('Status ist unbekannt');
+    expect(notice?.textContent).toContain('Seite neu');
+    // Nicht als Fehlschlag ausgeben — das wäre eine Aussage, die wir nicht belegen können.
+    expect(notice?.textContent).not.toContain('fehlgeschlagen');
+  });
+
   it('uploads a file selected via the file picker', () => {
     const input = { files: [pdfFile()], value: 'C:\\fakepath\\kontoauszug.pdf' };
     component.onFilePicked({ target: input } as unknown as Event);

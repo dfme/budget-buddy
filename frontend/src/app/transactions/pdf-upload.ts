@@ -16,7 +16,7 @@ import { Modal } from '../shared/modal/modal';
 import { Notice } from '../shared/notice/notice';
 import { ImportErrorResponse } from './import-error.model';
 import { ImportJobStatusResponse } from './import-response.model';
-import { PdfImportService } from './pdf-import.service';
+import { ImportPollTimeoutError, PdfImportService } from './pdf-import.service';
 
 /** Serverseitiges Upload-Limit aus BE-PDF-03 — client-seitig vorab geprüft (US-04). */
 const MAX_PDF_BYTES = 10 * 1024 * 1024;
@@ -37,6 +37,17 @@ const DEGRADED_HINT =
 
 /** Meldung, wenn der Hintergrundlauf selbst gescheitert ist. */
 const JOB_FAILED_MESSAGE = 'Der Import ist fehlgeschlagen — bitte versuche es erneut.';
+
+/**
+ * Die Statusabfrage hat aufgegeben, ohne einen Endzustand gesehen zu haben.
+ *
+ * <p>Bewusst weder Erfolg noch Fehlschlag: Der Import kann durchgelaufen sein, während nur die
+ * Anzeige den Anschluss verloren hat. «Erneut versuchen» wäre hier der falsche Rat — er
+ * erzeugte womöglich eine Dublette. Der Reload zeigt den tatsächlichen Stand.
+ */
+const POLL_TIMEOUT_MESSAGE =
+  'Der Import läuft ungewöhnlich lange — der Status ist unbekannt. Bitte lade die Seite neu, ' +
+  'um zu sehen, ob er durchgelaufen ist.';
 
 /** Ausgang des letzten Uploads — Erfolg mit Anzahl oder Fehler mit fertiger Nutzermeldung. */
 export type ImportOutcome =
@@ -238,7 +249,13 @@ export class PdfUpload {
         // unbekannt. Ihn als Erfolg zu melden wäre die schlechtere Lüge: Der Nutzer prüft dann
         // nicht nach.
         error: (error: unknown) =>
-          this.finish({ kind: 'error', message: PdfUpload.importErrorMessage(error) }),
+          this.finish({
+            kind: 'error',
+            message:
+              error instanceof ImportPollTimeoutError
+                ? POLL_TIMEOUT_MESSAGE
+                : PdfUpload.importErrorMessage(error),
+          }),
       });
   }
 

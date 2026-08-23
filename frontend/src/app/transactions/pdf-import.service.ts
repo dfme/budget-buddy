@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, timer } from 'rxjs';
+import { Observable, throwError, timer } from 'rxjs';
 import { switchMap, takeWhile } from 'rxjs/operators';
 
 import { ImportJobStatusResponse, ImportStartedResponse } from './import-response.model';
@@ -13,6 +13,38 @@ import { ImportJobStatusResponse, ImportStartedResponse } from './import-respons
  * liesse den Balken ruckeln.
  */
 const POLL_INTERVAL_MS = 700;
+
+/**
+ * Obergrenze für die Gesamtdauer der Statusabfrage.
+ *
+ * <p>Hergeleitet aus dem serverseitigen Watchdog plus Reserve: `budgetbuddy.import.
+ * categorization-timeout-seconds` steht auf 300s, und der Runner prüft ihn *zwischen* den
+ * Bündeln — die reale Obergrenze ist also 300s plus ein vollständiges Bündel. Sechs Minuten
+ * lassen dafür Luft und brechen einen ehrlich langsamen Import nicht ab.
+ *
+ * <p>Nötig, weil ein Job dauerhaft auf `RUNNING` stehen bleiben kann: `ImportJobRunner.run()`
+ * fängt nur `RuntimeException` (ein `Error` läuft daran vorbei), und es gibt beim Start keine
+ * Versöhnung verwaister Jobs — ein Redeploy oder harter Kill lässt die Zeile stehen. Ohne diese
+ * Grenze pollte der Client dann unbegrenzt weiter: ein Request alle 700ms, bei eingefrorenem
+ * Balken und ohne jede Meldung.
+ */
+const POLL_TIMEOUT_MS = 6 * 60 * 1000;
+
+/** Anzahl Abfragen, nach der aufgegeben wird — `timer` zählt ab 0. */
+const MAX_POLLS = Math.ceil(POLL_TIMEOUT_MS / POLL_INTERVAL_MS);
+
+/**
+ * Die Statusabfrage hat aufgegeben, ohne einen Endzustand gesehen zu haben.
+ *
+ * <p>Eigener Typ statt eines HTTP-Fehlers, weil der Ausgang ein anderer ist: Der Import ist
+ * weder nachweislich fehlgeschlagen noch erfolgreich — sein Zustand ist schlicht unbekannt.
+ */
+export class ImportPollTimeoutError extends Error {
+  constructor() {
+    super(`Status-Polling nach ${MAX_POLLS} Abfragen abgebrochen`);
+    this.name = 'ImportPollTimeoutError';
+  }
+}
 
 /**
  * Kapselt den Upload an `POST /api/import/pdf` und die Fortschrittsabfrage an
@@ -60,10 +92,20 @@ export class PdfImportService {
    * <p>`takeWhile(..., true)` mit `inclusive`: Der abschliessende Status (`DONE`/`FAILED`) wird
    * noch ausgegeben und erst danach beendet. Ohne das Flag käme der Endzustand nie beim Aufrufer
    * an — die Komponente wüsste, dass der Import fertig ist, aber nicht wie er ausging.
+   *
+   * <p>Nach {@link POLL_TIMEOUT_MS} ohne Endzustand bricht der Strom mit
+   * {@link ImportPollTimeoutError} ab — siehe dort, warum ein Job dauerhaft `RUNNING` bleiben
+   * kann und warum das ein eigener Ausgang ist und kein Fehlschlag.
    */
   pollJob(jobId: number): Observable<ImportJobStatusResponse> {
     return timer(0, POLL_INTERVAL_MS).pipe(
-      switchMap(() => this.jobStatus(jobId)),
+      // Der Tick-Zähler ist die Abbruchbedingung: deterministisch und mit Faketimern exakt
+      // prüfbar, anders als eine parallele Deadline, die vom Scheduling abhinge.
+      switchMap((tick) =>
+        tick >= MAX_POLLS
+          ? throwError(() => new ImportPollTimeoutError())
+          : this.jobStatus(jobId),
+      ),
       takeWhile((status) => status.status === 'RUNNING', true),
     );
   }

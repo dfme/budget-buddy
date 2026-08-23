@@ -4,7 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ImportJobStatusResponse, ImportStartedResponse } from './import-response.model';
-import { PdfImportService } from './pdf-import.service';
+import { ImportPollTimeoutError, PdfImportService } from './pdf-import.service';
 
 /** Antwort des Status-Endpoints mit sinnvollen Defaults. */
 function jobStatus(patch: Partial<ImportJobStatusResponse> = {}): ImportJobStatusResponse {
@@ -98,5 +98,54 @@ describe('PdfImportService', () => {
     expect(seen.at(-1)?.status).toBe('FAILED');
     vi.advanceTimersByTime(2100);
     httpMock.expectNone('/api/import/7/status');
+  });
+
+  it('gives up instead of polling forever when a job stays RUNNING', () => {
+    // Ein Job kann dauerhaft auf RUNNING stehen bleiben: ImportJobRunner.run() fängt nur
+    // RuntimeException (ein Error läuft daran vorbei), und verwaiste Jobs werden beim Start
+    // nicht versöhnt — ein Redeploy oder harter Kill lässt die Zeile stehen. Ohne Obergrenze
+    // pollte der Client dann unbegrenzt weiter, bei eingefrorenem Balken und ohne Meldung.
+    let error: unknown = null;
+    let completed = false;
+    service.pollJob(7).subscribe({
+      error: (e: unknown) => (error = e),
+      complete: () => (completed = true),
+    });
+
+    // 30 simulierte Minuten, jede Abfrage weiterhin RUNNING.
+    for (let elapsed = 0; elapsed < 30 * 60 * 1000 && !error; elapsed += 700) {
+      vi.advanceTimersByTime(elapsed === 0 ? 1 : 700);
+      for (const request of httpMock.match('/api/import/7/status')) {
+        request.flush(jobStatus({ status: 'RUNNING', processed: 1 }));
+      }
+    }
+
+    expect(error).toBeInstanceOf(ImportPollTimeoutError);
+    expect(completed).toBe(false);
+
+    // Nach dem Abbruch geht nichts mehr raus — das ist der Punkt der Übung.
+    vi.advanceTimersByTime(60_000);
+    httpMock.expectNone('/api/import/7/status');
+  });
+
+  it('keeps polling a slow but healthy job well past the first minute', () => {
+    // Gegenprobe zur Obergrenze: Sie darf einen ehrlich langsamen Import nicht abschneiden.
+    // Der serverseitige Watchdog steht auf 300s; eine Minute muss klar durchgehen.
+    let error: unknown = null;
+    const seen: ImportJobStatusResponse[] = [];
+    service.pollJob(7).subscribe({
+      next: (status) => seen.push(status),
+      error: (e: unknown) => (error = e),
+    });
+
+    for (let elapsed = 0; elapsed < 60_000; elapsed += 700) {
+      vi.advanceTimersByTime(elapsed === 0 ? 1 : 700);
+      for (const request of httpMock.match('/api/import/7/status')) {
+        request.flush(jobStatus({ status: 'RUNNING', processed: 1 }));
+      }
+    }
+
+    expect(error).toBeNull();
+    expect(seen.length).toBeGreaterThan(80);
   });
 });
