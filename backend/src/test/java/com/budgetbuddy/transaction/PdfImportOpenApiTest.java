@@ -22,7 +22,7 @@ import org.springframework.test.web.servlet.MockMvc;
  * automatisierter Nachweis (dieselbe Begründung wie in {@link TransactionListOpenApiTest}).
  *
  * <p>Der Statuswechsel des Uploads von 200 auf 202 gehört mit ins Dokument: Ein Client, der nach
- * ADR-13 weiterhin 200 erwartet, wartet auf ein Ergebnis, das nie kommt — der dokumentierte
+ * ADR-14 weiterhin 200 erwartet, wartet auf ein Ergebnis, das nie kommt — der dokumentierte
  * Status ist hier ein Vertragsdetail, kein Schmuck.
  */
 @SpringBootTest

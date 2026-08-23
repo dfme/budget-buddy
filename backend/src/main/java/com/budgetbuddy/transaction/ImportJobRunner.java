@@ -19,7 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Asynchroner Teil des PDF-Imports (BE-PDF-09, ADR-13): kategorisiert die bereits geparsten
+ * Asynchroner Teil des PDF-Imports (BE-PDF-09, ADR-14): kategorisiert die bereits geparsten
  * Transaktionen und persistiert sie.
  *
  * <p><strong>Warum eine eigene Klasse:</strong> {@code @Async} wirkt über einen Spring-Proxy. Ein
@@ -117,7 +117,7 @@ public class ImportJobRunner {
         // Lookup-/Claude-Verhältnis (BE-PDF-06): die aussagekräftigste Einzelzahl des Flows —
         // ADR-6 rechnet mit 70–80% Lookup-Treffern, erst diese Zählung macht das überprüfbar.
         // «ohne Call» steht getrennt (Review PR #174): offener Circuit Breaker, fehlender
-        // API-Key und seit ADR-13 auch der Watchdog liefern Sonstiges ohne HTTP-Request. Für die
+        // API-Key und seit ADR-14 auch der Watchdog liefern Sonstiges ohne HTTP-Request. Für die
         // ADR-6-Trefferquote zählt das wie Claude, für die Laufzeit nicht.
         int viaLookup = 0;
         int viaClaude = 0;
@@ -185,7 +185,7 @@ public class ImportJobRunner {
         importJobRepository.save(job);
 
         // Eine Summary-Zeile pro Import (BE-PDF-06) — bewusst keine Zeile pro Transaktion,
-        // application-prod.properties fährt com.budgetbuddy=INFO. Anders als vor ADR-13 steht sie
+        // application-prod.properties fährt com.budgetbuddy=INFO. Anders als vor ADR-14 steht sie
         // nicht mehr hinter einem Pfad, der im Fehlerfall übersprungen wird: Der Watchdog-Fall
         // endet ebenfalls hier und ist an `degraded` erkennbar (#192, Nebenbefund «Instrumen-
         // tierung ist im Fehlerfall blind»).

@@ -67,7 +67,7 @@ class PdfLookupCoverageIntegrationTest {
     /** Die gebaute Quote des Jahresauszugs — Vergleichsmass für den layouttreuen Auszug. */
     private static final double POST_YEAR_LOOKUP_SHARE = 0.60;
 
-    /** {@code budgetbuddy.import.batch-size} — hier gespiegelt wie im ImportJobRunner (ADR-13). */
+    /** {@code budgetbuddy.import.batch-size} — hier gespiegelt wie im ImportJobRunner (ADR-14). */
     private static final int BATCH_SIZE = 20;
 
     @DynamicPropertySource
@@ -146,7 +146,7 @@ class PdfLookupCoverageIntegrationTest {
         assertThat(toClaude).allSatisfy(t -> assertThat(lookupTableService.categorize(t)).isEmpty());
 
         // Die Zahl, um die es geht: 96 unbekannte Transaktionen kosten in 20er-Bündeln 12
-        // Requests statt 96 sequentieller Einzel-Calls (ADR-13, #192).
+        // Requests statt 96 sequentieller Einzel-Calls (ADR-14, #192).
         assertThat(sent.getAllValues()).hasSize(12);
     }
 

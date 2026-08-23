@@ -31,7 +31,7 @@ import org.springframework.stereotype.Service;
  * darf den Import nie blockieren (Churn-Risiko #1). {@link Optional#empty()} kommt nur bei leerer
  * Eingabe zurück, wo es nichts zu kategorisieren gibt.
  *
- * <p><strong>Gebündelt statt einzeln</strong> (ADR-13, BE-PDF-09): Bis zu
+ * <p><strong>Gebündelt statt einzeln</strong> (ADR-14, BE-PDF-09): Bis zu
  * {@link #MAX_BATCH_SIZE} Transaktionen gehen in <em>einem</em> Request hinaus. Die Laufzeit
  * eines Calls steckt fast vollständig im Fixkostenanteil pro Request — der Prompt ist ~100 Tokens
  * gross und die Antwort wenige Tokens lang, trotzdem vergeht gut eine Sekunde. Einzeln abgefragt

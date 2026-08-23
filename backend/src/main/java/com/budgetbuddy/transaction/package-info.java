@@ -2,7 +2,7 @@
  * Transaction-Modul: TransactionController, PdfImportService, ImportJobRunner,
  * Transaction-Entity.
  *
- * <p>PDF-Upload zweistufig (ADR-13): Duplikatcheck und Parse synchron im Request mit Zeitbudget,
+ * <p>PDF-Upload zweistufig (ADR-14): Duplikatcheck und Parse synchron im Request mit Zeitbudget,
  * Kategorisierung und Persistierung danach als {@code @Async}-Job mit Fortschritts-Polling.
  * Timeout + Fallback auf {@code Sonstiges} gelten weiterhin; CHF-Beträge als {@code BigDecimal}.
  *

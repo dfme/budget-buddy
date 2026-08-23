@@ -38,7 +38,7 @@ import org.springframework.beans.factory.ObjectProvider;
 
 /**
  * Unit-Test der {@link ClaudeCategorizationService}-Logik mit gemocktem Anthropic-Client:
- * Bündelung mehrerer Transaktionen pro Request (ADR-13), Mapping der Antwort auf
+ * Bündelung mehrerer Transaktionen pro Request (ADR-14), Mapping der Antwort auf
  * {@link Category}, Fallback auf {@code Sonstiges} bei allen Fehlerpfaden, sowie das
  * Circuit-Breaker-Verhalten.
  *
@@ -125,10 +125,10 @@ class ClaudeCategorizationServiceTest {
         assertThat(captureParams().model().asString()).isEqualTo("claude-haiku-4-5");
     }
 
-    // --- Bündelung (ADR-13) ---
+    // --- Bündelung (ADR-14) ---
 
     /**
-     * Der Kern von ADR-13: Mehrere Transaktionen kosten <em>einen</em> Request. Vor BE-PDF-09 war
+     * Der Kern von ADR-14: Mehrere Transaktionen kosten <em>einen</em> Request. Vor BE-PDF-09 war
      * es einer pro Transaktion — bei 108 Transaktionen der Unterschied zwischen einem
      * funktionierenden und einem scheiternden Import (#192).
      */
@@ -220,7 +220,7 @@ class ClaudeCategorizationServiceTest {
     }
 
     /**
-     * Die Kategorienliste steht seit ADR-13 im Schema statt im Prompt — geprüft wird sie deshalb
+     * Die Kategorienliste steht seit ADR-14 im Schema statt im Prompt — geprüft wird sie deshalb
      * dort. Gegen {@link Category#values()} statt gegen eine Literal-Liste, damit der Test auch
      * anschlägt, wenn später eine Kategorie ergänzt wird und das Schema nicht nachzieht. Das ist
      * strenger als die frühere Prompt-Prüfung: Was im Schema steht, ist für das Modell nicht

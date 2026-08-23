@@ -4,9 +4,9 @@ import com.budgetbuddy.transaction.ImportJob;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
- * Antwort-DTO des PDF-Upload-Endpoints {@code POST /api/import/pdf} (BE-PDF-09, ADR-13).
+ * Antwort-DTO des PDF-Upload-Endpoints {@code POST /api/import/pdf} (BE-PDF-09, ADR-14).
  *
- * <p>Seit ADR-13 ist der Upload nicht mehr das Ende des Imports, sondern sein Anfang: Das PDF ist
+ * <p>Seit ADR-14 ist der Upload nicht mehr das Ende des Imports, sondern sein Anfang: Das PDF ist
  * geparst, die Kategorisierung läuft im Hintergrund. Deshalb trägt die Antwort die Job-ID zum
  * Weiterverfolgen statt einer Endzahl — und {@code total} als Nenner, damit der
  * Fortschrittsbalken schon vor dem ersten Status-Poll etwas anzeigen kann.

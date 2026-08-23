@@ -1,7 +1,7 @@
 /**
  * Antwort von `POST /api/import/pdf` (BE-PDF-09) — spiegelt `ImportStartedResponse.java`.
  *
- * <p>Seit ADR-13 ist der Upload der Anfang des Imports, nicht sein Ende: Das PDF ist geparst, die
+ * <p>Seit ADR-14 ist der Upload der Anfang des Imports, nicht sein Ende: Das PDF ist geparst, die
  * Kategorisierung läuft im Hintergrund. Deshalb kommt hier die Job-ID zum Weiterverfolgen statt
  * einer Endzahl — und `total` als Nenner, damit der Fortschrittsbalken schon vor dem ersten
  * Status-Poll etwas anzeigen kann.

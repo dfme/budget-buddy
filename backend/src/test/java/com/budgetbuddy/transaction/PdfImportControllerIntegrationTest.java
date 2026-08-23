@@ -104,7 +104,7 @@ class PdfImportControllerIntegrationTest {
                 "lara@example.ch", "bcrypt-hash", new BigDecimal("2200.00"), true);
         userId = jdbcTemplate.queryForObject(
                 "SELECT id FROM users WHERE email = 'lara@example.ch'", Long.class);
-        // Seit ADR-13 fragt der Import gebündelt ab: categorizeAll, nicht categorize.
+        // Seit ADR-14 fragt der Import gebündelt ab: categorizeAll, nicht categorize.
         when(categorizationPort.categorizeAll(org.mockito.ArgumentMatchers.any()))
                 .thenAnswer(invocation -> {
                     List<String> texts = invocation.getArgument(0);
@@ -118,7 +118,7 @@ class PdfImportControllerIntegrationTest {
      * Lädt ein PDF hoch und wartet, bis der Hintergrundlauf durch ist — die Testvariante dessen,
      * was das Frontend mit {@code GET /api/import/{jobId}/status} tut.
      *
-     * <p>Seit ADR-13 antwortet der Upload mit {@code 202} und der Job-ID; wer direkt danach die
+     * <p>Seit ADR-14 antwortet der Upload mit {@code 202} und der Job-ID; wer direkt danach die
      * Datenbank prüft, prüft einen Zwischenstand. Alle Persistenz-Assertions unten hängen deshalb
      * an diesem Helfer.
      *
@@ -214,7 +214,7 @@ class PdfImportControllerIntegrationTest {
                 .andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.jobId").isNumber())
                 // Der Nenner der Fortschrittsanzeige steht schon in der Upload-Antwort: Das Parsen
-                // lief synchron, nur die Kategorisierung ist noch unterwegs (ADR-13).
+                // lief synchron, nur die Kategorisierung ist noch unterwegs (ADR-14).
                 .andExpect(jsonPath("$.total").value(28));
 
         await().atMost(Duration.ofSeconds(30))
@@ -286,7 +286,7 @@ class PdfImportControllerIntegrationTest {
         uploadAndAwait(fixture(), userId, false);
 
         // Der Duplikatcheck läuft weiterhin synchron im Request — der 409 kommt als HTTP-Status
-        // zurück und nicht erst über den Job-Status (ADR-13).
+        // zurück und nicht erst über den Job-Status (ADR-14).
         mockMvc.perform(multipart("/api/import/pdf").file(pdfPart(fixture())).cookie(jwtCookie(userId)))
                 .andExpect(status().isConflict());
     }

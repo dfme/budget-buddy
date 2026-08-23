@@ -78,7 +78,7 @@ Vorspann aus System-Prompt und Kategorienliste bei ~100. Der Cache spränge stil
 
 ### Docs
 
-- `docs/adr/ADR-13-asynchroner-pdf-import.md` und `docs/adr/README.md`
+- `docs/adr/ADR-14-asynchroner-pdf-import.md` und `docs/adr/README.md`
 - `CLAUDE.md` — „Backend: Import Flow", ADR-Tabelle
 - `docs/requirements/US-04-pdf-upload.md` — Timeout-AC umformuliert
 
@@ -97,7 +97,7 @@ Vorspann aus System-Prompt und Kategorienliste bei ~100. Der Cache spränge stil
    Degradation, Persistierung, Job auf `DONE`)
 6. Controller: 202 plus Status-Endpoint mit `userId`-Prüfung (404 bei fremdem Job)
 7. Frontend: Service-Polling, Fortschritts-Signals, `<app-meter>` im Template
-8. ADR-13 und Doku-Nachzug
+8. ADR-14 und Doku-Nachzug
 
 ## Test-Strategie
 
@@ -118,6 +118,6 @@ Vorspann aus System-Prompt und Kategorienliste bei ~100. Der Cache spränge stil
       laufen → Batching (~41 Calls auf ~3) und Wegfall des wartenden Requests
 - [ ] Ein Import, der das Zeitbudget dennoch überschreitet, verwirft nicht mehr die gesamte
       Arbeit → Watchdog-Degradation, alles persistiert
-- [ ] Die gewählte Lösung ist als Entscheid dokumentiert → ADR-13
+- [ ] Die gewählte Lösung ist als Entscheid dokumentiert → ADR-14
 - [ ] Ein automatisierter Test deckt „mehr Transaktionen als in einem Zeitbudget verarbeitbar"
       ab → `PdfImportServiceTest`

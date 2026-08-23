@@ -40,7 +40,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
  * {@code HybridCategorizationServiceTest} abgedeckt. Eigene Datenbank auf dem gemeinsamen
  * Testcontainer + {@code @DirtiesContext} analog {@code TransactionSummaryControllerIntegrationTest}.
  *
- * <p><strong>Wartet auf den Job</strong> (ADR-13, BE-PDF-09): Seit BE-PDF-09 kehrt
+ * <p><strong>Wartet auf den Job</strong> (ADR-14, BE-PDF-09): Seit BE-PDF-09 kehrt
  * {@code startImport} zurück, bevor persistiert ist. {@link #importAndAwait} pollt deshalb den
  * Job-Status — genau wie das Frontend. Das macht diesen Test zugleich zum Nachweis, dass der
  * {@code @Async}-Proxy im echten Kontext greift: Liefe der Lauf entgegen der Absicht synchron,
@@ -86,7 +86,7 @@ class PdfImportServiceIntegrationTest {
                 "peter.muster@example.ch", "bcrypt-hash", new BigDecimal("6800.00"), true);
         userId = jdbcTemplate.queryForObject(
                 "SELECT id FROM users WHERE email = 'peter.muster@example.ch'", Long.class);
-        // Seit ADR-13 fragt der Import gebündelt ab: categorizeAll, nicht categorize.
+        // Seit ADR-14 fragt der Import gebündelt ab: categorizeAll, nicht categorize.
         when(categorizationPort.categorizeAll(any())).thenAnswer(invocation -> {
             List<String> texts = invocation.getArgument(0);
             return Collections.nCopies(texts.size(), Optional.of(new CategorizationResult(
@@ -149,7 +149,7 @@ class PdfImportServiceIntegrationTest {
     /**
      * Der Nachweis, dass der Lauf wirklich asynchron ist: {@code startImport} kehrt zurück,
      * während die Kategorisierung noch hängt. Genau das macht die Fortschrittsanzeige möglich —
-     * und genau das war vor ADR-13 nicht so, weshalb der Request 30 s lang blockierte (#192).
+     * und genau das war vor ADR-14 nicht so, weshalb der Request 30 s lang blockierte (#192).
      *
      * <p>Der Latch macht die Aussage deterministisch. Ohne ihn könnte der Hintergrundlauf mit
      * einem sofort antwortenden Mock schon fertig sein, bevor die Assertion greift — der Test

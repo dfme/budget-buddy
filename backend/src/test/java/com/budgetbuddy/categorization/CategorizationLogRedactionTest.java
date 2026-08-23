@@ -104,7 +104,7 @@ class CategorizationLogRedactionTest {
     }
 
     /**
-     * Seit ADR-13 kann eine <em>unbekannte Kategorie</em> nicht mehr auftreten — das Schema lässt
+     * Seit ADR-14 kann eine <em>unbekannte Kategorie</em> nicht mehr auftreten — das Schema lässt
      * nur die 13 Enum-Konstanten zu. Der verbleibende Fall ist eine Antwort, die sich nicht lesen
      * lässt; auch sie darf nichts vom Zahlungstext preisgeben.
      */
@@ -121,7 +121,7 @@ class CategorizationLogRedactionTest {
     }
 
     /**
-     * Eine unvollständige Bündelantwort ist der neue, häufigste Diagnosefall (ADR-13): Sie kostet
+     * Eine unvollständige Bündelantwort ist der neue, häufigste Diagnosefall (ADR-14): Sie kostet
      * einzelne Transaktionen ihre Kategorie. Die Zeile nennt deshalb Zahlen — und nur Zahlen.
      */
     @Test
@@ -138,7 +138,7 @@ class CategorizationLogRedactionTest {
     /**
      * Der Fall, den der PR-Review von #174 als blockierend aufgedeckt hat: Antwortet das Modell
      * mit einem Echo des Prompts (der den Transaktionstext enthält), darf dieses Echo nicht in
-     * die Logs geraten. Seit ADR-13 landet ein Echo im Zweig «nicht lesbar» — die Zeile trägt nur
+     * die Logs geraten. Seit ADR-14 landet ein Echo im Zweig «nicht lesbar» — die Zeile trägt nur
      * den Exception-Typ, nicht den Wortlaut der Antwort.
      */
     @Test

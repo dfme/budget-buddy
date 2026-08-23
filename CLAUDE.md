@@ -54,7 +54,7 @@
 
 **Fallback-Kategorie:** `Sonstiges` (wenn LLM unsicher oder API nicht erreichbar)
 
-**Bündelung (ADR-13):** Bis zu 20 Transaktionen gehen in *einem* Request hinaus. Die Laufzeit
+**Bündelung (ADR-14):** Bis zu 20 Transaktionen gehen in *einem* Request hinaus. Die Laufzeit
 eines Calls steckt fast vollständig im Fixkostenanteil pro Request (~1.1s bei ~5 generierten
 Tokens) — einzeln abgefragt kostete ein 108-Zeilen-Auszug ~41 sequentielle Requests und lief ins
 Zeitbudget (#192). Der Prompt ist eine nummerierte Liste; die Kategorienliste steht **nicht**
@@ -154,7 +154,7 @@ BudgetBuddy is a web app for students and young professionals living in Switzerl
 - **Categorization model**: `claude-haiku-4-5` — fast, cheap, single-label output. Konfigurierbar via `anthropic.api.model`.
 - **Monthly AI report model**: `claude-sonnet-5` — richer language, called once/user/month
 - **Fallback**: catch `AnthropicException`, return `"Sonstiges"` — Claude unavailability must never block import flow
-- **Circuit Breaker** (BE-CAT-02): Nach 3 fehlgeschlagenen Claude-Calls in Folge werden weitere Bündel 60s lang ohne API-Call als `Sonstiges` eingestuft. Der Fallback allein genügt nicht — ohne Breaker liefe jedes Bündel eines Imports in seinen eigenen Timeout. Seit der Bündelung (ADR-13) zählt der Breaker Bündel statt Einzeltransaktionen und greift damit früher: Ein Ausfall kostet höchstens 3 Timeouts statt 3 pro 20 Transaktionen.
+- **Circuit Breaker** (BE-CAT-02): Nach 3 fehlgeschlagenen Claude-Calls in Folge werden weitere Bündel 60s lang ohne API-Call als `Sonstiges` eingestuft. Der Fallback allein genügt nicht — ohne Breaker liefe jedes Bündel eines Imports in seinen eigenen Timeout. Seit der Bündelung (ADR-14) zählt der Breaker Bündel statt Einzeltransaktionen und greift damit früher: Ein Ausfall kostet höchstens 3 Timeouts statt 3 pro 20 Transaktionen.
 
 ## Swiss Bank PDF Specifics
 
@@ -370,7 +370,7 @@ Das erlaubt Mock in Tests und Austausch des Modells ohne Refactoring im Rest der
 
 ### Backend: Import Flow
 
-Zweistufig seit ADR-13 (BE-PDF-09). Der Upgrade-Pfad, den diese Stelle vorher als Option
+Zweistufig seit ADR-14 (BE-PDF-09). Der Upgrade-Pfad, den diese Stelle vorher als Option
 beschrieb, ist umgesetzt — ausgelöst durch [#192](https://github.com/dfme/budget-buddy/issues/192):
 Der vorher vollständig synchrone Flow lief bei ~110 Transaktionen reproduzierbar ins
 30-Sekunden-Budget und verwarf dabei den gesamten Import.
@@ -414,7 +414,7 @@ Alle Calls zu Claude API und PDFBox müssen einen Timeout haben und bei Fehler a
 ```
 
 Ein fehlgeschlagener Claude-Call darf nie den gesamten Import-Flow blockieren (Churn-Risiko #1).
-Dasselbe gilt seit ADR-13 für ein aufgebrauchtes Zeitbudget: Der Rest fällt auf `Sonstiges`, der
+Dasselbe gilt seit ADR-14 für ein aufgebrauchtes Zeitbudget: Der Rest fällt auf `Sonstiges`, der
 Import wird trotzdem vollständig gespeichert.
 
 ### Testing: Frameworks
@@ -497,7 +497,7 @@ Vollständige ADRs: [docs/adr/README.md](docs/adr/README.md)
 | [ADR-10](docs/adr/ADR-10-hosting-plattform.md)         | Render (Frankfurt/EU), SPA gebündelt im JAR, nDSG-Risiko akzeptiert                  | Exoscale/Nine.ch (CH, teurer), SPA auf CDN (zwei Pipelines)                         |
 | [ADR-11](docs/adr/ADR-11-ui-design-system.md)          | UI-Design-Richtung «Klarheit» (Variante A); Komponenten-Unterbau offen bis FE-UI-02 | Variante B (0 Stimmen), Variante C «Ledger» (starker Zweiter, Elemente übernehmbar) |
 | [ADR-12](docs/adr/ADR-12-datenpersistenz-produktion.md) | PostgreSQL 18 bei Neon (Frankfurt/EU, Free); supersedet ADR-5                       | SQLite auf Persistent Disk ($7.25/Mt), Render Postgres Free (läuft nach 30 Tagen ab), Supabase (pausiert nach 7 Tagen) |
-| [ADR-13](docs/adr/ADR-13-asynchroner-pdf-import.md)    | Parse synchron, Kategorisierung als `@Async`-Job mit Fortschritts-Polling; 20 Transaktionen pro Claude-Call | Timeout-Anhebung (verlagert nur den Churn), parallele Einzel-Calls (Rate-Limits, Breaker-Semantik), Message-Batches-API (bis 24h), Prompt Caching (Prefix zu kurz) |
+| [ADR-14](docs/adr/ADR-14-asynchroner-pdf-import.md)    | Parse synchron, Kategorisierung als `@Async`-Job mit Fortschritts-Polling; 20 Transaktionen pro Claude-Call | Timeout-Anhebung (verlagert nur den Churn), parallele Einzel-Calls (Rate-Limits, Breaker-Semantik), Message-Batches-API (bis 24h), Prompt Caching (Prefix zu kurz) |
 
 ## Project Skills
 

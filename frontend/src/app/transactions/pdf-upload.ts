@@ -68,7 +68,7 @@ export interface ImportProgress {
  * max. 10 MB); während der Import läuft, zeigt die Dropzone den Fortschritt
  * und nimmt keine weiteren Dateien an.
  *
- * <p><strong>Zweistufig seit BE-PDF-09 / ADR-13:</strong> `POST /api/import/pdf`
+ * <p><strong>Zweistufig seit BE-PDF-09 / ADR-14:</strong> `POST /api/import/pdf`
  * parst das PDF und kehrt mit einer Job-ID zurück; die Kategorisierung läuft
  * serverseitig weiter. Die Komponente pollt danach
  * `GET /api/import/{jobId}/status` und zeigt `processed`/`total` als Balken.

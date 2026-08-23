@@ -7,9 +7,9 @@ import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 /**
- * Thread-Pool für den asynchronen Teil des PDF-Imports (BE-PDF-09, ADR-13).
+ * Thread-Pool für den asynchronen Teil des PDF-Imports (BE-PDF-09, ADR-14).
  *
- * <p>Seit ADR-13 parst der Upload-Request synchron und übergibt die Kategorisierung an einen
+ * <p>Seit ADR-14 parst der Upload-Request synchron und übergibt die Kategorisierung an einen
  * Hintergrund-Job. Dieser Pool führt ihn aus.
  *
  * <p><strong>Bewusst klein und begrenzt:</strong> Jeder laufende Job hält die geparsten

@@ -19,7 +19,7 @@ import org.springframework.stereotype.Service;
  * PDFBox-Parse ({@link SwissBankStatementParser}) → {@link ImportJob} anlegen. Kategorisierung und
  * Persistierung übernimmt danach der {@link ImportJobRunner} im Hintergrund.
  *
- * <p><strong>Warum dieser Schnitt</strong> (ADR-13, BE-PDF-09): Das Parsen dauert ~2s, die
+ * <p><strong>Warum dieser Schnitt</strong> (ADR-14, BE-PDF-09): Das Parsen dauert ~2s, die
  * Kategorisierung ~28s (#192). Nur der lange Teil wandert in den Hintergrund. Der kurze bleibt im
  * Request, und damit bleiben auch alle Fehler, die er erzeugt, gewöhnliche HTTP-Fehler:
  * passwortgeschützt/gescannt/unbekanntes Layout → 400 mit {@code reason}, Duplikat → 409,
@@ -30,7 +30,7 @@ import org.springframework.stereotype.Service;
  * gespeichert ({@code transactions.pdf_sha256}) — er dient als Duplikat-Schlüssel pro User.
  *
  * <p><strong>Zeitbudget (kooperativ):</strong> Nach dem Parse wird die injizierte {@link Clock}
- * gegen {@code budgetbuddy.import.timeout-seconds} (Default 30) geprüft. Seit ADR-13 gilt dieses
+ * gegen {@code budgetbuddy.import.timeout-seconds} (Default 30) geprüft. Seit ADR-14 gilt dieses
  * Budget <em>nur noch fürs Parsen</em>: PDFBox kennt kein eigenes Timeout, ein pathologisches PDF
  * könnte den Request sonst beliebig lange binden. Überschritten →
  * {@link PdfImportTimeoutException} → 408, und weil noch kein Job existiert, ist auch nichts
@@ -161,7 +161,7 @@ public class PdfImportService {
      * <p>Zwei Abfragen, weil der Hash an zwei Orten liegt und beide für sich unvollständig sind:
      *
      * <ul>
-     *   <li>{@code transactions} trägt ihn erst, wenn der Hintergrundlauf fertig ist. Seit ADR-13
+     *   <li>{@code transactions} trägt ihn erst, wenn der Hintergrundlauf fertig ist. Seit ADR-14
      *       liegt zwischen Upload und erstem geschriebenen Datensatz bis zu
      *       {@code categorization-timeout-seconds} plus ein vollständiges Bündel.
      *   <li>{@code import_jobs} trägt ihn ab dem Anlegen und deckt damit genau dieses Fenster ab.
@@ -171,7 +171,7 @@ public class PdfImportService {
      * Auszug ein zweites Mal zu importieren: Die Upload-Komponente hält keine {@code jobId} und
      * nimmt nach dem Reload dieselbe Datei wieder an. Beide Jobs melden {@code DONE}, und
      * Safe-to-Spend ist still um den Faktor zwei falsch — gegen das ausdrückliche AC von US-04,
-     * dass ohne Bestätigung keine Dubletten gespeichert werden. Vor ADR-13 gab es diesen Zustand
+     * dass ohne Bestätigung keine Dubletten gespeichert werden. Vor ADR-14 gab es diesen Zustand
      * nicht: Ein Auszug dieser Grösse endete in 408 und schrieb gar nichts (#192).
      *
      * <p>Der schmale TOCTOU-Rest bleibt: Zwei Uploads, die sich zwischen Prüfung und Anlegen des

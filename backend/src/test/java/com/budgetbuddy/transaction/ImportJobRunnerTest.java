@@ -28,7 +28,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Unit-Test des asynchronen Import-Teils (BE-PDF-09, ADR-13): Bündelweise Kategorisierung,
+ * Unit-Test des asynchronen Import-Teils (BE-PDF-09, ADR-14): Bündelweise Kategorisierung,
  * Fortschritt am {@link ImportJob}, Watchdog-Degradation und Persistierung.
  *
  * <p>Der {@code @Async}-Aspekt ist hier bewusst nicht im Spiel — die Methode wird direkt

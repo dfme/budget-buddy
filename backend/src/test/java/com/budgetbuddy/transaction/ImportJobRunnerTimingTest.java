@@ -24,7 +24,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Empirischer Nachweis, dass die Kategorisierung seit ADR-13 <strong>gebündelt</strong> läuft —
+ * Empirischer Nachweis, dass die Kategorisierung seit ADR-14 <strong>gebündelt</strong> läuft —
  * das Gegenstück zum früheren {@code PdfImportServiceTimingTest}, der für BE-PDF-08 genau das
  * Umgekehrte belegte: strikt sequenziell, ein Call pro Transaktion.
  *

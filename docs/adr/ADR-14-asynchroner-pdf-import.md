@@ -1,4 +1,4 @@
-# ADR-13: Asynchroner PDF-Import mit Fortschritts-Job und Batch-Kategorisierung
+# ADR-14: Asynchroner PDF-Import mit Fortschritts-Job und Batch-Kategorisierung
 
 **Status:** Accepted
 **Date:** 2026-08-22

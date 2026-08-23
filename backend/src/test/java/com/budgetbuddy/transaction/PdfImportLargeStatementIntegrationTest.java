@@ -174,7 +174,7 @@ class PdfImportLargeStatementIntegrationTest {
     /**
      * Die Zahl, an der die Laufzeit hängt: 110 Transaktionen kosten sechs Aufrufe, nicht 110.
      *
-     * <p>Vor ADR-13 war das eins zu eins — bei ~1.14 s pro Claude-Call sind das ~2 min gegenüber
+     * <p>Vor ADR-14 war das eins zu eins — bei ~1.14 s pro Claude-Call sind das ~2 min gegenüber
      * wenigen Sekunden. Die Rechnung aus #192 (~41 unbekannte Transaktionen ≈ 47 s) beruht auf
      * genau diesem Verhältnis, hier bei voller Auszugsgrösse gemessen statt hochgerechnet.
      */

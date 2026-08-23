@@ -34,7 +34,7 @@
 
 ## Umsetzungshinweise
 
-Der Import ist seit [ADR-13](../adr/ADR-13-asynchroner-pdf-import.md) (BE-PDF-09,
+Der Import ist seit [ADR-14](../adr/ADR-14-asynchroner-pdf-import.md) (BE-PDF-09,
 [#192](https://github.com/dfme/budget-buddy/issues/192)) zweistufig: Das PDF wird im Request
 geparst, die Kategorisierung läuft danach als Hintergrund-Job, dessen Fortschritt das Frontend
 abfragt. Die drei Timeout-Kriterien oben unterscheiden deshalb bewusst zwischen dem Lesen des

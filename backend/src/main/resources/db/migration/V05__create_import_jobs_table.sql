@@ -1,4 +1,4 @@
--- BE-PDF-09 / ADR-13: import_jobs-Tabelle für den asynchronen Kategorisierungslauf.
+-- BE-PDF-09 / ADR-14: import_jobs-Tabelle für den asynchronen Kategorisierungslauf.
 --
 -- Der PDF-Upload parst synchron (~2s) und übergibt die Kategorisierung (~28s bei einem
 -- 108-Zeilen-Auszug) an einen Hintergrund-Job. Diese Tabelle ist der Kanal, über den das
@@ -16,7 +16,7 @@ CREATE TABLE import_jobs (
     -- erst NACH dem Abschluss des Jobs — der Duplikatcheck beim Upload wäre sonst für die
     -- gesamte Dauer des Hintergrundlaufs blind (bis zu categorization-timeout-seconds plus ein
     -- Bündel). Ein zweiter Upload derselben Datei während des Laufs käme durch, und der Auszug
-    -- läge doppelt in der Datenbank, ohne dass der Nutzer je bestätigt hätte. Vor ADR-13 gab es
+    -- läge doppelt in der Datenbank, ohne dass der Nutzer je bestätigt hätte. Vor ADR-14 gab es
     -- dieses Fenster nicht: Der synchrone Flow schrieb im selben Request.
     pdf_sha256    TEXT        NOT NULL,
     -- RUNNING | DONE | FAILED — als TEXT statt als Enum-Typ: eine neue Ausprägung ist damit

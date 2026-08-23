@@ -29,7 +29,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.core.task.TaskRejectedException;
 
 /**
- * Unit-Test des <strong>synchronen</strong> Import-Teils (BE-PDF-02, seit ADR-13 zugeschnitten):
+ * Unit-Test des <strong>synchronen</strong> Import-Teils (BE-PDF-02, seit ADR-14 zugeschnitten):
  * Duplikatcheck, Parse, Zeitbudget des Parsens und das Anlegen des {@link ImportJob}.
  *
  * <p>Kategorisierung und Persistierung liegen seit BE-PDF-09 im {@link ImportJobRunner} und sind
@@ -129,7 +129,7 @@ class PdfImportServiceTest {
 
     @Test
     void duplicateWhileAnImportIsStillRunning_throwsConflictToo() throws Exception {
-        // Das Fenster, das ADR-13 neu aufgemacht hat: Bis der Hintergrundlauf fertig ist, steht
+        // Das Fenster, das ADR-14 neu aufgemacht hat: Bis der Hintergrundlauf fertig ist, steht
         // in `transactions` nichts — der Check dort meldet also sauber "kein Duplikat", während
         // derselbe Auszug gerade importiert wird. Ein Reload während des Fortschrittsbalkens
         // genügt, um ihn ein zweites Mal hochzuladen; die Upload-Komponente hält keine jobId.

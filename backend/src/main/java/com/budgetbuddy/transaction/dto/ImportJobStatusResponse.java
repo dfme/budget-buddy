@@ -5,7 +5,7 @@ import com.budgetbuddy.transaction.ImportJobStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
- * Antwort-DTO von {@code GET /api/import/{jobId}/status} (BE-PDF-09, ADR-13) — die Quelle der
+ * Antwort-DTO von {@code GET /api/import/{jobId}/status} (BE-PDF-09, ADR-14) — die Quelle der
  * Fortschrittsanzeige im Frontend.
  *
  * <p>Bewusst ohne Zeitstempel und ohne den PDF-Hash: Das Frontend braucht zum Anzeigen nur

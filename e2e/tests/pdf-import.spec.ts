@@ -36,7 +36,7 @@ test.describe('PDF-Import', () => {
   const FIXTURE_MONTH = '2025-06';
 
   /**
-   * Wartezeit auf das Ergebnis-Banner. Seit ADR-13 (BE-PDF-09) läuft die Kategorisierung als
+   * Wartezeit auf das Ergebnis-Banner. Seit ADR-14 (BE-PDF-09) läuft die Kategorisierung als
    * Hintergrund-Job, den das Frontend pollt: Der Upload-Request selbst ist nach dem Parsen
    * (~2s) durch, das Banner erscheint erst nach dem Job. Gewartet wird deshalb weiterhin
    * grosszügig — der Watchdog des Jobs steht auf 300s, in der Testinstanz ohne
@@ -61,7 +61,7 @@ test.describe('PDF-Import', () => {
     // Der Erfolg meldet sich als `variant="info"` und damit höflich (role="status") — ein
     // gelungener Import soll den Screenreader nicht unterbrechen (`notice.ts`).
     const success = page.locator('app-notice.notice--info[role="status"]');
-    // Der Import läuft über zwei Stufen (ADR-13): Upload-Request mit Parsing, danach der
+    // Der Import läuft über zwei Stufen (ADR-14): Upload-Request mit Parsing, danach der
     // Kategorisierungs-Job, den das Frontend pollt. Das Banner erscheint erst am Ende.
     await expect(success).toBeVisible({ timeout: IMPORT_RESULT_TIMEOUT_MS });
     await expect(success).toHaveText(`${FIXTURE_TRANSACTION_COUNT} Transaktionen erkannt.`);

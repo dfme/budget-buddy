@@ -17,7 +17,7 @@ import org.springframework.stereotype.Service;
  * <p>Die Reihenfolge ist der Kern von ADR-6: Der Lookup deckt ~70–80% der Transaktionen kostenlos
  * ab, sodass pro Import nur ~20–30% überhaupt einen API-Call auslösen.
  *
- * <p><strong>{@link #categorizeAll} hält die Stufen getrennt</strong> (ADR-13, BE-PDF-09): Erst
+ * <p><strong>{@link #categorizeAll} hält die Stufen getrennt</strong> (ADR-14, BE-PDF-09): Erst
  * läuft der Lookup über <em>alle</em> Texte, dann geht der Rest in einem Zug an Claude. Würde
  * stattdessen der Default aus {@link CategorizationPort} greifen, liefe die Kette pro Text einmal
  * durch und jede unbekannte Transaktion löste wieder ihren eigenen Request aus — genau die

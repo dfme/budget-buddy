@@ -23,7 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * Stufen selbst ist in {@link LookupTableServiceTest} bzw. {@link ClaudeCategorizationServiceTest}
  * abgedeckt — hier sind beide gemockt.
  *
- * <p>Seit ADR-13 orchestriert die Kette zusätzlich <em>gebündelt</em>: Der Lookup läuft über alle
+ * <p>Seit ADR-14 orchestriert die Kette zusätzlich <em>gebündelt</em>: Der Lookup läuft über alle
  * Texte, und nur was er nicht kennt, geht in einem Zug an Claude. Die Stufe 2 wird deshalb über
  * {@code categorizeAll} gemockt — {@code categorize} delegiert intern dorthin.
  */
@@ -57,7 +57,7 @@ class HybridCategorizationServiceTest {
     }
 
     /**
-     * Der Kern von ADR-13 auf Ketten-Ebene: Bekannte Händler kosten keinen Call, und alles
+     * Der Kern von ADR-14 auf Ketten-Ebene: Bekannte Händler kosten keinen Call, und alles
      * Unbekannte geht in <em>einem</em> Aufruf hinaus — nicht in einem pro Transaktion. Genau
      * diese Trennung verhindert, dass der Default aus {@link CategorizationPort} greift und die
      * Kette wieder pro Text durchläuft (die Sequenzialität aus #192).

@@ -29,11 +29,11 @@ import org.springframework.web.multipart.MultipartFile;
  *
  * <p>Multipart-Upload einer einzelnen PDF-Datei; delegiert an {@link PdfImportService}, der
  * Duplikatcheck und Parse synchron erledigt und die Kategorisierung dann an einen Hintergrund-Job
- * übergibt (ADR-13, BE-PDF-09). Der Upload antwortet deshalb mit {@code 202 Accepted} und der
+ * übergibt (ADR-14, BE-PDF-09). Der Upload antwortet deshalb mit {@code 202 Accepted} und der
  * Job-ID statt mit einer Endzahl; den Fortschritt holt das Frontend über
  * {@link #importStatus(Long, Long)} ab und zeigt ihn als Balken an.
  *
- * <p>Vor ADR-13 lief der ganze Flow im Request und lief damit bei ~110 Transaktionen
+ * <p>Vor ADR-14 lief der ganze Flow im Request und lief damit bei ~110 Transaktionen
  * reproduzierbar in ein 30-Sekunden-Zeitbudget, das den gesamten Import verwarf (#192). Auf den
  * Hintergrundlauf wartet kein Request mehr — dieses Fehlerbild existiert nicht mehr.
  *

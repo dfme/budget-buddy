@@ -11,7 +11,7 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 
 /**
- * JPA-Entity der {@code import_jobs}-Tabelle (Flyway V05, BE-PDF-09 / ADR-13).
+ * JPA-Entity der {@code import_jobs}-Tabelle (Flyway V05, BE-PDF-09 / ADR-14).
  *
  * <p>Ein Job je Upload, angelegt <em>nach</em> dem synchronen Parsen: {@code total} steht damit
  * von Anfang an fest und die Fortschrittsanzeige kennt ihren Nenner beim ersten Poll.

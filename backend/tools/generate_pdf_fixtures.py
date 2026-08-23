@@ -19,7 +19,7 @@ Each fixture answers one question the others cannot:
                                           stays reviewable
     Post_Kontoauszug_2025_240_Buchungen   240 bookings over a full calendar year:
                                           volume plus the lookup/Claude ratio,
-                                          built to 60% (ADR-6/ADR-13)
+                                          built to 60% (ADR-6/ADR-14)
     UBS_Konto_Bewegungen_2021_Juli.pdf    descending order, 2 pages, 28 bookings
     Kreditkarten Rechnung *.pdf           Viseca layout, foreign currency
     Raiffeisen_..._110_Buchungen.pdf      length: the generic branch at #192 size

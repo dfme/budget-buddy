@@ -39,7 +39,7 @@ describe('PdfUpload', () => {
 
   /**
    * Beantwortet den Upload und danach den ersten Status-Poll — der vollständige zweistufige
-   * Import (ADR-13). Ohne den zweiten Schritt bliebe die Komponente im Fortschrittszustand
+   * Import (ADR-14). Ohne den zweiten Schritt bliebe die Komponente im Fortschrittszustand
    * stehen, denn `POST /api/import/pdf` meldet seit BE-PDF-09 nur noch den Start.
    */
   function completeImport(total: number, patch: Partial<ImportJobStatusResponse> = {}): void {

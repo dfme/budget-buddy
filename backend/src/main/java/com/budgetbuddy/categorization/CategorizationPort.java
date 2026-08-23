@@ -10,7 +10,7 @@ import java.util.Optional;
  * ohne Refactoring austauschbar ist (Lookup-Tabelle → Claude-API → …). Der erste Schritt der
  * Hybrid-Kategorisierung ist {@link LookupTableService}.
  *
- * <p><strong>{@link #categorizeAll} ist die tragende Methode</strong> (ADR-13, BE-PDF-09): Ein
+ * <p><strong>{@link #categorizeAll} ist die tragende Methode</strong> (ADR-14, BE-PDF-09): Ein
  * Import kategorisiert 100+ Transaktionen am Stück, und die Laufzeit eines Claude-Calls steckt
  * fast vollständig im Fixkostenanteil pro Request (Netz-Round-Trip, Queueing, Time-to-First-Token)
  * — nicht in der Generierung. Einzeln abgefragt kostete ein 108-Zeilen-Auszug ~41 sequentielle

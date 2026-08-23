@@ -1,7 +1,7 @@
 package com.budgetbuddy.transaction;
 
 /**
- * Lebenszyklus eines {@link ImportJob} (BE-PDF-09, ADR-13).
+ * Lebenszyklus eines {@link ImportJob} (BE-PDF-09, ADR-14).
  *
  * <p>Bewusst kurz: Das Parsen ist beim Anlegen des Jobs bereits durch — ein Job existiert erst,
  * wenn es etwas zu kategorisieren gibt. Alle Fehler des Parsens beantwortet der Upload-Request
