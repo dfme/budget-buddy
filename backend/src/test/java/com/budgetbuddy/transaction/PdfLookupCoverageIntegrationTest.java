@@ -41,6 +41,15 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
  * <p>Der Test greift auf die echten Flyway-Seeds aus {@code V04} zu. Ändern sich die Seeds, ändert
  * sich die Quote — das Generator-Skript rechnet sie beim Erzeugen gegen dieselbe Migration und
  * bricht ausserhalb des Zielbands ab, dieser Test hält sie danach fest.
+ *
+ * <p><strong>Warum hier exakt gepinnt wird und im Generator nur ein Band gilt.</strong> Die
+ * Toleranz von ±5 Prozentpunkten im Skript ist für den Fall gedacht, dass jemand die Fixture neu
+ * erzeugt, nachdem sich die Seeds geändert haben — sie soll dann nicht wegen eines einzelnen
+ * neuen Händlers scheitern. Dieser Test läuft gegen die <em>eingecheckte</em> Fixture, die sich
+ * nicht mitbewegt: Kommt ein Seed dazu, der einen ihrer Texte trifft, ist 144 schlicht falsch
+ * geworden und soll auffallen. Ein neuer Seed-Eintrag lässt diesen Test also absichtlich reissen;
+ * die Antwort darauf ist, die Fixture neu zu erzeugen und die Zahl hier nachzuziehen — nicht,
+ * die Assertion aufzuweichen.
  */
 @SpringBootTest
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)

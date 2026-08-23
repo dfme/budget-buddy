@@ -88,7 +88,15 @@ public class ImportJobRunner {
         } catch (RuntimeException e) {
             // Letzte Instanz: Ohne diesen Catch stürbe der Task still im Executor und der Job
             // stünde für immer auf RUNNING — das Frontend pollte dann endlos.
-            log.error("Import-Job {} für User {} abgebrochen — nichts persistiert.",
+            //
+            // Bewusst offen formuliert statt "nichts persistiert": Für jeden Pfad bis zum
+            // Persist-Block stimmt das, für eine Exception danach (etwa im abschliessenden
+            // save) nicht — dort stünde FAILED an einem Job, dessen Zeilen geschrieben sind.
+            // Eine Logzeile, die das Gegenteil behauptet, schickt die Fehlersuche in die
+            // falsche Richtung.
+            log.error("Import-Job {} für User {} abgebrochen — Status FAILED. Ob Transaktionen "
+                            + "geschrieben wurden, hängt davon ab, ob der Fehler vor oder nach "
+                            + "dem Persistieren auftrat.",
                     job.getId(), job.getUserId(), e);
             job.fail(clock.instant());
             importJobRepository.save(job);

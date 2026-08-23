@@ -11,8 +11,10 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
@@ -259,7 +261,11 @@ public class ClaudeCategorizationService implements CategorizationPort {
             return;
         }
 
-        int applied = 0;
+        // Positionen statt einer Zählung: Liefert das Modell dieselbe Nummer zweimal und lässt
+        // eine andere aus, käme ein Zähler auf batch.size() und die Warnung unten bliebe aus —
+        // obwohl genau der Fall eingetreten ist, den sie melden soll. Die doppelte Nummer
+        // überschreibt nur dieselbe Position; verwechselt werden kann nichts.
+        Set<Integer> applied = new HashSet<>();
         for (CategorizedTransaction entry : parsed.categories()) {
             // Die Nummer im Prompt ist 1-basiert; ausserhalb des Bündels ist sie unbrauchbar.
             int position = entry.number() - 1;
@@ -267,14 +273,14 @@ public class ClaudeCategorizationService implements CategorizationPort {
                 continue;
             }
             results.set(batch.get(position), Optional.of(claudeResult(entry.category())));
-            applied++;
+            applied.add(position);
         }
 
-        if (applied < batch.size()) {
+        if (applied.size() < batch.size()) {
             // Kein Fehler, aber diagnostisch relevant: Fehlende Nummern sind der einzige Weg, auf
             // dem die Bündelung einzelne Transaktionen schlechter stellt als Einzelcalls.
             log.warn("Claude beantwortete nur {} von {} Transaktionen des Bündels — der Rest "
-                    + "bleibt 'Sonstiges'.", applied, batch.size());
+                    + "bleibt 'Sonstiges'.", applied.size(), batch.size());
         }
     }
 

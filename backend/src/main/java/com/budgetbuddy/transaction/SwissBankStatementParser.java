@@ -184,8 +184,16 @@ public class SwissBankStatementParser {
    * <p>Zehn Zeichen ohne Leerzeichen, nur Grossbuchstaben und Ziffern, mindestens eine Ziffer.
    * Die Ziffernbedingung hält Händlernamen heraus: {@code SWISSCOM} hat keine, und Namen mit
    * Ziffer ({@code COOP-1234 BERN}) tragen Leerzeichen oder Bindestrich.
+   *
+   * <p>Als einzige Alternative in {@link #DETAIL_NOISE} ausdrücklich case-<em>sensitiv</em>
+   * ({@code (?-i:…)}): Das globale {@code (?i)} des zusammengesetzten Ausdrucks liesse
+   * {@code [0-9A-Z]} auch Kleinbuchstaben treffen, und dann verschwände jede einwortige
+   * Zweckzeile mit Ziffer ab zehn Zeichen — {@code Rechnung2026} etwa — still aus dem
+   * Kategorisierungs-Input. Die Grossschreibung ist hier das eigentliche Signal: Referenzen
+   * druckt PostFinance durchgängig in Versalien, Zweckzeilen nicht.
    */
-  private static final String NOISE_OPAQUE_REFERENCE = "^(?=[0-9A-Z]*\\d)[0-9A-Z]{10,}$";
+  private static final String NOISE_OPAQUE_REFERENCE =
+      "^(?-i:(?=[0-9A-Z]*\\d)[0-9A-Z]{10,})$";
 
   /** Platzhalter, den PostFinance in leer gebliebene Felder druckt. */
   private static final String NOISE_PLACEHOLDER = "^n/a$";
