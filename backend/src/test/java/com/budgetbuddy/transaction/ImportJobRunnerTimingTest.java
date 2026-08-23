@@ -86,7 +86,7 @@ class ImportJobRunnerTimingTest {
         when(categorizationPort.categorizeAll(any())).thenAnswer(slowClaudeCall(perCallDelay));
 
         Instant start = Instant.now();
-        runner.run(new ImportJob(USER_ID, count, Instant.now()),
+        runner.run(new ImportJob(USER_ID, "sha-fixture", count, Instant.now()),
                 unknownTransactions(count), SHA, false);
         Duration elapsed = Duration.between(start, Instant.now());
 
@@ -107,7 +107,7 @@ class ImportJobRunnerTimingTest {
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(categorizationPort.categorizeAll(any())).thenAnswer(slowClaudeCall(Duration.ZERO));
 
-        runner.run(new ImportJob(USER_ID, BATCH_SIZE, Instant.now()),
+        runner.run(new ImportJob(USER_ID, "sha-fixture", BATCH_SIZE, Instant.now()),
                 unknownTransactions(BATCH_SIZE), SHA, false);
 
         verify(categorizationPort).categorizeAll(

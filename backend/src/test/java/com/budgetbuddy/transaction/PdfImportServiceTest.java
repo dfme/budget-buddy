@@ -3,6 +3,7 @@ package com.budgetbuddy.transaction;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -127,6 +128,61 @@ class PdfImportServiceTest {
     }
 
     @Test
+    void duplicateWhileAnImportIsStillRunning_throwsConflictToo() throws Exception {
+        // Das Fenster, das ADR-13 neu aufgemacht hat: Bis der Hintergrundlauf fertig ist, steht
+        // in `transactions` nichts — der Check dort meldet also sauber "kein Duplikat", während
+        // derselbe Auszug gerade importiert wird. Ein Reload während des Fortschrittsbalkens
+        // genügt, um ihn ein zweites Mal hochzuladen; die Upload-Komponente hält keine jobId.
+        // Ohne den Job-seitigen Check läge der Auszug danach doppelt in der DB, beide Jobs
+        // meldeten DONE, und Safe-to-Spend wäre still um den Faktor zwei falsch.
+        clockNeverExpires();
+        when(repository.existsByUserIdAndPdfSha256(USER_ID, expectedSha256())).thenReturn(false);
+        when(importJobRepository.existsByUserIdAndPdfSha256AndStatus(
+                USER_ID, expectedSha256(), ImportJobStatus.RUNNING)).thenReturn(true);
+
+        assertThatThrownBy(() -> service.startImport(USER_ID, PDF_BYTES, false))
+                .isInstanceOf(DuplicatePdfImportException.class);
+
+        verifyNoInteractions(parser, importJobRunner);
+        verify(importJobRepository, never()).save(any());
+    }
+
+    @Test
+    void runningJobOfAnotherFile_doesNotBlockTheImport() throws Exception {
+        // Gegenprobe: Der Check darf nur denselben Hash sperren. Ein laufender Import einer
+        // ANDEREN Datei ist ein völlig normaler Zustand — zwei Auszüge nacheinander hochzuladen
+        // muss weiterhin gehen.
+        clockNeverExpires();
+        when(repository.existsByUserIdAndPdfSha256(USER_ID, expectedSha256())).thenReturn(false);
+        when(importJobRepository.existsByUserIdAndPdfSha256AndStatus(
+                USER_ID, expectedSha256(), ImportJobStatus.RUNNING)).thenReturn(false);
+        when(parser.parse(PDF_BYTES)).thenReturn(List.of(parsed("GIRO POST", List.of(), "850.00", false)));
+        when(importJobRepository.save(any(ImportJob.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ImportJob job = service.startImport(USER_ID, PDF_BYTES, false);
+
+        assertThat(job.getStatus()).isEqualTo(ImportJobStatus.RUNNING);
+        assertThat(job.getPdfSha256()).isEqualTo(expectedSha256());
+        verify(importJobRunner).run(any(), any(), eq(expectedSha256()), eq(false));
+    }
+
+    @Test
+    void forceSkipsBothDuplicateChecks() throws Exception {
+        // force ist die Bestätigung des Nutzers ("Trotzdem importieren"). Sie muss beide Hälften
+        // des Checks überspringen, nicht nur die alte — sonst wäre der Bestätigungsdialog
+        // während eines laufenden Imports wirkungslos.
+        clockNeverExpires();
+        when(parser.parse(PDF_BYTES)).thenReturn(List.of(parsed("GIRO POST", List.of(), "850.00", false)));
+        when(importJobRepository.save(any(ImportJob.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.startImport(USER_ID, PDF_BYTES, true);
+
+        verify(repository, never()).existsByUserIdAndPdfSha256(anyLong(), anyString());
+        verify(importJobRepository, never())
+                .existsByUserIdAndPdfSha256AndStatus(anyLong(), anyString(), any());
+    }
+
+    @Test
     void forceImport_skipsDuplicateCheckAndPassesTheFlagOn() throws Exception {
         clockNeverExpires();
         List<ParsedTransaction> transactions =
@@ -204,7 +260,7 @@ class PdfImportServiceTest {
      */
     @Test
     void findJob_isScopedToTheAuthenticatedUser() {
-        ImportJob job = new ImportJob(USER_ID, 3, T0);
+        ImportJob job = new ImportJob(USER_ID, "sha-fixture", 3, T0);
         when(importJobRepository.findByIdAndUserId(7L, USER_ID)).thenReturn(Optional.of(job));
 
         assertThat(service.findJob(USER_ID, 7L)).contains(job);

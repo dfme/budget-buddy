@@ -98,7 +98,7 @@ public class PdfImportService {
         Instant deadline = clock.instant().plus(parseTimeout);
 
         String pdfSha256 = sha256Hex(pdfBytes);
-        if (!force && transactionRepository.existsByUserIdAndPdfSha256(userId, pdfSha256)) {
+        if (!force && isDuplicate(userId, pdfSha256)) {
             throw new DuplicatePdfImportException(pdfSha256);
         }
 
@@ -118,7 +118,8 @@ public class PdfImportService {
         log.info("PDF-Import für User {}: {} Transaktion(en) erkannt (Parse {} ms).",
                 userId, parsed.size(), Duration.between(parseStart, parseEnd).toMillis());
 
-        ImportJob job = importJobRepository.save(new ImportJob(userId, parsed.size(), parseEnd));
+        ImportJob job = importJobRepository.save(
+                new ImportJob(userId, pdfSha256, parsed.size(), parseEnd));
         if (parsed.isEmpty()) {
             // Erkannter Auszug ohne Buchungen (BE-PDF-05): nichts zu kategorisieren, nichts zu
             // persistieren. Der Job wird sofort abgeschlossen, damit das Frontend nicht auf einen
@@ -152,6 +153,35 @@ public class PdfImportService {
      */
     public Optional<ImportJob> findJob(long userId, Long jobId) {
         return importJobRepository.findByIdAndUserId(jobId, userId);
+    }
+
+    /**
+     * Wurde dieses PDF von diesem User schon importiert — oder wird es gerade?
+     *
+     * <p>Zwei Abfragen, weil der Hash an zwei Orten liegt und beide für sich unvollständig sind:
+     *
+     * <ul>
+     *   <li>{@code transactions} trägt ihn erst, wenn der Hintergrundlauf fertig ist. Seit ADR-13
+     *       liegt zwischen Upload und erstem geschriebenen Datensatz bis zu
+     *       {@code categorization-timeout-seconds} plus ein vollständiges Bündel.
+     *   <li>{@code import_jobs} trägt ihn ab dem Anlegen und deckt damit genau dieses Fenster ab.
+     * </ul>
+     *
+     * <p>Ohne die zweite Abfrage genügt ein Reload während des Fortschrittsbalkens, um denselben
+     * Auszug ein zweites Mal zu importieren: Die Upload-Komponente hält keine {@code jobId} und
+     * nimmt nach dem Reload dieselbe Datei wieder an. Beide Jobs melden {@code DONE}, und
+     * Safe-to-Spend ist still um den Faktor zwei falsch — gegen das ausdrückliche AC von US-04,
+     * dass ohne Bestätigung keine Dubletten gespeichert werden. Vor ADR-13 gab es diesen Zustand
+     * nicht: Ein Auszug dieser Grösse endete in 408 und schrieb gar nichts (#192).
+     *
+     * <p>Der schmale TOCTOU-Rest bleibt: Zwei Uploads, die sich zwischen Prüfung und Anlegen des
+     * Jobs überholen, kommen weiterhin beide durch. Das Fenster ist damit aber wieder so kurz wie
+     * vor der Umstellung — Millisekunden statt Minuten — und ist als eigenes Follow-up vermerkt.
+     */
+    private boolean isDuplicate(long userId, String pdfSha256) {
+        return transactionRepository.existsByUserIdAndPdfSha256(userId, pdfSha256)
+                || importJobRepository.existsByUserIdAndPdfSha256AndStatus(
+                        userId, pdfSha256, ImportJobStatus.RUNNING);
     }
 
     private static String sha256Hex(byte[] pdfBytes) {

@@ -32,6 +32,16 @@ public class ImportJob {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
+    /**
+     * SHA-256 des importierten PDFs — dieselbe Grösse, die an jeder Transaktion hängt.
+     *
+     * <p>Am Job mitgeführt, damit der Duplikatcheck beim Upload einen <em>laufenden</em> Import
+     * derselben Datei sieht. In {@code transactions} steht der Hash erst nach dem Abschluss;
+     * bis dahin wäre der Check blind (siehe {@code PdfImportService.startImport}).
+     */
+    @Column(name = "pdf_sha256", nullable = false)
+    private String pdfSha256;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ImportJobStatus status;
@@ -59,11 +69,14 @@ public class ImportJob {
      * Legt einen laufenden Job an.
      *
      * @param userId ID des besitzenden Users (aus dem JWT).
+     * @param pdfSha256 SHA-256 des importierten PDFs — Grundlage des Duplikatchecks während des
+     *     laufenden Imports.
      * @param total Anzahl geparster Transaktionen — der Nenner der Fortschrittsanzeige.
      * @param createdAt Anlagezeitpunkt aus der injizierten {@code Clock}.
      */
-    public ImportJob(Long userId, int total, Instant createdAt) {
+    public ImportJob(Long userId, String pdfSha256, int total, Instant createdAt) {
         this.userId = userId;
+        this.pdfSha256 = pdfSha256;
         this.total = total;
         this.processed = 0;
         this.degraded = false;
@@ -77,6 +90,10 @@ public class ImportJob {
 
     public Long getUserId() {
         return userId;
+    }
+
+    public String getPdfSha256() {
+        return pdfSha256;
     }
 
     public ImportJobStatus getStatus() {

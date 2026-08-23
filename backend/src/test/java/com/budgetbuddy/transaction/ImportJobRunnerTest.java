@@ -101,7 +101,7 @@ class ImportJobRunnerTest {
     void happyPath_persistsAllTransactionsWithCategoryAndHashAndFinishesTheJob() {
         clockNeverExpires();
         categorizeAllAs(Category.LEBENSMITTEL, CategorizationResult.Source.LOOKUP);
-        ImportJob job = new ImportJob(USER_ID, 2, T0);
+        ImportJob job = new ImportJob(USER_ID, "sha-fixture", 2, T0);
 
         runner.run(job, List.of(
                 parsed("ESR", List.of("Stadtwerke Bern"), "78.50", false),
@@ -130,7 +130,7 @@ class ImportJobRunnerTest {
         clockNeverExpires();
         categorizeAllAs(Category.SONSTIGES, CategorizationResult.Source.CLAUDE);
 
-        runner.run(new ImportJob(USER_ID, 1, T0),
+        runner.run(new ImportJob(USER_ID, "sha-fixture", 1, T0),
                 List.of(parsed("ESR", List.of("Stadtwerke Bern", "3000 Bern"), "78.50", false)),
                 SHA, false);
 
@@ -150,7 +150,7 @@ class ImportJobRunnerTest {
         when(categorizationPort.categorizeAll(any())).thenAnswer(invocation ->
                 Collections.nCopies(((List<?>) invocation.getArgument(0)).size(), Optional.empty()));
 
-        runner.run(new ImportJob(USER_ID, 1, T0),
+        runner.run(new ImportJob(USER_ID, "sha-fixture", 1, T0),
                 List.of(parsed("GIRO POST", List.of(), "850.00", false)), SHA, false);
 
         assertThat(capturePersisted()).singleElement()
@@ -176,7 +176,7 @@ class ImportJobRunnerTest {
         Instant tooLate = T0.plusSeconds(WATCHDOG_SECONDS + 1);
         when(clock.instant()).thenReturn(T0, T0, tooLate);
         categorizeAllAs(Category.LEBENSMITTEL, CategorizationResult.Source.CLAUDE);
-        ImportJob job = new ImportJob(USER_ID, 6, T0);
+        ImportJob job = new ImportJob(USER_ID, "sha-fixture", 6, T0);
 
         runner.run(job, unknownTransactions(6), SHA, false);
 
@@ -206,7 +206,7 @@ class ImportJobRunnerTest {
     void progress_isPersistedAfterEveryBatch() {
         clockNeverExpires();
         categorizeAllAs(Category.SONSTIGES, CategorizationResult.Source.CLAUDE);
-        ImportJob job = new ImportJob(USER_ID, 6, T0);
+        ImportJob job = new ImportJob(USER_ID, "sha-fixture", 6, T0);
 
         List<Integer> progressAtEachSave = new ArrayList<>();
         when(importJobRepository.save(any(ImportJob.class))).thenAnswer(invocation -> {
@@ -226,7 +226,7 @@ class ImportJobRunnerTest {
         categorizeAllAs(Category.SONSTIGES, CategorizationResult.Source.CLAUDE);
         when(repository.deleteByUserIdAndPdfSha256(USER_ID, SHA)).thenReturn(3L);
 
-        runner.run(new ImportJob(USER_ID, 1, T0),
+        runner.run(new ImportJob(USER_ID, "sha-fixture", 1, T0),
                 List.of(parsed("GIRO POST", List.of(), "850.00", false)), SHA, true);
 
         var order = org.mockito.Mockito.inOrder(repository);
@@ -239,7 +239,7 @@ class ImportJobRunnerTest {
         clockNeverExpires();
         categorizeAllAs(Category.SONSTIGES, CategorizationResult.Source.CLAUDE);
 
-        runner.run(new ImportJob(USER_ID, 1, T0),
+        runner.run(new ImportJob(USER_ID, "sha-fixture", 1, T0),
                 List.of(parsed("GIRO POST", List.of(), "850.00", false)), SHA, false);
 
         verify(repository, never()).deleteByUserIdAndPdfSha256(any(), anyString());
@@ -255,7 +255,7 @@ class ImportJobRunnerTest {
         clockNeverExpires();
         when(categorizationPort.categorizeAll(any()))
                 .thenThrow(new IllegalStateException("kaputt"));
-        ImportJob job = new ImportJob(USER_ID, 1, T0);
+        ImportJob job = new ImportJob(USER_ID, "sha-fixture", 1, T0);
 
         runner.run(job, List.of(parsed("GIRO POST", List.of(), "850.00", false)), SHA, false);
 
@@ -267,7 +267,7 @@ class ImportJobRunnerTest {
     @Test
     void noTransactions_finishesWithoutCallingCategorization() {
         clockNeverExpires();
-        ImportJob job = new ImportJob(USER_ID, 0, T0);
+        ImportJob job = new ImportJob(USER_ID, "sha-fixture", 0, T0);
 
         runner.run(job, List.of(), SHA, false);
 
