@@ -70,16 +70,13 @@ export class Shell {
   /** Offen/zu des Konto-Popovers in der Topbar (nur Mobile sichtbar). */
   protected readonly accountMenuOpen = signal(false);
 
-  /**
-   * Die Hauptziele. «Einstellungen» fehlt bewusst: der Screen kommt erst mit
-   * US-14 — ein Link dorthin liefe heute in die Wildcard-Route und würde
-   * fälschlich «Übersicht» als aktiv markieren.
-   */
+  /** Die Hauptziele. */
   protected readonly navItems: readonly NavItem[] = [
     { path: '/dashboard', label: 'Übersicht', icon: '◎' },
     { path: '/categories', label: 'Transaktionen', icon: '≡' },
     { path: '/import', label: 'Import', icon: '↑' },
     { path: '/fixkosten', label: 'Fixkosten', icon: '▦' },
+    { path: '/einstellungen', label: 'Einstellungen', icon: '⚙' },
   ];
 
   protected toggleAccountMenu(): void {

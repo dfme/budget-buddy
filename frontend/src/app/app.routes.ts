@@ -45,6 +45,11 @@ export const routes: Routes = [
     loadComponent: () => import('./onboarding/fixed-cost-wizard').then((m) => m.FixedCostWizard),
   },
   {
+    path: 'einstellungen',
+    canActivate: [authGuard, onboardingGuard],
+    loadComponent: () => import('./settings/settings').then((m) => m.Settings),
+  },
+  {
     path: 'login',
     loadComponent: () => import('./auth/login').then((m) => m.Login),
   },

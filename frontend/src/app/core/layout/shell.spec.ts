@@ -35,6 +35,8 @@ describe('Shell', () => {
           { path: 'dashboard', component: RouteStub },
           { path: 'categories', component: RouteStub },
           { path: 'import', component: RouteStub },
+          { path: 'fixkosten', component: RouteStub },
+          { path: 'einstellungen', component: RouteStub },
           { path: 'login', component: RouteStub },
         ]),
       ],
@@ -86,7 +88,7 @@ describe('Shell', () => {
     expect(query('main.main')).not.toBeNull();
   });
 
-  it('führt genau die vier verfügbaren Ziele in der Navigation', () => {
+  it('führt genau die fünf verfügbaren Ziele in der Navigation', () => {
     login();
 
     const links = Array.from(el().querySelectorAll<HTMLAnchorElement>('.nav__item'));
@@ -95,12 +97,14 @@ describe('Shell', () => {
       '/categories',
       '/import',
       '/fixkosten',
+      '/einstellungen',
     ]);
     expect(links.map((a) => a.textContent?.trim().replace(/\s+/g, ' '))).toEqual([
       '◎ Übersicht',
       '≡ Transaktionen',
       '↑ Import',
       '▦ Fixkosten',
+      '⚙ Einstellungen',
     ]);
   });
 
