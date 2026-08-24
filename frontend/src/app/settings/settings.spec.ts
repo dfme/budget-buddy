@@ -16,12 +16,9 @@ const LARA: User = {
   onboardingCompleted: true,
 };
 
-function text(fixture: ComponentFixture<Settings>): string {
-  return (fixture.nativeElement as HTMLElement).textContent ?? '';
-}
-
 describe('Settings', () => {
   let fixture: ComponentFixture<Settings>;
+  let httpMock: HttpTestingController;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -30,8 +27,13 @@ describe('Settings', () => {
     }).compileComponents();
 
     fixture = TestBed.createComponent(Settings);
+    httpMock = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
   });
+
+  // Der Screen ist ein reines Gerüst ohne Ladepfad — `verify()` deckt auf, falls doch
+  // einmal ein Request abgesetzt würde, statt das nur an einem Textinhalt zu vermuten.
+  afterEach(() => httpMock.verify());
 
   // --- AC3: Überschrift und drei leere Abschnitte als Cards ---
 
@@ -45,10 +47,6 @@ describe('Settings', () => {
     ).map((el) => el.textContent?.trim());
 
     expect(cardTitles).toEqual(['Passwort', 'Einkommen', 'Erscheinungsbild']);
-  });
-
-  it('lädt keine Daten — der Screen ist ein reines Gerüst', () => {
-    expect(text(fixture)).not.toContain('Lädt');
   });
 });
 

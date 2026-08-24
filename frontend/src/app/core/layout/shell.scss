@@ -119,10 +119,16 @@
     font-size: $fs-sm;
     color: $c-ink-2;
     text-align: left;
+    text-decoration: none;
 
     &:hover {
       background: $c-bg-subtle;
       color: $c-ink;
+    }
+
+    &--active {
+      color: $c-accent;
+      font-weight: 600;
     }
   }
 }
@@ -271,6 +277,30 @@
   font-weight: 700;
   display: grid;
   place-items: center;
+}
+
+// Settings-Link am Fuss der Sidebar, direkt über «Abmelden» — Konto-Block-Pendant zum
+// gleichnamigen Eintrag im mobilen `.account-menu` (siehe Kommentar an `navItems`).
+.nav__settings {
+  display: flex;
+  align-items: center;
+  gap: $sp-3;
+  width: 100%;
+  padding: $sp-3;
+  border-radius: $r-md;
+  font-size: $fs-sm;
+  color: $c-ink-2;
+  text-decoration: none;
+
+  &:hover {
+    background: $c-bg-subtle;
+    color: $c-ink;
+  }
+
+  &--active {
+    color: $c-accent;
+    font-weight: 600;
+  }
 }
 
 .nav__logout {

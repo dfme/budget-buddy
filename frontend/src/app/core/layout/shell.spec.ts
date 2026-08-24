@@ -88,7 +88,7 @@ describe('Shell', () => {
     expect(query('main.main')).not.toBeNull();
   });
 
-  it('führt genau die fünf verfügbaren Ziele in der Navigation', () => {
+  it('führt genau die vier verfügbaren Ziele in der Tab-Bar/Sidebar-Navigation', () => {
     login();
 
     const links = Array.from(el().querySelectorAll<HTMLAnchorElement>('.nav__item'));
@@ -97,15 +97,36 @@ describe('Shell', () => {
       '/categories',
       '/import',
       '/fixkosten',
-      '/einstellungen',
     ]);
     expect(links.map((a) => a.textContent?.trim().replace(/\s+/g, ' '))).toEqual([
       '◎ Übersicht',
       '≡ Transaktionen',
       '↑ Import',
       '▦ Fixkosten',
-      '⚙ Einstellungen',
     ]);
+  });
+
+  // «Einstellungen» ist bewusst kein Tab-Bar-Ziel, sondern ein Konto-Ziel im Konto-Block
+  // (siehe Kommentar an `navItems` in shell.ts) — hier doppelt verlinkt wie «Abmelden»:
+  // im mobilen Popover und am Fuss der Desktop-Sidebar.
+
+  it('verlinkt Einstellungen im Konto-Block der Sidebar', () => {
+    login();
+
+    const link = query<HTMLAnchorElement>('.nav__settings');
+    expect(link?.getAttribute('href')).toBe('/einstellungen');
+    expect(link?.textContent?.trim().replace(/\s+/g, ' ')).toBe('⚙ Einstellungen');
+  });
+
+  it('markiert Einstellungen im Sidebar-Konto-Block als aktiv, wenn die Route offen ist', async () => {
+    login();
+
+    await router.navigate(['/einstellungen']);
+    fixture.detectChanges();
+
+    const link = query<HTMLAnchorElement>('.nav__settings');
+    expect(link?.classList.contains('nav__settings--active')).toBe(true);
+    expect(link?.getAttribute('aria-current')).toBe('page');
   });
 
   it('markiert das aktive Ziel mit aria-current und Aktiv-Klasse', async () => {
@@ -149,7 +170,7 @@ describe('Shell', () => {
       expect(query('#account-menu')).toBeNull();
     });
 
-    it('öffnet auf Klick und zeigt E-Mail plus Abmelden', () => {
+    it('öffnet auf Klick und zeigt E-Mail plus Einstellungen und Abmelden', () => {
       login();
 
       avatarButton().click();
@@ -158,7 +179,21 @@ describe('Shell', () => {
       expect(avatarButton().getAttribute('aria-expanded')).toBe('true');
       expect(query('#account-menu')).not.toBeNull();
       expect(query('.account-menu__mail')?.textContent?.trim()).toBe(LARA.email);
-      expect(query('.account-menu__item')?.textContent).toContain('Abmelden');
+      expect(query<HTMLAnchorElement>('a.account-menu__item')?.getAttribute('href')).toBe(
+        '/einstellungen',
+      );
+      expect(query('button.account-menu__item')?.textContent).toContain('Abmelden');
+    });
+
+    it('schliesst das Popover beim Klick auf Einstellungen', () => {
+      login();
+      avatarButton().click();
+      fixture.detectChanges();
+
+      query<HTMLAnchorElement>('a.account-menu__item')!.click();
+      fixture.detectChanges();
+
+      expect(query('#account-menu')).toBeNull();
     });
 
     // Das Popover ist ein Disclosure. `role="menu"` verspricht Pfeiltasten und
@@ -234,7 +269,7 @@ describe('Shell', () => {
       avatarButton().click();
       fixture.detectChanges();
 
-      query<HTMLButtonElement>('.account-menu__item')!.click();
+      query<HTMLButtonElement>('button.account-menu__item')!.click();
 
       httpMock.expectOne('/api/auth/logout').flush(null);
 

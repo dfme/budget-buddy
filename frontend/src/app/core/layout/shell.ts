@@ -70,13 +70,17 @@ export class Shell {
   /** Offen/zu des Konto-Popovers in der Topbar (nur Mobile sichtbar). */
   protected readonly accountMenuOpen = signal(false);
 
-  /** Die Hauptziele. */
+  /**
+   * Die Hauptziele der Tab-Bar/Sidebar. «Einstellungen» gehört bewusst nicht hierher,
+   * sondern in den Konto-Block (Mobile: Popover, Desktop: Sidebar-Fuss) — es ist ein
+   * Konto-Ziel, kein Arbeitsziel. Ein fünfter Eintrag hier würde auf 375px die Labels
+   * der Tab-Bar überlaufen lassen (`.nav__item` teilt die Breite gleichmässig auf).
+   */
   protected readonly navItems: readonly NavItem[] = [
     { path: '/dashboard', label: 'Übersicht', icon: '◎' },
     { path: '/categories', label: 'Transaktionen', icon: '≡' },
     { path: '/import', label: 'Import', icon: '↑' },
     { path: '/fixkosten', label: 'Fixkosten', icon: '▦' },
-    { path: '/einstellungen', label: 'Einstellungen', icon: '⚙' },
   ];
 
   protected toggleAccountMenu(): void {
