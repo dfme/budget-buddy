@@ -1,6 +1,7 @@
 package com.budgetbuddy.budget;
 
 import com.budgetbuddy.auth.UserIncomePort;
+import com.budgetbuddy.budget.dto.FixedCostSummaryResponse;
 import com.budgetbuddy.budget.dto.SafeToSpendResponse;
 import com.budgetbuddy.transaction.IncomeSuggestionPort;
 import com.budgetbuddy.transaction.MonthlyExpensePort;
@@ -21,7 +22,10 @@ import org.springframework.transaction.annotation.Transactional;
  * <p><strong>Formel:</strong>
  *
  * <pre>{@code
- * amount = (monthly_income − Fixkosten (Monatssumme) − Ausgaben im laufenden Monat) ÷ weeksLeft
+ * amount = (monthly_income − Fixkosten (Monatssumme) − variable Ausgaben) ÷ weeksLeft
+ *
+ * variable Ausgaben = Belastungen des laufenden Monats
+ *                     − je Fixkosten-Position eine betragsgleiche Belastung
  * }</pre>
  *
  * <p><strong>Divisor.</strong> {@code weeksLeft} ist die aufgerundete Zahl der verbleibenden Wochen
@@ -60,18 +64,25 @@ import org.springframework.transaction.annotation.Transactional;
  * entschieden, ist die Verlagerung ein Zweizeiler — sie ist nicht dadurch festgeschrieben, dass die
  * ACs es erzwängen. Die Lesart ist an Issue #22 festgehalten.
  *
- * <p><strong>Bekannte Einschränkung — Doppelabzug.</strong> Fixkosten werden abgezogen und
- * erscheinen zusätzlich als Belastung unter den importierten Transaktionen; eine Miete, die per
- * Dauerauftrag abgeht, mindert den Betrag deshalb zweimal. Das ist die Formel, die US-06 wörtlich
- * verlangt; die Auflösung braucht eine Verknüpfung zwischen Fixkosten-Position und Transaktion im
- * Datenmodell und ist als eigenes Issue erfasst (BE-STS-04, #154).
+ * <p><strong>Kein Doppelabzug (BE-STS-04, ADR-13).</strong> Fixkosten stehen in der Formel und
+ * erscheinen zusätzlich als Belastung unter den importierten Transaktionen; eine per Dauerauftrag
+ * bezahlte Miete minderte den Betrag deshalb zweimal. Der {@link FixedCostDebitMatcher} streicht
+ * je Fixkosten-Position höchstens <em>eine</em> betragsgleiche Belastung aus dem Ausgaben-Summanden
+ * — die Position wirkt damit genau einmal, über die Fixkosten-Seite. Die Regel, ihre Grenzen und
+ * die verworfenen Alternativen stehen dort und in ADR-13.
+ *
+ * <p>Die gestrichene Belastung bleibt in der Kategorie-Übersicht sichtbar: das Konto wurde ja
+ * belastet. Ausgenommen ist sie nur aus <em>diesem</em> Summanden — dieselbe Trennung, die
+ * {@code docs/prompts/02_01_mvp-requirements.md} als Auflösung von Risiko 2 vorgeschlagen hat.
  *
  * <p>Sämtliche Beträge sind {@link BigDecimal} (ADR-9) — nie {@code double}/{@code float}.
  *
  * <p><strong>Mandantentrennung:</strong> alle Eingabewerte werden ausschliesslich über die
  * user-gebundenen Methoden von {@link UserIncomePort}, {@link FixedCostService},
  * {@link MonthlyExpensePort} und {@link IncomeSuggestionPort} gelesen. Dieser Service hält kein
- * eigenes Repository und kann damit keine Query absetzen, die den User nicht einschränkt.
+ * eigenes Repository und kann damit keine Query absetzen, die den User nicht einschränkt. Das gilt
+ * auch für die Zuordnung: der {@link FixedCostDebitMatcher} bekommt ausschliesslich Werte, die hier
+ * bereits user-gebunden geladen wurden, und liest selbst nichts nach.
  *
  * <p><strong>Modulgrenzen:</strong> Einkommen, Ausgaben und Einkommens-Vorschlag kommen über Ports
  * aus {@code auth} bzw. {@code transaction} — kein direkter Zugriff auf deren Repositories
@@ -136,8 +147,14 @@ public class SafeToSpendService {
                     incomeSuggestionPort.suggestMonthlyIncome(userId).orElse(null));
         }
 
-        BigDecimal fixedCosts = fixedCostService.list(userId).summeMonatlich();
-        BigDecimal expenses = monthlyExpensePort.sumExpenses(userId, YearMonth.from(heute));
+        FixedCostSummaryResponse fixedCostSummary = fixedCostService.list(userId);
+        BigDecimal fixedCosts = fixedCostSummary.summeMonatlich();
+
+        // Die per Dauerauftrag bezahlten Fixkosten fallen aus dem Ausgaben-Summanden — sonst
+        // stünden sie in beiden und minderten den Betrag zweimal (BE-STS-04, ADR-13).
+        BigDecimal expenses = FixedCostDebitMatcher.variableExpenses(
+                monthlyExpensePort.expenseAmounts(userId, YearMonth.from(heute)),
+                fixedCostSummary.fixedCosts());
 
         BigDecimal verfuegbar = monthlyIncome.get().subtract(fixedCosts).subtract(expenses);
         // HALF_UP wie in FixedCostService: die Skala-2-Rundung ist damit im ganzen budget-Modul

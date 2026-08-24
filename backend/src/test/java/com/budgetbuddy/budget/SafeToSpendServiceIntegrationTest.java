@@ -29,6 +29,11 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
  * Transaktionen im selben Monat, und die Verdrahtung beider Modulkanten ({@code UserIncomePort} aus
  * {@code auth}, {@code MonthlyExpensePort} aus {@code transaction}) über echte Daten hinweg.
  *
+ * <p>Seit BE-STS-04 (ADR-13) gehört zur Mandantentrennung eine zweite Frage: die Streichung der per
+ * Dauerauftrag bezahlten Fixkosten führt Positionen und Belastungen zusammen, und beide Seiten
+ * müssen demselben User gehören. Das deckt
+ * {@link #aForeignUsersFixedCostPositionNeverExcludesAnOwnDebit()} ab.
+ *
  * <p>Die {@link Clock} ist als {@link MockitoBean} auf einen festen Zeitpunkt gestellt: sonst hinge
  * das Ergebnis am Kalendertag des CI-Laufs und der Test wäre an 11 von 12 Monaten grün und einmal
  * rot.
@@ -138,6 +143,61 @@ class SafeToSpendServiceIntegrationTest {
         // (2000.00 − 1500.00 − 800.00) ÷ 3 = −100.00
         assertThat(result.amount()).isEqualByComparingTo("-100.00");
         assertThat(result.negative()).isTrue();
+    }
+
+    // --- BE-STS-04 / ADR-13: Fixkosten mindern den Betrag genau einmal ---
+
+    @Test
+    void aStandingOrderPaidFixedCostIsDeductedExactlyOnce() {
+        // Der Regressionsfall aus #154 über echte Daten: die Miete ist als Fixkosten-Position
+        // erfasst *und* steht als Belastung im importierten Auszug.
+        long lara = insertUser("lara-sts-doppelabzug@example.com", new BigDecimal("3000.00"));
+        fixedCostService.create(lara,
+                new FixedCostRequest("Miete", new BigDecimal("1200.00"), "monatlich"));
+        insertExpense(lara, LocalDate.of(2026, 8, 1), "GIRO POST", new BigDecimal("1200.00"));
+        insertExpense(lara, LocalDate.of(2026, 8, 6), "COOP BERN", new BigDecimal("300.00"));
+
+        SafeToSpendResponse result = service.calculate(lara);
+
+        // (3000.00 − 1200.00 − 300.00) ÷ 3 = 500.00
+        // Vor BE-STS-04 wäre die Miete zweimal abgezogen worden: (3000 − 1200 − 1500) ÷ 3 = 100.00
+        assertThat(result.amount()).isEqualByComparingTo("500.00");
+        assertThat(result.negative()).isFalse();
+    }
+
+    @Test
+    void anAnnualFixedCostIsExcludedAtItsDebitAmountInThePaymentMonth() {
+        // Versicherung 1'200 jährlich: Monatsanteil 100.00, Abbuchung 1'200 im August. Gestrichen
+        // wird die volle Abbuchung, gezählt der Monatsanteil.
+        long marc = insertUser("marc-sts-jaehrlich@example.com", new BigDecimal("3000.00"));
+        fixedCostService.create(marc,
+                new FixedCostRequest("Versicherung", new BigDecimal("1200.00"), "jaehrlich"));
+        insertExpense(marc, LocalDate.of(2026, 8, 2), "HELSANA", new BigDecimal("1200.00"));
+        insertExpense(marc, LocalDate.of(2026, 8, 8), "MIGROS", new BigDecimal("300.00"));
+
+        // (3000.00 − 100.00 − 300.00) ÷ 3 = 866.67
+        assertThat(service.calculate(marc).amount()).isEqualByComparingTo("866.67");
+    }
+
+    @Test
+    void aForeignUsersFixedCostPositionNeverExcludesAnOwnDebit() {
+        // Die schärfste Gegenprobe zur Mandantentrennung nach BE-STS-04: Lara hat eine Belastung
+        // über 1'200 und *keine* Fixkosten, Marc hat eine Fixkosten-Position über 1'200 und keine
+        // passende Belastung. Griffe die Streichung über den User hinweg, verschwände Laras
+        // Belastung und ihr Betrag stiege von 600.00 auf 1000.00.
+        long lara = insertUser("lara-sts-fremdmatch@example.com", new BigDecimal("3000.00"));
+        insertExpense(lara, LocalDate.of(2026, 8, 1), "GIRO POST", new BigDecimal("1200.00"));
+
+        long marc = insertUser("marc-sts-fremdmatch@example.com", new BigDecimal("5000.00"));
+        fixedCostService.create(marc,
+                new FixedCostRequest("Miete", new BigDecimal("1200.00"), "monatlich"));
+        insertExpense(marc, LocalDate.of(2026, 8, 4), "SBB", new BigDecimal("100.00"));
+
+        // (3000.00 − 0 − 1200.00) ÷ 3 = 600.00
+        assertThat(service.calculate(lara).amount()).isEqualByComparingTo("600.00");
+        // (5000.00 − 1200.00 − 100.00) ÷ 3 = 1233.33 — Marcs Position streicht nichts, weil er
+        // selbst keine Belastung über 1'200 hat.
+        assertThat(service.calculate(marc).amount()).isEqualByComparingTo("1233.33");
     }
 
     // --- Mandantentrennung: Gegenprobe mit einem zweiten User im selben Monat ---
