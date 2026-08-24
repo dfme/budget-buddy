@@ -172,6 +172,14 @@ BudgetBuddy is a web app for students and young professionals living in Switzerl
 - **Scale-to-Zero nach 5 Min** (Neon Free): der erste Request danach ist langsam, die Daten
   bleiben. Das ist seit dem Wechsel des Render-Web-Service auf den Starter-Plan (INFRA-24) der
   einzige Cold Start — Renders Spin-Down nach 15 Min entfällt.
+- **Scale-to-Zero greift nur, wenn wirklich nichts die DB anfasst.** Das Monatskontingent von
+  100 CU-h entspricht bei 0,25 CU rund 400 Stunden — keine 17 Tage Dauerbetrieb. Alles, was die
+  DB periodisch in Abständen unter 5 Minuten berührt, verbrennt es also im Leerlauf. Zwei
+  Quellen, beide in INFRA-28 abgestellt: (1) `/actuator/health` enthält automatisch den
+  `DataSourceHealthIndicator` (ein `SELECT 1` pro Aufruf) und Render pingt den `healthCheckPath`
+  im Dauerbetrieb — deshalb zeigt er auf `/actuator/health/liveness`; (2) HikariCP ersetzt jede
+  gehaltene Verbindung nach `maxLifetime` (30 Min) durch eine neue — deshalb `minimum-idle=0`
+  in `application-prod.properties`.
 - **`COLLATE NOCASE` gibt es nicht.** Case-insensitive Zuordnung liegt in der Anwendung:
   Patterns werden grossgeschrieben gespeichert, Vergleiche laufen über `upper()`.
 - **Testcontainers braucht `-Dapi.version=1.44`** (in `pom.xml` gesetzt): das gebündelte
