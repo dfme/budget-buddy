@@ -1,6 +1,8 @@
 package com.budgetbuddy.auth;
 
 import com.budgetbuddy.auth.dto.UserProfileResponse;
+import com.budgetbuddy.budget.FixedCostCleanupPort;
+import com.budgetbuddy.transaction.TransactionCleanupPort;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Optional;
@@ -35,9 +37,16 @@ public class UserService implements UserIncomePort {
     private static final BigDecimal MAX_INCOME = new BigDecimal("99999999.99");
 
     private final UserRepository userRepository;
+    private final TransactionCleanupPort transactionCleanupPort;
+    private final FixedCostCleanupPort fixedCostCleanupPort;
 
-    public UserService(UserRepository userRepository) {
+    public UserService(
+            UserRepository userRepository,
+            TransactionCleanupPort transactionCleanupPort,
+            FixedCostCleanupPort fixedCostCleanupPort) {
         this.userRepository = userRepository;
+        this.transactionCleanupPort = transactionCleanupPort;
+        this.fixedCostCleanupPort = fixedCostCleanupPort;
     }
 
     /**
@@ -131,6 +140,26 @@ public class UserService implements UserIncomePort {
     @Transactional(readOnly = true)
     public Optional<BigDecimal> findMonthlyIncome(long userId) {
         return userRepository.findById(userId).map(User::getMonthlyIncome);
+    }
+
+    /**
+     * Löscht den User und alle abhängigen Daten (US-02, DB-07).
+     *
+     * <p>{@code transactions}, {@code import_jobs} und {@code fixed_costs} tragen alle eine
+     * Fremdschlüssel auf {@code users} ohne {@code ON DELETE} — der User wird deshalb erst
+     * gelöscht, <em>nachdem</em> beide Cleanup-Ports ihre Tabellen geräumt haben, sonst schlägt
+     * die letzte Zeile am Constraint fehl. Bewusst kein {@code ON DELETE CASCADE}: die Löschung
+     * bleibt eine sichtbare, einzeln testbare Operation im Code statt einer stillen
+     * DB-Nebenwirkung (siehe {@code V05__create_import_jobs_table.sql}).
+     *
+     * @throws UserNotFoundException wenn kein User mit dieser ID existiert.
+     */
+    @Transactional
+    public void deleteUser(long userId) {
+        User user = findUser(userId);
+        transactionCleanupPort.deleteAllForUser(userId);
+        fixedCostCleanupPort.deleteAllForUser(userId);
+        userRepository.delete(user);
     }
 
     private User findUser(long userId) {
