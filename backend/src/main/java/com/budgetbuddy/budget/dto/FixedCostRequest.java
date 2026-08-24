@@ -7,12 +7,16 @@ import java.math.BigDecimal;
  *
  * <p><strong>Ohne Bean-Validation-Annotationen — bewusst.</strong> Die Regeln aus US-03
  * («Bezeichnung nicht leer», «Betrag > 0», «Intervall ∈ {monatlich, quartalsweise, jährlich}»)
- * stehen vollständig im {@code FixedCostService} und nur dort. Das weicht von
- * {@code UpdateIncomeRequest} ab, das {@code @NotNull}/{@code @Positive} trägt, und hat zwei
- * Gründe: {@code FixedCost} delegiert die fachliche Validierung ausdrücklich an den Service, und
+ * stehen vollständig im {@code FixedCostService} und nur dort. Das hat zwei Gründe:
+ * {@code FixedCost} delegiert die fachliche Validierung ausdrücklich an den Service, und
  * Annotationen greifen erst, wenn ein Controller {@code @Valid} setzt — der Service ist damit
  * ungeschützt, sobald er von anderswo aufgerufen wird. Dieselbe Regel an zwei Stellen würde
  * ausserdem irgendwann auseinanderlaufen.
+ *
+ * <p>{@code UpdateIncomeRequest} folgt seit BE-AUTH-08 derselben Aufteilung: Es trug vorher
+ * {@code @NotNull}/{@code @Positive}, was für {@code users.monthly_income} zu wenig war — die
+ * Rappen- und Kapazitätsregel liegt jetzt ebenfalls im Service. Die beiden DTOs weichen also
+ * nicht mehr voneinander ab.
  *
  * @param bezeichnung Anzeigename der Position, z. B. {@code "Miete"}. Wird vom Service getrimmt.
  * @param betrag Betrag in CHF pro {@code intervall} ({@link BigDecimal}, ADR-9).

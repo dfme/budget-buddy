@@ -80,9 +80,13 @@ public class FixedCostService {
         // Trennung bleibt als Absicherung gegen ein Einkommen, das nicht rappen-genau ankommt.
         //
         // HALF_UP statt UNNECESSARY wie bei betrag — bewusst: fixed_costs.betrag schreibt dieser
-        // Service selbst und validiert dabei auf zwei Nachkommastellen, users.monthly_income
-        // schreibt das auth-Modul (UpdateIncomeRequest prüft nur @NotNull @Positive). Ein fremder
-        // Schreibpfad darf diese Antwort nicht mit einer ArithmeticException umbringen.
+        // Service selbst und validiert dabei auf zwei Nachkommastellen. users.monthly_income
+        // schreibt das auth-Modul; seit BE-AUTH-08 prüft es dort ebenfalls auf Rappen, aber erst
+        // seit BE-AUTH-08 — Werte, die vorher geschrieben wurden, sind davon nicht gedeckt. Diese
+        // Rundung ist also die Absicherung eines Lesepfads gegen Bestandsdaten und gegen jeden
+        // künftigen fremden Schreibpfad: Eine Leseantwort darf nicht an einer
+        // ArithmeticException sterben, nur weil ein Wert nicht rappen-genau in der Tabelle steht.
+        // Nicht umstellen, ohne die Bestandsdaten geprüft zu haben.
         BigDecimal monthlyIncome = userIncomePort.findMonthlyIncome(userId).orElse(null);
         boolean exceedsIncome = monthlyIncome != null && summeMonatlich.compareTo(monthlyIncome) >= 0;
 
