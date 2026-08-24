@@ -164,7 +164,7 @@ public class TransactionListService {
      */
     private TransactionResponse toResponse(Transaction tx) {
         return new TransactionResponse(tx.getId(), tx.getBuchungsdatum(), tx.getBuchungstext(),
-                tx.getBetrag(), tx.isIncome(), labelOf(tx));
+                tx.getBuchungsdetails(), tx.getBetrag(), tx.isIncome(), labelOf(tx));
     }
 
     /**

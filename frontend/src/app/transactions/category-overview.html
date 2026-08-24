@@ -98,13 +98,28 @@
                             <span class="transaction__date">{{
                               tx.buchungsdatum | date: 'dd.MM.yyyy'
                             }}</span>
-                            <span class="transaction__text">{{ tx.buchungstext }}</span>
+                            <!--
+                              Zwei Zeilen statt einer: buchungstext trägt bei PostFinance nur die
+                              Zahlungsart (240 Buchungen eines Auszugs verteilen sich auf 10
+                              Werte), die Gegenpartei steht ausschliesslich in buchungsdetails.
+                              Der Buchungstext bleibt trotzdem stehen — er sagt, *wie* gezahlt
+                              wurde, und das ist eine andere Auskunft als *an wen*.
+                              Fehlen die Details, entfällt die zweite Zeile ersatzlos: Ein
+                              Platzhalter behauptete, es gebe keine Gegenpartei, während der Wert
+                              in Wahrheit auch aus einem Import vor BE-PDF-07 stammen kann.
+                            -->
+                            <span class="transaction__text">
+                              <span class="transaction__booking">{{ tx.buchungstext }}</span>
+                              @if (tx.buchungsdetails; as details) {
+                                <span class="transaction__details">{{ details }}</span>
+                              }
+                            </span>
                             <span class="transaction__amount numeric">{{
                               tx.betrag | currency: 'CHF' : 'symbol' : '1.2-2'
                             }}</span>
                             <label class="transaction__category">
                               <span class="visually-hidden"
-                                >Kategorie von {{ tx.buchungstext }}</span
+                                >Kategorie von {{ transactionLabel(tx) }}</span
                               >
                               <!--
                                 Vorauswahl über [selected] am <option>, nicht über [value] am

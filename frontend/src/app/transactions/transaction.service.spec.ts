@@ -9,6 +9,7 @@ const TRANSACTION: Transaction = {
   id: 7,
   buchungsdatum: '2026-07-20',
   buchungstext: 'COOP PRONTO BERN',
+  buchungsdetails: null,
   betrag: 34.2,
   income: false,
   category: 'Lebensmittel',

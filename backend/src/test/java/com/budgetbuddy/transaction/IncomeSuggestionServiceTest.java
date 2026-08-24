@@ -254,7 +254,7 @@ class IncomeSuggestionServiceTest {
     }
 
     private static Transaction credit(String isoDate, String buchungstext, String betrag) {
-        return new Transaction(USER_ID, LocalDate.parse(isoDate), buchungstext,
+        return new Transaction(USER_ID, LocalDate.parse(isoDate), buchungstext, null,
                 new BigDecimal(betrag), true, null, null);
     }
 }

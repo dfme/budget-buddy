@@ -47,4 +47,26 @@ public record ParsedTransaction(
   public String fullText() {
     return details.isEmpty() ? buchungstext : buchungstext + " " + String.join(" ", details);
   }
+
+  /**
+   * Die Detailzeilen als ein persistierbarer String, oder {@code null}, wenn es keine gibt
+   * (BE-PDF-07).
+   *
+   * <p>Gegenstück zu {@link #fullText()}: dort geht es um den Input der Kategorisierung, hier um
+   * das, was in {@code transactions.buchungsdetails} landet. Deshalb <em>ohne</em> den
+   * Buchungstext — der steht in seiner eigenen Spalte und wäre dort ein Duplikat.
+   *
+   * <p>Verbunden mit {@code \n} statt einem Leerzeichen: Detailzeilen enthalten
+   * konstruktionsbedingt keinen Zeilenumbruch, die Trennung überlebt das Persistieren damit
+   * verlustfrei. Das ist genau die Eigenschaft, die das Javadoc dieses Records für US-08
+   * (Abo-Erkennung) verlangt — ein Leerzeichen wäre die irreversible Konkatenation, die dort
+   * ausgeschlossen wird.
+   *
+   * <p>{@code null} und nicht der Leerstring: In der Datenbank hält das «diese Buchung hatte keine
+   * Detailzeilen» von «vor BE-PDF-07 importiert, deshalb leer» getrennt. Ein Leerstring könnte
+   * beides bedeuten.
+   */
+  public String detailsAsText() {
+    return details.isEmpty() ? null : String.join("\n", details);
+  }
 }

@@ -282,8 +282,7 @@ export class CategoryOverview {
     // Buchungen, und der Stepper verbietet den Weg dorthin ohnehin. Ihn erst weiter unten aus dem
     // Dropdown zu filtern, hiesse Entscheid 5 zu brechen — das <select> stünde dann auf einem
     // Wert, den seine eigene Liste nicht enthält. Hier abgefangen, halten beide Regeln.
-    const valid =
-      raw !== null && MONTH_PATTERN.test(raw) && raw <= CategoryOverview.currentMonth();
+    const valid = raw !== null && MONTH_PATTERN.test(raw) && raw <= CategoryOverview.currentMonth();
     const month = valid ? raw : CategoryOverview.currentMonth();
 
     if (raw !== null && !valid) {
@@ -580,6 +579,20 @@ export class CategoryOverview {
    */
   categorySlug(label: string): string | undefined {
     return CategoryOverview.SLUG_BY_LABEL.get(label);
+  }
+
+  /**
+   * Buchung in einer Zeile, für den unsichtbaren Namen des Kategorie-Dropdowns (BE-PDF-07).
+   *
+   * <p>Ohne die Detailzeilen läse ein Screenreader zwölfmal «Kategorie von LASTSCHRIFT» — die
+   * Dropdowns wären untereinander nicht unterscheidbar, also genau das Problem, das dieses Ticket
+   * visuell löst. Die Zeilenumbrüche werden dabei zu Kommas: Der Name ist ein einzeiliges
+   * Attribut, ein `\n` darin wäre für die Ausgabe bloss ein Leerzeichen ohne Pause.
+   */
+  transactionLabel(tx: Transaction): string {
+    return tx.buchungsdetails
+      ? `${tx.buchungstext}, ${tx.buchungsdetails.replaceAll('\n', ', ')}`
+      : tx.buchungstext;
   }
 
   private load(): void {

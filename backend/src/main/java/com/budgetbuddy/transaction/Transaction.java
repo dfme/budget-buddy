@@ -37,6 +37,15 @@ public class Transaction {
     @Column(nullable = false)
     private String buchungstext;
 
+    /**
+     * Die eingerückten Fortsetzungszeilen der Buchung, mit {@code \n} verbunden (BE-PDF-07, V06).
+     *
+     * <p>{@code null} für alles, was vor BE-PDF-07 importiert wurde, und für Buchungen ohne
+     * Detailzeilen — siehe {@link #getBuchungsdetails()}.
+     */
+    @Column(name = "buchungsdetails")
+    private String buchungsdetails;
+
     @Column(nullable = false)
     private BigDecimal betrag;
 
@@ -58,18 +67,24 @@ public class Transaction {
      *
      * @param userId ID des besitzenden Users.
      * @param buchungsdatum Buchungsdatum.
-     * @param buchungstext Beschreibungstext (Händler/Empfänger).
+     * @param buchungstext Text der Buchungszeile. Bei Kartenzahlungen der Händler, bei
+     *     Überweisungen nur der Buchungs<em>typ</em> — der Empfänger steht dann in
+     *     {@code buchungsdetails}.
+     * @param buchungsdetails Detailzeilen mit {@code \n} verbunden, oder {@code null}
+     *     (BE-PDF-07). Aus {@code ParsedTransaction.detailsAsText()}.
      * @param betrag positive Magnitude in CHF ({@link BigDecimal}, ADR-9). Richtung via
      *     {@code income}.
      * @param income {@code true} für Gutschriften (Einkommen), {@code false} für Belastungen.
      * @param category Kategorie-Label oder {@code null}, solange nicht kategorisiert.
      * @param pdfSha256 SHA-256 des Quell-PDFs oder {@code null}.
      */
-    public Transaction(Long userId, LocalDate buchungsdatum, String buchungstext, BigDecimal betrag,
-            boolean income, String category, String pdfSha256) {
+    public Transaction(Long userId, LocalDate buchungsdatum, String buchungstext,
+            String buchungsdetails, BigDecimal betrag, boolean income, String category,
+            String pdfSha256) {
         this.userId = userId;
         this.buchungsdatum = buchungsdatum;
         this.buchungstext = buchungstext;
+        this.buchungsdetails = buchungsdetails;
         this.betrag = betrag;
         this.income = income;
         this.category = category;
@@ -90,6 +105,20 @@ public class Transaction {
 
     public String getBuchungstext() {
         return buchungstext;
+    }
+
+    /**
+     * Die Detailzeilen der Buchung — Gegenpartei und Verwendungszweck —, mit {@code \n} verbunden,
+     * oder {@code null} (BE-PDF-07).
+     *
+     * <p>{@code null} hat zwei Bedeutungen, die sich hier bewusst nicht unterscheiden lassen: Die
+     * Buchung hatte keine Detailzeilen, oder sie wurde vor BE-PDF-07 importiert. Ein Backfill ist
+     * ausgeschlossen — die Zeilen stehen nur im Quell-PDF, und davon wird nur der
+     * {@link #getPdfSha256() SHA-256} gespeichert, nicht die Datei. Aufrufer dürfen aus
+     * {@code null} deshalb nie schliessen, dass es keine Gegenpartei gab.
+     */
+    public String getBuchungsdetails() {
+        return buchungsdetails;
     }
 
     /** Positive Magnitude des Betrags (Skala 2). Richtung siehe {@link #isIncome()}. */
