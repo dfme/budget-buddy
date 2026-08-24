@@ -232,7 +232,7 @@ describe('CategoryOverview', () => {
     fixture.detectChanges();
 
     expect(component.errorMessage()).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('.status.error')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('app-notice.notice--error')).not.toBeNull();
     expect(component.summary()).toBeNull();
   });
 
@@ -588,7 +588,7 @@ describe('CategoryOverview', () => {
 
       expect(component.drilldown()?.error).not.toBeNull();
       expect(
-        (fixture.nativeElement as HTMLElement).querySelector('.drilldown .status.error'),
+        (fixture.nativeElement as HTMLElement).querySelector('.drilldown app-notice.notice--error'),
       ).not.toBeNull();
     });
 
@@ -879,7 +879,7 @@ describe('CategoryOverview', () => {
       // und der Button bleibt für einen zweiten Versuch stehen.
       expect(renderedTexts()).toHaveLength(20);
       expect(
-        (fixture.nativeElement as HTMLElement).querySelector('.drilldown .status.error')
+        (fixture.nativeElement as HTMLElement).querySelector('.drilldown .drilldown__error')
           ?.textContent,
       ).toContain('Weitere Buchungen');
       expect(loadMoreButton()).not.toBeNull();

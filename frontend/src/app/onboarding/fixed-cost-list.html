@@ -7,7 +7,7 @@
   @if (loading()) {
     <p class="status">Lädt …</p>
   } @else if (errorMessage()) {
-    <p class="status error">{{ errorMessage() }}</p>
+    <app-notice variant="error">{{ errorMessage() }}</app-notice>
   } @else if (summary(); as data) {
     @if (data.exceedsIncome) {
       <app-notice class="income-warning" variant="warning">

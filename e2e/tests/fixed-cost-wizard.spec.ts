@@ -55,8 +55,11 @@ test.describe('Fixkosten-Wizard', () => {
     // gespeicherte Position soll den Screenreader nicht unterbrechen (`notice.ts`). `variant` ist
     // ein Angular-Input und im DOM unsichtbar; geprüft werden seine beiden Abdrücke.
     const success = page.locator('app-notice.notice--info[role="status"]');
+    // Der Text wird am `.notice__body` geprüft, nicht am Host: app-notice rendert seit
+    // FE-UI-07 ein eigenes Icon, das in den textContent des Hosts mit einflösse.
+    const successText = success.locator('.notice__body');
     await expect(success).toBeVisible();
-    await expect(success).toHaveText(`«${POSITION.bezeichnung}» wurde gespeichert.`);
+    await expect(successText).toHaveText(`«${POSITION.bezeichnung}» wurde gespeichert.`);
 
     // Gegenprobe zur Erfolgsmeldung: die trägt nur die Bezeichnung aus der HTTP-Response. Dass die
     // Position wirklich persistiert ist und über einen zweiten Endpoint wieder herauskommt, zeigt

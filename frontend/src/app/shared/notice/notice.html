@@ -1,0 +1,13 @@
+<span class="notice__icon" aria-hidden="true">{{ icon() }}</span>
+<!--
+  Der Body ist unbedingt, nicht nur bei gesetztem Titel: `<ng-content />` lässt sich nicht in
+  beide Zweige eines `@if` legen — Angular projiziert den Inhalt genau einmal. Er ist zugleich
+  das zweite und letzte Kind der Flex-Zeile von `:host`, womit mehrere Blöcke im Aufrufort
+  untereinander statt nebeneinander landen.
+-->
+<span class="notice__body">
+  @if (title(); as heading) {
+    <span class="notice__title">{{ heading }}</span>
+  }
+  <ng-content />
+</span>

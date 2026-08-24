@@ -61,10 +61,13 @@ test.describe('PDF-Import', () => {
     // Der Erfolg meldet sich als `variant="info"` und damit höflich (role="status") — ein
     // gelungener Import soll den Screenreader nicht unterbrechen (`notice.ts`).
     const success = page.locator('app-notice.notice--info[role="status"]');
+    // Der Text wird am `.notice__body` geprüft, nicht am Host: app-notice rendert seit
+    // FE-UI-07 ein eigenes Icon, das in den textContent des Hosts mit einflösse.
+    const successText = success.locator('.notice__body');
     // Der Import läuft über zwei Stufen (ADR-14): Upload-Request mit Parsing, danach der
     // Kategorisierungs-Job, den das Frontend pollt. Das Banner erscheint erst am Ende.
     await expect(success).toBeVisible({ timeout: IMPORT_RESULT_TIMEOUT_MS });
-    await expect(success).toHaveText(`${FIXTURE_TRANSACTION_COUNT} Transaktionen erkannt.`);
+    await expect(successText).toHaveText(`${FIXTURE_TRANSACTION_COUNT} Transaktionen erkannt.`);
 
     // Gegenprobe zur Zahl im Banner: die stammt direkt aus der HTTP-Response. Dass die Buchungen
     // wirklich persistiert sind und über einen zweiten Endpoint wieder herauskommen, zeigt erst
@@ -104,7 +107,8 @@ test.describe('PDF-Import', () => {
     // Beide zu prüfen ist genauer als `getByRole('alert')` allein.
     const failure = page.locator('app-notice.notice--error[role="alert"]');
     await expect(failure).toBeVisible({ timeout: IMPORT_RESULT_TIMEOUT_MS });
-    await expect(failure).toHaveText(
+    // Wie oben: der Text hängt am `.notice__body`, das Icon am Host daneben.
+    await expect(failure.locator('.notice__body')).toHaveText(
       'Das PDF konnte nicht als Kontoauszug gelesen werden. Bitte lade den Original-Kontoauszug deiner Bank hoch.',
     );
 

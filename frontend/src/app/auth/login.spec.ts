@@ -95,7 +95,10 @@ describe('Login', () => {
     fixture.detectChanges();
 
     const notice: HTMLElement = fixture.nativeElement.querySelector('app-notice');
-    expect(notice.textContent?.trim()).toBe('E-Mail oder Passwort falsch');
+    // `.notice__body` statt des Hosts: app-notice rendert seit FE-UI-07 ein eigenes Icon.
+    expect(notice.querySelector('.notice__body')?.textContent?.trim()).toBe(
+      'E-Mail oder Passwort falsch',
+    );
     expect(notice.getAttribute('role')).toBe('alert');
   });
 });

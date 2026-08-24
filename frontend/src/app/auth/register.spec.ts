@@ -108,7 +108,10 @@ describe('Register', () => {
     fixture.detectChanges();
 
     const notice: HTMLElement = fixture.nativeElement.querySelector('app-notice');
-    expect(notice.textContent?.trim()).toBe('E-Mail bereits vergeben');
+    // `.notice__body` statt des Hosts: app-notice rendert seit FE-UI-07 ein eigenes Icon.
+    expect(notice.querySelector('.notice__body')?.textContent?.trim()).toBe(
+      'E-Mail bereits vergeben',
+    );
     expect(notice.getAttribute('role')).toBe('alert');
   });
 });
