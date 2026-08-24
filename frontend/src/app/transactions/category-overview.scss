@@ -112,22 +112,27 @@ tfoot td {
 // Container der beiden Textzeilen (BE-PDF-07). align-items am .transaction bleibt center und
 // zentriert damit den ganzen Block gegen Datum, Betrag und Dropdown — bei einer wie bei zwei
 // Zeilen.
+//
+// Beide Zeilen tragen dieselbe Schrift, und zwar bewusst: buchungstext ist die Zahlungsart
+// («LASTSCHRIFT»), die Detailzeile die Gegenpartei («ZALANDO SE»). Keine von beiden ist die
+// Überschrift der anderen — eine grössere erste Zeile behauptete eine Rangfolge, die es nicht
+// gibt, und stellte ausgerechnet den nichtssagenden Teil heraus. Sie kostete zudem Höhe in
+// einer Liste, die seitenweise gelesen wird (20 Buchungen pro Seite, US-13).
 .transaction__text {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
   overflow-wrap: anywhere;
+  color: $c-ink-2;
+  font-size: $fs-xs;
 }
 
-// Zweite Zeile: Gegenpartei und Verwendungszweck. Gedämpft und eine Spur kleiner, damit die
-// Zeile als Zusatz zur Buchungsart lesbar ist und nicht mit ihr konkurriert.
+// Zweite Zeile: Gegenpartei und Verwendungszweck.
 .transaction__details {
   // pre-line, weil die Zeilen mit \n verbunden aus der API kommen — bis zu drei Stück. Ohne
   // dies liefen sie zu einer durchgehenden Zeile zusammen und wären nicht mehr trennbar.
   white-space: pre-line;
-  color: $c-ink-2;
-  font-size: $fs-xs;
 }
 
 .transaction__category select {
