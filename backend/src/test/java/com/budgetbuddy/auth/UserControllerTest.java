@@ -1,8 +1,11 @@
 package com.budgetbuddy.auth;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -196,8 +199,7 @@ class UserControllerTest {
                         .content("{\"aktuellesPasswort\": \"altesPasswort1\", "
                                 + "\"neuesPasswort\": \"neuesPasswort2\"}"))
                 .andExpect(status().isOk())
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
-                        .content().string(""));
+                .andExpect(content().string(""));
 
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -222,13 +224,16 @@ class UserControllerTest {
                         .content("{\"aktuellesPasswort\": \"falschesPasswort\", "
                                 + "\"neuesPasswort\": \"neuesPasswort2\"}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Aktuelles Passwort falsch"));
+                .andExpect(jsonPath("$.message").value("Aktuelles Passwort falsch"))
+                // Weder das falsche noch das neue Passwort dürfen in der Response auftauchen.
+                .andExpect(content().string(not(containsString("falschesPasswort"))))
+                .andExpect(content().string(not(containsString("neuesPasswort2"))));
 
         org.assertj.core.api.Assertions.assertThat(currentPasswordHash()).isEqualTo(hashBefore);
     }
 
     @Test
-    void changePasswordWithShortNewPasswordReturns400() throws Exception {
+    void changePasswordWithShortNewPasswordReturns400WithoutLeakingIt() throws Exception {
         setPasswordHash("altesPasswort1");
 
         mockMvc.perform(put("/api/users/me/password")
@@ -236,7 +241,11 @@ class UserControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"aktuellesPasswort\": \"altesPasswort1\", "
                                 + "\"neuesPasswort\": \"kurz\"}"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Passwort muss mindestens 8 Zeichen lang sein."))
+                // Bean Validation darf den abgelehnten Wert nicht in die Response spiegeln.
+                .andExpect(content().string(not(containsString("kurz"))))
+                .andExpect(content().string(not(containsString("altesPasswort1"))));
     }
 
     @Test
