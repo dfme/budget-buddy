@@ -36,14 +36,14 @@ test.describe('PDF-Import', () => {
   const FIXTURE_MONTH = '2025-06';
 
   /**
-   * Wartezeit auf das Ergebnis-Banner. Bewusst grösser als das Worst-Case-Budget des Backends:
-   * `PdfImportService` prüft sein Zeitbudget (`budgetbuddy.import.timeout-seconds`, Default 30)
-   * nur zwischen den Phasen, der letzte Claude-Call kann es um bis zu 20s überziehen — real also
-   * ~50s (Javadoc dort). Ein knapperer Wert würde einen legitim langsamen Import als Testfehler
-   * ausweisen, während das Backend noch innerhalb seiner eigenen Grenze arbeitet.
+   * Wartezeit auf das Ergebnis-Banner. Seit ADR-14 (BE-PDF-09) läuft die Kategorisierung als
+   * Hintergrund-Job, den das Frontend pollt: Der Upload-Request selbst ist nach dem Parsen
+   * (~2s) durch, das Banner erscheint erst nach dem Job. Gewartet wird deshalb weiterhin
+   * grosszügig — der Watchdog des Jobs steht auf 300s, in der Testinstanz ohne
+   * `ANTHROPIC_API_KEY` dauert die Kategorisierung aber Millisekunden.
    *
-   * Heute schlägt das nicht zu: die Testinstanz läuft ohne ANTHROPIC_API_KEY, die Kategorisierung
-   * dauert Millisekunden. Bekäme sie je einen Key, wäre die Kopplung sonst ein Flake.
+   * Ein knapperer Wert würde einen legitim langsamen Import als Testfehler ausweisen, während
+   * das Backend noch innerhalb seiner eigenen Grenze arbeitet.
    */
   const IMPORT_RESULT_TIMEOUT_MS = 60_000;
 
@@ -61,8 +61,8 @@ test.describe('PDF-Import', () => {
     // Der Erfolg meldet sich als `variant="info"` und damit höflich (role="status") — ein
     // gelungener Import soll den Screenreader nicht unterbrechen (`notice.ts`).
     const success = page.locator('app-notice.notice--info[role="status"]');
-    // Der Upload läuft synchron durch Parsing, Kategorisierung und Persistierung (CLAUDE.md,
-    // «Backend: Import Flow»), nicht bloss durch einen Request.
+    // Der Import läuft über zwei Stufen (ADR-14): Upload-Request mit Parsing, danach der
+    // Kategorisierungs-Job, den das Frontend pollt. Das Banner erscheint erst am Ende.
     await expect(success).toBeVisible({ timeout: IMPORT_RESULT_TIMEOUT_MS });
     await expect(success).toHaveText(`${FIXTURE_TRANSACTION_COUNT} Transaktionen erkannt.`);
 

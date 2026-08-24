@@ -14,8 +14,23 @@
       (drop)="onDrop($event)"
     >
       @if (uploading()) {
-        <span class="spinner" aria-hidden="true"></span>
-        <p class="dropzone__hint" role="status">Kontoauszug wird importiert …</p>
+        @if (progress(); as current) {
+          <!--
+            Fortschritt aus GET /api/import/{jobId}/status (BE-PDF-09). Der Balken selbst ist
+            role="progressbar" mit aria-valuenow; der Text daneben ist role="status", damit
+            Screenreader die Zahl mitbekommen, ohne bei jedem Poll unterbrochen zu werden.
+          -->
+          <app-meter
+            class="dropzone__progress"
+            [value]="progressPercent()"
+            [ariaLabel]="progressLabel(current)"
+          />
+          <p class="dropzone__hint" role="status">{{ progressLabel(current) }}</p>
+        } @else {
+          <!-- Das PDF wird noch geparst — es gibt bis zur Upload-Antwort keinen Nenner. -->
+          <span class="spinner" aria-hidden="true"></span>
+          <p class="dropzone__hint" role="status">Kontoauszug wird gelesen …</p>
+        }
       } @else {
         <span class="dropzone__icon" aria-hidden="true">↑</span>
         <p class="dropzone__hint">PDF-Datei hierhin ziehen oder</p>
@@ -40,9 +55,7 @@
   } @else if (importOutcome(); as outcome) {
     @if (outcome.kind === 'success') {
       <!-- Erfolg bleibt höflich: variant="info" meldet sich als role="status". -->
-      <app-notice class="upload__notice" variant="info">{{
-        successMessage(outcome.count)
-      }}</app-notice>
+      <app-notice class="upload__notice" variant="info">{{ successMessage(outcome) }}</app-notice>
     } @else {
       <app-notice class="upload__notice" variant="error">{{ outcome.message }}</app-notice>
     }

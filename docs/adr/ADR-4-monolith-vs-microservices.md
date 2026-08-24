@@ -30,7 +30,7 @@ com.budgetbuddy
 
 **Regel:** Kein direkter Zugriff auf Repositories oder Services eines anderen Moduls. Cross-Modul-Kommunikation nur über definierte Interfaces (z.B. `CategorizationPort`).
 
-**Import Flow (MVP):** PDF-Uploads laufen synchron — der Endpoint blockiert bis Import und Kategorisierung abgeschlossen sind. Timeout + Fallback zu `"Sonstiges"` verhindern, dass ein hängender Claude-Call den Import blockiert.
+**Import Flow:** ~~PDF-Uploads laufen synchron — der Endpoint blockiert bis Import und Kategorisierung abgeschlossen sind.~~ Überholt durch [ADR-14](ADR-14-asynchroner-pdf-import.md): Duplikatcheck und Parse laufen synchron im Request, die Kategorisierung als `@Async`-Job mit Status-Polling. Das bleibt innerhalb dieses Entscheids — der Job läuft im selben JAR auf einem begrenzten Thread-Pool, kein eigener Worker-Container. Timeout + Fallback zu `"Sonstiges"` verhindern weiterhin, dass ein hängender Claude-Call den Import blockiert.
 
 - **Database:** eine gemeinsame Datenbank für alle Module (seit ADR-12: PostgreSQL bei Neon)
 - **Deployment:** Single JAR → Docker → Cloud Run / VPS

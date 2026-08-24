@@ -40,6 +40,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `BE-PDF-05` | [BE-PDF-05 — Gültiger Auszug mit 0 Buchungen wirft fälschlich UnsupportedStatementFormatException](BE-PDF-05-empty-statement-zero-bookings.md) | [#95](https://github.com/dfme/budget-buddy/issues/95) | — | Sprint 3 |
 | `BE-PDF-06` | [Import-Flow instrumentieren: Phasendauer und Lookup/Claude-Verhältnis loggen, Klartexte entfernen](BE-PDF-06-import-instrumentierung.md) | [#157](https://github.com/dfme/budget-buddy/issues/157) | — | Sprint 4 |
 | `BE-PDF-08` | [Import eines Kontoauszugs schlägt zuverlässig fehl](BE-PDF-08-fehlerdiagnose.md) | [#173](https://github.com/dfme/budget-buddy/issues/173) | — | Sprint 5 |
+| `BE-PDF-09` | [PDF-Import läuft in Produktion ins 30s-Zeitbudget und verwirft den gesamten Import](BE-PDF-09-async-import-job.md) | [#192](https://github.com/dfme/budget-buddy/issues/192) | US-04 | Sprint 5 |
 | `BE-STS-01` | [SafeToSpendService](BE-STS-01-safe-to-spend-service.md) | [#21](https://github.com/dfme/budget-buddy/issues/21) | US-06 | Sprint 4 |
 | `BE-STS-02` | [Einkommens-Heuristik](BE-STS-02-einkommens-heuristik.md) | [#22](https://github.com/dfme/budget-buddy/issues/22) | US-06 | Sprint 4 |
 | `BE-STS-03` | [GET /budget/safe-to-spend](BE-STS-03-safe-to-spend-endpoint.md) | [#23](https://github.com/dfme/budget-buddy/issues/23) | US-06 | Sprint 4 |

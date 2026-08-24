@@ -42,8 +42,12 @@ test.describe('SPA-Deep-Links', () => {
 
   test('GET /api/import/{jobId}/status bleibt geschützt', async ({ request }) => {
     // /import ist Frontend-Route UND API-Prefix-Namensvetter (PdfImportController liegt unter
-    // /api/import). Der geplante Status-Endpoint muss 401 bleiben, nicht vom Catch-all
-    // geschluckt werden — sonst wären Transaktionsdaten ohne Auth lesbar (Risiko #2).
+    // /api/import). Der Status-Endpoint muss 401 bleiben, nicht vom Catch-all geschluckt
+    // werden — sonst wären Transaktionsdaten ohne Auth lesbar (Risiko #2).
+    //
+    // Seit BE-PDF-09 ist der Endpoint real (vorher nahm dieser Test ihn vorweg). Er beantwortet
+    // damit zwei Fragen auf einmal: Der Pfad landet im Controller statt in der SPA, und ohne
+    // Cookie kommt niemand an einen Job-Status.
     const response = await request.get('/api/import/42/status');
 
     expect(response.status(), 'darf nicht 200 mit index.html sein').toBe(401);

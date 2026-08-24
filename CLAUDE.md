@@ -49,20 +49,31 @@
 | Schritt                     | Methode                                  | Begründung                                                                    |
 | --------------------------- | ---------------------------------------- | ----------------------------------------------------------------------------- |
 | 1. Bekannte Händler         | Lookup-Tabelle (Händlername → Kategorie) | Schnell, kostenlos, deterministisch — deckt ~70–80% der Transaktionen ab      |
-| 2. Unbekannte Transaktionen | Claude API (LLM)                         | Flexibel für unbekannte/mehrdeutige Einträge; reduziert API-Calls auf ~20–30% |
+| 2. Unbekannte Transaktionen | Claude API (LLM), gebündelt              | Flexibel für unbekannte/mehrdeutige Einträge; reduziert API-Calls auf ~20–30% |
 | 3. Manuelle Korrekturen     | Lookup-Tabelle wird erweitert            | User-Korrekturen trainieren das System — Lerneffekt ohne Retraining           |
 
 **Fallback-Kategorie:** `Sonstiges` (wenn LLM unsicher oder API nicht erreichbar)
 
+**Bündelung (ADR-14):** Bis zu 20 Transaktionen gehen in *einem* Request hinaus. Die Laufzeit
+eines Calls steckt fast vollständig im Fixkostenanteil pro Request (~1.1s bei ~5 generierten
+Tokens) — einzeln abgefragt kostete ein 108-Zeilen-Auszug ~41 sequentielle Requests und lief ins
+Zeitbudget (#192). Der Prompt ist eine nummerierte Liste; die Kategorienliste steht **nicht**
+darin, sondern als `enum`-Constraint im Structured-Output-Schema, das aus dem `Category`-Enum
+abgeleitet wird. Eine Kategorie ausserhalb der Liste ist damit strukturell ausgeschlossen.
+
 **Beispiel-Prompt an Claude API:**
 
 ```
-Kategorisiere diese Transaktion in genau eine der folgenden Kategorien:
-[Wohnen, Lebensmittel, Transport, Versicherung, Telekom, Gesundheit,
- Freizeit, Restaurant, Shopping, Bildung, Einkommen, Sparen, Sonstiges]
+Kategorisiere diese Transaktionen:
+1. DIGITEC GALAXUS AG 044 913 2323
+2. MIGROS BERN WANKDORF
+```
 
-Transaktion: "DIGITEC GALAXUS AG 044 913 2323"
-Antwort (nur Kategoriename):
+Antwortformat (aus `BatchCategorization` abgeleitet, `category` auf die 13 Konstanten begrenzt):
+
+```json
+{ "categories": [{ "number": 1, "category": "SHOPPING" },
+                 { "number": 2, "category": "LEBENSMITTEL" }] }
 ```
 
 ---
@@ -143,7 +154,7 @@ BudgetBuddy is a web app for students and young professionals living in Switzerl
 - **Categorization model**: `claude-haiku-4-5` — fast, cheap, single-label output. Konfigurierbar via `anthropic.api.model`.
 - **Monthly AI report model**: `claude-sonnet-5` — richer language, called once/user/month
 - **Fallback**: catch `AnthropicException`, return `"Sonstiges"` — Claude unavailability must never block import flow
-- **Circuit Breaker** (BE-CAT-02): Nach 3 fehlgeschlagenen Claude-Calls in Folge werden weitere Transaktionen 60s lang ohne API-Call als `Sonstiges` eingestuft. Der Fallback allein genügt nicht — bei ~20 unbekannten Transaktionen pro Import würde ein API-Ausfall den synchronen Upload sonst minutenlang blockieren.
+- **Circuit Breaker** (BE-CAT-02): Nach 3 fehlgeschlagenen Claude-Calls in Folge werden weitere Bündel 60s lang ohne API-Call als `Sonstiges` eingestuft. Der Fallback allein genügt nicht — ohne Breaker liefe jedes Bündel eines Imports in seinen eigenen Timeout. Seit der Bündelung (ADR-14) zählt der Breaker Bündel statt Einzeltransaktionen und greift damit früher: Ein Ausfall kostet höchstens 3 Timeouts statt 3 pro 20 Transaktionen.
 
 ## Swiss Bank PDF Specifics
 
@@ -367,9 +378,29 @@ Das erlaubt Mock in Tests und Austausch des Modells ohne Refactoring im Rest der
 
 ### Backend: Import Flow
 
-MVP: synchron — der Upload-Endpoint blockiert bis Import und Kategorisierung abgeschlossen sind.
+Zweistufig seit ADR-14 (BE-PDF-09). Der Upgrade-Pfad, den diese Stelle vorher als Option
+beschrieb, ist umgesetzt — ausgelöst durch [#192](https://github.com/dfme/budget-buddy/issues/192):
+Der vorher vollständig synchrone Flow lief bei ~110 Transaktionen reproduzierbar ins
+30-Sekunden-Budget und verwarf dabei den gesamten Import.
 
-Upgrade-Pfad (wenn Wartezeiten zu Churn führen): Spring `@Async` + `ImportJob`-Entity in der Datenbank + Status-Polling `GET /import/{jobId}/status`. Kein Kafka, kein Redis nötig.
+| Phase | Wo | Dauer | Fehler |
+| ----- | -- | ----- | ------ |
+| Hash, Duplikatcheck, Parse, `ImportJob` anlegen | im Request (`PdfImportService`) | ~2s | 400 mit `reason`, 408, 409, 413 |
+| Kategorisierung, Persistierung | `@Async` (`ImportJobRunner`) | Sekunden | Job-Status `FAILED` |
+
+`POST /api/import/pdf` antwortet mit `202 Accepted` und `{jobId, total}`;
+`GET /api/import/{jobId}/status` liefert `{status, total, processed, degraded}`. Das Frontend
+pollt und zeigt `processed`/`total` als Fortschrittsbalken. Kein Kafka, kein Redis — ein
+begrenzter `ThreadPoolTaskExecutor` (`AsyncConfig`) genügt.
+
+Regel: Der Schnitt liegt **nach** dem Parsen. Nur der lange Teil gehört in den Hintergrund; alle
+Fehler des Parsens bleiben gewöhnliche HTTP-Fehler, die der Nutzer sofort erfährt.
+
+**Zwei Zeitbudgets:** `budgetbuddy.import.timeout-seconds` (30) gilt nur noch fürs Parsen —
+überschritten → 408, kein Job angelegt. `budgetbuddy.import.categorization-timeout-seconds` (300)
+ist der Watchdog des Hintergrundlaufs; überschritten wird **nicht** abgebrochen, sondern der Rest
+ohne Claude-Call als `Sonstiges` gespeichert (`degraded = true`). Ein Import geht nie mehr
+verloren.
 
 ### Sicherheit: Keine Secrets im Git
 
@@ -391,6 +422,8 @@ Alle Calls zu Claude API und PDFBox müssen einen Timeout haben und bei Fehler a
 ```
 
 Ein fehlgeschlagener Claude-Call darf nie den gesamten Import-Flow blockieren (Churn-Risiko #1).
+Dasselbe gilt seit ADR-14 für ein aufgebrauchtes Zeitbudget: Der Rest fällt auf `Sonstiges`, der
+Import wird trotzdem vollständig gespeichert.
 
 ### Testing: Frameworks
 
@@ -422,12 +455,12 @@ Browser (Lara, Marc)
 │  API Application  [Spring Boot 3.5 / Java 25, JAR]  │     │  Anthropic Claude  │
 │                                                     │     │   [Ext. System]    │
 │  auth/         JWT HS256, bcrypt, httpOnly Cookie   │     └────────▲───────────┘
-│  transaction/  PDF-Upload → sync, Timeout+Fallback  │             │
+│  transaction/  PDF-Upload → Parse sync, Kat. async  │             │
 │  categorization/ Lookup → CategorizationPort        │─────────────┘
 │  budget/       Safe-to-Spend, Sparziele             │  HTTPS / Anthropic Java SDK
 │  report/       KI-Monatsbericht (Sonnet 4, 1×/Monat)│  Haiku: Kategorisierung
 │                                                     │  Sonnet: Monatsbericht
-│  ImportJob-Status: GET /import/{jobId}/status       │
+│  ImportJob-Status: GET /api/import/{jobId}/status   │
 └──────────────────┬──────────────────────────────────┘
                    │ JDBC über TLS · JPA/Hibernate
                    │ BigDecimal für alle CHF-Beträge
@@ -435,8 +468,8 @@ Browser (Lara, Marc)
 ┌─────────────────────────────────────────────────────┐
 │  Database  [PostgreSQL 18 + Flyway]                 │
 │  Neon, Frankfurt/EU — ausserhalb von Render         │
-│  users · transactions · fixed_costs ·               │
-│  savings_goals · category_lookup · import_jobs      │
+│  users · transactions · fixed_costs · import_jobs · │
+│  savings_goals · category_lookup                    │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -473,6 +506,7 @@ Vollständige ADRs: [docs/adr/README.md](docs/adr/README.md)
 | [ADR-11](docs/adr/ADR-11-ui-design-system.md)          | UI-Design-Richtung «Klarheit» (Variante A); Komponenten-Unterbau offen bis FE-UI-02 | Variante B (0 Stimmen), Variante C «Ledger» (starker Zweiter, Elemente übernehmbar) |
 | [ADR-12](docs/adr/ADR-12-datenpersistenz-produktion.md) | PostgreSQL 18 bei Neon (Frankfurt/EU, Free); supersedet ADR-5                       | SQLite auf Persistent Disk ($7.25/Mt), Render Postgres Free (läuft nach 30 Tagen ab), Supabase (pausiert nach 7 Tagen) |
 | [ADR-13](docs/adr/ADR-13-fixkosten-transaktions-zuordnung.md) | Fixkosten-Doppelabzug: betragsbasiertes 1:1-Matching zur Berechnungszeit, kein Schemawechsel | Explizite Verknüpfung `transactions.fixed_cost_id` (Upgrade-Pfad, braucht #159), anteiliger Abzug (löst «genau einmal» nicht), Fixkosten nur aus PDF ableiten (streicht US-03), ganze Kategorien ausnehmen (zu grob) |
+| [ADR-14](docs/adr/ADR-14-asynchroner-pdf-import.md)    | Parse synchron, Kategorisierung als `@Async`-Job mit Fortschritts-Polling; 20 Transaktionen pro Claude-Call | Timeout-Anhebung (verlagert nur den Churn), parallele Einzel-Calls (Rate-Limits, Breaker-Semantik), Message-Batches-API (bis 24h), Prompt Caching (Prefix zu kurz) |
 
 ## Project Skills
 

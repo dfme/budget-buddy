@@ -1,13 +1,22 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { Button } from '../shared/button/button';
 import { Card } from '../shared/card/card';
+import { Meter } from '../shared/meter/meter';
 import { Modal } from '../shared/modal/modal';
 import { Notice } from '../shared/notice/notice';
 import { ImportErrorResponse } from './import-error.model';
-import { PdfImportService } from './pdf-import.service';
+import { ImportJobStatusResponse } from './import-response.model';
+import { ImportPollTimeoutError, PdfImportService } from './pdf-import.service';
 
 /** Serverseitiges Upload-Limit aus BE-PDF-03 — client-seitig vorab geprüft (US-04). */
 const MAX_PDF_BYTES = 10 * 1024 * 1024;
@@ -18,18 +27,53 @@ const MAX_PDF_BYTES = 10 * 1024 * 1024;
  */
 const DUPLICATE_MESSAGE = 'Dieser Kontoauszug wurde bereits importiert.';
 
+/**
+ * Meldung für einen Import, der serverseitig ins Zeitbudget lief. Er ist trotzdem vollständig
+ * gespeichert — nur ein Teil hat keine automatische Kategorie bekommen (BE-PDF-09).
+ */
+const DEGRADED_HINT =
+  ' Ein Teil davon konnte nicht automatisch kategorisiert werden und steht unter «Sonstiges» —' +
+  ' du kannst die Kategorien von Hand korrigieren.';
+
+/** Meldung, wenn der Hintergrundlauf selbst gescheitert ist. */
+const JOB_FAILED_MESSAGE = 'Der Import ist fehlgeschlagen — bitte versuche es erneut.';
+
+/**
+ * Die Statusabfrage hat aufgegeben, ohne einen Endzustand gesehen zu haben.
+ *
+ * <p>Bewusst weder Erfolg noch Fehlschlag: Der Import kann durchgelaufen sein, während nur die
+ * Anzeige den Anschluss verloren hat. «Erneut versuchen» wäre hier der falsche Rat — er
+ * erzeugte womöglich eine Dublette. Der Reload zeigt den tatsächlichen Stand.
+ */
+const POLL_TIMEOUT_MESSAGE =
+  'Der Import läuft ungewöhnlich lange — der Status ist unbekannt. Bitte lade die Seite neu, ' +
+  'um zu sehen, ob er durchgelaufen ist.';
+
 /** Ausgang des letzten Uploads — Erfolg mit Anzahl oder Fehler mit fertiger Nutzermeldung. */
 export type ImportOutcome =
-  | { kind: 'success'; count: number }
+  | { kind: 'success'; count: number; degraded: boolean }
   | { kind: 'error'; message: string };
+
+/** Stand des laufenden Imports, wie ihn der Fortschrittsbalken anzeigt. */
+export interface ImportProgress {
+  processed: number;
+  total: number;
+}
 
 /**
  * PDF-Upload für den Kontoauszug-Import (FE-PDF-01/FE-PDF-02/FE-PDF-03, US-04).
  *
  * <p>Dropzone mit Drag-and-Drop plus File-Picker als tastaturbedienbare
  * Alternative. Vor dem Upload wird client-seitig validiert (nur `.pdf`,
- * max. 10 MB); während `POST /api/import/pdf` läuft, zeigt die Dropzone einen
- * Spinner und nimmt keine weiteren Dateien an.
+ * max. 10 MB); während der Import läuft, zeigt die Dropzone den Fortschritt
+ * und nimmt keine weiteren Dateien an.
+ *
+ * <p><strong>Zweistufig seit BE-PDF-09 / ADR-14:</strong> `POST /api/import/pdf`
+ * parst das PDF und kehrt mit einer Job-ID zurück; die Kategorisierung läuft
+ * serverseitig weiter. Die Komponente pollt danach
+ * `GET /api/import/{jobId}/status` und zeigt `processed`/`total` als Balken.
+ * Vorher blockierte der Upload bis zu 30 Sekunden ohne jede Rückmeldung und
+ * verwarf danach den ganzen Import (#192).
  *
  * <p>Der Ausgang landet differenziert in {@link importOutcome}: Erfolg trägt
  * die Anzahl importierter Transaktionen, Fehler eine bereits formulierte
@@ -43,7 +87,7 @@ export type ImportOutcome =
  */
 @Component({
   selector: 'app-pdf-upload',
-  imports: [Button, Card, Modal, Notice],
+  imports: [Button, Card, Meter, Modal, Notice],
   templateUrl: './pdf-upload.html',
   styleUrl: './pdf-upload.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -52,8 +96,25 @@ export class PdfUpload {
   private readonly importService = inject(PdfImportService);
   private readonly destroyRef = inject(DestroyRef);
 
-  /** `true`, solange der Upload läuft — zeigt den Spinner und sperrt die Dropzone. */
+  /** `true`, solange Upload oder Kategorisierung laufen — sperrt die Dropzone. */
   readonly uploading = signal(false);
+
+  /**
+   * Stand des laufenden Imports oder `null`, solange das PDF noch geparst wird.
+   *
+   * <p>Der Nenner steht ab der Upload-Antwort fest; bis dahin gibt es keine Zahl anzuzeigen und
+   * die Dropzone zeigt nur den Spinner.
+   */
+  readonly progress = signal<ImportProgress | null>(null);
+
+  /** Fortschritt in Prozent für den Balken; 0, solange kein Nenner bekannt ist. */
+  readonly progressPercent = computed(() => {
+    const current = this.progress();
+    if (!current || current.total === 0) {
+      return 0;
+    }
+    return Math.round((current.processed / current.total) * 100);
+  });
 
   /** Client-seitige Validierungsmeldung oder `null`. */
   readonly errorMessage = signal<string | null>(null);
@@ -116,6 +177,7 @@ export class PdfUpload {
   private selectFile(files: File[]): void {
     this.errorMessage.set(null);
     this.importOutcome.set(null);
+    this.progress.set(null);
     this.duplicateFile.set(null);
 
     const file = files[0];
@@ -139,16 +201,24 @@ export class PdfUpload {
 
   private upload(file: File, force = false): void {
     this.uploading.set(true);
+    this.progress.set(null);
     this.importService
       .importPdf(file, force)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: (response) => {
-          this.uploading.set(false);
-          this.importOutcome.set({ kind: 'success', count: response.count });
+        next: (started) => {
+          // Ab hier ist das PDF gelesen und die Anzahl bekannt — der Balken hat seinen Nenner.
+          this.progress.set({ processed: 0, total: started.total });
+          if (started.total === 0) {
+            // Erkannter Auszug ohne Buchungen (BE-PDF-05): Es gibt keinen Lauf zu verfolgen.
+            this.finish({ kind: 'success', count: 0, degraded: false });
+            return;
+          }
+          this.trackJob(started.jobId);
         },
         error: (error: unknown) => {
           this.uploading.set(false);
+          this.progress.set(null);
           // Das Duplikat ist kein Endzustand, sondern eine Rückfrage: statt einer Meldung
           // öffnet es den Dialog. Nur im Force-Lauf kann es das nicht mehr sein — dort ist der
           // Duplikatcheck übersprungen, ein 409 also gar nicht möglich.
@@ -161,6 +231,40 @@ export class PdfUpload {
       });
   }
 
+  /** Verfolgt den Hintergrundlauf bis zum Endzustand und schreibt den Fortschritt fort. */
+  private trackJob(jobId: number): void {
+    this.importService
+      .pollJob(jobId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (status: ImportJobStatusResponse) => {
+          this.progress.set({ processed: status.processed, total: status.total });
+          if (status.status === 'DONE') {
+            this.finish({ kind: 'success', count: status.total, degraded: status.degraded });
+          } else if (status.status === 'FAILED') {
+            this.finish({ kind: 'error', message: JOB_FAILED_MESSAGE });
+          }
+        },
+        // Bricht die Statusabfrage selbst ab (Netzwerk, 404), ist der Ausgang des Imports
+        // unbekannt. Ihn als Erfolg zu melden wäre die schlechtere Lüge: Der Nutzer prüft dann
+        // nicht nach.
+        error: (error: unknown) =>
+          this.finish({
+            kind: 'error',
+            message:
+              error instanceof ImportPollTimeoutError
+                ? POLL_TIMEOUT_MESSAGE
+                : PdfUpload.importErrorMessage(error),
+          }),
+      });
+  }
+
+  private finish(outcome: ImportOutcome): void {
+    this.uploading.set(false);
+    this.progress.set(null);
+    this.importOutcome.set(outcome);
+  }
+
   /**
    * Erfolgsmeldung mit Anzahl — «42 Transaktionen erkannt», Singular bei genau einer.
    *
@@ -168,14 +272,23 @@ export class PdfUpload {
    * eine eigene Formulierung: ein blosses «0 Transaktionen erkannt.» liesse offen, ob das
    * Konto ohne Bewegung war oder das falsche PDF hochgeladen wurde.
    */
-  successMessage(count: number): string {
-    if (count === 0) {
+  successMessage(outcome: { count: number; degraded: boolean }): string {
+    if (outcome.count === 0) {
       return (
         'Keine Transaktionen erkannt. Der Kontoauszug wurde gelesen, enthält aber keine ' +
         'Buchungen — falls du Bewegungen erwartest, prüfe, ob es das richtige PDF ist.'
       );
     }
-    return count === 1 ? '1 Transaktion erkannt.' : `${count} Transaktionen erkannt.`;
+    const base =
+      outcome.count === 1 ? '1 Transaktion erkannt.' : `${outcome.count} Transaktionen erkannt.`;
+    // Der Import ist auch im degradierten Fall vollständig gespeichert — die Meldung bleibt
+    // deshalb eine Erfolgsmeldung und wird nur ergänzt (BE-PDF-09, AC2).
+    return outcome.degraded ? base + DEGRADED_HINT : base;
+  }
+
+  /** Begleittext zum Balken: «45 von 108 Transaktionen kategorisiert». */
+  progressLabel(current: ImportProgress): string {
+    return `${current.processed} von ${current.total} Transaktionen kategorisiert`;
   }
 
   /**
