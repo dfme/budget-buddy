@@ -1,12 +1,14 @@
 package com.budgetbuddy.auth;
 
+import com.budgetbuddy.auth.dto.IncomeErrorResponse;
 import com.budgetbuddy.auth.dto.UpdateIncomeRequest;
 import com.budgetbuddy.auth.dto.UserProfileResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -46,14 +48,22 @@ public class UserController {
 
     @PutMapping("/income")
     @Operation(summary = "Monatliches Einkommen aktualisieren",
-            description = "Setzt monthlyIncome. Der Betrag muss grösser als 0 sein.")
+            description = "Setzt monthlyIncome. Der Betrag muss grösser als 0 sein, darf höchstens "
+                    + "zwei Nachkommastellen tragen und 99'999'999.99 nicht überschreiten — die "
+                    + "Kapazität von DECIMAL(10,2). Ein Wert mit mehr Nachkommastellen wird "
+                    + "abgelehnt und nicht still gerundet (BE-AUTH-08); wertgleiche Schreibweisen "
+                    + "wie 100.000 sind gültig.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Einkommen aktualisiert"),
-        @ApiResponse(responseCode = "400", description = "betrag fehlt oder ist <= 0", content = {}),
+        @ApiResponse(responseCode = "400",
+                description = "betrag fehlt, ist <= 0, hat mehr als zwei Nachkommastellen, "
+                        + "überschreitet 99'999'999.99 oder hat den falschen Typ; der Body nennt "
+                        + "das Feld und die verletzte Regel",
+                content = @Content(schema = @Schema(implementation = IncomeErrorResponse.class))),
         @ApiResponse(responseCode = "401", description = "Nicht authentifiziert", content = {})
     })
     public UserProfileResponse updateIncome(
-            @AuthenticationPrincipal Long userId, @Valid @RequestBody UpdateIncomeRequest request) {
+            @AuthenticationPrincipal Long userId, @RequestBody UpdateIncomeRequest request) {
         return userService.updateIncome(userId, request.betrag());
     }
 

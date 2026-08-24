@@ -25,6 +25,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `BE-AUTH-04` | [BE-AUTH-04 — ADR-Auth-Doku korrigieren (httpOnly-Cookie statt Bearer/Interceptor)](BE-AUTH-04-adr-auth-doku.md) | [#103](https://github.com/dfme/budget-buddy/issues/103) | — | Sprint 3 |
 | `BE-AUTH-06` | [BE-AUTH-06 — «Kein manueller Interceptor»-Vereinfachung präzisieren](BE-AUTH-06-interceptor-doku-praezisieren.md) | [#115](https://github.com/dfme/budget-buddy/issues/115) | — | Sprint 3 |
 | `BE-AUTH-07` | [BE-AUTH-07 — Interceptor-Beschreibung nur in ADR-2 führen](BE-AUTH-07-interceptor-single-source.md) | [#117](https://github.com/dfme/budget-buddy/issues/117) | — | Sprint 3 |
+| `BE-AUTH-08` | [monthly_income auf Rappen und Kapazität prüfen](BE-AUTH-08-income-rappen-validierung.md) | [#148](https://github.com/dfme/budget-buddy/issues/148) | — | Sprint 5 |
 | `BE-CAT-01` | [CategorizationPort Interface und LookupTableService](BE-CAT-01-categorization-port.md) | [#14](https://github.com/dfme/budget-buddy/issues/14) | US-05 | Sprint 2 |
 | `BE-CAT-02` | [ClaudeCategorizationService](BE-CAT-02-claude-categorization.md) | [#15](https://github.com/dfme/budget-buddy/issues/15) | US-05 | Sprint 2 |
 | `BE-CAT-03` | [HybridCategorizationService](BE-CAT-03-hybrid-categorization.md) | [#16](https://github.com/dfme/budget-buddy/issues/16) | US-05 | Sprint 3 |

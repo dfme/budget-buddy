@@ -68,8 +68,20 @@ export class AuthService {
    * {@link completeOnboarding} in den State geschrieben. Ohne das bliebe dort der alte
    * Wert (`null`) stehen, während das Backend längst ein Einkommen kennt.
    *
-   * <p>Das Backend validiert `betrag` als `@NotNull @Positive` und antwortet auf 0 oder
-   * negative Beträge mit 400 (`UpdateIncomeRequest`).
+   * <p>Das Backend prüft `betrag` seit BE-AUTH-08 im `UserService` (nicht mehr per
+   * Bean-Validation am DTO) gegen vier Regeln und antwortet bei jeder Verletzung mit 400 und
+   * dem Body `{ field: 'betrag', message: string }`:
+   *
+   * <ul>
+   *   <li>vorhanden — `null` wird abgelehnt
+   *   <li>`> 0`
+   *   <li>höchstens zwei Nachkommastellen; angehängte Nullen zählen nicht (`100.000` gilt)
+   *   <li>maximal `99'999'999.99` — die Kapazität von `numeric(10,2)`
+   * </ul>
+   *
+   * <p>Ein nicht lesbarer Body (etwa `"12,50"` aus einem Formular mit Komma) liefert denselben
+   * Body, ebenfalls mit `field: 'betrag'`. Wer hier ein Eingabefeld anbaut (US-14), kann die
+   * `message` also direkt anzeigen, statt eine generische Meldung zu erfinden.
    */
   updateIncome(betrag: number): Observable<User> {
     return this.http
