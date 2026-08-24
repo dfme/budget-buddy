@@ -14,13 +14,20 @@ import com.anthropic.errors.AnthropicException;
 import com.anthropic.models.messages.Message;
 import com.anthropic.models.messages.MessageCreateParams;
 import com.anthropic.models.messages.StopReason;
+import com.anthropic.models.messages.StructuredMessage;
+import com.anthropic.models.messages.StructuredMessageCreateParams;
 import com.anthropic.models.messages.TextBlock;
 import com.anthropic.models.messages.Usage;
 import com.anthropic.services.blocking.MessageService;
+import com.budgetbuddy.categorization.ClaudeCategorizationService.BatchCategorization;
 import java.time.Clock;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,11 +38,17 @@ import org.springframework.beans.factory.ObjectProvider;
 
 /**
  * Unit-Test der {@link ClaudeCategorizationService}-Logik mit gemocktem Anthropic-Client:
- * Mapping der Claude-Antwort auf {@link Category}, Fallback auf {@code Sonstiges} bei allen
- * Fehlerpfaden, sowie das Circuit-Breaker-Verhalten.
+ * Bündelung mehrerer Transaktionen pro Request (ADR-14), Mapping der Antwort auf
+ * {@link Category}, Fallback auf {@code Sonstiges} bei allen Fehlerpfaden, sowie das
+ * Circuit-Breaker-Verhalten.
  *
  * <p>Bewusst kein Integrationstest gegen die echte API: der bräuchte einen gültigen Key, wäre in
  * CI nicht reproduzierbar und würde pro Lauf Kosten verursachen.
+ *
+ * <p>Der Mock antwortet mit echtem Structured-Output-JSON in einem echten {@link Message}, das
+ * über den öffentlichen {@link StructuredMessage}-Konstruktor typisiert wird. Damit läuft die
+ * Deserialisierung des SDK im Test wirklich mit — ein Feldname, der nicht zu
+ * {@link BatchCategorization} passt, fällt hier auf und nicht erst in Produktion.
  */
 @ExtendWith(MockitoExtension.class)
 class ClaudeCategorizationServiceTest {
@@ -67,7 +80,7 @@ class ClaudeCategorizationServiceTest {
 
     @Test
     void mapsClaudeResponseToCategory() {
-        respondWith("Lebensmittel");
+        respondWith(Category.LEBENSMITTEL);
 
         Optional<CategorizationResult> result = service.categorize("MIGROS BERN");
 
@@ -92,15 +105,6 @@ class ClaudeCategorizationServiceTest {
     }
 
     @Test
-    void fallsBackToSonstigesWhenClaudeReturnsUnknownCategory() {
-        respondWith("Kryptowährung");
-
-        Optional<CategorizationResult> result = service.categorize(TRANSACTION);
-
-        assertThat(result).contains(claude(Category.SONSTIGES));
-    }
-
-    @Test
     void fallsBackToSonstigesWhenNoApiKeyConfigured() {
         when(clientProvider.getIfAvailable()).thenReturn(null);
 
@@ -112,32 +116,139 @@ class ClaudeCategorizationServiceTest {
         verifyNoInteractions(messageService);
     }
 
-    /**
-     * Der Prompt muss alle Kategorien enthalten (Acceptance Criteria). Geprüft wird gegen
-     * {@link Category#values()} statt gegen eine Literal-Liste — so schlägt der Test auch an, wenn
-     * später eine Kategorie ergänzt und der Prompt nicht nachgezogen wird.
-     */
-    @Test
-    void promptContainsAllCategories() {
-        respondWith("Shopping");
-
-        service.categorize(TRANSACTION);
-
-        String prompt = capturedUserPrompt();
-
-        assertThat(Category.values()).hasSize(13);
-        assertThat(prompt).contains(TRANSACTION);
-        Arrays.stream(Category.values())
-                .forEach(category -> assertThat(prompt).contains(category.getLabel()));
-    }
-
     @Test
     void usesConfiguredModel() {
-        respondWith("Shopping");
+        respondWith(Category.SHOPPING);
 
         service.categorize(TRANSACTION);
 
         assertThat(captureParams().model().asString()).isEqualTo("claude-haiku-4-5");
+    }
+
+    // --- Bündelung (ADR-14) ---
+
+    /**
+     * Der Kern von ADR-14: Mehrere Transaktionen kosten <em>einen</em> Request. Vor BE-PDF-09 war
+     * es einer pro Transaktion — bei 108 Transaktionen der Unterschied zwischen einem
+     * funktionierenden und einem scheiternden Import (#192).
+     */
+    @Test
+    void categorizesMultipleTransactionsInASingleRequest() {
+        respondWith(Category.LEBENSMITTEL, Category.TRANSPORT, Category.RESTAURANT);
+
+        List<Optional<CategorizationResult>> results =
+                service.categorizeAll(List.of("MIGROS", "SBB", "PIZZERIA"));
+
+        assertThat(results).containsExactly(
+                Optional.of(claude(Category.LEBENSMITTEL)),
+                Optional.of(claude(Category.TRANSPORT)),
+                Optional.of(claude(Category.RESTAURANT)));
+        verify(messageService, times(1)).create(any(StructuredMessageCreateParams.class));
+    }
+
+    /**
+     * Ein fehlgeschlagener Call kostet immer ein ganzes Bündel. Deshalb geht nicht alles in einen
+     * Request, sondern in Portionen von {@link ClaudeCategorizationService#MAX_BATCH_SIZE}.
+     */
+    @Test
+    void splitsLargeInputIntoBatches() {
+        int count = ClaudeCategorizationService.MAX_BATCH_SIZE * 2 + 1;
+        respondWithSonstigesForEveryNumber();
+
+        service.categorizeAll(texts(count));
+
+        verify(messageService, times(3)).create(any(StructuredMessageCreateParams.class));
+    }
+
+    /**
+     * Die Rückgabe muss positionsgleich zur Eingabe sein — daran hängt im Import die Zuordnung
+     * von Kategorie zu Buchung. Der leere Text in der Mitte ist der interessante Fall: Er geht
+     * nicht ins Bündel und darf die Nummerierung der übrigen nicht verschieben.
+     */
+    @Test
+    void resultsStayAlignedWithInputWhenABlankTextIsSkipped() {
+        respondWith(Category.LEBENSMITTEL, Category.TRANSPORT);
+
+        List<Optional<CategorizationResult>> results =
+                service.categorizeAll(Arrays.asList("MIGROS", "   ", "SBB"));
+
+        assertThat(results).containsExactly(
+                Optional.of(claude(Category.LEBENSMITTEL)),
+                Optional.empty(),
+                Optional.of(claude(Category.TRANSPORT)));
+        assertThat(capturedUserPrompt()).contains("1. MIGROS").contains("2. SBB");
+    }
+
+    /**
+     * Der Preis der Bündelung wird so klein wie möglich gehalten: Eine unvollständige Antwort
+     * kostet genau die fehlenden Transaktionen, nicht das ganze Bündel.
+     */
+    @Test
+    void missingNumberInResponseFallsBackToSonstigesForThatTransactionOnly() {
+        respondWithJson("""
+                {"categories":[{"number":1,"category":"LEBENSMITTEL"},\
+                {"number":3,"category":"RESTAURANT"}]}""");
+
+        List<Optional<CategorizationResult>> results =
+                service.categorizeAll(List.of("MIGROS", "UNBEKANNT", "PIZZERIA"));
+
+        assertThat(results).containsExactly(
+                Optional.of(claude(Category.LEBENSMITTEL)),
+                Optional.of(claude(Category.SONSTIGES)),
+                Optional.of(claude(Category.RESTAURANT)));
+    }
+
+    /** Eine Nummer ausserhalb des Bündels wird ignoriert und darf nichts überschreiben. */
+    @Test
+    void outOfRangeNumberIsIgnored() {
+        respondWithJson("""
+                {"categories":[{"number":99,"category":"SHOPPING"},\
+                {"number":1,"category":"LEBENSMITTEL"}]}""");
+
+        assertThat(service.categorizeAll(List.of("MIGROS")))
+                .containsExactly(Optional.of(claude(Category.LEBENSMITTEL)));
+    }
+
+    /** Abgeschnittenes oder unerwartetes JSON darf keine Exception nach aussen lassen. */
+    @Test
+    void unreadableResponseFallsBackToSonstigesForTheWholeBatch() {
+        respondWithJson("{\"categories\":[{\"number\":1,\"cat");
+
+        assertThat(service.categorizeAll(List.of("MIGROS", "SBB"))).containsExactly(
+                Optional.of(claude(Category.SONSTIGES)),
+                Optional.of(claude(Category.SONSTIGES)));
+    }
+
+    /**
+     * Die Kategorienliste steht seit ADR-14 im Schema statt im Prompt — geprüft wird sie deshalb
+     * dort. Gegen {@link Category#values()} statt gegen eine Literal-Liste, damit der Test auch
+     * anschlägt, wenn später eine Kategorie ergänzt wird und das Schema nicht nachzieht. Das ist
+     * strenger als die frühere Prompt-Prüfung: Was im Schema steht, ist für das Modell nicht
+     * bloss eine Bitte, sondern die einzige Menge, aus der es wählen kann.
+     */
+    @Test
+    void schemaContainsAllCategories() {
+        respondWith(Category.SHOPPING);
+
+        service.categorize(TRANSACTION);
+
+        // toString() statt Feldnavigation: Das Schema liegt im SDK als verschachtelte
+        // JsonValue-Map, und geprüft wird ohnehin nur, dass jedes Label darin vorkommt.
+        String schema = captureParams().outputConfig().orElseThrow().toString();
+
+        assertThat(Category.values()).hasSize(13);
+        Arrays.stream(Category.values())
+                .forEach(category -> assertThat(schema).contains(category.name()));
+    }
+
+    /** Der Transaktionstext muss nummeriert im Prompt stehen — daran hängt die Zuordnung. */
+    @Test
+    void promptContainsNumberedTransactionTexts() {
+        respondWith(Category.SHOPPING);
+
+        service.categorize(TRANSACTION);
+
+        assertThat(capturedUserPrompt()).contains("1. " + TRANSACTION);
     }
 
     // --- Circuit Breaker ---
@@ -150,7 +261,7 @@ class ClaudeCategorizationServiceTest {
             assertThat(service.categorize(TRANSACTION)).contains(claude(Category.SONSTIGES));
         }
         verify(messageService, times(ClaudeCategorizationService.FAILURE_THRESHOLD))
-                .create(any(MessageCreateParams.class));
+                .create(any(StructuredMessageCreateParams.class));
 
         // Ab jetzt darf kein Call mehr rausgehen — der Rest des Imports fällt sofort durch, und
         // zwar als CLAUDE_SKIPPED: ohne Request kostet er auch keine Latenz (Review PR #174).
@@ -158,7 +269,30 @@ class ClaudeCategorizationServiceTest {
         assertThat(service.categorize(TRANSACTION)).contains(skipped());
 
         verify(messageService, times(ClaudeCategorizationService.FAILURE_THRESHOLD))
-                .create(any(MessageCreateParams.class));
+                .create(any(StructuredMessageCreateParams.class));
+    }
+
+    /**
+     * Der Breaker greift auch mitten in einem grossen {@code categorizeAll}: Nach drei
+     * fehlgeschlagenen Bündeln geht für den Rest kein Request mehr hinaus. Genau dafür ist er da
+     * — bei 108 Transaktionen wären es sonst sechs Timeouts hintereinander.
+     */
+    @Test
+    void breakerOpensMidRunAndSkipsRemainingBatches() {
+        failWith(new AnthropicException("API down", null));
+        int batches = ClaudeCategorizationService.FAILURE_THRESHOLD + 2;
+
+        List<Optional<CategorizationResult>> results =
+                service.categorizeAll(texts(ClaudeCategorizationService.MAX_BATCH_SIZE * batches));
+
+        verify(messageService, times(ClaudeCategorizationService.FAILURE_THRESHOLD))
+                .create(any(StructuredMessageCreateParams.class));
+        // Die ersten drei Bündel haben Claude erreicht (CLAUDE), die restlichen nicht
+        // (CLAUDE_SKIPPED) — kategorisiert ist trotzdem alles.
+        assertThat(results).hasSize(ClaudeCategorizationService.MAX_BATCH_SIZE * batches);
+        assertThat(results).allMatch(r -> r.orElseThrow().category() == Category.SONSTIGES);
+        assertThat(results.get(0)).contains(claude(Category.SONSTIGES));
+        assertThat(results.get(results.size() - 1)).contains(skipped());
     }
 
     @Test
@@ -167,7 +301,7 @@ class ClaudeCategorizationServiceTest {
         service.categorize(TRANSACTION);
         service.categorize(TRANSACTION);
 
-        respondWith("Lebensmittel");
+        respondWith(Category.LEBENSMITTEL);
         assertThat(service.categorize("MIGROS BERN")).contains(claude(Category.LEBENSMITTEL));
 
         // Zähler steht wieder auf 0: zwei weitere Fehler dürfen den Breaker noch nicht öffnen.
@@ -175,7 +309,7 @@ class ClaudeCategorizationServiceTest {
         service.categorize(TRANSACTION);
         service.categorize(TRANSACTION);
 
-        respondWith("Transport");
+        respondWith(Category.TRANSPORT);
         assertThat(service.categorize("SBB TICKET")).contains(claude(Category.TRANSPORT));
     }
 
@@ -190,15 +324,15 @@ class ClaudeCategorizationServiceTest {
         when(clock.millis()).thenReturn(ClaudeCategorizationService.COOLDOWN.toMillis() - 1);
         service.categorize(TRANSACTION);
         verify(messageService, times(ClaudeCategorizationService.FAILURE_THRESHOLD))
-                .create(any(MessageCreateParams.class));
+                .create(any(StructuredMessageCreateParams.class));
 
         // Cooldown abgelaufen → Trial-Call geht raus und schliesst den Breaker.
         when(clock.millis()).thenReturn(ClaudeCategorizationService.COOLDOWN.toMillis() + 1);
-        respondWith("Lebensmittel");
+        respondWith(Category.LEBENSMITTEL);
 
         assertThat(service.categorize("MIGROS BERN")).contains(claude(Category.LEBENSMITTEL));
         verify(messageService, times(ClaudeCategorizationService.FAILURE_THRESHOLD + 1))
-                .create(any(MessageCreateParams.class));
+                .create(any(StructuredMessageCreateParams.class));
     }
 
     /**
@@ -218,22 +352,22 @@ class ClaudeCategorizationServiceTest {
         assertThat(service.categorize(TRANSACTION)).contains(claude(Category.SONSTIGES));
 
         int callsSoFar = ClaudeCategorizationService.FAILURE_THRESHOLD + 1;
-        verify(messageService, times(callsSoFar)).create(any(MessageCreateParams.class));
+        verify(messageService, times(callsSoFar)).create(any(StructuredMessageCreateParams.class));
 
         // Breaker muss wieder zu sein: keine weiteren Calls bis zum nächsten Cooldown-Ende.
         service.categorize(TRANSACTION);
         service.categorize(TRANSACTION);
-        verify(messageService, times(callsSoFar)).create(any(MessageCreateParams.class));
+        verify(messageService, times(callsSoFar)).create(any(StructuredMessageCreateParams.class));
     }
 
     /**
-     * Eine halluzinierte Kategorie ist eine erfolgreiche API-Antwort — kein Infrastruktur-Problem.
+     * Eine unlesbare Antwort ist eine erfolgreiche API-Antwort — kein Infrastruktur-Problem.
      * Würde sie den Breaker öffnen, könnte ein paar Mal danebenliegendes Modell den ganzen
      * restlichen Import auf {@code Sonstiges} kippen, obwohl Claude einwandfrei antwortet.
      */
     @Test
-    void hallucinatedCategoryDoesNotOpenBreaker() {
-        respondWith("Kryptowährung");
+    void unreadableResponseDoesNotOpenBreaker() {
+        respondWithJson("kein JSON");
 
         for (int i = 0; i < ClaudeCategorizationService.FAILURE_THRESHOLD + 2; i++) {
             assertThat(service.categorize(TRANSACTION)).contains(claude(Category.SONSTIGES));
@@ -241,7 +375,7 @@ class ClaudeCategorizationServiceTest {
 
         // Jeder Aufruf hat Claude erreicht — der Breaker ist nie eingesprungen.
         verify(messageService, times(ClaudeCategorizationService.FAILURE_THRESHOLD + 2))
-                .create(any(MessageCreateParams.class));
+                .create(any(StructuredMessageCreateParams.class));
     }
 
     // --- Helpers ---
@@ -256,11 +390,16 @@ class ClaudeCategorizationServiceTest {
                 Category.SONSTIGES, CategorizationResult.Source.CLAUDE_SKIPPED);
     }
 
+    private static List<String> texts(int count) {
+        return IntStream.range(0, count).mapToObj(i -> "Unbekannter Händler " + i).toList();
+    }
+
+    @SuppressWarnings("unchecked")
     private MessageCreateParams captureParams() {
-        ArgumentCaptor<MessageCreateParams> captor =
-                ArgumentCaptor.forClass(MessageCreateParams.class);
+        ArgumentCaptor<StructuredMessageCreateParams<BatchCategorization>> captor =
+                ArgumentCaptor.forClass(StructuredMessageCreateParams.class);
         verify(messageService).create(captor.capture());
-        return captor.getValue();
+        return captor.getValue().rawParams();
     }
 
     /** Liest den User-Prompt aus den erfassten Params — gezielt statt via {@code toString()}. */
@@ -268,13 +407,36 @@ class ClaudeCategorizationServiceTest {
         return captureParams().messages().get(0).content().string().orElseThrow();
     }
 
-    private void respondWith(String categoryLabel) {
-        when(messageService.create(any(MessageCreateParams.class)))
-                .thenReturn(messageWithText(categoryLabel));
+    /** Antwortet mit einer Kategorie pro übergebener Konstante, in dieser Reihenfolge. */
+    private void respondWith(Category... categories) {
+        String entries =
+                IntStream.range(0, categories.length)
+                        .mapToObj(i -> "{\"number\":%d,\"category\":\"%s\"}"
+                                .formatted(i + 1, categories[i].name()))
+                        .collect(Collectors.joining(","));
+        respondWithJson("{\"categories\":[" + entries + "]}");
+    }
+
+    /**
+     * Antwortet auf jeden Call mit {@code Sonstiges} für die Nummern 1 bis
+     * {@link ClaudeCategorizationService#MAX_BATCH_SIZE} — genug für jedes volle Bündel.
+     */
+    private void respondWithSonstigesForEveryNumber() {
+        List<Category> all = new ArrayList<>(
+                Collections.nCopies(ClaudeCategorizationService.MAX_BATCH_SIZE,
+                        Category.SONSTIGES));
+        respondWith(all.toArray(new Category[0]));
+    }
+
+    private void respondWithJson(String json) {
+        when(messageService.create(any(StructuredMessageCreateParams.class)))
+                .thenReturn(new StructuredMessage<>(
+                        BatchCategorization.class, messageWithText(json)));
     }
 
     private void failWith(RuntimeException exception) {
-        when(messageService.create(any(MessageCreateParams.class))).thenThrow(exception);
+        when(messageService.create(any(StructuredMessageCreateParams.class)))
+                .thenThrow(exception);
     }
 
     /**

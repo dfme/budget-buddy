@@ -1,6 +1,8 @@
 package com.budgetbuddy.transaction;
 
+import static org.assertj.core.api.Assertions.as;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.InstanceOfAssertFactories.STRING;
 
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -31,6 +33,8 @@ class SwissBankStatementParserFixtureTest {
       "/pdf/Kreditkarten Rechnung Juni 2025 - CH9300762011623852957 - 2025-06-25.pdf";
   private static final String POST = "/pdf/Post_kontoauszug.pdf";
   private static final String UBS = "/pdf/UBS_Konto_Bewegungen_2021_Juli.pdf";
+  private static final String POST_JAHR = "/pdf/Post_Kontoauszug_2025_240_Buchungen.pdf";
+  private static final String POST_JULI = "/pdf/Post_Kontoauszug_2026_Juli_20_Buchungen.pdf";
 
   @Nested
   class Viseca {
@@ -121,10 +125,8 @@ class SwissBankStatementParserFixtureTest {
     void spaceThousandsSeparator_isParsed() {
       List<ParsedTransaction> txns = parser.parse(bytes(POST));
 
-      // "GIRO AUS KONTO 25-9034-2 4 589.10" -> Leerzeichen als Tausendertrennzeichen.
-      assertThat(txns)
-          .filteredOn(t -> t.buchungstext().startsWith("GIRO AUS KONTO 25-9034-2"))
-          .singleElement()
+      // "GUTSCHRIFT 4 589.10" -> Leerzeichen als Tausendertrennzeichen.
+      assertThat(onDate(txns, LocalDate.of(2019, 9, 9)))
           .satisfies(
               t -> {
                 assertThat(t.betrag()).isEqualByComparingTo("4589.10");
@@ -154,19 +156,29 @@ class SwissBankStatementParserFixtureTest {
     }
 
     @Test
-    void merchantTexts_areExtractedVerbatimForCategorization() {
+    void merchantReachesTheCategorizationInput_throughTheDetailLines() {
       List<ParsedTransaction> txns = parser.parse(bytes(POST));
 
-      // Händler-Buchungstexte müssen unverändert ankommen — sie sind der Input für die
-      // Kategorisierung (US-05, Lookup-Tabelle + Claude API).
+      // PostFinance schreibt in die Buchungszeile die ZAHLUNGSART; der Händler steht darunter.
+      // Beides zusammen ist der Input für die Kategorisierung (US-05, Lookup + Claude API).
       assertThat(txns)
           .extracting(ParsedTransaction::buchungstext)
-          .contains(
-              "KAUF/DIENSTLEISTUNG MIGROS M BERN",
-              "LASTSCHRIFT SWISSCOM (SCHWEIZ) AG",
-              "LASTSCHRIFT CSS VERSICHERUNG AG",
-              "KAUF/DIENSTLEISTUNG SBB CFF FFS BERN",
-              "TWINT KAUF/DIENSTLEISTUNG COOP-4321");
+          .containsOnly(
+              "GIRO POST", "KAUF/DIENSTLEISTUNG", "GIRO INTERNATIONAL", "LASTSCHRIFT",
+              "GUTSCHRIFT", "ESR", "TWINT", "KONTOÜBERTRAG AUF", "PREIS FÜR");
+      assertThat(txns)
+          .extracting(ParsedTransaction::fullText)
+          .anySatisfy(t -> assertThat(t).contains("MIGROS M BERN"))
+          .anySatisfy(t -> assertThat(t).contains("SWISSCOM (SCHWEIZ) AG"))
+          .anySatisfy(t -> assertThat(t).contains("CSS VERSICHERUNG AG"))
+          .anySatisfy(t -> assertThat(t).contains("SBB CFF FFS BERN"))
+          .anySatisfy(t -> assertThat(t).contains("COOP-4321 BERN"));
+      // Und keiner dieser Händler steht in der Buchungszeile.
+      assertThat(txns)
+          .allSatisfy(
+              t ->
+                  assertThat(t.buchungstext())
+                      .doesNotContain("MIGROS", "SWISSCOM", "CSS", "SBB", "COOP"));
     }
 
     @Test
@@ -304,6 +316,339 @@ class SwissBankStatementParserFixtureTest {
                           "Seite",
                           "Umsatztotal",
                           "Anfangssaldo"));
+    }
+  }
+
+  /**
+   * Jahresauszug PostFinance: 240 Buchungen über zwölf Monate auf sieben Seiten.
+   *
+   * <p>Der 110-Buchungen-Auszug (Raiffeisen) beantwortet die Frage nach der <em>Länge</em>. Dieser
+   * hier beantwortet die nach der <em>Mischung</em>: Er ist auf eine Lookup-Quote von 60% gebaut,
+   * damit auch die Claude-Stufe der Hybrid-Kette spürbar Last bekommt (ADR-6). Die Quote selbst
+   * hängt an den Flyway-Seeds und wird deshalb dort geprüft, wo eine Datenbank läuft — in {@link
+   * PdfLookupCoverageIntegrationTest}. Hier steht, was ohne DB nachweisbar ist: Vollständigkeit,
+   * Beträge, Richtungen und die Sauberkeit des Kategorisierungs-Inputs.
+   */
+  @Nested
+  class PostFinanceJahresauszug {
+
+    @Test
+    void extractsAllRows_andSumsMatchPrintedTotalLine() {
+      List<ParsedTransaction> txns = parser.parse(bytes(POST_JAHR));
+
+      assertThat(txns).hasSize(240);
+      // Gedruckte "Total"-Zeile: Gutschrift 52 020.00 / Lastschrift 29 034.00.
+      assertThat(sum(txns, true)).isEqualByComparingTo("52020.00");
+      assertThat(sum(txns, false)).isEqualByComparingTo("29034.00");
+    }
+
+    @Test
+    void printedClosingBalance_matchesTheChainOfAllTwoHundredForty() {
+      List<ParsedTransaction> txns = parser.parse(bytes(POST_JAHR));
+
+      // Anfangs-Kontostand 8 450.00, gedruckter Schluss-Kontostand 31 436.00. Die Probe fasst
+      // alle 240 Zeilen zu einer einzigen Zahl zusammen: Fehlt eine Buchung oder kippt eine
+      // Richtung, geht sie nicht auf.
+      BigDecimal expected = new BigDecimal("8450.00").add(sum(txns, true)).subtract(sum(txns, false));
+      assertThat(expected).isEqualByComparingTo("31436.00");
+    }
+
+    @Test
+    void statementSpansTheWholeCalendarYear() {
+      List<ParsedTransaction> txns = parser.parse(bytes(POST_JAHR));
+
+      assertThat(txns).extracting(ParsedTransaction::buchungsdatum).allMatch(d -> d.getYear() == 2025);
+      assertThat(txns)
+          .extracting(t -> t.buchungsdatum().getMonthValue())
+          .containsOnly(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12);
+      // Jeder Monat trägt gleich viele Buchungen — Voraussetzung dafür, dass der
+      // Monatsvergleich (US-10) an dieser Fixture überhaupt etwas zu vergleichen hat.
+      assertThat(txns)
+          .filteredOn(t -> t.buchungsdatum().getMonthValue() == 2)
+          .hasSize(20);
+    }
+
+    @Test
+    void everyLookupCandidateSitsInADetailLine_notInTheBookingLine() {
+      List<ParsedTransaction> txns = parser.parse(bytes(POST_JAHR));
+
+      // Die Eigenschaft, ohne die die 60%-Quote dieses Auszugs nichts über den Parser aussagt:
+      // Kein Händlername steht in der Buchungszeile. Jeder Treffer muss den Weg durch
+      // Kartennummer, IBAN, Anschrift und Label-Zeilen bis in fullText() überlebt haben.
+      assertThat(txns)
+          .extracting(ParsedTransaction::buchungstext)
+          .containsOnly(
+              "GIRO POST", "KAUF/DIENSTLEISTUNG", "LASTSCHRIFT", "TWINT", "ESR", "GOOGLE PAY",
+              "KAUF/ONLINE-SHOPPING VOM", "BARBEZUG", "GUTSCHRIFT", "PREIS FÜR");
+      assertThat(txns)
+          .allSatisfy(
+              t ->
+                  assertThat(t.buchungstext())
+                      .doesNotContain(
+                          "MIGROS", "COOP", "DENNER", "ALDI", "LIDL", "SBB", "SWISSCOM", "CSS",
+                          "NETFLIX", "SPOTIFY", "DIGITEC", "GALAXUS", "ZALANDO"));
+      // Und die Detailzeilen tragen sie tatsächlich — hier über einen ganzen Monat geprüft.
+      assertThat(txns)
+          .filteredOn(t -> t.buchungsdatum().getMonthValue() == 1)
+          .extracting(ParsedTransaction::fullText)
+          .anySatisfy(t -> assertThat(t).contains("MIGROS M BERN WANKDORF"))
+          .anySatisfy(t -> assertThat(t).contains("COOP-1234 BERN"))
+          .anySatisfy(t -> assertThat(t).contains("SBB CFF FFS BERN"))
+          .anySatisfy(t -> assertThat(t).contains("ALDI SUISSE BERN"));
+    }
+
+    @Test
+    void recurringFixedCosts_repeatWithIdenticalAmountInEveryMonth() {
+      List<ParsedTransaction> txns = parser.parse(bytes(POST_JAHR));
+
+      // Die Eigenschaft, an der US-08 (Abo-Erkennung) hängt: gleicher Text, gleicher Betrag,
+      // zwölfmal. Alles andere im Auszug schwankt bewusst von Monat zu Monat.
+      // Wiedererkannt wird über die DETAILZEILE, nicht die Buchungszeile — in ihr steht bei
+      // allen fünf nur "LASTSCHRIFT" bzw. "GIRO POST".
+      assertRecurringMonthly(txns, "CSS VERSICHERUNG AG", "320.50");
+      assertRecurringMonthly(txns, "SWISSCOM (SCHWEIZ) AG", "65.00");
+      assertRecurringMonthly(txns, "NETFLIX INTERNATIONAL BV", "20.90");
+      assertRecurringMonthly(txns, "SPOTIFY AB", "12.95");
+      assertRecurringMonthly(txns, "MUSTER IMMOBILIEN AG", "1250.00");
+    }
+
+    @Test
+    void monthEndBlock_resolvesSalaryAndFeeFromSaldoDelta() {
+      List<ParsedTransaction> txns = parser.parse(bytes(POST_JAHR));
+
+      // Am Monatsletzten stehen Lohngutschrift und Kontoführungsgebühr in EINEM Saldo-Block;
+      // nur die Gebührenzeile trägt einen Saldo, und sie trägt kein eigenes Datum. Beide
+      // Richtungen müssen zwölfmal unterschiedlich aufgelöst werden.
+      assertThat(txns)
+          .filteredOn(t -> t.details().stream().anyMatch(d -> d.startsWith("LOHN ")))
+          .hasSize(12)
+          .allSatisfy(
+              t -> {
+                assertThat(t.buchungstext()).isEqualTo("GUTSCHRIFT");
+                assertThat(t.isIncome()).isTrue();
+                assertThat(t.betrag()).isEqualByComparingTo("4250.00");
+              });
+      assertThat(txns)
+          .filteredOn(t -> t.buchungstext().equals("PREIS FÜR"))
+          .hasSize(12)
+          .allSatisfy(
+              t -> {
+                assertThat(t.isIncome()).isFalse();
+                assertThat(t.betrag()).isEqualByComparingTo("5.00");
+              });
+      // Die Gebührenzeile hat kein gedrucktes Datum: sie übernimmt das der Lohnzeile.
+      assertThat(txns)
+          .filteredOn(t -> t.buchungsdatum().equals(LocalDate.of(2025, 2, 28)))
+          .extracting(ParsedTransaction::isIncome, ParsedTransaction::betrag)
+          .containsExactlyInAnyOrder(
+              Tuple.tuple(true, new BigDecimal("4250.00")),
+              Tuple.tuple(false, new BigDecimal("5.00")));
+    }
+
+    @Test
+    void singleRowCredits_areRecognisedAsIncome() {
+      List<ParsedTransaction> txns = parser.parse(bytes(POST_JAHR));
+
+      // Drei Rückerstattungen stehen allein in ihrem Saldo-Block (Blockgrösse 1). Ohne sie
+      // liefe die Richtungserkennung im ganzen Auszug nur über gemischte Blöcke.
+      assertThat(txns)
+          .filteredOn(t -> t.details().contains("STEUERVERWALTUNG KT. BERN"))
+          .hasSize(3)
+          .allSatisfy(
+              t -> {
+                assertThat(t.buchungstext()).isEqualTo("GUTSCHRIFT");
+                assertThat(t.isIncome()).isTrue();
+                assertThat(t.betrag()).isEqualByComparingTo("340.00");
+                assertThat(t.details()).hasSize(2).last(as(STRING)).startsWith("RUECKERSTATTUNG");
+              });
+    }
+
+    @Test
+    void sevenPageBreaks_leaveNoHeaderOrFooterInTheCategorizationInput() {
+      List<ParsedTransaction> txns = parser.parse(bytes(POST_JAHR));
+
+      // Sieben Seiten heissen sechs Kopf- und sieben Fusszeilen. Die Seitennummer steht im
+      // extrahierten Text direkt hinter der letzten Buchung ihrer Seite und hing vor dem Filter
+      // in DETAIL_NOISE an genau einer Buchung pro Seite.
+      assertThat(txns)
+          .allSatisfy(
+              t ->
+                  assertThat(t.fullText())
+                      .doesNotContain(
+                          "Seite",
+                          "Übertrag",
+                          "Privatkonto",
+                          "IBAN",
+                          "Kontoauszug",
+                          "Kontostand",
+                          "Total",
+                          "PostFinance"));
+    }
+
+    @Test
+    void transferBookings_carryPayeeInDetails() {
+      List<ParsedTransaction> txns = parser.parse(bytes(POST_JAHR));
+
+      // "ESR" und "GIRO POST" sagen für sich genommen nichts — ohne die Detailzeile fielen sie
+      // in beiden Stufen der Kette auf Sonstiges (ADR-6).
+      assertThat(txns)
+          .filteredOn(t -> t.buchungstext().equals("ESR"))
+          .hasSize(12)
+          .allSatisfy(t -> assertThat(t.details()).containsExactly("STADTWERKE BERN"));
+      assertThat(onDate(txns, LocalDate.of(2025, 1, 1)).fullText())
+          .isEqualTo("GIRO POST MUSTER IMMOBILIEN AG MIETE JANUAR 2025");
+    }
+
+    private void assertRecurringMonthly(
+        List<ParsedTransaction> txns, String detailLine, String betrag) {
+      assertThat(txns)
+          .filteredOn(t -> t.details().contains(detailLine))
+          .as("wiederkehrende Buchung '%s'", detailLine)
+          .hasSize(12)
+          .allSatisfy(t -> assertThat(t.betrag()).isEqualByComparingTo(betrag))
+          .extracting(t -> t.buchungsdatum().getMonthValue())
+          .containsExactlyInAnyOrder(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12);
+    }
+  }
+
+  /**
+   * Der layouttreue PostFinance-Auszug: 20 Buchungen, Juli 2026, drei Seiten.
+   *
+   * <p>Nachgezogen an einem realen Auszug. Er misst weder Menge noch Lookup-Quote — dafür gibt es
+   * den 240er-Jahresauszug — sondern hält das <em>Satzbild</em> fest, an dem die beiden anderen
+   * PostFinance-Fixtures vorbeigehen: Der Buchungstext trägt die <b>Zahlungsart</b>, der Händler
+   * steht in den Detailzeilen darunter, verschüttet unter Kartennummer, IBAN, Anschrift und
+   * Label-Zeilen.
+   *
+   * <p>Das ist kein kosmetischer Unterschied. In dieser Form hängt jeder Lookup-Treffer und jeder
+   * brauchbare Claude-Prompt daran, dass die sprechende Detailzeile den Weg durch das Rauschen
+   * und durch {@code MAX_DETAIL_LINES} überlebt — die Eigenschaft, die die anderen Fixtures
+   * gar nicht erst auf die Probe stellen.
+   */
+  @Nested
+  class PostFinanceJuli {
+
+    @Test
+    void extractsAllRows_andSumsMatchPrintedTotalLine() {
+      List<ParsedTransaction> txns = parser.parse(bytes(POST_JULI));
+
+      assertThat(txns).hasSize(20);
+      // Gedruckte "Total"-Zeile: Gutschrift 4 430.00 / Lastschrift 2 140.55.
+      assertThat(sum(txns, true)).isEqualByComparingTo("4430.00");
+      assertThat(sum(txns, false)).isEqualByComparingTo("2140.55");
+      // Anfangs-Kontostand 2 480.00, gedruckter Schluss-Kontostand 4 769.45.
+      assertThat(new BigDecimal("2480.00").add(sum(txns, true)).subtract(sum(txns, false)))
+          .isEqualByComparingTo("4769.45");
+    }
+
+    @Test
+    void bookingTextCarriesThePaymentType_neverTheMerchant() {
+      List<ParsedTransaction> txns = parser.parse(bytes(POST_JULI));
+
+      // Die definierende Eigenschaft dieses Layouts — und der Punkt, an dem die anderen
+      // PostFinance-Fixtures danebenliegen.
+      assertThat(txns)
+          .extracting(ParsedTransaction::buchungstext)
+          .containsOnly(
+              "KONTOÜBERTRAG AUF", "GOOGLE PAY", "LASTSCHRIFT", "KAUF/ONLINE-SHOPPING VOM",
+              "TWINT", "GUTSCHRIFT", "KAUF/DIENSTLEISTUNG", "ESR", "PREIS FÜR");
+      assertThat(txns)
+          .allSatisfy(
+              t ->
+                  assertThat(t.buchungstext())
+                      .doesNotContain("MIGROS", "COOP", "ZALANDO", "SWISSCOM", "CSS", "DIGITEC"));
+    }
+
+    @Test
+    void merchantReachesTheCategorizationInput_onlyThroughTheDetailLines() {
+      List<ParsedTransaction> txns = parser.parse(bytes(POST_JULI));
+
+      // Kartenzahlung: Der Händler steht im PDF auf der VIERTEN Detailzeile, hinter Label,
+      // Datum und maskierter Kartennummer.
+      assertThat(onDate(txns, LocalDate.of(2026, 7, 4)).fullText())
+          .contains("MIGROS M BERN WANKDORF")
+          .doesNotContain("XXXX");
+      // Online-Kauf: der längste Block des Layouts (acht Zeilen) — übrig bleibt der Händler.
+      assertThat(onDate(txns, LocalDate.of(2026, 7, 11)).details()).containsExactly("ZALANDO SE");
+      // Lastschrift mit Firmenanschrift: Strasse und Ort fallen weg, der Name bleibt.
+      assertThat(onDate(txns, LocalDate.of(2026, 7, 24)).details())
+          .containsExactly("CSS VERSICHERUNG AG");
+    }
+
+    @Test
+    void purposeLineSurvivesTheLabelsAboveIt() {
+      List<ParsedTransaction> txns = parser.parse(bytes(POST_JULI));
+
+      // Dauerauftrag: Auftragsnummer, IBAN und "SENDER REFERENZ:" belegten vorher die drei
+      // Plätze — der Zweck fiel weg. Vier Buchungen teilen diesen Block.
+      assertThat(txns)
+          .filteredOn(t -> t.details().contains("SACKGELD LEA"))
+          .hasSize(4)
+          .allSatisfy(t -> assertThat(t.details()).containsExactly("MUSTER, LEA", "SACKGELD LEA"));
+      // Gutschrift: Absenderanschrift raus, Zweck hinter "MITTEILUNGEN:" rein.
+      assertThat(onDate(txns, LocalDate.of(2026, 7, 18)).details())
+          .containsExactly("MUSTER, ANNA", "RUECKZAHLUNG FERIENKASSE");
+    }
+
+    @Test
+    void wrappedMessageText_isKeptAsPrinted() {
+      List<ParsedTransaction> txns = parser.parse(bytes(POST_JULI));
+
+      // PostFinance bricht das Mitteilungsfeld mitten im Wort um. Der Parser fügt nichts
+      // zusammen — beide Bruchstücke landen als eigene Detailzeilen im Prompt.
+      assertThat(onDate(txns, LocalDate.of(2026, 7, 28)).details())
+          .containsExactly("MUSTER CONSULTING GMBH", "LOHN JULI 2026 SOWIE SPE", "SENVERGUETUNG");
+    }
+
+    @Test
+    void zeroAmountFee_isParsed_andLeavesItsBlockPartnerResolvable() {
+      List<ParsedTransaction> txns = parser.parse(bytes(POST_JULI));
+
+      // Der letzte Tagesblock: 18.40 ohne Saldo, abgeschlossen von der kostenlosen
+      // Gebührenzeile. Vor der Sonderbehandlung von 0.00 galt der ganze Block als mehrdeutig.
+      assertThat(txns)
+          .filteredOn(t -> t.buchungsdatum().equals(LocalDate.of(2026, 7, 31)))
+          .extracting(ParsedTransaction::buchungstext, ParsedTransaction::betrag,
+              ParsedTransaction::isIncome)
+          .containsExactlyInAnyOrder(
+              Tuple.tuple("KAUF/DIENSTLEISTUNG", new BigDecimal("18.40"), false),
+              Tuple.tuple("PREIS FÜR", new BigDecimal("0.00"), false));
+    }
+
+    @Test
+    void valutaDifferentFromBookingDate_doesNotShiftTheBooking() {
+      List<ParsedTransaction> txns = parser.parse(bytes(POST_JULI));
+
+      // Bei Kartenzahlungen liegt die Valuta vor dem Buchungsdatum. Gebucht wird auf das
+      // Buchungsdatum — an ihm hängt die Monatszuordnung (US-12).
+      assertThat(onDate(txns, LocalDate.of(2026, 7, 22)).details())
+          .containsExactly("DIGITEC GALAXUS AG", "ZUERICH (CH)");
+      assertThat(txns).extracting(ParsedTransaction::buchungsdatum)
+          .allMatch(d -> d.getMonthValue() == 7 && d.getYear() == 2026);
+    }
+
+    @Test
+    void threePagesOfFurniture_neverReachTheCategorizationInput() {
+      List<ParsedTransaction> txns = parser.parse(bytes(POST_JULI));
+
+      // Drei Seiten heissen zwei Kopfwiederholungen und drei Fusszeilen — letztere inklusive
+      // der Drucksteuerzeile, die ein betragsähnliches Token trägt.
+      assertThat(txns)
+          .allSatisfy(
+              t ->
+                  assertThat(t.fullText())
+                      .doesNotContain(
+                          "Seite", "00656", "IBAN", "CH11", "CH44", "CH77", "CH88",
+                          "Kontonummer", "Kontostand", "Total", "PostFinance",
+                          "ABSENDER", "MITTEILUNGEN", "SENDER REFERENZ", "PAYMENT ID",
+                          "BESTELLNUMMER", "N/A", "XXXX", "DAUERAUFTRAG"));
+      // Und keine Postanschrift einer Gegenpartei (BE-PDF-06).
+      assertThat(txns)
+          .allSatisfy(
+              t ->
+                  assertThat(t.fullText())
+                      .doesNotContain("BAHNHOFSTRASSE", "MUSTERWEG", "TRIBSCHENSTRASSE",
+                          "8000 ZUERICH", "6002 LUZERN", "3050 BERN"));
     }
   }
 

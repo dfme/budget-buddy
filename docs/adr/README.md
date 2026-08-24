@@ -27,6 +27,8 @@ Diese Dokumentation hält die **wichtigsten Architektur-Entscheidungen** für Bu
 | **ADR-10** | [Hosting-Plattform und Deployment-Strategie](ADR-10-hosting-plattform.md)          | ✅ Accepted | Deployment & Hosting       |
 | **ADR-11** | [UI-Design-Richtung «Klarheit» (Variante A)](ADR-11-ui-design-system.md)           | ✅ Accepted | Frontend UI / Design-System |
 | **ADR-12** | [PostgreSQL bei Neon als Produktionsdatenbank](ADR-12-datenpersistenz-produktion.md) | ✅ Accepted | Datenspeicherung           |
+| **ADR-13** | [Zuordnung von Fixkosten zu importierten Transaktionen](ADR-13-fixkosten-transaktions-zuordnung.md) | ✅ Accepted | Safe-to-Spend-Berechnung   |
+| **ADR-14** | [Asynchroner PDF-Import mit Fortschritts-Job und Batch-Kategorisierung](ADR-14-asynchroner-pdf-import.md) | ✅ Accepted | Import-Flow / Kategorisierung |
 
 ---
 
@@ -44,6 +46,7 @@ Diese Dokumentation hält die **wichtigsten Architektur-Entscheidungen** für Bu
 - **ADR-2:** Angular 21 (Frontend)
 - **ADR-5:** SQLite (Datenbank) — superseded durch ADR-12
 - **ADR-12:** PostgreSQL bei Neon, Frankfurt/EU (Datenbank)
+- **ADR-14:** Asynchroner Import-Job plus Batch-Kategorisierung (Import-Flow; ergänzt ADR-6)
 - **ADR-7:** JWT (Authentication)
 - **ADR-8:** Apache PDFBox (PDF-Verarbeitung)
 - **ADR-9:** BigDecimal (Geldbeträge)
@@ -52,6 +55,7 @@ Diese Dokumentation hält die **wichtigsten Architektur-Entscheidungen** für Bu
 
 - **ADR-3:** REST API (statt GraphQL)
 - **ADR-6:** Hybrid Kategorisierung (Lookup + Claude API)
+- **ADR-13:** Fixkosten-Zuordnung im Safe-to-Spend (betragsbasiertes 1:1-Matching)
 
 ### Frontend UI / Design
 
@@ -132,6 +136,7 @@ Architektur ermöglicht Upgrades **ohne Rewrite**:
 ADR-0: Frontend-Backend-Trennung
 ├── ADR-1: Java + Spring Boot (Backend-Implementierung)
 │   ├── ADR-12: PostgreSQL bei Neon (Datenbank; supersedet ADR-5)
+│   ├── ADR-14: Asynchroner PDF-Import + Batch-Kategorisierung (ergänzt ADR-6)
 │   ├── ADR-7: JWT (Authentication)
 │   ├── ADR-8: Apache PDFBox (PDF)
 │   └── ADR-9: BigDecimal (Money)
@@ -252,5 +257,5 @@ Falls Fragen zu einer Entscheidung oder Anpassungsbedarf:
 
 ---
 
-**Zuletzt aktualisiert:** 2026-07-25  
+**Zuletzt aktualisiert:** 2026-08-22  
 **Maintainer:** BudgetBuddy Team

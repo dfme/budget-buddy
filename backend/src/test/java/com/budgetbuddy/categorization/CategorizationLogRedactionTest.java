@@ -14,11 +14,13 @@ import com.anthropic.client.AnthropicClient;
 import com.anthropic.core.JsonValue;
 import com.anthropic.errors.AnthropicException;
 import com.anthropic.models.messages.Message;
-import com.anthropic.models.messages.MessageCreateParams;
 import com.anthropic.models.messages.StopReason;
+import com.anthropic.models.messages.StructuredMessage;
+import com.anthropic.models.messages.StructuredMessageCreateParams;
 import com.anthropic.models.messages.TextBlock;
 import com.anthropic.models.messages.Usage;
 import com.anthropic.services.blocking.MessageService;
+import com.budgetbuddy.categorization.ClaudeCategorizationService.BatchCategorization;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Clock;
@@ -90,7 +92,7 @@ class CategorizationLogRedactionTest {
     @Test
     void claudeFailurePathsNeverLogTransactionTextInPlaintext() {
         // WARN-Pfad «Claude-Call fehlgeschlagen» — 3× löst zugleich den Breaker aus.
-        when(messageService.create(any(MessageCreateParams.class)))
+        when(messageService.create(any(StructuredMessageCreateParams.class)))
                 .thenThrow(new AnthropicException("Timeout", null));
         for (int i = 0; i < ClaudeCategorizationService.FAILURE_THRESHOLD; i++) {
             claudeService.categorize(TRANSACTION);
@@ -101,35 +103,47 @@ class CategorizationLogRedactionTest {
         assertRedacted();
     }
 
+    /**
+     * Seit ADR-14 kann eine <em>unbekannte Kategorie</em> nicht mehr auftreten — das Schema lässt
+     * nur die 13 Enum-Konstanten zu. Der verbleibende Fall ist eine Antwort, die sich nicht lesen
+     * lässt; auch sie darf nichts vom Zahlungstext preisgeben.
+     */
     @Test
-    void claudeEmptyAndUnknownResponsePathsNeverLogTransactionTextInPlaintext() {
-        // WARN-Pfad «keine Textantwort».
-        when(messageService.create(any(MessageCreateParams.class)))
-                .thenReturn(messageWithText("   "));
-        claudeService.categorize(TRANSACTION);
-
-        // WARN-Pfad «unbekannte Kategorie» — auch die Antwort selbst wird redigiert.
-        when(messageService.create(any(MessageCreateParams.class)))
-                .thenReturn(messageWithText("Kryptowährung"));
+    void claudeUnreadableResponsePathNeverLogsTransactionTextInPlaintext() {
+        respondWithJson("   ");
         claudeService.categorize(TRANSACTION);
 
         assertRedacted();
-        // Die Zeile bleibt diagnostisch brauchbar: Sie sagt weiterhin, DASS etwas Ungültiges kam.
+        // Die Zeile bleibt diagnostisch brauchbar: Sie sagt weiterhin, DASS etwas Unbrauchbares kam.
         assertThat(appender.list)
                 .anySatisfy(event ->
-                        assertThat(event.getFormattedMessage()).contains("unbekannte Kategorie"));
+                        assertThat(event.getFormattedMessage()).contains("nicht lesbar"));
     }
 
     /**
-     * Der Fall, den der PR-Review von #174 als blockierend aufgedeckt hat: Der Zweig «unbekannte
-     * Kategorie» feuert genau dann, wenn das Modell die Anweisung nicht befolgt hat — ein Echo des
-     * Prompts (der den Transaktionstext enthält) ist damit naheliegend, nicht exotisch. Vor dem Fix
-     * stand der Transaktionstext dadurch im Klartext auf WARN in den Render-Logs.
+     * Eine unvollständige Bündelantwort ist der neue, häufigste Diagnosefall (ADR-14): Sie kostet
+     * einzelne Transaktionen ihre Kategorie. Die Zeile nennt deshalb Zahlen — und nur Zahlen.
      */
     @Test
-    void claudeEchoingTheTransactionTextIsRedacted() {
-        when(messageService.create(any(MessageCreateParams.class)))
-                .thenReturn(messageWithText(TRANSACTION));
+    void claudeIncompleteBatchPathLogsCountsOnly() {
+        respondWithJson("{\"categories\":[]}");
+        claudeService.categorize(TRANSACTION);
+
+        assertRedacted();
+        assertThat(appender.list)
+                .anySatisfy(event -> assertThat(event.getFormattedMessage())
+                        .contains("Claude beantwortete nur 0 von 1"));
+    }
+
+    /**
+     * Der Fall, den der PR-Review von #174 als blockierend aufgedeckt hat: Antwortet das Modell
+     * mit einem Echo des Prompts (der den Transaktionstext enthält), darf dieses Echo nicht in
+     * die Logs geraten. Seit ADR-14 landet ein Echo im Zweig «nicht lesbar» — die Zeile trägt nur
+     * den Exception-Typ, nicht den Wortlaut der Antwort.
+     */
+    @Test
+    void claudeEchoingTheTransactionTextIsNotLogged() {
+        respondWithJson(TRANSACTION);
 
         claudeService.categorize(TRANSACTION);
 
@@ -142,8 +156,7 @@ class CategorizationLogRedactionTest {
      */
     @Test
     void claudeResponseWithNewlineCannotForgeALogLine() {
-        when(messageService.create(any(MessageCreateParams.class)))
-                .thenReturn(messageWithText("Freizeit\nWARN gefälschte Zeile"));
+        respondWithJson("Freizeit\nWARN gefälschte Zeile");
 
         claudeService.categorize(TRANSACTION);
 
@@ -159,7 +172,7 @@ class CategorizationLogRedactionTest {
      */
     @Test
     void claudeFailureLogsExceptionTypeInsteadOfSdkMessage() {
-        when(messageService.create(any(MessageCreateParams.class)))
+        when(messageService.create(any(StructuredMessageCreateParams.class)))
                 .thenThrow(new AnthropicException("ZAHLUNG KARDIOLOGIE HIRSLANDEN 4242", null));
 
         claudeService.categorize(TRANSACTION);
@@ -183,7 +196,8 @@ class CategorizationLogRedactionTest {
 
         // WARN-Pfad «Unerwarteter Fehler bei der Claude-Kategorisierung».
         when(lookup.categorize(TRANSACTION)).thenReturn(Optional.empty());
-        when(claude.categorize(TRANSACTION)).thenThrow(new IllegalStateException("SDK kaputt"));
+        when(claude.categorizeAll(List.of(TRANSACTION)))
+                .thenThrow(new IllegalStateException("SDK kaputt"));
         hybrid.categorize(TRANSACTION);
 
         assertRedacted();
@@ -250,6 +264,13 @@ class CategorizationLogRedactionTest {
         assertThat(appender.list)
                 .allSatisfy(event ->
                         assertThat(event.getFormattedMessage()).doesNotContain("HIRSLANDEN"));
+    }
+
+    /** Antwortet mit dem gegebenen Text als Structured-Output-Nutzlast. */
+    private void respondWithJson(String json) {
+        when(messageService.create(any(StructuredMessageCreateParams.class)))
+                .thenReturn(new StructuredMessage<>(
+                        BatchCategorization.class, messageWithText(json)));
     }
 
     /** Baut eine echte SDK-{@link Message} — Builder analog {@link ClaudeCategorizationServiceTest}. */
