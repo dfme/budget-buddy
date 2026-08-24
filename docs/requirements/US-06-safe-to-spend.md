@@ -11,10 +11,16 @@
 **Given** importierte Transaktionen und bekannte Fixkosten, **When** ich das Dashboard öffne, **Then** wird der Safe-to-Spend-Betrag nach folgender Formel berechnet und angezeigt:
 
 ```
-(Einkommen − Fixkosten − bisherige Ausgaben im laufenden Monat) ÷ verbleibende Wochen im Monat
+(Einkommen − Fixkosten − bisherige variable Ausgaben im laufenden Monat) ÷ verbleibende Wochen im Monat
 ```
 
-Bei einem Einkommen von 2000 CHF, Fixkosten von 800 CHF und bisherigen Ausgaben von 400 CHF in Woche 1 zeigt das Dashboard 200 CHF/Woche für die verbleibenden 3 Wochen.
+Bei einem Einkommen von 2000 CHF, Fixkosten von 800 CHF und bisherigen variablen Ausgaben von 400 CHF in Woche 1 zeigt das Dashboard 200 CHF/Woche für die verbleibenden 3 Wochen.
+
+**Given** eine Fixkosten-Position wird per Dauerauftrag bezahlt und erscheint dadurch zusätzlich als Belastung unter den importierten Transaktionen, **When** der Safe-to-Spend berechnet wird, **Then** mindert sie den Betrag **genau einmal**: je erfasster Fixkosten-Position wird höchstens eine betragsgleiche Belastung des Monats aus den variablen Ausgaben ausgenommen. In der Kategorie-Übersicht bleibt diese Belastung sichtbar — das Konto wurde belastet.
+
+Bei einer Miete von 1200 CHF als Fixkosten-Position und einer Belastung über 1200 CHF im selben Monat gehen 1200 CHF in die Rechnung ein, nicht 2400 CHF. Verglichen wird gegen den erfassten Betrag der Position (die tatsächliche Abbuchung), nicht gegen ihren normalisierten Monatsbetrag: eine jährliche Versicherung über 1200 CHF wird im Zahlungsmonat vollständig ausgenommen, während in jedem der zwölf Monate 100 CHF als Fixkosten zählen.
+
+> Zuordnungsmechanismus, Grenzen und verworfene Alternativen: [ADR-13](../adr/ADR-13-fixkosten-transaktions-zuordnung.md) (BE-STS-04, [#154](https://github.com/dfme/budget-buddy/issues/154)).
 
 **Given** der Betrag ist negativ, **When** ich das Dashboard öffne, **Then** wird ein rot hinterlegtes Banner mit dem Text "Achtung: Dein Budget für diese Woche ist überzogen" am oberen Rand des Dashboards angezeigt.
 
