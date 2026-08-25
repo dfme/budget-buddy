@@ -3,5 +3,16 @@
 
   <app-card title="Passwort" />
   <app-card title="Einkommen" />
-  <app-card title="Erscheinungsbild" />
+
+  <app-card title="Erscheinungsbild">
+    <app-segment
+      ariaLabel="Erscheinungsbild"
+      [options]="themeOptions"
+      [value]="theme.preference()"
+      (valueChange)="selectTheme($event)"
+    />
+    <p class="settings__hint">
+      „System" folgt der Einstellung deines Geräts. Die Wahl gilt nur in diesem Browser.
+    </p>
+  </app-card>
 </section>

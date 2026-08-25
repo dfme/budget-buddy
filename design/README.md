@@ -308,7 +308,9 @@ Zuschnitt ist inzwischen entschieden:
   Nutzen, den ein Ein-Geräte-Nutzer wie Marc nicht spürt.
 - **Mehr als CSS:** Theme vor dem ersten Paint anwenden (kein Flash) und
   OS-Default respektieren, solange „System" gewählt ist.
-- **Voraussetzung ist erfüllt:** FE-UI-02 hat die Token-Architektur
+- **Voraussetzung war erfüllt:** FE-UI-02 hat die Token-Architektur
   **theme-fähig** angelegt (CSS Custom Properties + `data-theme`, beide Themes als
-  Sets — wie in diesen Prototypen) in `frontend/src/styles.scss`. Sichtbar ist sie
-  bisher nur über den Dev-Toggle im Styleguide.
+  Sets — wie in diesen Prototypen) in `frontend/src/styles.scss`. Umgesetzt ist die
+  Umschaltung mit FE-SET-04: `frontend/src/app/core/theme/theme.ts` hält die Wahl,
+  das Inline-Script in `frontend/src/index.html` wendet sie vor dem ersten
+  Bildaufbau an.

@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 
 import { Shell } from './core/layout/shell';
+import { Theme } from './core/theme/theme';
 
 /**
  * Root-Component. Hält nur noch den Router-Outlet und reicht ihn als Inhalt in
@@ -19,4 +20,13 @@ import { Shell } from './core/layout/shell';
   styleUrl: './app.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class App {}
+export class App {
+  /**
+   * Hält {@link Theme} auf jeder Route am Leben (FE-SET-04).
+   *
+   * <p>Nur die Einstellungen zu injizieren würde nicht reichen: „System" soll einem
+   * Wechsel im Betriebssystem auch dann folgen, wenn der Nutzer gerade auf dem Dashboard
+   * steht — dafür muss der Listener des Service registriert sein.
+   */
+  protected readonly theme = inject(Theme);
+}
