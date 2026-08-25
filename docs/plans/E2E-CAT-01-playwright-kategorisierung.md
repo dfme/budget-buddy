@@ -124,12 +124,22 @@ Kein Produktionscode: kein `.java`, kein Frontend, kein `pom.xml`.
 Zwei Playwright-Fälle, keine neuen Unit- oder Integrationstests — der Task fügt keinen
 Produktionscode hinzu, es gibt also nichts zu unit-testen.
 
-**Gegenprobe, dass die Tests diskriminieren** (ein grüner Lauf allein beweist nichts):
+**Gegenprobe, dass die Tests diskriminieren** (ein grüner Lauf allein beweist nichts). Drei
+Mutationen, jede muss den betroffenen Test rot machen:
 
-- Fehlerpfad ohne die Route-Interception → muss grün durchlaufen, sonst prüft er nicht den 500,
-  sondern irgendetwas anderes.
-- Happy Path ohne den Reload → die Persistenz-Aussage muss fallen.
-- Rollback-Assertion gegen den optimistischen Zwischenstand → muss den alten Wert sehen.
+- **A — Server quittiert, persistiert aber nicht.** Der Korrektur-PUT wird mit `200` abgefangen,
+  ohne dass sich am Bestand etwas ändert. Der Happy Path muss fallen, sonst prüft er nur das
+  optimistische Update und nicht die Persistenz.
+- **B — Interception im Fehlerpfad entfernt.** Dann läuft der echte PUT durch, es gibt kein
+  Fehlerbanner, und der Fehlerpfad muss fallen. Damit ist belegt, dass das Banner am `500` hängt
+  und nicht an etwas Beiläufigem.
+- **C — die Korrektur ist ein No-op.** Im Fehlerpfad wird dieselbe Kategorie erneut gewählt;
+  `changeCategory` kehrt dann sofort zurück (`previous === category`), es fliegt kein PUT. Der
+  Test muss fallen. Das schliesst die Vakuitätslücke der Rollback-Assertion: ohne sie könnte
+  `toHaveValue(previous)` auch dann grün sein, wenn die Auswahl gar nicht gegriffen hat.
+
+Zur Reihenfolge: A prüft den Happy Path, B und C prüfen den Fehlerpfad an zwei verschiedenen
+Stellen — B die Ursache der Meldung, C die Nicht-Trivialität des Rollbacks.
 
 ---
 
