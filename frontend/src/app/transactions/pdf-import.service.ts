@@ -102,9 +102,7 @@ export class PdfImportService {
       // Der Tick-Zähler ist die Abbruchbedingung: deterministisch und mit Faketimern exakt
       // prüfbar, anders als eine parallele Deadline, die vom Scheduling abhinge.
       switchMap((tick) =>
-        tick >= MAX_POLLS
-          ? throwError(() => new ImportPollTimeoutError())
-          : this.jobStatus(jobId),
+        tick >= MAX_POLLS ? throwError(() => new ImportPollTimeoutError()) : this.jobStatus(jobId),
       ),
       takeWhile((status) => status.status === 'RUNNING', true),
     );

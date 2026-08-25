@@ -75,7 +75,8 @@ class TransactionSummaryControllerIntegrationTest {
 
     private void save(String datum, String text, String betrag, boolean income, String category) {
         transactionRepository.save(new Transaction(
-                userId, LocalDate.parse(datum), text, new BigDecimal(betrag), income, category, null));
+                userId, LocalDate.parse(datum), text, null, new BigDecimal(betrag), income,
+                category, null));
     }
 
     private Cookie jwtCookie() {

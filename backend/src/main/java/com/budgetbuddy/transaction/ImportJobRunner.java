@@ -158,8 +158,11 @@ public class ImportJobRunner {
                         case CLAUDE_SKIPPED -> ohneCall++;
                     }
                 }
+                // detailsAsText() statt fullText(): Der Buchungstext hat seine eigene Spalte,
+                // die Detailzeilen ihre. Sie zusammenzuschreiben wäre irreversibel — genau das,
+                // was ParsedTransaction für US-08 ausschliesst (BE-PDF-07).
                 entities.add(new Transaction(userId, tx.buchungsdatum(), tx.buchungstext(),
-                        tx.betrag(), tx.isIncome(), category, pdfSha256));
+                        tx.detailsAsText(), tx.betrag(), tx.isIncome(), category, pdfSha256));
             }
 
             // Sofort committen: Das ist die Zahl, die der nächste Status-Poll sehen soll.

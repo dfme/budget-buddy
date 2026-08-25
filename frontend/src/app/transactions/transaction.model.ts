@@ -13,8 +13,22 @@ export interface Transaction {
   id: number;
   /** Buchungsdatum als ISO-Datum, z. B. `"2026-07-20"`. */
   buchungsdatum: string;
-  /** Buchungstext des Kontoauszugs, z. B. `"COOP PRONTO BERN"`. */
+  /**
+   * Buchungstext des Kontoauszugs. Bei Kartenzahlungen der Händler, bei allen anderen
+   * Buchungsarten nur die Zahlungsart — PostFinance schreibt hier `"LASTSCHRIFT"`, `"TWINT"` oder
+   * `"GIRO POST"`. Wer die Gegenpartei sucht, findet sie in {@link buchungsdetails}.
+   */
   buchungstext: string;
+  /**
+   * Gegenpartei und Verwendungszweck aus den Detailzeilen des Auszugs, mit `\n` verbunden
+   * (BE-PDF-07) — z. B. `"MUSTER, LEA\nSACKGELD LEA"`.
+   *
+   * <p>`null` bedeutet zweierlei und lässt sich nicht auflösen: Die Buchung hatte keine
+   * Detailzeilen, oder sie wurde vor BE-PDF-07 importiert. Ein Backfill ist ausgeschlossen, weil
+   * die Zeilen nur im Quell-PDF stehen. Die Anzeige lässt die zweite Zeile in beiden Fällen weg —
+   * ein Platzhalter behauptete, es gebe keine Gegenpartei.
+   */
+  buchungsdetails: string | null;
   /** Positive Magnitude in CHF; die Richtung steht in {@link income}. */
   betrag: number;
   /** `true` = Gutschrift, `false` = Belastung. In der Kategorie-Übersicht immer `false`. */

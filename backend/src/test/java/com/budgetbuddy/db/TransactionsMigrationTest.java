@@ -13,8 +13,8 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 /**
- * Verifiziert die Flyway-Migration V02 (transactions-Tabelle) gegen eine echte
- * PostgreSQL-Datenbank.
+ * Verifiziert die Flyway-Migrationen der transactions-Tabelle gegen eine echte
+ * PostgreSQL-Datenbank: V02 (Anlage, DB-02) und V06 (Spalte {@code buchungsdetails}, BE-PDF-07).
  *
  * <p>Seit DB-05 (ADR-12) gegen Testcontainers-Postgres in derselben Major-Version wie Produktion,
  * mit einer eigenen Datenbank für diese Klasse (siehe {@link PostgresTestDatabase}).
@@ -51,13 +51,14 @@ class TransactionsMigrationTest {
         Map<String, String> typeByColumn = schema().columnTypes(TABLE);
 
         assertThat(typeByColumn).containsOnlyKeys(
-                "id", "user_id", "buchungsdatum", "buchungstext", "betrag",
+                "id", "user_id", "buchungsdatum", "buchungstext", "buchungsdetails", "betrag",
                 "is_income", "category", "pdf_sha256");
 
         assertThat(typeByColumn.get("id")).isEqualTo("bigint");
         assertThat(typeByColumn.get("user_id")).isEqualTo("bigint");
         assertThat(typeByColumn.get("buchungsdatum")).isEqualTo("date");
         assertThat(typeByColumn.get("buchungstext")).isEqualTo("text");
+        assertThat(typeByColumn.get("buchungsdetails")).isEqualTo("text");
         assertThat(typeByColumn.get("is_income")).isEqualTo("boolean");
         assertThat(typeByColumn.get("category")).isEqualTo("text");
         assertThat(typeByColumn.get("pdf_sha256")).isEqualTo("text");
@@ -101,5 +102,38 @@ class TransactionsMigrationTest {
         // AC: pdf_sha256 erlaubt NULL; category wird erst später gesetzt.
         assertThat(notNullByColumn.get("pdf_sha256")).isFalse();
         assertThat(notNullByColumn.get("category")).isFalse();
+
+        // AC BE-PDF-07 «bestehende Importe brechen nicht»: Vor V06 geschriebene Zeilen haben
+        // keinen Wert für diese Spalte und sind per Reimport auch nicht nachzuziehen — die
+        // Detailzeilen stehen nur im Quell-PDF. NOT NULL hätte die Migration auf jeder Datenbank
+        // mit Bestand scheitern lassen.
+        assertThat(notNullByColumn.get("buchungsdetails")).isFalse();
+    }
+
+    /**
+     * V06 fügt an, statt die Tabelle neu zu bauen: Der Bestand muss die Migration überleben.
+     *
+     * <p>Der Test schreibt die Zeile über reines SQL ohne {@code buchungsdetails} — so, wie eine
+     * vor BE-PDF-07 importierte Zeile aussieht — und liest sie zurück. Ein {@code DEFAULT} an der
+     * Spalte würde hier auffallen: Es unterschiede «hatte keine Detailzeilen» nicht mehr von
+     * «stammt aus einem Import vor V06», und genau diese Trennung begründet die Nullbarkeit.
+     */
+    @Test
+    void rowsWrittenWithoutBuchungsdetailsKeepNull() {
+        jdbcTemplate.update(
+                "INSERT INTO users (email, password_hash, monthly_income, onboarding_completed)"
+                        + " VALUES (?, ?, ?, ?)",
+                "altbestand@example.com", "bcrypt-hash", new java.math.BigDecimal("4200.00"), true);
+        Long userId = jdbcTemplate.queryForObject(
+                "SELECT id FROM users WHERE email = ?", Long.class, "altbestand@example.com");
+
+        jdbcTemplate.update(
+                "INSERT INTO transactions (user_id, buchungsdatum, buchungstext, betrag, is_income)"
+                        + " VALUES (?, DATE '2026-07-03', 'LASTSCHRIFT', 42.50, FALSE)",
+                userId);
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT buchungsdetails FROM transactions WHERE user_id = ?", String.class, userId))
+                .isNull();
     }
 }

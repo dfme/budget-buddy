@@ -1,0 +1,20 @@
+-- BE-PDF-07: Detailzeilen einer Buchung persistieren (#159).
+--
+-- Bis hierher hat der Import nur buchungstext gespeichert. Bei PostFinance steht dort die
+-- Zahlungsart (GIRO POST, LASTSCHRIFT, TWINT), nie der Händler: 240 Transaktionen eines echten
+-- Jahresauszugs verteilen sich auf 10 verschiedene Werte. Die Gegenpartei steht ausschliesslich in
+-- den eingerückten Fortsetzungszeilen, die der Parser bereits extrahiert, für die Kategorisierung
+-- verwendet und danach verwirft.
+--
+-- Ein TEXT-Feld statt einer eigenen Tabelle: der Parser begrenzt auf 3 Zeilen à 40 Zeichen
+-- (SwissBankStatementParser.MAX_DETAIL_LINES/MAX_DETAIL_LENGTH), und DETAIL_NOISE hat seit
+-- BE-PDF-09 alles ausgesiebt, was sich zu normalisieren lohnte — Gegenpartei-IBAN, Postanschrift,
+-- maskierte Kartennummer, opake Referenzen. Übrig bleiben Gegenpartei und Verwendungszweck.
+--
+-- Die Zeilen werden mit \n verbunden und bleiben damit umkehrbar splittbar; ParsedTransaction hält
+-- sie genau deshalb getrennt (US-08, Abo-Erkennung über Monate).
+--
+-- NULL erlaubt, kein Backfill: Die Detailzeilen stehen nur im PDF, und gespeichert wird davon nur
+-- der SHA-256, nicht die Datei. Vor diesem Zeitpunkt importierte Zeilen sind ohne Reimport nicht
+-- rekonstruierbar. NULL statt '' hält «nie importiert» von «hatte keine Detailzeilen» getrennt.
+ALTER TABLE transactions ADD COLUMN buchungsdetails TEXT;

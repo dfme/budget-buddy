@@ -97,6 +97,64 @@ class ImportJobRunnerTest {
         return captor.getValue();
     }
 
+    /**
+     * BE-PDF-07, DoD «Detailzeilen werden beim Import persistiert»: Vor diesem Ticket ging
+     * {@code details} in {@code fullText()} an die Kategorisierung und wurde danach verworfen.
+     */
+    @Test
+    void persistsDetailLinesSeparatelyFromBuchungstext() {
+        clockNeverExpires();
+        categorizeAllAs(Category.SHOPPING, CategorizationResult.Source.LOOKUP);
+        ImportJob job = new ImportJob(USER_ID, SHA, 1, T0);
+
+        runner.run(job, List.of(
+                parsed("LASTSCHRIFT", List.of("MUSTER, LEA", "SACKGELD LEA"), "89.90", false)),
+                SHA, false);
+
+        Transaction persisted = capturePersisted().getFirst();
+        assertThat(persisted.getBuchungsdetails()).isEqualTo("MUSTER, LEA\nSACKGELD LEA");
+        // Getrennt, nicht angehängt: Der Buchungstext bleibt für sich, sonst wäre die Trennung
+        // beim Persistieren verloren, die ParsedTransaction für US-08 ausdrücklich hält.
+        assertThat(persisted.getBuchungstext()).isEqualTo("LASTSCHRIFT");
+    }
+
+    /**
+     * {@code null}, nicht Leerstring — die Datenbank soll «hatte keine Detailzeilen» von «vor
+     * BE-PDF-07 importiert» unterscheiden können.
+     */
+    @Test
+    void persistsNullWhenTransactionHasNoDetailLines() {
+        clockNeverExpires();
+        categorizeAllAs(Category.SONSTIGES, CategorizationResult.Source.LOOKUP);
+        ImportJob job = new ImportJob(USER_ID, SHA, 1, T0);
+
+        runner.run(job, List.of(parsed("BARBEZUG", List.of(), "100.00", false)), SHA, false);
+
+        assertThat(capturePersisted().getFirst().getBuchungsdetails()).isNull();
+    }
+
+    /**
+     * Der Claude-Pfad bleibt unberührt (BE-PDF-07): Kategorisiert wird weiterhin über
+     * {@code fullText()}, also Buchungstext <em>plus</em> Detailzeilen. Ohne diesen Test könnte
+     * ein späterer Umbau die Persistenzform {@code detailsAsText()} auch hier einsetzen und die
+     * Trefferquote der Lookup-Stufe still halbieren — der Händler steckt bei Überweisungen
+     * ausschliesslich in den Details, die Zahlungsart im Buchungstext.
+     */
+    @Test
+    void categorizationInputStillCombinesBuchungstextAndDetails() {
+        clockNeverExpires();
+        categorizeAllAs(Category.SHOPPING, CategorizationResult.Source.LOOKUP);
+        ImportJob job = new ImportJob(USER_ID, SHA, 1, T0);
+
+        runner.run(job, List.of(parsed("LASTSCHRIFT", List.of("ZALANDO SE"), "89.90", false)),
+                SHA, false);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<String>> texts = ArgumentCaptor.forClass(List.class);
+        verify(categorizationPort).categorizeAll(texts.capture());
+        assertThat(texts.getValue()).containsExactly("LASTSCHRIFT ZALANDO SE");
+    }
+
     @Test
     void happyPath_persistsAllTransactionsWithCategoryAndHashAndFinishesTheJob() {
         clockNeverExpires();

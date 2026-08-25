@@ -111,15 +111,62 @@ class PdfImportServiceIntegrationTest {
     }
 
     private static byte[] fixture() {
+        return fixture("/pdf/UBS_Konto_Bewegungen_2021_Juli.pdf");
+    }
+
+    /**
+     * Der layouttreue PostFinance-Auszug. Anders als die UBS-Fixture trägt er Detailzeilen — dort
+     * steht der Händler nicht in der Buchungszeile, sondern darunter.
+     */
+    private static byte[] postFinanceFixture() {
+        return fixture("/pdf/Post_Kontoauszug_2026_Juli_20_Buchungen.pdf");
+    }
+
+    private static byte[] fixture(String resource) {
         try (InputStream in = PdfImportServiceIntegrationTest.class
-                .getResourceAsStream("/pdf/UBS_Konto_Bewegungen_2021_Juli.pdf")) {
+                .getResourceAsStream(resource)) {
             if (in == null) {
-                throw new IllegalStateException("Fixture nicht im Classpath");
+                throw new IllegalStateException("Fixture nicht im Classpath: " + resource);
             }
             return in.readAllBytes();
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    /**
+     * BE-PDF-07, DoD «Detailzeilen werden beim Import persistiert» — über den echten Import statt
+     * über Mocks.
+     *
+     * <p>Bewusst an der PostFinance-Fixture: In der UBS-Fixture steht der Händler bereits in der
+     * Buchungszeile, sie hat gar keine Detailzeilen und könnte den Pfad deshalb nicht belegen.
+     * Genau daran hängt der Nutzen des Tickets — vor BE-PDF-07 landete bei diesem Layout nur die
+     * Zahlungsart in der Datenbank.
+     */
+    @Test
+    void postFinanceImport_persistsCounterpartyFromDetailLines() {
+        importAndAwait(userId, postFinanceFixture(), false);
+
+        List<Transaction> saved = transactionRepository.findAll();
+        assertThat(saved).isNotEmpty();
+
+        // Der Händler ist nur über die Detailspalte auffindbar: In keinem buchungstext dieses
+        // Auszugs steht er. Fiele die Spalte weg, wäre der erste Teil der Prüfung leer.
+        assertThat(saved)
+                .filteredOn(tx -> tx.getBuchungsdetails() != null
+                        && tx.getBuchungsdetails().contains("ZALANDO SE"))
+                .isNotEmpty();
+        assertThat(saved).noneSatisfy(
+                tx -> assertThat(tx.getBuchungstext()).contains("ZALANDO SE"));
+
+        // Und die Trennung überlebt das Persistieren: Buchungstext und Detailzeilen stehen in
+        // eigenen Spalten, nicht zusammengeschrieben (US-08 braucht sie einzeln).
+        assertThat(saved)
+                .allSatisfy(tx -> assertThat(tx.getBuchungsdetails())
+                        .satisfiesAnyOf(
+                                details -> assertThat(details).isNull(),
+                                details -> assertThat(details)
+                                        .doesNotContain(tx.getBuchungstext())));
     }
 
     @Test
@@ -213,15 +260,23 @@ class PdfImportServiceIntegrationTest {
     void pdfBinaryIsNotStoredInDatabase() {
         importAndAwait(userId, fixture(), false);
 
-        // AC: keine PDF-Binärdaten in der DB — das Schema (Flyway V02) hat keine Blob-Spalte,
-        // und die einzige PDF-Spur ist der 64-Zeichen-Hash.
+        // AC: keine PDF-Binärdaten in der DB — das Schema hat keine Blob-Spalte, und die einzige
+        // PDF-Spur ist der 64-Zeichen-Hash.
+        //
+        // Die Liste ist bewusst abschliessend und nicht bloss ein «enthält kein bytea»: Sie zwingt
+        // jede neue Spalte auf diesem Tisch zu einer Begründung. buchungsdetails (V06, BE-PDF-07)
+        // ist eine solche — sie hält die geparsten Detailzeilen als Text, also Gegenpartei und
+        // Verwendungszweck. Das ist Inhalt des Auszugs, nicht die Datei; ihre Länge deckelt der
+        // Parser auf 3 Zeilen à 40 Zeichen (SwissBankStatementParser). In dieser UBS-Fixture ist
+        // die Spalte durchgängig NULL — UBS schreibt den Händler in die Buchungszeile selbst und
+        // hat gar keine Detailzeilen (SwissBankStatementParserFixtureTest#pageBreak_...).
         List<String> columns = jdbcTemplate.queryForList("""
                 SELECT column_name FROM information_schema.columns
                 WHERE table_schema = current_schema() AND table_name = 'transactions'
                 """, String.class);
         assertThat(columns).containsExactlyInAnyOrder(
-                "id", "user_id", "buchungsdatum", "buchungstext", "betrag", "is_income",
-                "category", "pdf_sha256");
+                "id", "user_id", "buchungsdatum", "buchungstext", "buchungsdetails", "betrag",
+                "is_income", "category", "pdf_sha256");
         Integer maxLen = jdbcTemplate.queryForObject(
                 "SELECT MAX(LENGTH(pdf_sha256)) FROM transactions", Integer.class);
         assertThat(maxLen).isEqualTo(64);
