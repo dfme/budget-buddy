@@ -12,7 +12,7 @@ import jakarta.validation.constraints.Size;
  * Registrierung ({@link RegisterRequest}).
  */
 public record ChangePasswordRequest(
-        @NotBlank String aktuellesPasswort,
+        @NotBlank(message = "Aktuelles Passwort ist erforderlich.") String aktuellesPasswort,
         @NotBlank @Size(min = 8, message = "Passwort muss mindestens 8 Zeichen lang sein.")
                 String neuesPasswort) {
 }

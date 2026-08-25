@@ -56,12 +56,12 @@ class UserOpenApiTest {
                 // Springdoc leitet das 400-Schema aus dem UserExceptionHandler ab — der Body ist
                 // damit auch dokumentiert, nicht nur implementiert (analog FixedCostOpenApiTest).
                 .andExpect(jsonPath(PASSWORD_PUT + ".responses['400'].content['*/*'].schema.$ref")
-                        .value("#/components/schemas/PasswordErrorResponse"))
+                        .value("#/components/schemas/AuthErrorResponse"))
                 .andExpect(jsonPath("$.components.schemas.ChangePasswordRequest"
                         + ".properties.aktuellesPasswort.type").value("string"))
                 .andExpect(jsonPath("$.components.schemas.ChangePasswordRequest"
                         + ".properties.neuesPasswort.type").value("string"))
-                .andExpect(jsonPath("$.components.schemas.PasswordErrorResponse.properties.message"
+                .andExpect(jsonPath("$.components.schemas.AuthErrorResponse.properties.message"
                         + ".type").value("string"));
     }
 }

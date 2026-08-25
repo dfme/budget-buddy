@@ -249,6 +249,18 @@ class UserControllerTest {
     }
 
     @Test
+    void changePasswordWithBlankCurrentPasswordReturns400WithGermanMessage() throws Exception {
+        setPasswordHash("altesPasswort1");
+
+        mockMvc.perform(put("/api/users/me/password")
+                        .cookie(jwtCookie())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"aktuellesPasswort\": \"\", \"neuesPasswort\": \"neuesPasswort2\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Aktuelles Passwort ist erforderlich."));
+    }
+
+    @Test
     void changePasswordWithoutJwtReturns401() throws Exception {
         mockMvc.perform(put("/api/users/me/password")
                         .contentType(MediaType.APPLICATION_JSON)

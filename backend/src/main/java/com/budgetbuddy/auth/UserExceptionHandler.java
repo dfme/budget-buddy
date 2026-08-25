@@ -1,6 +1,6 @@
 package com.budgetbuddy.auth;
 
-import com.budgetbuddy.auth.dto.PasswordErrorResponse;
+import com.budgetbuddy.auth.dto.AuthErrorResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
@@ -24,7 +24,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  *
  * <p><strong>Alle 400er dieser beiden Controller tragen deshalb denselben Body.</strong> Das
  * Scoping allein löst nur die Hälfte des Problems: Springdoc dokumentiert
- * {@link PasswordErrorResponse} jetzt als 400-Schema <em>jedes</em> Endpoints von
+ * {@link AuthErrorResponse} jetzt als 400-Schema <em>jedes</em> Endpoints von
  * {@link AuthController} und {@link UserController} — auch derer, die bislang leer antworteten
  * ({@code POST /auth/register}, {@code PUT /users/me/income}, ein zu kurzes
  * {@code neuesPasswort}). Ohne die beiden Handler unten stimmten Dokument und Verhalten dort nicht
@@ -56,8 +56,8 @@ public class UserExceptionHandler {
 
     @ExceptionHandler(InvalidCurrentPasswordException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public PasswordErrorResponse handleInvalidCurrentPassword(InvalidCurrentPasswordException ex) {
-        return new PasswordErrorResponse(ex.getMessage());
+    public AuthErrorResponse handleInvalidCurrentPassword(InvalidCurrentPasswordException ex) {
+        return new AuthErrorResponse(ex.getMessage());
     }
 
     /**
@@ -72,10 +72,10 @@ public class UserExceptionHandler {
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public PasswordErrorResponse handleValidationError(MethodArgumentNotValidException ex) {
+    public AuthErrorResponse handleValidationError(MethodArgumentNotValidException ex) {
         FieldError fieldError = ex.getBindingResult().getFieldError();
         String message = fieldError != null ? fieldError.getDefaultMessage() : "Ungültige Eingabe.";
-        return new PasswordErrorResponse(message);
+        return new AuthErrorResponse(message);
     }
 
     /**
@@ -85,7 +85,7 @@ public class UserExceptionHandler {
      */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public PasswordErrorResponse handleUnreadableBody(HttpMessageNotReadableException ex) {
-        return new PasswordErrorResponse("Der Request-Body fehlt oder ist kein gültiges JSON.");
+    public AuthErrorResponse handleUnreadableBody(HttpMessageNotReadableException ex) {
+        return new AuthErrorResponse("Der Request-Body fehlt oder ist kein gültiges JSON.");
     }
 }
