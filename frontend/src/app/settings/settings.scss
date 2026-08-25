@@ -1,0 +1,17 @@
+@use 'tokens' as *;
+
+:host {
+  display: block;
+}
+
+.settings {
+  max-width: 40rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: $sp-4;
+}
+
+h1 {
+  margin: 0;
+}

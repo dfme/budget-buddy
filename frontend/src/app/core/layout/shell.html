@@ -29,6 +29,16 @@
     @if (accountMenuOpen()) {
       <div class="account-menu" id="account-menu">
         <p class="account-menu__mail">{{ email() }}</p>
+        <a
+          class="account-menu__item"
+          routerLink="/einstellungen"
+          routerLinkActive="account-menu__item--active"
+          ariaCurrentWhenActive="page"
+          (click)="accountMenuOpen.set(false)"
+        >
+          <span class="nav__icon" aria-hidden="true">⚙</span>
+          Einstellungen
+        </a>
         <button type="button" class="account-menu__item" (click)="logout()">
           <span class="nav__icon" aria-hidden="true">⏻</span>
           Abmelden
@@ -63,6 +73,15 @@
         <span class="nav__avatar" aria-hidden="true">{{ initials() }}</span>
         <span class="nav__user-mail">{{ email() }}</span>
       </div>
+      <a
+        class="nav__settings"
+        routerLink="/einstellungen"
+        routerLinkActive="nav__settings--active"
+        ariaCurrentWhenActive="page"
+      >
+        <span class="nav__icon" aria-hidden="true">⚙</span>
+        Einstellungen
+      </a>
       <button type="button" class="nav__logout" (click)="logout()">
         <span class="nav__icon" aria-hidden="true">⏻</span>
         Abmelden

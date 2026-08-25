@@ -35,6 +35,8 @@ describe('Shell', () => {
           { path: 'dashboard', component: RouteStub },
           { path: 'categories', component: RouteStub },
           { path: 'import', component: RouteStub },
+          { path: 'fixkosten', component: RouteStub },
+          { path: 'einstellungen', component: RouteStub },
           { path: 'login', component: RouteStub },
         ]),
       ],
@@ -86,7 +88,7 @@ describe('Shell', () => {
     expect(query('main.main')).not.toBeNull();
   });
 
-  it('führt genau die vier verfügbaren Ziele in der Navigation', () => {
+  it('führt genau die vier verfügbaren Ziele in der Tab-Bar/Sidebar-Navigation', () => {
     login();
 
     const links = Array.from(el().querySelectorAll<HTMLAnchorElement>('.nav__item'));
@@ -102,6 +104,29 @@ describe('Shell', () => {
       '↑ Import',
       '▦ Fixkosten',
     ]);
+  });
+
+  // «Einstellungen» ist bewusst kein Tab-Bar-Ziel, sondern ein Konto-Ziel im Konto-Block
+  // (siehe Kommentar an `navItems` in shell.ts) — hier doppelt verlinkt wie «Abmelden»:
+  // im mobilen Popover und am Fuss der Desktop-Sidebar.
+
+  it('verlinkt Einstellungen im Konto-Block der Sidebar', () => {
+    login();
+
+    const link = query<HTMLAnchorElement>('.nav__settings');
+    expect(link?.getAttribute('href')).toBe('/einstellungen');
+    expect(link?.textContent?.trim().replace(/\s+/g, ' ')).toBe('⚙ Einstellungen');
+  });
+
+  it('markiert Einstellungen im Sidebar-Konto-Block als aktiv, wenn die Route offen ist', async () => {
+    login();
+
+    await router.navigate(['/einstellungen']);
+    fixture.detectChanges();
+
+    const link = query<HTMLAnchorElement>('.nav__settings');
+    expect(link?.classList.contains('nav__settings--active')).toBe(true);
+    expect(link?.getAttribute('aria-current')).toBe('page');
   });
 
   it('markiert das aktive Ziel mit aria-current und Aktiv-Klasse', async () => {
@@ -145,7 +170,7 @@ describe('Shell', () => {
       expect(query('#account-menu')).toBeNull();
     });
 
-    it('öffnet auf Klick und zeigt E-Mail plus Abmelden', () => {
+    it('öffnet auf Klick und zeigt E-Mail plus Einstellungen und Abmelden', () => {
       login();
 
       avatarButton().click();
@@ -154,7 +179,40 @@ describe('Shell', () => {
       expect(avatarButton().getAttribute('aria-expanded')).toBe('true');
       expect(query('#account-menu')).not.toBeNull();
       expect(query('.account-menu__mail')?.textContent?.trim()).toBe(LARA.email);
-      expect(query('.account-menu__item')?.textContent).toContain('Abmelden');
+      expect(query<HTMLAnchorElement>('a.account-menu__item')?.getAttribute('href')).toBe(
+        '/einstellungen',
+      );
+      expect(query('button.account-menu__item')?.textContent).toContain('Abmelden');
+    });
+
+    it('schliesst das Popover beim Klick auf Einstellungen', () => {
+      login();
+      avatarButton().click();
+      fixture.detectChanges();
+
+      query<HTMLAnchorElement>('a.account-menu__item')!.click();
+      fixture.detectChanges();
+
+      expect(query('#account-menu')).toBeNull();
+    });
+
+    it('markiert Einstellungen im Popover als aktiv, wenn die Route offen ist', async () => {
+      login();
+
+      await router.navigate(['/einstellungen']);
+      avatarButton().click();
+      fixture.detectChanges();
+      // `RouterLinkActive.update()` toggelt die Klasse in einem `queueMicrotask` — anders als
+      // bei `.nav__settings`, das schon vor der Navigation im DOM steht und dessen Update
+      // während des `await router.navigate(...)` bereits durchlief, wird dieser Link erst mit
+      // dem Öffnen des Popovers gerade eben erzeugt. Ein Microtask-Tick muss deshalb noch
+      // verstreichen, bevor die Klasse gesetzt ist.
+      await Promise.resolve();
+      fixture.detectChanges();
+
+      const link = query<HTMLAnchorElement>('a.account-menu__item');
+      expect(link?.classList.contains('account-menu__item--active')).toBe(true);
+      expect(link?.getAttribute('aria-current')).toBe('page');
     });
 
     // Das Popover ist ein Disclosure. `role="menu"` verspricht Pfeiltasten und
@@ -230,7 +288,7 @@ describe('Shell', () => {
       avatarButton().click();
       fixture.detectChanges();
 
-      query<HTMLButtonElement>('.account-menu__item')!.click();
+      query<HTMLButtonElement>('button.account-menu__item')!.click();
 
       httpMock.expectOne('/api/auth/logout').flush(null);
 
