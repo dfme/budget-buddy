@@ -114,12 +114,17 @@
     padding: $sp-3;
     border: none;
     border-top: 1px solid $c-line;
-    border-radius: 0 0 $r-sm $r-sm;
     background: transparent;
     font-size: $fs-sm;
     color: $c-ink-2;
     text-align: left;
     text-decoration: none;
+
+    // Nur das letzte Item rundet unten ab — bei mehreren Einträgen sässe die Rundung sonst
+    // an einem Item mitten in der Liste statt am tatsächlichen Fuss des Popovers.
+    &:last-child {
+      border-radius: 0 0 $r-sm $r-sm;
+    }
 
     &:hover {
       background: $c-bg-subtle;

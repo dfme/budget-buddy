@@ -51,6 +51,27 @@ Bewusst **nicht** angefasst: die bestehende `it.each(['dashboard', 'categories',
 in `onboarding.guard.spec.ts` (lässt bereits `fixkosten` aus — vorbestehende Lücke, nicht Teil
 dieses Diffs). Der Wiring-Nachweis für `einstellungen` lebt stattdessen lokal in `settings.spec.ts`.
 
+## Implementation Notes (Abweichungen vom Plan)
+
+Nachgetragen nach dem Review von [PR #198](https://github.com/dfme/budget-buddy/pull/198), damit
+die Abweichung nicht nur im PR-Text steht.
+
+Schritt 3/4 sahen vor, „Einstellungen" als fünften Eintrag zu `navItems` hinzuzufügen — also in
+dieselbe Tab-Bar/Sidebar-Navigation wie „Übersicht", „Transaktionen", „Import" und „Fixkosten".
+Der Review hat das per Messung widerlegt: `.nav__item` teilt die Tab-Bar-Breite gleichmässig auf
+(`flex: 1`), und ein fünfter Eintrag lässt „Transaktionen" und „Einstellungen" auf 375px/390px
+seitlich in die Nachbar-Tabs überlaufen — Bereiche, die mit den bisherigen vier Zielen noch passten.
+
+Der Fix sitzt eine Ebene tiefer als geplant: „Einstellungen" ist kein Arbeitsziel wie die vier
+übrigen, sondern ein Konto-Ziel, und zieht deshalb in den Konto-Block statt in die Tab-Bar —
+doppelt verlinkt wie „Abmelden" es dort schon vorlebt: im mobilen Popover (`.account-menu__item`)
+und am Fuss der Desktop-Sidebar (`.nav__settings`). `navItems` bleibt unverändert bei den vier
+ursprünglichen Zielen; der Kommentar dort hält jetzt fest, warum „Einstellungen" bewusst fehlt.
+
+Abgedeckt durch `shell.spec.ts`: Präsenz und `href` beider Links, Aktiv-Markierung
+(`--active`-Modifier + `aria-current`) an beiden Stellen, und das Schliessen des Popovers beim
+Klick auf „Einstellungen".
+
 ## Acceptance Criteria (aus Issue)
 
 - [ ] Route für den Einstellungs-Screen in `app.routes.ts`, hinter `authGuard` und

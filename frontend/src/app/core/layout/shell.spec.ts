@@ -196,6 +196,25 @@ describe('Shell', () => {
       expect(query('#account-menu')).toBeNull();
     });
 
+    it('markiert Einstellungen im Popover als aktiv, wenn die Route offen ist', async () => {
+      login();
+
+      await router.navigate(['/einstellungen']);
+      avatarButton().click();
+      fixture.detectChanges();
+      // `RouterLinkActive.update()` toggelt die Klasse in einem `queueMicrotask` — anders als
+      // bei `.nav__settings`, das schon vor der Navigation im DOM steht und dessen Update
+      // während des `await router.navigate(...)` bereits durchlief, wird dieser Link erst mit
+      // dem Öffnen des Popovers gerade eben erzeugt. Ein Microtask-Tick muss deshalb noch
+      // verstreichen, bevor die Klasse gesetzt ist.
+      await Promise.resolve();
+      fixture.detectChanges();
+
+      const link = query<HTMLAnchorElement>('a.account-menu__item');
+      expect(link?.classList.contains('account-menu__item--active')).toBe(true);
+      expect(link?.getAttribute('aria-current')).toBe('page');
+    });
+
     // Das Popover ist ein Disclosure. `role="menu"` verspricht Pfeiltasten und
     // erlaubt kein <p> als Kind — die E-Mail-Zeile wäre dann für Screenreader
     // überspringbar. Dieser Test hält die Rollen draussen.
