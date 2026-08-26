@@ -57,8 +57,24 @@ jobs:
           # „läuft noch" und „ist stumm gescheitert" nichts zu unterscheiden.
           track_progress: true
 
+          # Der Zusatz nach dem Skill-Aufruf ist kein Stilmittel, sondern behebt einen echten
+          # Nichtdeterminismus: Schritt 7 des Skills verlangt eine Bestätigung vor dem Absetzen —
+          # sinnvoll in der Sitzung, ohne Adressaten in CI. Am 26.08. liefen zwei Instanzen auf
+          # demselben Commit von PR #212 (33021243731 und 33021327534); eine setzte das Review ab,
+          # die andere wartet bis heute auf eine Freigabe, die nie kommt.
+          #
+          # Der Skill entscheidet inzwischen selbst anhand von `GITHUB_ACTIONS` (siehe dort,
+          # Schritt 7 → «Ausnahme»). Diese Zeilen sind der Gürtel zum Hosenträger: sie stehen im
+          # Prompt und damit im unmittelbaren Blickfeld, falls der Environment-Check einmal nicht
+          # gelesen wird.
           prompt: |
             /review-pr ${{ github.event.pull_request.number }}
+
+            Kontext: Dies ist ein nicht-interaktiver Lauf in GitHub Actions. Es gibt niemanden,
+            der eine Rückfrage beantworten könnte — Schritt 7 (Bestätigung vor dem Absetzen)
+            entfällt deshalb. Zeige die Befunde im Fortschritts-Kommentar und setze das Review
+            direkt ab. Die harten Grenzen gelten unverändert: nicht approven, nicht mergen,
+            fremde Threads nicht anfassen.
 
           # Bash ist per Default gesperrt. Ohne diese Freigabe kommt der Skill nicht weit:
           # er ruft `gh` (Issue und Ruleset lesen, Review absetzen), `git` (Diff gegen main)

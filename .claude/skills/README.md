@@ -135,6 +135,19 @@ es über die offizielle `anthropics/claude-code-action` bei jedem PR-Event (`ope
 demselben Verzeichnis — er liegt eingecheckt im Repo und ist nach dem Checkout im Runner
 verfügbar. Der manuelle Aufruf `/review-pr <nr>` bleibt unverändert bestehen.
 
+### Was der automatische Lauf anders macht
+
+**Er fragt nicht nach.** Schritt 7 des Skills verlangt in der Sitzung eine Bestätigung, bevor ein
+Review hinausgeht. In CI gibt es niemanden zu fragen — Warten hiesse dort nicht «sicherheitshalber
+nachfragen», sondern das Review verfällt. Der Skill erkennt den Fall an `GITHUB_ACTIONS=true` und
+setzt direkt ab; der Workflow-`prompt` sagt es zusätzlich (INFRA-34).
+
+Anlass war ein beobachteter Nichtdeterminismus: zwei Läufe auf demselben Commit von PR #212
+entschieden verschieden — einer setzte `CHANGES_REQUESTED` ab, der andere wartete auf eine
+Freigabe, die nie kommen konnte.
+
+**Alles andere bleibt gesperrt:** kein Approval, kein Merge, keine fremden Threads.
+
 ### Was der automatische Lauf nicht kann
 
 | Punkt | Warum |

@@ -264,6 +264,33 @@ Begründung. Explizit ausweisen:
 **Auf ausdrückliche Bestätigung warten.** Ein Review ist teamsichtbar und ändert den
 Merge-Status — das ist nichts, was ungefragt rausgeht.
 
+#### Ausnahme: nicht-interaktive Läufe
+
+Im automatischen Lauf (INFRA-31) sitzt niemand daneben. Das Gate hätte dort keinen Adressaten:
+Warten bedeutet nicht «sicherheitshalber nachfragen», sondern **das Review verfällt**.
+
+Die Erkennung läuft über ein prüfbares Signal, nicht über den Wortlaut des Prompts:
+
+```bash
+[ "$GITHUB_ACTIONS" = "true" ] && echo "nicht-interaktiv"
+```
+
+| `GITHUB_ACTIONS` | Schritt 7 |
+| ---------------- | --------- |
+| nicht gesetzt | Befunde zeigen, **auf Bestätigung warten** — der Normalfall |
+| `true` | Befunde in den Fortschritts-Kommentar schreiben und **direkt zu Schritt 8** |
+
+**Warum ein Umgebungssignal und keine Formulierung im Prompt:** Am 26.08. liefen zwei Instanzen
+dieses Skills auf demselben Commit von PR #212 (Läufe 33021243731 und 33021327534, 72 Sekunden
+auseinander). Eine wertete die Automatik als implizite Freigabe und setzte `CHANGES_REQUESTED`
+ab, die andere hielt sich ans Gate und wartet bis heute auf eine Bestätigung, die nie kommt.
+Gleicher Skill, gleicher Code, verschiedenes Ergebnis — weil die Regel Auslegung zuliess. Ein
+Environment-Check tut das nicht.
+
+Die harten Grenzen unten gelten **unverändert weiter**: auch der automatische Lauf approved nie,
+merged nie und fasst fremde Threads nicht an. Entfallen tut ausschliesslich die Rückfrage vor dem
+Absetzen — und nur, weil das Team mit INFRA-31 genau diesen Automatismus beschlossen hat.
+
 ### 8. REVIEW ABSETZEN
 
 Review-State ist **`REQUEST_CHANGES`**, sobald mindestens ein Thread gesetzt wird. `COMMENTED`
@@ -325,7 +352,9 @@ Titel `[TASK-ID] Kurzbeschreibung`, neue freie ID im betroffenen Bereich, Label 
 
 - **Nie approven.** Die Freigabe kommt von mindestens einem Dev (CLAUDE.md, Review-Konvention).
 - **Nie mergen.** Der Merge auf `main` wird ausschliesslich von einem Dev getriggert.
-- **Nie ungefragt absetzen.** Schritt 7 ist ein verbindliches Gate.
+- **Nie ungefragt absetzen** — in der interaktiven Sitzung. Schritt 7 ist dort ein verbindliches
+  Gate. Im nicht-interaktiven Lauf (`GITHUB_ACTIONS=true`) entfällt es, weil es keinen Adressaten
+  hat; siehe Schritt 7 → «Ausnahme». Das ist die **einzige** Grenze mit einer solchen Ausnahme.
 - **Fremde Threads nie anfassen** — weder auflösen noch löschen noch bearbeiten. Ob ein Befund
   erledigt ist, entscheidet, wer ihn angebracht hat.
 - **Keine Karte auf `Done`.** Schritt 1c bewegt Karten nur in den Review hinein. `Done` folgt aus
