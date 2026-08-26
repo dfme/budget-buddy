@@ -63,5 +63,12 @@ jobs:
           # Bash ist per Default gesperrt. Ohne diese Freigabe kommt der Skill nicht weit:
           # er ruft `gh` (Issue und Ruleset lesen, Review absetzen), `git` (Diff gegen main)
           # und `python3` (Review-Payload als JSON, Skill-Schritt 8).
+          #
+          # `mcp__github_inline_comment__create_inline_comment` ist der Weg der Action, einen
+          # Kommentar an eine Diff-Zeile zu hängen. Ohne ihn landen auch blockierende Befunde
+          # nur im Fliesstext eines PR-Kommentars — und die Ruleset-Regel
+          # `required_review_thread_resolution` sieht ausschliesslich Inline-Threads. Ein Review
+          # ohne dieses Werkzeug kann den Merge also nicht aufhalten, was den Zweck von
+          # `review-pr` verfehlt (INFRA-32; belegt an Lauf 33017262511).
           claude_args: |
-            --allowedTools "Bash,Read,Glob,Grep"
+            --allowedTools "Bash,Read,Glob,Grep,mcp__github_inline_comment__create_inline_comment"

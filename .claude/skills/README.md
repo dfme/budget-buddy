@@ -174,9 +174,14 @@ Claude-Code-Session heraus erledigen:
    > unterscheiden — der Lauf protokolliert dann schlicht `claude_code_oauth_token: ""`.
    > Gegenprobe: `gh secret list --repo dfme/budget-buddy` zeigt genau die Actions-Secrets.
 
-3. **Verifizieren** — einen Test-PR öffnen und prüfen, dass der Lauf als `REQUEST_CHANGES` mit
-   Inline-Threads ankommt. Ohne Schritt 1 und 2 startet der Workflow zwar, scheitert aber an der
-   Authentifizierung.
+3. **Verifizieren** — einen Test-PR öffnen und prüfen, dass ein Review ankommt. Ohne Schritt 1
+   und 2 startet der Workflow zwar, scheitert aber an der Authentifizierung.
+
+   Erwartet wird **nicht** in jedem Fall ein `REQUEST_CHANGES`: der Skill setzt das nur, wenn
+   mindestens ein blockierender Befund vorliegt. Ein sauberer PR bekommt korrekterweise einen
+   Kommentar mit den Befunden und `🔴 Blockierend: Keine`. Zum Verifizieren taugt deshalb jeder
+   Lauf, der die Schritte des Skills nachweislich durchlaufen hat (Tests selbst ausgeführt,
+   Ruleset gelesen, Befunde klassifiziert) — nicht erst einer, der blockiert.
 
 ### Nicht zu verwechseln mit Agent HQ (`/agents`)
 
@@ -216,6 +221,31 @@ Repo-Rechten ausführen. Zwei praktische Folgen:
   also frühestens am *nächsten* PR, nicht an dem, der ihn einführt.
 - **Jede spätere Änderung an `claude-pr-review.yml`** trifft dieselbe Sperre. Der PR, der sie
   enthält, wird nicht automatisch reviewt; erst die PRs danach laufen wieder.
+
+### Bestehende PRs brauchen einmal `main` im Branch
+
+Die Sperre oben vergleicht gegen den **PR-Branch**. Ein PR, der abzweigte, bevor
+`claude-pr-review.yml` auf `main` lag, kennt die Datei nicht — und wird deshalb gar nicht erst
+reviewt. Beobachtet: ein Close/Reopen löste an einem 12 Commits alten Branch **keinen einzigen
+Lauf** aus, auch keinen CI-Lauf. Erst das Nachziehen von `main` erzeugte einen.
+
+```bash
+gh pr update-branch <pr-number>   # zieht main in den Branch → Event `synchronize`
+```
+
+Neue PRs, die nach dem Merge von `main` abzweigen, haben die Datei automatisch dabei. Betroffen
+ist also nur der Bestand zum Einführungszeitpunkt — einmalig, danach nie wieder.
+
+### Zombie-Runs nach einem Actions-Ausfall
+
+Läufe, die während einer GitHub-Actions-Störung eingereiht werden, bleiben danach dauerhaft auf
+`queued` stehen: der wiederhergestellte Dienst holt sie nicht mehr ab. Sie sind auch nicht
+abbrechbar — `gh run cancel` antwortet *Cannot cancel a workflow run that is completed*, während
+`gh run list` sie weiter als `queued` führt. Dieser Widerspruch ist das Erkennungsmerkmal.
+
+Ein Re-Run hilft dann nicht; es braucht ein **neues Event** (Close/Reopen oder ein Push). Vorher
+[githubstatus.com](https://www.githubstatus.com) prüfen — solange der Incident läuft, ist jedes
+Nachtreten sinnlos.
 
 ## Wenn es klemmt
 
