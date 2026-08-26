@@ -1,8 +1,11 @@
 package com.budgetbuddy.auth;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -15,6 +18,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -45,6 +49,9 @@ class UserControllerTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     private long userId;
 
@@ -289,5 +296,98 @@ class UserControllerTest {
     private boolean onboardingCompleted() {
         return Boolean.TRUE.equals(jdbcTemplate.queryForObject(
                 "SELECT onboarding_completed FROM users WHERE id = ?", Boolean.class, userId));
+    }
+
+    // --- PUT /users/me/password (BE-AUTH-09) ---
+
+    private void setPasswordHash(String rawPassword) {
+        jdbcTemplate.update("UPDATE users SET password_hash = ? WHERE id = ?",
+                passwordEncoder.encode(rawPassword), userId);
+    }
+
+    private String currentPasswordHash() {
+        return jdbcTemplate.queryForObject(
+                "SELECT password_hash FROM users WHERE id = ?", String.class, userId);
+    }
+
+    @Test
+    void changePasswordWithCorrectCurrentPasswordReturns200AndAllowsLoginWithNewPasswordOnly()
+            throws Exception {
+        setPasswordHash("altesPasswort1");
+
+        mockMvc.perform(put("/api/users/me/password")
+                        .cookie(jwtCookie())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"aktuellesPasswort\": \"altesPasswort1\", "
+                                + "\"neuesPasswort\": \"neuesPasswort2\"}"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(""));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\": \"lara@example.ch\", \"password\": \"altesPasswort1\"}"))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\": \"lara@example.ch\", \"password\": \"neuesPasswort2\"}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void changePasswordWithWrongCurrentPasswordReturns400WithMessageAndLeavesHashUnchanged()
+            throws Exception {
+        setPasswordHash("altesPasswort1");
+        String hashBefore = currentPasswordHash();
+
+        mockMvc.perform(put("/api/users/me/password")
+                        .cookie(jwtCookie())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"aktuellesPasswort\": \"falschesPasswort\", "
+                                + "\"neuesPasswort\": \"neuesPasswort2\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Aktuelles Passwort falsch"))
+                // Weder das falsche noch das neue Passwort dürfen in der Response auftauchen.
+                .andExpect(content().string(not(containsString("falschesPasswort"))))
+                .andExpect(content().string(not(containsString("neuesPasswort2"))));
+
+        org.assertj.core.api.Assertions.assertThat(currentPasswordHash()).isEqualTo(hashBefore);
+    }
+
+    @Test
+    void changePasswordWithShortNewPasswordReturns400WithoutLeakingIt() throws Exception {
+        setPasswordHash("altesPasswort1");
+
+        mockMvc.perform(put("/api/users/me/password")
+                        .cookie(jwtCookie())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"aktuellesPasswort\": \"altesPasswort1\", "
+                                + "\"neuesPasswort\": \"kurz\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Passwort muss mindestens 8 Zeichen lang sein."))
+                // Bean Validation darf den abgelehnten Wert nicht in die Response spiegeln.
+                .andExpect(content().string(not(containsString("kurz"))))
+                .andExpect(content().string(not(containsString("altesPasswort1"))));
+    }
+
+    @Test
+    void changePasswordWithBlankCurrentPasswordReturns400WithGermanMessage() throws Exception {
+        setPasswordHash("altesPasswort1");
+
+        mockMvc.perform(put("/api/users/me/password")
+                        .cookie(jwtCookie())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"aktuellesPasswort\": \"\", \"neuesPasswort\": \"neuesPasswort2\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Aktuelles Passwort ist erforderlich."));
+    }
+
+    @Test
+    void changePasswordWithoutJwtReturns401() throws Exception {
+        mockMvc.perform(put("/api/users/me/password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"aktuellesPasswort\": \"altesPasswort1\", "
+                                + "\"neuesPasswort\": \"neuesPasswort2\"}"))
+                .andExpect(status().isUnauthorized());
     }
 }

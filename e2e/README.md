@@ -85,6 +85,7 @@ die im JAR gebündelte SPA aus«) schlägt dann als Einziger fehl und nennt gena
 | `tests/spa-routing.spec.ts` | Deep-Link-Status-Codes des Artefakts (SPA offen, API geschützt) |
 | `tests/fixed-cost-wizard.spec.ts` | Fixkosten-Wizard (US-03): Happy Path bis in die Liste, Fehlerpfad mit Validierung |
 | `tests/pdf-import.spec.ts` | PDF-Upload (US-04): Happy Path mit Anzahl-Meldung, Fehlerpfad mit unlesbarem PDF |
+| `tests/categorization.spec.ts` | Kategorisierung (US-05): Happy Path mit Korrektur über einen Reload, Fehlerpfad mit 500 auf dem Korrektur-PUT |
 | `fixtures/auth.fixture.ts` | Auth-Fixture: eingeloggte Session als Vorbedingung |
 | `fixtures/pdf/` | Synthetische Kontoauszug-PDFs — unkomprimiertes ASCII, lokal mit `cat` oder `git diff` prüfbar (GitHub zeigt sie als binär) |
 | `support/backend.ts` | Port, Basis-URL, JAR-Auflösung, Test-JWT-Secret |
