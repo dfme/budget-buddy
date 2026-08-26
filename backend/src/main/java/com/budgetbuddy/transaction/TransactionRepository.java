@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -129,4 +130,17 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
      * @return Anzahl gelöschter Zeilen.
      */
     long deleteByUserIdAndPdfSha256(Long userId, String pdfSha256);
+
+    /**
+     * Löscht alle Transaktionen eines Users (Kontolöschung, US-02, DB-07).
+     *
+     * <p>Bewusst {@code @Modifying} statt einer abgeleiteten {@code deleteByUserId}-Methode:
+     * Letztere lädt die Entities und ruft {@code remove()} auf, was Hibernate bis zum Flush
+     * aufschiebt. Der Aufrufer ({@code UserService.deleteUser}) löscht danach den User selbst —
+     * dessen Fremdschlüssel-Constraint verlangt, dass diese Zeilen zu dem Zeitpunkt bereits
+     * physisch entfernt sind, nicht erst am Ende der Transaktion.
+     */
+    @Modifying
+    @Query("delete from Transaction t where t.userId = :userId")
+    void deleteAllByUserId(@Param("userId") Long userId);
 }

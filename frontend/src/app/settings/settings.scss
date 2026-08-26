@@ -21,3 +21,9 @@ form {
   flex-direction: column;
   gap: $sp-4;
 }
+
+.settings__hint {
+  margin: $sp-2 0 0;
+  font-size: $fs-sm;
+  color: $c-ink-2;
+}
