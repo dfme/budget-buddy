@@ -3,6 +3,9 @@ package com.budgetbuddy.budget;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -55,4 +58,15 @@ public interface FixedCostRepository extends JpaRepository<FixedCost, Long> {
      * Onboarding-Wizards aus US-03, der erst nach dem ersten Eintrag übersprungen werden darf.
      */
     boolean existsByUserId(Long userId);
+
+    /**
+     * Löscht alle Fixkosten-Positionen eines Users (Kontolöschung, US-02, DB-07).
+     *
+     * <p>Bewusst {@code @Modifying} — Begründung wie bei
+     * {@code TransactionRepository#deleteAllByUserId}: das DELETE muss physisch ausgeführt sein,
+     * bevor {@code UserService.deleteUser} den User selbst löscht.
+     */
+    @Modifying
+    @Query("delete from FixedCost f where f.userId = :userId")
+    void deleteAllByUserId(@Param("userId") Long userId);
 }

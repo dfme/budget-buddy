@@ -3,18 +3,24 @@ package com.budgetbuddy.auth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.budgetbuddy.auth.dto.UserProfileResponse;
+import com.budgetbuddy.budget.FixedCostCleanupPort;
+import com.budgetbuddy.transaction.TransactionCleanupPort;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -25,6 +31,12 @@ class UserServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private TransactionCleanupPort transactionCleanupPort;
+
+    @Mock
+    private FixedCostCleanupPort fixedCostCleanupPort;
 
     @Mock
     private PasswordEncoder passwordEncoder;
@@ -215,6 +227,36 @@ class UserServiceTest {
         // Bewusst keine UserNotFoundException: für die Fixkosten-Warnung ist «kein Vergleichswert»
         // ein Ergebnis, kein Fehler, der den Aufrufer abbricht.
         assertThat(userService.findMonthlyIncome(99L)).isEmpty();
+    }
+
+    // --- deleteUser (US-02, DB-07) ---
+
+    /**
+     * Reihenfolge ist der eigentliche Kern von DB-07: beide Cleanup-Ports müssen laufen, bevor
+     * der User selbst gelöscht wird — sonst schlägt dessen Löschung an der Fremdschlüssel-
+     * Constraint auf {@code transactions}/{@code fixed_costs}/{@code import_jobs} fehl.
+     */
+    @Test
+    void deleteUserCleansUpDependentDataBeforeRemovingTheUser() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        userService.deleteUser(1L);
+
+        InOrder order = inOrder(transactionCleanupPort, fixedCostCleanupPort, userRepository);
+        order.verify(transactionCleanupPort).deleteAllForUser(1L);
+        order.verify(fixedCostCleanupPort).deleteAllForUser(1L);
+        order.verify(userRepository).delete(user);
+    }
+
+    @Test
+    void deleteUserThrowsWhenUserMissingAndNeverTouchesCleanupPorts() {
+        when(userRepository.findById(anyLong())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.deleteUser(99L))
+                .isInstanceOf(UserNotFoundException.class);
+
+        verifyNoInteractions(transactionCleanupPort, fixedCostCleanupPort);
+        verify(userRepository, never()).delete(any());
     }
 
     // User hat bewusst keine Setter für id/email/passwordHash (Entity-Kapselung); im Unit-Test
