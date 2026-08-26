@@ -140,8 +140,23 @@ verfügbar. Der manuelle Aufruf `/review-pr <nr>` bleibt unverändert bestehen.
 | Punkt | Warum |
 | ----- | ----- |
 | **Die Dev-Freigabe ersetzen** | Ein Action-Lauf ist kein Dev. CLAUDE.md → „Git: Review-Konvention" Punkt 3 verlangt die Freigabe durch mindestens einen Menschen; das automatische Review ist ein zusätzliches Augenpaar, kein Approval. Das Ruleset erzwingt das ohnehin. |
-| **Die Board-Karte bewegen** | Die Claude GitHub App bringt Berechtigungen für Contents, Pull Requests und Issues mit — **kein** Projects. Schritt 1c des Skills scheitert damit am Board und meldet das; seit INFRA-27 ist das ausdrücklich nicht blockierend, der Review läuft normal weiter. Die Karte ist nach einem automatischen Lauf von Hand zu setzen. |
+| **Den Vorgang übernehmen** (Assignee **und** Board-Karte) | Zwei verschiedene Ursachen, beide am echten Lauf 33019045344 beobachtet. **Assignee:** GitHub lehnt das grundsätzlich ab — *„Assigning agents is not supported with GitHub App installation tokens"*. Das ist eine harte Grenze des Installationstokens und **nicht** durch zusätzliche App-Rechte behebbar. **Board:** Das Projekt `dfme/4` ist über dieses Token nicht auflösbar; die App-Berechtigungen decken Contents, Pull Requests und Issues ab, nicht Projects. Schritt 1c des Skills meldet beides und läuft weiter — seit INFRA-27 ausdrücklich nicht blockierend. Assignee und Karte sind nach einem automatischen Lauf von Hand zu setzen. |
 | **Den eigenen PR reviewen** | Unverändert: GitHub lehnt `REQUEST_CHANGES` am eigenen PR mit `HTTP 422` ab. Die Action läuft als App und nicht als PR-Autor, ist davon also normalerweise nicht betroffen — bei PRs, die die App selbst eröffnet hätte, schon. |
+
+### Modell und Verbrauch
+
+Das Review läuft auf **`claude-sonnet-5`**, im Workflow explizit über `--model` gesetzt. Der Wert
+entspricht dem, was der Default zuletzt lieferte — festgeschrieben, damit er sich nicht still
+ändert: die Action ist als beweglicher Tag `@v1` eingebunden, und ohne die Zeile bestimmt Claude
+Code das Modell. Ein stärkeres Modell (`claude-opus-5`) bleibt eine Option, falls im Betrieb
+Befunde durchrutschen; dann genügt ein Wort in `claude_args`.
+
+Für interne Kleinaufgaben zieht Claude Code zusätzlich `claude-haiku-4-5` heran. Das hängt an
+einem eigenen Schalter (`ANTHROPIC_DEFAULT_HAIKU_MODEL`) und wird von `--model` **nicht** berührt.
+
+Ein vollständiger Review kostete zuletzt rund **$1.10** und ~6 Minuten (Lauf 33019045344). Läuft
+die Authentifizierung über `CLAUDE_CODE_OAUTH_TOKEN`, geht das gegen das Pro/Max-Kontingent statt
+auf eine API-Rechnung.
 
 ### Einrichtung (einmalig, pro Repo)
 
