@@ -32,7 +32,7 @@ class TransactionCategoryServiceTest {
             new TransactionCategoryService(repository, learningPort);
 
     private Transaction ownTransaction() {
-        return new Transaction(USER_ID, LocalDate.of(2026, 7, 3), "MIGROS BERN",
+        return new Transaction(USER_ID, LocalDate.of(2026, 7, 3), "MIGROS BERN", null,
                 new BigDecimal("60.00"), false, "Sonstiges", "sha");
     }
 
@@ -61,7 +61,7 @@ class TransactionCategoryServiceTest {
 
     @Test
     void foreignTransactionThrowsNotFound() {
-        Transaction foreign = new Transaction(999L, LocalDate.of(2026, 7, 3), "MIGROS BERN",
+        Transaction foreign = new Transaction(999L, LocalDate.of(2026, 7, 3), "MIGROS BERN", null,
                 new BigDecimal("60.00"), false, "Sonstiges", "sha");
         when(repository.findById(TX_ID)).thenReturn(Optional.of(foreign));
 

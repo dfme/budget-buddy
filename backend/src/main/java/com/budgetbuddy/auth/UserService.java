@@ -6,6 +6,7 @@ import com.budgetbuddy.transaction.TransactionCleanupPort;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Optional;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,14 +40,17 @@ public class UserService implements UserIncomePort {
     private final UserRepository userRepository;
     private final TransactionCleanupPort transactionCleanupPort;
     private final FixedCostCleanupPort fixedCostCleanupPort;
+    private final PasswordEncoder passwordEncoder;
 
     public UserService(
             UserRepository userRepository,
             TransactionCleanupPort transactionCleanupPort,
-            FixedCostCleanupPort fixedCostCleanupPort) {
+            FixedCostCleanupPort fixedCostCleanupPort,
+            PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.transactionCleanupPort = transactionCleanupPort;
         this.fixedCostCleanupPort = fixedCostCleanupPort;
+        this.passwordEncoder = passwordEncoder;
     }
 
     /**
@@ -127,6 +131,22 @@ public class UserService implements UserIncomePort {
         User user = findUser(userId);
         user.completeOnboarding();
         return toResponse(user);
+    }
+
+    /**
+     * Prüft das aktuelle Passwort und ersetzt bei Erfolg den gespeicherten Hash (BE-AUTH-09).
+     *
+     * @throws UserNotFoundException wenn kein User mit dieser ID existiert.
+     * @throws InvalidCurrentPasswordException wenn {@code currentPassword} nicht mit dem
+     *     gespeicherten Hash übereinstimmt — die Änderung findet dann nicht statt.
+     */
+    @Transactional
+    public void changePassword(long userId, String currentPassword, String newPassword) {
+        User user = findUser(userId);
+        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            throw new InvalidCurrentPasswordException();
+        }
+        user.changePasswordHash(passwordEncoder.encode(newPassword));
     }
 
     /**

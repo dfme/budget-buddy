@@ -17,9 +17,13 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * dem PDF-Import und den Transaktions-Endpoints ihre eigene Fehlerabbildung. Dieselbe Aufteilung
  * wie beim {@code FixedCostExceptionHandler}.
  *
- * <p>Der {@link UserExceptionHandler} bleibt daneben global: {@code UserNotFoundException},
- * {@code EmailAlreadyExistsException} und {@code InvalidCredentialsException} sind eigene Typen und
- * können mit keinem anderen Advice kollidieren.
+ * <p>Der {@link UserExceptionHandler} bleibt daneben auf {@link AuthController} und
+ * {@link UserController} beschränkt: {@code UserNotFoundException}, {@code EmailAlreadyExistsException},
+ * {@code InvalidCredentialsException}, {@code InvalidCurrentPasswordException} und
+ * {@code MethodArgumentNotValidException} sind eigene Fälle, die mit diesem Advice nicht
+ * kollidieren — {@link HttpMessageNotReadableException} bewusst ausgenommen (BE-AUTH-09): dafür ist
+ * ausschliesslich dieses Advice zuständig, ein zweiter Handler auf demselben Controller wäre ein
+ * nicht deterministischer Konflikt zwischen zwei {@code @RestControllerAdvice}-Beans.
  *
  * <p><strong>Warum der Jackson-Fall mit hierher gehört.</strong> Seit die
  * Bean-Validation-Annotationen aus {@code UpdateIncomeRequest} heraus sind, kommen alle fachlichen

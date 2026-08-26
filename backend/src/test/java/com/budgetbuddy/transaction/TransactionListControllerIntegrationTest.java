@@ -1,5 +1,6 @@
 package com.budgetbuddy.transaction;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -70,8 +71,10 @@ class TransactionListControllerIntegrationTest {
         laraId = createUser("lara@example.ch");
         marcId = createUser("marc@example.ch");
 
-        // Laras Juli: zwei Ausgaben, eine davon noch nicht kategorisiert.
-        save(laraId, "2026-07-03", "MIGROS BERN", "60.00", false, "Lebensmittel");
+        // Laras Juli: zwei Ausgaben, eine davon noch nicht kategorisiert. Die erste trägt
+        // Detailzeilen (BE-PDF-07), die zweite nicht — beide Fälle stehen damit im Standard-Seed.
+        save(laraId, "2026-07-03", "MIGROS BERN", "MIGROS M BERN WANKDORF\nEINKAUF", "60.00",
+                false, "Lebensmittel");
         save(laraId, "2026-07-20", "UNBEKANNT AG", "25.00", false, null);
         // Gutschrift im Juli → keine Ausgabe, darf nicht erscheinen.
         save(laraId, "2026-07-25", "LOHN ARBEITGEBER", "3000.00", true, "Einkommen");
@@ -105,9 +108,15 @@ class TransactionListControllerIntegrationTest {
 
     private void save(long userId, String datum, String text, String betrag, boolean income,
             String category) {
+        save(userId, datum, text, null, betrag, income, category);
+    }
+
+    /** Variante mit Detailzeilen (BE-PDF-07) — {@code details} darf {@code null} sein. */
+    private void save(long userId, String datum, String text, String details, String betrag,
+            boolean income, String category) {
         transactionRepository.save(new Transaction(
-                userId, LocalDate.parse(datum), text, new BigDecimal(betrag), income, category,
-                null));
+                userId, LocalDate.parse(datum), text, details, new BigDecimal(betrag), income,
+                category, null));
     }
 
     private Cookie jwtCookie(long userId) {
@@ -129,6 +138,27 @@ class TransactionListControllerIntegrationTest {
                 .andExpect(jsonPath("$.transactions[0].id").isNumber())
                 .andExpect(jsonPath("$.transactions[1].buchungstext").value("MIGROS BERN"))
                 .andExpect(jsonPath("$.transactions[1].category").value("Lebensmittel"));
+    }
+
+    /**
+     * BE-PDF-07: Die Detailzeilen erreichen das Frontend — ohne sie zeigt die Liste bei
+     * PostFinance-Auszügen reihenweise dieselbe Zahlungsart (US-13, AC 1).
+     *
+     * <p>Beide Fälle in einem Test, weil sie zusammengehören: Ein Wert, der immer gesetzt ist,
+     * bewiese nichts über die Nullbarkeit, und ein durchgängiges {@code null} nichts über die
+     * Übertragung.
+     */
+    @Test
+    void exposesBuchungsdetailsIncludingNullForBookingsWithoutDetailLines() throws Exception {
+        mockMvc.perform(get("/api/transactions").param("month", "2026-07").cookie(jwtCookie(laraId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.transactions[1].buchungsdetails")
+                        .value("MIGROS M BERN WANKDORF\nEINKAUF"))
+                // Mit Wert null, nicht weggelassen: Das Projekt konfiguriert kein
+                // JsonInclude.NON_NULL, der Schlüssel steht also immer im JSON. Nur deshalb darf
+                // das TypeScript-Modell `string | null` deklarieren statt das Feld optional zu
+                // machen — fiele der Schlüssel weg, wäre das Modell falsch.
+                .andExpect(jsonPath("$.transactions[0].buchungsdetails").value(nullValue()));
     }
 
     @Test

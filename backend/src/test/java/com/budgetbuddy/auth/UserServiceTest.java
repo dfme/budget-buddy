@@ -24,6 +24,7 @@ import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
@@ -36,6 +37,9 @@ class UserServiceTest {
 
     @Mock
     private FixedCostCleanupPort fixedCostCleanupPort;
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
 
     @InjectMocks
     private UserService userService;
@@ -82,6 +86,39 @@ class UserServiceTest {
         when(userRepository.findById(anyLong())).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> userService.updateIncome(99L, BigDecimal.ONE))
+                .isInstanceOf(UserNotFoundException.class);
+    }
+
+    // --- changePassword (BE-AUTH-09) ---
+
+    @Test
+    void changePasswordWithCorrectCurrentPasswordReplacesHash() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("altesPasswort1", "irrelevant-for-test")).thenReturn(true);
+        when(passwordEncoder.encode("neuesPasswort2")).thenReturn("neuer-bcrypt-hash");
+
+        userService.changePassword(1L, "altesPasswort1", "neuesPasswort2");
+
+        assertThat(user.getPasswordHash()).isEqualTo("neuer-bcrypt-hash");
+    }
+
+    @Test
+    void changePasswordWithWrongCurrentPasswordThrowsAndLeavesHashUnchanged() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("falsch", "irrelevant-for-test")).thenReturn(false);
+
+        assertThatThrownBy(() -> userService.changePassword(1L, "falsch", "neuesPasswort2"))
+                .isInstanceOf(InvalidCurrentPasswordException.class);
+
+        assertThat(user.getPasswordHash()).isEqualTo("irrelevant-for-test");
+        verify(passwordEncoder, never()).encode(org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
+    void changePasswordThrowsWhenUserMissing() {
+        when(userRepository.findById(anyLong())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.changePassword(99L, "alt", "neuesPasswort2"))
                 .isInstanceOf(UserNotFoundException.class);
     }
 

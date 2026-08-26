@@ -1,5 +1,6 @@
 package com.budgetbuddy.auth;
 
+import com.budgetbuddy.auth.dto.ChangePasswordRequest;
 import com.budgetbuddy.auth.dto.IncomeErrorResponse;
 import com.budgetbuddy.auth.dto.UpdateIncomeRequest;
 import com.budgetbuddy.auth.dto.UserProfileResponse;
@@ -9,6 +10,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -78,5 +80,20 @@ public class UserController {
     })
     public UserProfileResponse completeOnboarding(@AuthenticationPrincipal Long userId) {
         return userService.completeOnboarding(userId);
+    }
+
+    @PutMapping("/password")
+    @Operation(summary = "Passwort ändern",
+            description = "Prüft aktuellesPasswort gegen den gespeicherten bcrypt-Hash und "
+                    + "ersetzt ihn bei Erfolg durch den Hash von neuesPasswort.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Passwort geändert", content = {}),
+        @ApiResponse(responseCode = "400",
+                description = "aktuellesPasswort falsch oder neuesPasswort unter 8 Zeichen"),
+        @ApiResponse(responseCode = "401", description = "Nicht authentifiziert", content = {})
+    })
+    public void changePassword(
+            @AuthenticationPrincipal Long userId, @Valid @RequestBody ChangePasswordRequest request) {
+        userService.changePassword(userId, request.aktuellesPasswort(), request.neuesPasswort());
     }
 }

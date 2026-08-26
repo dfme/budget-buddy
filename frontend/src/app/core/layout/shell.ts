@@ -71,9 +71,10 @@ export class Shell {
   protected readonly accountMenuOpen = signal(false);
 
   /**
-   * Die Hauptziele. «Einstellungen» fehlt bewusst: der Screen kommt erst mit
-   * US-14 — ein Link dorthin liefe heute in die Wildcard-Route und würde
-   * fälschlich «Übersicht» als aktiv markieren.
+   * Die Hauptziele der Tab-Bar/Sidebar. «Einstellungen» gehört bewusst nicht hierher,
+   * sondern in den Konto-Block (Mobile: Popover, Desktop: Sidebar-Fuss) — es ist ein
+   * Konto-Ziel, kein Arbeitsziel. Ein fünfter Eintrag hier würde auf 375px die Labels
+   * der Tab-Bar überlaufen lassen (`.nav__item` teilt die Breite gleichmässig auf).
    */
   protected readonly navItems: readonly NavItem[] = [
     { path: '/dashboard', label: 'Übersicht', icon: '◎' },

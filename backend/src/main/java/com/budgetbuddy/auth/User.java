@@ -87,4 +87,17 @@ public class User {
     public void completeOnboarding() {
         this.onboardingCompleted = true;
     }
+
+    /**
+     * Ersetzt den gespeicherten Passwort-Hash (BE-AUTH-09).
+     *
+     * <p>Bewusst eine Domänenmethode statt eines generischen Setters: der Aufrufer muss den neuen
+     * Wert bereits bcrypt-gehasht liefern, niemals Klartext (ADR-7) — der Methodenname macht das
+     * an der Aufrufstelle explizit.
+     *
+     * @param passwordHash neuer bcrypt-Hash — niemals Klartext.
+     */
+    public void changePasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
 }

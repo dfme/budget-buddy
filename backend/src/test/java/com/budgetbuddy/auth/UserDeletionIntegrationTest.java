@@ -72,7 +72,7 @@ class UserDeletionIntegrationTest {
         userId = user.getId();
 
         transactionRepository.save(new Transaction(
-                userId, LocalDate.of(2026, 8, 1), "MIGROS BERN", new BigDecimal("42.50"),
+                userId, LocalDate.of(2026, 8, 1), "MIGROS BERN", null, new BigDecimal("42.50"),
                 false, "Lebensmittel", "abc123"));
         importJobRepository.save(new ImportJob(userId, "abc123", 1, Instant.now()));
         fixedCostRepository.save(new FixedCost(
