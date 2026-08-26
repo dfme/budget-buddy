@@ -81,7 +81,7 @@ die im JAR gebündelte SPA aus«) schlägt dann als Einziger fehl und nennt gena
 
 | Pfad | Inhalt |
 | --- | --- |
-| `tests/auth.spec.ts` | Register → Login → geschützte Route, Cookie-Flags, Fehlerpfad |
+| `tests/auth.spec.ts` | Register → Login → Dashboard → Logout, Cookie-Flags, Fehlerpfad (ohne Cookie, falsche Credentials) |
 | `tests/spa-routing.spec.ts` | Deep-Link-Status-Codes des Artefakts (SPA offen, API geschützt) |
 | `tests/fixed-cost-wizard.spec.ts` | Fixkosten-Wizard (US-03): Happy Path bis in die Liste, Fehlerpfad mit Validierung |
 | `tests/pdf-import.spec.ts` | PDF-Upload (US-04): Happy Path mit Anzahl-Meldung, Fehlerpfad mit unlesbarem PDF |
