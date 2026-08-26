@@ -171,6 +171,28 @@ Claude-Code-Session heraus erledigen:
    Inline-Threads ankommt. Ohne Schritt 1 und 2 startet der Workflow zwar, scheitert aber an der
    Authentifizierung.
 
+### Der Workflow läuft nie auf dem PR, der ihn ändert
+
+Die Action bricht ab, sobald die Workflow-Datei im PR von der Fassung auf `main` abweicht:
+
+```
+Workflow validation failed. The workflow file must exist and have identical content
+to the version on the repository's default branch.
+```
+
+Der Job endet dabei mit **`success`** — er überspringt sich selbst, statt rot zu werden. Ein
+grüner Haken ist hier also *kein* Beleg, dass ein Review stattgefunden hat; nachgesehen wird im
+Log (`gh run view <id> --log`).
+
+Das ist Absicht und keine Fehlkonfiguration: könnte ein PR den Review-Workflow ändern und ihn im
+selben Zug auf sich selbst loslassen, liesse sich über einen PR beliebiger Code in einem Lauf mit
+Repo-Rechten ausführen. Zwei praktische Folgen:
+
+- **Der erste Lauf kommt erst nach dem Merge** dieses Workflows — verifizieren lässt er sich
+  also frühestens am *nächsten* PR, nicht an dem, der ihn einführt.
+- **Jede spätere Änderung an `claude-pr-review.yml`** trifft dieselbe Sperre. Der PR, der sie
+  enthält, wird nicht automatisch reviewt; erst die PRs danach laufen wieder.
+
 ## Wenn es klemmt
 
 Diese Zeilen der Reihe nach ausführen — bewusst **ohne** `&&`, damit eine fehlschlagende Prüfung
