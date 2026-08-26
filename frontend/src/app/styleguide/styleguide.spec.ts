@@ -1,6 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { installCanvasStub, restoreCanvasStub } from '../../testing/canvas';
+import { installMatchMedia, restoreMatchMedia } from '../../testing/prefers-color-scheme';
+import { THEME_STORAGE_KEY } from '../core/theme/theme';
 import { Styleguide } from './styleguide';
 
 describe('Styleguide', () => {
@@ -10,16 +12,20 @@ describe('Styleguide', () => {
     // Der Showcase enthält seit FE-UI-05 echte Charts — ohne Canvas-Kontext käme
     // Chart.js in jsdom nicht hoch (die Registerables bringen die Chart-Komponenten mit).
     installCanvasStub();
+    installMatchMedia(false);
     await TestBed.configureTestingModule({ imports: [Styleguide] }).compileComponents();
     fixture = TestBed.createComponent(Styleguide);
     fixture.detectChanges();
   });
 
-  // Der Theme-Toggle schreibt data-theme auf <html> — nach jedem Test entfernen,
-  // damit der Zustand nicht in andere Tests leakt.
+  // Der Toggle schreibt seit FE-SET-04 über den Theme-Service, also data-theme auf <html>
+  // UND die Wahl in den localStorage — beides nach jedem Test entfernen, damit der Zustand
+  // nicht in andere Tests leakt.
   afterEach(() => {
     fixture.destroy();
     restoreCanvasStub();
+    restoreMatchMedia();
+    localStorage.removeItem(THEME_STORAGE_KEY);
     document.documentElement.removeAttribute('data-theme');
   });
 
@@ -28,14 +34,19 @@ describe('Styleguide', () => {
     expect(badges.length).toBe(13);
   });
 
+  // Seit FE-SET-04 geht der Toggle über den Theme-Service statt selbst aufs Attribut: zwei
+  // Schreiber auf einem data-theme hätten sich bei Präferenz „System" gegenseitig überholt.
+  // Deshalb steht das Attribut hier schon vor dem ersten Klick — der Service hat es gesetzt.
   it('schaltet data-theme auf <html> um (dev-only Toggle)', () => {
-    expect(document.documentElement.getAttribute('data-theme')).toBeNull();
+    expect(document.documentElement.getAttribute('data-theme')).toBe('light');
 
     fixture.componentInstance.toggleTheme();
+    TestBed.tick();
     expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
     expect(fixture.componentInstance.theme()).toBe('dark');
 
     fixture.componentInstance.toggleTheme();
+    TestBed.tick();
     expect(document.documentElement.getAttribute('data-theme')).toBe('light');
   });
 

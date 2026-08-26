@@ -36,6 +36,9 @@
             ],
             "stylePreprocessorOptions": {
               "includePaths": ["src/styles"]
+            },
+            "loader": {
+              ".html": "text"
             }
           },
           "configurations": {
