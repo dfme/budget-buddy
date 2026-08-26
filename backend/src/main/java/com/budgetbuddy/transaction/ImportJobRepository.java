@@ -2,6 +2,9 @@ package com.budgetbuddy.transaction;
 
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 /**
  * Repository der {@code import_jobs}-Tabelle (BE-PDF-09).
@@ -34,4 +37,15 @@ public interface ImportJobRepository extends JpaRepository<ImportJob, Long> {
      */
     boolean existsByUserIdAndPdfSha256AndStatus(
             Long userId, String pdfSha256, ImportJobStatus status);
+
+    /**
+     * Löscht alle Import-Jobs eines Users (Kontolöschung, US-02, DB-07).
+     *
+     * <p>Bewusst {@code @Modifying} — Begründung wie bei
+     * {@code TransactionRepository#deleteAllByUserId}: das DELETE muss physisch ausgeführt sein,
+     * bevor {@code UserService.deleteUser} den User selbst löscht.
+     */
+    @Modifying
+    @Query("delete from ImportJob j where j.userId = :userId")
+    void deleteAllByUserId(@Param("userId") Long userId);
 }

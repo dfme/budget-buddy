@@ -1,0 +1,74 @@
+name: Claude PR Review
+
+# Automatisches Erst-Review via Claude Code GitHub Action (INFRA-31). Ruft denselben
+# `/review-pr`-Skill auf, der auch lokal läuft — der liegt eingecheckt unter
+# `.claude/skills/review-pr/` und ist nach dem Checkout im Workspace verfügbar.
+#
+# Das Review ist eine Ergänzung, kein Ersatz: die Freigabe durch mindestens einen Dev
+# (CLAUDE.md → „Git: Review-Konvention") bleibt unberührt. Ein Action-Lauf ist kein Dev,
+# und das Ruleset „protect main" erzwingt das ohnehin.
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, reopened]
+
+# Minimal nach AC. `contents: read` genügt — der Review schreibt nie Code.
+# `pull-requests: write` setzt das Review samt Inline-Threads ab, `issues: write` deckt
+# Kommentare am verlinkten Issue ab, `id-token: write` die OIDC-Authentifizierung der Action.
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  id-token: write
+
+jobs:
+  review:
+    name: Claude Review
+    runs-on: ubuntu-latest
+
+    # Entwurfs-PRs bleiben aussen vor: `synchronize` feuert bei jedem Push, ein Draft
+    # sammelt davon viele. Sobald er auf „Ready for review" geht, greift der
+    # `ready_for_review`-Trigger und das Review läuft nach.
+    if: github.event.pull_request.draft == false
+
+    # Airbag gegen einen hängenden Lauf, nicht die erwartete Dauer. Ein Review liest den
+    # Diff und führt Tests aus (Skill-Schritt 4) — das darf einige Minuten brauchen.
+    timeout-minutes: 30
+
+    steps:
+      # fetch-depth: 0 statt 1 — der Skill vergleicht in Schritt 3 gegen die Gegenseite und
+      # ruft `git diff main`. Mit einem flachen Klon fehlt der Merge-Base und der Vergleich
+      # schlägt fehl.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run /review-pr
+        uses: anthropics/claude-code-action@v1
+        with:
+          # Beide Auth-Wege werden unterstützt, aber immer nur einer ist belegt: welcher der
+          # beiden Inputs gewinnt, wenn beide gesetzt sind, ist nicht dokumentiert. Der
+          # OAuth-Token (Pro/Max, lokal via `claude setup-token`) hat Vorrang; ist er nicht
+          # hinterlegt, bleibt sein Input leer und der API-Key greift.
+          anthropic_api_key: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN == '' && secrets.ANTHROPIC_API_KEY || '' }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+          # Fortschritts-Kommentar am PR, solange der Review läuft. Ohne ihn ist zwischen
+          # „läuft noch" und „ist stumm gescheitert" nichts zu unterscheiden.
+          track_progress: true
+
+          prompt: |
+            /review-pr ${{ github.event.pull_request.number }}
+
+          # Bash ist per Default gesperrt. Ohne diese Freigabe kommt der Skill nicht weit:
+          # er ruft `gh` (Issue und Ruleset lesen, Review absetzen), `git` (Diff gegen main)
+          # und `python3` (Review-Payload als JSON, Skill-Schritt 8).
+          #
+          # `mcp__github_inline_comment__create_inline_comment` ist der Weg der Action, einen
+          # Kommentar an eine Diff-Zeile zu hängen. Ohne ihn landen auch blockierende Befunde
+          # nur im Fliesstext eines PR-Kommentars — und die Ruleset-Regel
+          # `required_review_thread_resolution` sieht ausschliesslich Inline-Threads. Ein Review
+          # ohne dieses Werkzeug kann den Merge also nicht aufhalten, was den Zweck von
+          # `review-pr` verfehlt (INFRA-32; belegt an Lauf 33017262511).
+          claude_args: |
+            --allowedTools "Bash,Read,Glob,Grep,mcp__github_inline_comment__create_inline_comment"

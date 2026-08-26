@@ -41,7 +41,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `BE-PDF-04` | [Parser wirft keine Exception bei 0 Transaktionen](BE-PDF-04-empty-parse-exception.md) | [#83](https://github.com/dfme/budget-buddy/issues/83) | — | Sprint 3 |
 | `BE-PDF-05` | [BE-PDF-05 — Gültiger Auszug mit 0 Buchungen wirft fälschlich UnsupportedStatementFormatException](BE-PDF-05-empty-statement-zero-bookings.md) | [#95](https://github.com/dfme/budget-buddy/issues/95) | — | Sprint 3 |
 | `BE-PDF-06` | [Import-Flow instrumentieren: Phasendauer und Lookup/Claude-Verhältnis loggen, Klartexte entfernen](BE-PDF-06-import-instrumentierung.md) | [#157](https://github.com/dfme/budget-buddy/issues/157) | — | Sprint 4 |
-| `BE-PDF-07` | [Absender/Empfänger aus den Detailzeilen wird beim Import verworfen](BE-PDF-07-detailzeilen-persistieren.md) | [#159](https://github.com/dfme/budget-buddy/issues/159) | US-13 | Sprint 5 |
+| `BE-PDF-07` | [Absender/Empfänger aus den Detailzeilen wird beim Import verworfen](BE-PDF-07-detailzeilen-persistieren.md) | [#159](https://github.com/dfme/budget-buddy/issues/159) | — | Sprint 5 |
 | `BE-PDF-08` | [Import eines Kontoauszugs schlägt zuverlässig fehl](BE-PDF-08-fehlerdiagnose.md) | [#173](https://github.com/dfme/budget-buddy/issues/173) | — | Sprint 5 |
 | `BE-PDF-09` | [PDF-Import läuft in Produktion ins 30s-Zeitbudget und verwirft den gesamten Import](BE-PDF-09-async-import-job.md) | [#192](https://github.com/dfme/budget-buddy/issues/192) | US-04 | Sprint 5 |
 | `BE-STS-01` | [SafeToSpendService](BE-STS-01-safe-to-spend-service.md) | [#21](https://github.com/dfme/budget-buddy/issues/21) | US-06 | Sprint 4 |
@@ -53,7 +53,9 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `DB-03` | [DB-03 — Flyway V3: fixed_costs-Tabelle](DB-03-fixed-costs-table.md) | [#6](https://github.com/dfme/budget-buddy/issues/6) | US-03 | Sprint 1 |
 | `DB-04` | [Flyway V4: category_lookup-Tabelle mit Seed-Daten](DB-04-category-lookup-seed.md) | [#7](https://github.com/dfme/budget-buddy/issues/7) | US-05 | Sprint 2 |
 | `DB-05` | [Migration von SQLite auf Neon Postgres (inkl. Entscheid-ADR)](DB-05-neon-postgres-migration.md) | [#89](https://github.com/dfme/budget-buddy/issues/89) | — | Sprint 4 |
+| `DB-07` | [Foreign Keys auf users ohne ON DELETE — Löschpfad für US-02](DB-07-user-loeschpfad.md) | [#142](https://github.com/dfme/budget-buddy/issues/142) | US-02 | Sprint 5 |
 | `E2E-AUTH-01` | [Playwright: Register → Login → Logout (Happy + Fehlerpfad)](E2E-AUTH-01-register-login-logout.md) | [#58](https://github.com/dfme/budget-buddy/issues/58) | US-01 | Sprint 5 |
+| `E2E-CAT-01` | [Playwright: Transaktionen kategorisieren (Happy Path + Fehlerpfad)](E2E-CAT-01-playwright-kategorisierung.md) | [#124](https://github.com/dfme/budget-buddy/issues/124) | US-05 | Sprint 5 |
 | `E2E-FC-01` | [Playwright: Fixkosten-Wizard (Happy Path + Fehlerpfad)](E2E-FC-01-playwright-fixkosten-wizard.md) | [#123](https://github.com/dfme/budget-buddy/issues/123) | US-03 | Sprint 5 |
 | `E2E-PDF-01` | [Playwright: PDF-Upload (Happy Path + Fehlerpfad)](E2E-PDF-01-playwright-pdf-upload.md) | [#122](https://github.com/dfme/budget-buddy/issues/122) | US-04 | Sprint 5 |
 | `FE-AUTH-01` | [FE-AUTH-01 — AuthService (Signal-State + /auth-Calls)](FE-AUTH-01-auth-service.md) | [#53](https://github.com/dfme/budget-buddy/issues/53) | US-01 | Sprint 2 |
@@ -69,11 +71,12 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `FE-FC-01` | [Fixkosten-Wizard Component](FE-FC-01-fixkosten-wizard.md) | [#24](https://github.com/dfme/budget-buddy/issues/24) | US-03 | Sprint 4 |
 | `FE-FC-02` | [Route Guard für Onboarding](FE-FC-02-onboarding-guard.md) | [#25](https://github.com/dfme/budget-buddy/issues/25) | US-03 | Sprint 4 |
 | `FE-FC-03` | [Fixkosten-Liste](FE-FC-03-fixkosten-liste.md) | [#26](https://github.com/dfme/budget-buddy/issues/26) | US-03 | Sprint 4 |
-| `FE-FC-04` | [FE-FC-04 — Fixkosten-Tabelle läuft auf schmalen Viewports über die Card hinaus](FE-FC-04-tabelle-overflow.md) | [#172](https://github.com/dfme/budget-buddy/issues/172) | — | Sprint 5 |
+| `FE-FC-04` | [Fixkosten-Tabelle läuft auf schmalen Viewports über die Card hinaus](FE-FC-04-tabelle-overflow.md) | [#172](https://github.com/dfme/budget-buddy/issues/172) | — | Sprint 5 |
 | `FE-PDF-01` | [Plan: FE-PDF-01 — PDF-Upload Component](FE-PDF-01-pdf-upload-component.md) | [#27](https://github.com/dfme/budget-buddy/issues/27) | US-04 | Sprint 3 |
 | `FE-PDF-02` | [FE-PDF-02 — Ergebnis-Anzeige nach PDF-Import](FE-PDF-02-import-ergebnis-anzeige.md) | [#28](https://github.com/dfme/budget-buddy/issues/28) | US-04 | Sprint 3 |
 | `FE-PDF-03` | [Duplikat-Dialog](FE-PDF-03-duplikat-dialog.md) | [#29](https://github.com/dfme/budget-buddy/issues/29) | US-04 | Sprint 4 |
 | `FE-SET-01` | [Einstellungen-Screen: Route und Navigation](FE-SET-01-einstellungen-screen.md) | [#177](https://github.com/dfme/budget-buddy/issues/177) | US-14 | Sprint 5 |
+| `FE-SET-04` | [Erscheinungsbild: Hell, Dunkel, System](FE-SET-04-erscheinungsbild.md) | [#180](https://github.com/dfme/budget-buddy/issues/180) | US-14 | Sprint 5 |
 | `FE-STS-01` | [Safe-to-Spend Dashboard-Widget](FE-STS-01-safe-to-spend-widget.md) | [#33](https://github.com/dfme/budget-buddy/issues/33) | US-06 | Sprint 4 |
 | `FE-STS-02` | [Negativ-Banner](FE-STS-02-negativ-banner.md) | [#34](https://github.com/dfme/budget-buddy/issues/34) | US-06 | Sprint 4 |
 | `FE-STS-03` | [No-Income State und Einkommens-Vorschlag](FE-STS-03-no-income-state-and-suggestion.md) | [#35](https://github.com/dfme/budget-buddy/issues/35) | US-06 | Sprint 4 |
@@ -97,5 +100,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `INFRA-11` | [ANTHROPIC_API_KEY: Verifikation dokumentieren + automatischer Startup-Check](INFRA-11-verifikation-doku.md) | [#76](https://github.com/dfme/budget-buddy/issues/76) | US-05 | Sprint 3 |
 | `INFRA-12` | [INFRA-12 — Dokumentierte SQLite-Persistenz-Mitigation korrigieren](INFRA-12-persistenz-doku-korrigieren.md) | [#78](https://github.com/dfme/budget-buddy/issues/78) | — | Sprint 3 |
 | `INFRA-14` | [Playwright-E2E-Setup aufsetzen](INFRA-14-playwright-e2e-setup.md) | [#91](https://github.com/dfme/budget-buddy/issues/91) | — | Sprint 3 |
-| `INFRA-17` | [SPA-Routen /import, /categories, /register per Deep-Link nicht erreichbar](INFRA-17-api-prefix-spa-catchall.md) | [#126](https://github.com/dfme/budget-buddy/issues/126) | — | unbekannt |
+| `INFRA-17` | [SPA-Routen /import, /categories, /register per Deep-Link nicht erreichbar](INFRA-17-api-prefix-spa-catchall.md) | [#126](https://github.com/dfme/budget-buddy/issues/126) | — | Sprint 5 |
 | `INFRA-18` | [Sprint-Planung als /plan-sprint-Skill + Index für docs/plans/](INFRA-18-plan-sprint-skill.md) | [#127](https://github.com/dfme/budget-buddy/issues/127) | — | Sprint 3 |
+| `INFRA-28` | [INFRA-28 — Neon-Compute-Verbrauch: Health-Check und Hikari-Pool halten die DB dauerhaft wach](INFRA-28-neon-compute-health-check.md) | — | — | — |
+| `INFRA-31` | [Automatisches PR-Review via GitHub Action einrichten (Claude Code)](INFRA-31-claude-pr-review-action.md) | [#215](https://github.com/dfme/budget-buddy/issues/215) | — | Sprint 5 |

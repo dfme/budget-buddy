@@ -6,6 +6,33 @@
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <!--
+    Theme vor dem ersten Bildaufbau setzen (FE-SET-04, US-14).
+
+    Muss inline im <head> stehen und darf nichts nachladen: das Stylesheet unten macht die
+    Seite zeichenbar, lange bevor das Angular-Bundle ausgeführt ist. Käme die Umschaltung
+    erst aus `core/theme/theme.ts`, blitzte bei gewähltem Dunkel-Theme kurz die helle
+    Oberfläche auf.
+
+    Schlüssel und Attributwerte sind dieselben wie im Service (dort als Konstanten);
+    `core/theme/theme-boot.spec.ts` prüft, dass beide Stellen nicht auseinanderlaufen.
+  -->
+  <script>
+    (function () {
+      var stored = null;
+      try {
+        stored = localStorage.getItem('bb-theme');
+      } catch (e) {
+        /* Storage kann gesperrt sein — dann gilt die System-Einstellung. */
+      }
+      var dark =
+        stored === 'dark' ||
+        (stored !== 'light' &&
+          typeof window.matchMedia === 'function' &&
+          window.matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    })();
+  </script>
 </head>
 <body>
   <app-root></app-root>

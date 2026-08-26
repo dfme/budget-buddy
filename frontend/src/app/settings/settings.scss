@@ -15,3 +15,9 @@
 h1 {
   margin: 0;
 }
+
+.settings__hint {
+  margin: $sp-2 0 0;
+  font-size: $fs-sm;
+  color: $c-ink-2;
+}

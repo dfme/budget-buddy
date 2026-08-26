@@ -1,6 +1,6 @@
-import { DOCUMENT } from '@angular/common';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 
+import { Theme } from '../core/theme/theme';
 import { CATEGORIES } from '../shared/category';
 import { Amount } from '../shared/amount/amount';
 import { Badge } from '../shared/badge/badge';
@@ -47,24 +47,24 @@ import { Segment, SegmentOption } from '../shared/segment/segment';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class Styleguide {
-  private readonly document = inject(DOCUMENT);
+  private readonly themeService = inject(Theme);
 
   /** Alle 13 Kategorien für die Badge-Galerie. */
   readonly categories = CATEGORIES;
 
   /**
-   * Dev-only Theme-Zustand. Initialisiert aus dem aktuellen `data-theme` auf `<html>`,
-   * damit der Button den echten Zustand zeigt (Default: hell).
+   * Dargestelltes Theme, für die Beschriftung des Review-Buttons.
+   *
+   * <p>Kommt seit FE-SET-04 aus {@link Theme} statt aus einem eigenen Signal. Vorher schrieb
+   * der Toggle `data-theme` selbst — neben dem Service wären das zwei Schreiber auf einem
+   * Attribut, und bei Präferenz „System" hätte der nächste Wechsel im Betriebssystem den
+   * Toggle stillschweigend zurückgedreht.
    */
-  readonly theme = signal<'light' | 'dark'>(
-    this.document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light',
-  );
+  readonly theme = this.themeService.resolved;
 
-  /** Schaltet `data-theme` auf `<html>` zwischen hell und dunkel um (nur für den Review). */
+  /** Schaltet für den visuellen Review zwischen hell und dunkel um. */
   toggleTheme(): void {
-    const next = this.theme() === 'dark' ? 'light' : 'dark';
-    this.document.documentElement.setAttribute('data-theme', next);
-    this.theme.set(next);
+    this.themeService.select(this.theme() === 'dark' ? 'light' : 'dark');
   }
 
   /**
