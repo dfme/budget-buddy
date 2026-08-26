@@ -19,8 +19,11 @@ services:
     # liegen ausserhalb von Render in PostgreSQL bei Neon (Frankfurt/EU, ADR-12).
     plan: starter
     dockerfilePath: ./Dockerfile
-    # Health-Check über den Actuator-Endpoint (in application.properties freigegeben).
-    healthCheckPath: /actuator/health
+    # Health-Check über die Actuator-Liveness-Probe (in application.properties aktiviert, in
+    # SecurityConfig.PUBLIC_PATHS freigegeben). Bewusst nicht /actuator/health: dort hängt der
+    # DataSourceHealthIndicator, dessen SELECT 1 bei jedem Ping Neons Scale-to-Zero aushebelt
+    # und das Compute-Kontingent aufbraucht (INFRA-28).
+    healthCheckPath: /actuator/health/liveness
     envVars:
       # Aktiviert application-prod.properties.
       - key: SPRING_PROFILES_ACTIVE

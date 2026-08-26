@@ -43,10 +43,7 @@ export class TransactionService {
     page = 0,
     size = TRANSACTION_PAGE_SIZE,
   ): Observable<TransactionPage> {
-    let params = new HttpParams()
-      .set('month', month)
-      .set('page', page)
-      .set('size', size);
+    let params = new HttpParams().set('month', month).set('page', page).set('size', size);
     if (category) {
       params = params.set('category', category);
     }

@@ -66,7 +66,7 @@ class TransactionCategoryControllerIntegrationTest {
 
         // Startkategorie Sonstiges → wird auf Lebensmittel korrigiert.
         transactionId = transactionRepository.save(new Transaction(
-                userId, LocalDate.of(2026, 7, 3), "BAECKEREI MUELLER",
+                userId, LocalDate.of(2026, 7, 3), "BAECKEREI MUELLER", null,
                 new BigDecimal("12.50"), false, "Sonstiges", null)).getId();
     }
 

@@ -39,6 +39,11 @@ export const routes: Routes = [
     loadComponent: () => import('./onboarding/fixed-cost-list').then((m) => m.FixedCostList),
   },
   {
+    path: 'einstellungen',
+    canActivate: [authGuard, onboardingGuard],
+    loadComponent: () => import('./settings/settings').then((m) => m.Settings),
+  },
+  {
     // Ohne `onboardingGuard` — das Ziel der Umleitung darf sich nicht selbst umleiten.
     path: 'onboarding',
     canActivate: [authGuard],

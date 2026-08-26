@@ -2,7 +2,6 @@ package com.budgetbuddy.auth;
 
 import com.budgetbuddy.auth.dto.AuthErrorResponse;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -22,16 +21,22 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * auch als 400-Antwort <em>anderer</em> Controller (z. B. {@code FixedCostController}) zu
  * dokumentieren — beobachtet in {@code FixedCostOpenApiTest}.
  *
- * <p><strong>Alle 400er dieser beiden Controller tragen deshalb denselben Body.</strong> Das
- * Scoping allein löst nur die Hälfte des Problems: Springdoc dokumentiert
- * {@link AuthErrorResponse} jetzt als 400-Schema <em>jedes</em> Endpoints von
- * {@link AuthController} und {@link UserController} — auch derer, die bislang leer antworteten
- * ({@code POST /auth/register}, {@code PUT /users/me/income}, ein zu kurzes
- * {@code neuesPasswort}). Ohne die beiden Handler unten stimmten Dokument und Verhalten dort nicht
- * überein (gemessen an {@code /v3/api-docs} vs. tatsächlichem Response-Body). Deshalb fängt dieses
- * Advice — analog zum {@code HttpMessageNotReadableException}-Handler in
- * {@code FixedCostExceptionHandler} — jetzt auch Bean-Validation-Fehler und kaputte
- * Request-Bodys ab, die sonst Spring Boots Default-Fehlerbody lieferten.
+ * <p><strong>Alle 400er dieser beiden Controller tragen deshalb denselben Body</strong> — mit einer
+ * Ausnahme. Das Scoping allein löst nur die Hälfte des Problems: Springdoc dokumentiert
+ * {@link AuthErrorResponse} sonst nur an den Endpoints, die tatsächlich {@code @Valid}-Bodys lesen
+ * ({@code POST /auth/register}, {@code POST /auth/login}, {@code PUT /users/me/password}). Deshalb
+ * fängt dieses Advice auch {@link MethodArgumentNotValidException} ab, die sonst Spring Boots
+ * Default-Fehlerbody lieferte.
+ *
+ * <p><strong>{@code HttpMessageNotReadableException} (kaputtes JSON) gehört bewusst nicht hierher.</strong>
+ * Für {@link UserController} deckt das bereits {@code UserIncomeExceptionHandler} ab — inklusive
+ * Feldname aus dem Jackson-Pfad, was {@link AuthErrorResponse} nicht kann. Zwei
+ * {@code @ExceptionHandler}-Methoden für denselben Exception-Typ auf demselben Controller sind ein
+ * nicht deterministischer Konflikt zwischen zwei {@code @RestControllerAdvice}-Beans (aufgefallen
+ * beim Merge von BE-AUTH-08 und BE-AUTH-09: {@code UserControllerTest
+ * .updateIncomeWithAStringBetragReturns400WithTheSameBodyShape} verlor sein {@code $.field}, weil
+ * dieses Advice zufällig gewonnen hätte). Für {@link AuthController} (kein konkurrierendes Advice)
+ * übernimmt das eigene {@code AuthUnreadableBodyExceptionHandler}.
  */
 @RestControllerAdvice(assignableTypes = {AuthController.class, UserController.class})
 public class UserExceptionHandler {
@@ -76,16 +81,5 @@ public class UserExceptionHandler {
         FieldError fieldError = ex.getBindingResult().getFieldError();
         String message = fieldError != null ? fieldError.getDefaultMessage() : "Ungültige Eingabe.";
         return new AuthErrorResponse(message);
-    }
-
-    /**
-     * Fehlender Body, ungültiges JSON oder ein Typfehler in einem Feld — alles, was Jackson beim
-     * Lesen des Request-Bodys abbricht, bevor der Controller läuft (analog
-     * {@code FixedCostExceptionHandler.handleUnreadableBody}).
-     */
-    @ExceptionHandler(HttpMessageNotReadableException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public AuthErrorResponse handleUnreadableBody(HttpMessageNotReadableException ex) {
-        return new AuthErrorResponse("Der Request-Body fehlt oder ist kein gültiges JSON.");
     }
 }

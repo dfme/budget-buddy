@@ -2,6 +2,7 @@ package com.budgetbuddy.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -107,6 +108,86 @@ class UserServiceTest {
 
         assertThatThrownBy(() -> userService.changePassword(99L, "alt", "neuesPasswort2"))
                 .isInstanceOf(UserNotFoundException.class);
+    }
+
+    // --- BE-AUTH-08: Rappen und Kapazitätsgrenze ---
+
+    /**
+     * Der Defekt aus #148: Vorher kam {@code 4200.004} durch, wurde mit 200 quittiert und von
+     * {@code numeric(10,2)} still auf {@code 4200.00} gerundet.
+     */
+    @Test
+    void updateIncomeRejectsMoreThanTwoDecimals() {
+        assertThatThrownBy(() -> userService.updateIncome(1L, new BigDecimal("4200.004")))
+                .isInstanceOf(InvalidIncomeException.class)
+                .hasMessage("Einkommen darf höchstens zwei Nachkommastellen haben.")
+                .extracting(e -> ((InvalidIncomeException) e).getField())
+                .isEqualTo("betrag");
+    }
+
+    /**
+     * Die Gegenprobe zur Regel darüber und der Grund, warum {@code @Digits(fraction = 2)} am DTO
+     * nicht getragen hätte: {@code 100.000} hat Skala 3, ist aber derselbe Wert wie
+     * {@code 100.00}. Wie viele Nullen ein Client anhängt, ist seine Sache.
+     */
+    @Test
+    void updateIncomeAcceptsTrailingZerosBeyondRappen() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        userService.updateIncome(1L, new BigDecimal("100.000"));
+
+        assertThat(user.getMonthlyIncome()).isEqualByComparingTo("100.00");
+        // Skala explizit: isEqualByComparingTo ignoriert sie, und normalisiert wird hier gerade.
+        assertThat(user.getMonthlyIncome().scale()).isEqualTo(2);
+    }
+
+    @Test
+    void updateIncomeAcceptsTheCapacityLimit() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        assertThatCode(() -> userService.updateIncome(1L, new BigDecimal("99999999.99")))
+                .doesNotThrowAnyException();
+        assertThat(user.getMonthlyIncome()).isEqualByComparingTo("99999999.99");
+    }
+
+    /** Ein Rappen darüber: vorher ein DB-Fehler, jetzt eine 400-Antwort. */
+    @Test
+    void updateIncomeRejectsAboveTheCapacityLimit() {
+        assertThatThrownBy(() -> userService.updateIncome(1L, new BigDecimal("100000000.00")))
+                .isInstanceOf(InvalidIncomeException.class)
+                .hasMessage("Einkommen darf 99'999'999.99 nicht überschreiten.");
+    }
+
+    @Test
+    void updateIncomeRejectsNull() {
+        assertThatThrownBy(() -> userService.updateIncome(1L, null))
+                .isInstanceOf(InvalidIncomeException.class)
+                .hasMessage("Einkommen ist erforderlich.");
+    }
+
+    @Test
+    void updateIncomeRejectsZeroAndNegative() {
+        for (String betrag : new String[] {"0", "0.00", "-10.00"}) {
+            assertThatThrownBy(() -> userService.updateIncome(1L, new BigDecimal(betrag)))
+                    .as("Betrag %s", betrag)
+                    .isInstanceOf(InvalidIncomeException.class)
+                    .hasMessage("Einkommen muss grösser als 0 sein.");
+        }
+    }
+
+    /**
+     * Die Prüfung steht <em>vor</em> dem Laden des Users. Ohne diese Reihenfolge wäre ein
+     * abgelehnter Betrag zwar auch nicht gespeichert, aber jeder Fehlversuch kostete eine Query —
+     * und der Beweis, dass nichts geschrieben wurde, hinge am Verhalten der Entity statt an der
+     * Reihenfolge.
+     */
+    @Test
+    void rejectedIncomeNeverTouchesTheRepository() {
+        assertThatThrownBy(() -> userService.updateIncome(1L, new BigDecimal("0.001")))
+                .isInstanceOf(InvalidIncomeException.class);
+
+        verify(userRepository, never()).findById(anyLong());
+        assertThat(user.getMonthlyIncome()).isEqualByComparingTo("4200.00");
     }
 
     // --- UserIncomePort (BE-FC-02): Einkommen über die Modulgrenze ---

@@ -20,3 +20,23 @@
   color: $c-negative;
   font-weight: 600;
 }
+
+// Das Icon behält seine Breite, auch wenn der Text mehrzeilig umbricht.
+.notice__icon {
+  flex: none;
+  font-weight: 600;
+}
+
+// Zweites und letztes Flex-Kind. Stapelt Titel und Inhalt, die in der Flex-Zeile von :host
+// sonst nebeneinander stünden. `min-width: 0` erlaubt langen Meldungen den Umbruch, statt
+// die Zeile über den Rand hinauszuschieben.
+.notice__body {
+  display: flex;
+  flex-direction: column;
+  gap: $sp-1;
+  min-width: 0;
+}
+
+.notice__title {
+  font-weight: 600;
+}

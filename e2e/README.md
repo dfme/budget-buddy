@@ -83,6 +83,7 @@ die im JAR gebündelte SPA aus«) schlägt dann als Einziger fehl und nennt gena
 | --- | --- |
 | `tests/auth.spec.ts` | Register → Login → geschützte Route, Cookie-Flags, Fehlerpfad |
 | `tests/spa-routing.spec.ts` | Deep-Link-Status-Codes des Artefakts (SPA offen, API geschützt) |
+| `tests/fixed-cost-wizard.spec.ts` | Fixkosten-Wizard (US-03): Happy Path bis in die Liste, Fehlerpfad mit Validierung |
 | `tests/pdf-import.spec.ts` | PDF-Upload (US-04): Happy Path mit Anzahl-Meldung, Fehlerpfad mit unlesbarem PDF |
 | `fixtures/auth.fixture.ts` | Auth-Fixture: eingeloggte Session als Vorbedingung |
 | `fixtures/pdf/` | Synthetische Kontoauszug-PDFs — unkomprimiertes ASCII, lokal mit `cat` oder `git diff` prüfbar (GitHub zeigt sie als binär) |
@@ -134,8 +135,8 @@ klar benannter Fallback in `support/backend.ts`, damit ein Lauf ohne Env-Setup f
 ## Scope
 
 Vorgesehen sind je ein Happy Path und ein Fehlerpfad pro Must-Have-Story (US-03…US-06), dazu der
-Auth-Flow als Verifikation der Harness selbst. Abgedeckt ist davon bislang **US-04** (PDF-Upload,
-E2E-PDF-01); US-03, US-05 und US-06 sind Folgearbeit.
+Auth-Flow als Verifikation der Harness selbst. Abgedeckt ist davon bislang **US-03 und US-04**
+(Fixkosten-Wizard E2E-FC-01, PDF-Upload E2E-PDF-01); US-05 und US-06 sind Folgearbeit.
 
 Die Fälle hängen nicht an einzelnen Feature-Issues, sondern je an einem eigenen Task pro Story:
 US-04 allein besteht aus acht Issues, die zwei Testfälle liessen sich keinem davon sinnvoll

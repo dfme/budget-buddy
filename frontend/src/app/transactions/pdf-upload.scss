@@ -61,6 +61,13 @@
   margin-top: $sp-4;
 }
 
+// Der Balken ersetzt den Spinner, sobald der Nenner bekannt ist (BE-PDF-09). Volle Breite,
+// damit der Fortschritt in der Dropzone auch bei 108 Transaktionen ablesbar bleibt.
+.dropzone__progress {
+  width: 100%;
+  max-width: 320px;
+}
+
 .spinner {
   width: $sp-6;
   height: $sp-6;

@@ -159,6 +159,176 @@ class SwissBankStatementParserTest {
   }
 
   @Test
+  void parse_pageNumberFooter_isNotAttachedToBooking_evenWithoutATotalsLine() {
+    // Der Fall, den parse_pageFurniture_isNotAttachedToBooking NICHT abdeckt: Auf jeder Seite
+    // ausser der letzten steht die Seitennummer direkt hinter der letzten Buchung, ohne dass
+    // eine Total-Zeile den Buchungsteil vorher schliesst. Sie ist kurz, hat kein Datum und
+    // keinen Betrag — ohne eigenen Filter zählt sie als Detailzeile und hängt an genau einer
+    // Buchung pro Seite im Kategorisierungs-Input. Aufgefallen an der 240-Buchungen-Fixture.
+    byte[] pdf =
+        pdfWithLines(
+            List.of(
+                "Saldovortrag 500.00",
+                "10.04.2024 10.04.2024 MIGROS MMM BERN 20.00 480.00",
+                "Filiale Marktgasse",
+                "Seite 1/4"));
+
+    List<ParsedTransaction> transactions = parser.parse(pdf);
+
+    assertThat(transactions).singleElement()
+        .satisfies(
+            t -> {
+              assertThat(t.details()).containsExactly("Filiale Marktgasse");
+              assertThat(t.fullText()).isEqualTo("MIGROS MMM BERN Filiale Marktgasse");
+            });
+  }
+
+  @Test
+  void parse_pageNumberFooter_isFilteredInItsCommonSpellings() {
+    // PostFinance druckt "Seite: 1 / 7", Raiffeisen "Seite 1/4", andere "Seite 1 von 4".
+    byte[] pdf =
+        pdfWithLines(
+            List.of(
+                "Saldovortrag 500.00",
+                "10.04.2024 10.04.2024 MIGROS MMM BERN 20.00 480.00",
+                "Seite: 1 / 7",
+                "Seite 2 von 4"));
+
+    List<ParsedTransaction> transactions = parser.parse(pdf);
+
+    assertThat(transactions).singleElement()
+        .satisfies(t -> assertThat(t.details()).isEmpty());
+  }
+
+  @Test
+  void parse_maskedCardNumber_isNotADetail_inPostFinanceSpelling() {
+    // PostFinance druckt "KARTEN NR. XXXX4417" — ohne Wortgrenze zwischen X und Ziffer. Die
+    // frühere Fassung des Filters (\bXXXX\b) traf nur Visecas "… XXXX 5446" und liess die
+    // Kartennummer jeder PostFinance-Kartenzahlung in den Prompt.
+    byte[] pdf =
+        pdfWithLines(
+            List.of(
+                "Saldovortrag 500.00",
+                "10.04.2024 10.04.2024 GOOGLE PAY 20.00 480.00",
+                "KARTEN NR. XXXX4417",
+                "MIGROS M BERN WANKDORF"));
+
+    List<ParsedTransaction> transactions = parser.parse(pdf);
+
+    assertThat(transactions).singleElement()
+        .satisfies(t -> assertThat(t.details()).containsExactly("MIGROS M BERN WANKDORF"));
+  }
+
+  @Test
+  void parse_labelLine_isDropped_soItsValueGetsTheSlot() {
+    // Der Kern des Abschneide-Problems: Auftragsnummer, IBAN und das Label "SENDER REFERENZ:"
+    // belegten die drei Plätze, und der Verwendungszweck darunter — die einzige Zeile mit
+    // Kategorisierungswert — fiel weg.
+    byte[] pdf =
+        pdfWithLines(
+            List.of(
+                "Saldovortrag 500.00",
+                "10.04.2024 10.04.2024 LASTSCHRIFT 20.00 480.00",
+                "DAUERAUFTRAG: 90-11223344",
+                "CH7709000000850055555",
+                "MUSTER, LEA",
+                "SENDER REFERENZ:",
+                "SACKGELD LEA"));
+
+    List<ParsedTransaction> transactions = parser.parse(pdf);
+
+    assertThat(transactions).singleElement()
+        .satisfies(t -> assertThat(t.details()).containsExactly("MUSTER, LEA", "SACKGELD LEA"));
+  }
+
+  @Test
+  void parse_counterpartyAddress_isDropped_butTheNameSurvives() {
+    // Strasse und Ort tragen nichts zur Kategorie bei, belegen aber zwei der drei Plätze — und
+    // sind das Personendatum, das am wenigsten im Claude-Prompt zu suchen hat (BE-PDF-06).
+    byte[] pdf =
+        pdfWithLines(
+            List.of(
+                "Saldovortrag 500.00",
+                "10.04.2024 10.04.2024 GUTSCHRIFT 20.00 520.00",
+                "ABSENDER:",
+                "MUSTER CONSULTING GMBH",
+                "BAHNHOFSTRASSE 1",
+                "8000 ZUERICH",
+                "MITTEILUNGEN:",
+                "LOHN APRIL 2024"));
+
+    List<ParsedTransaction> transactions = parser.parse(pdf);
+
+    assertThat(transactions).singleElement()
+        .satisfies(
+            t ->
+                assertThat(t.details())
+                    .containsExactly("MUSTER CONSULTING GMBH", "LOHN APRIL 2024"));
+  }
+
+  @Test
+  void parse_purposeLineEndingInAYear_isNotMistakenForAnAddress() {
+    // Gegenprobe zum Adressfilter: Eine gewöhnliche Zweckzeile mit Jahreszahl darf nicht
+    // herausfallen.
+    byte[] pdf =
+        pdfWithLines(
+            List.of(
+                "Saldovortrag 500.00",
+                "10.04.2024 10.04.2024 LASTSCHRIFT 20.00 480.00",
+                "RECHNUNG 2024"));
+
+    List<ParsedTransaction> transactions = parser.parse(pdf);
+
+    assertThat(transactions).singleElement()
+        .satisfies(t -> assertThat(t.details()).containsExactly("RECHNUNG 2024"));
+  }
+
+  @Test
+  void parse_opaqueReference_isNotADetail_butAMerchantNameIs() {
+    // Nach dem Label-Filter würde der WERT unter "PAYMENT ID" den Platz belegen, den vorher das
+    // Label belegte — für die Kategorisierung derselbe Nullwert.
+    byte[] pdf =
+        pdfWithLines(
+            List.of(
+                "Saldovortrag 500.00",
+                "10.04.2024 10.04.2024 KAUF/ONLINE-SHOPPING VOM 20.00 480.00",
+                "ZALANDO SE",
+                "N/A",
+                "PAYMENT ID",
+                "250704111222333444AB",
+                "BESTELLNUMMER",
+                "C040725R010A"));
+
+    List<ParsedTransaction> transactions = parser.parse(pdf);
+
+    assertThat(transactions).singleElement()
+        .satisfies(t -> assertThat(t.details()).containsExactly("ZALANDO SE"));
+  }
+
+  @Test
+  void parse_zeroAmountBooking_doesNotMakeItsBlockAmbiguous() {
+    // Eine kostenlose Gebührenzeile (0.00) verschiebt den Saldo nicht und hat damit keine
+    // bestimmbare Richtung: +0.00 und -0.00 lösen beide auf. Ohne Sonderbehandlung gälte der
+    // GANZE Block als mehrdeutig und auch die 20.00 daneben verlöre ihre Richtung — auf echten
+    // PostFinance-Auszügen steht so eine Zeile am Monatsende.
+    byte[] pdf =
+        pdfWithLines(
+            List.of(
+                "PostFinance AG",
+                "01.09.19 Kontostand 100.00",
+                "30.09.19 GUTSCHRIFT 20.00 30.09.19",
+                "PREIS FÜR 0.00 30.09.19 120.00"));
+
+    List<ParsedTransaction> transactions = parser.parse(pdf);
+
+    assertThat(transactions)
+        .extracting(ParsedTransaction::buchungstext, ParsedTransaction::isIncome)
+        .containsExactly(
+            org.assertj.core.groups.Tuple.tuple("GUTSCHRIFT", true),
+            org.assertj.core.groups.Tuple.tuple("PREIS FÜR", false));
+  }
+
+  @Test
   void parse_detailsAreCapped_soRunawayTextCannotFloodTheCategorizationInput() {
     byte[] pdf =
         pdfWithLines(

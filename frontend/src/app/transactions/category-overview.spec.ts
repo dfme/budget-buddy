@@ -65,7 +65,9 @@ const TRANSACTIONS: Transaction[] = [
   {
     id: 1,
     buchungsdatum: '2026-07-20',
-    buchungstext: 'COOP PRONTO BERN',
+    buchungstext: 'LASTSCHRIFT',
+    // Zwei Zeilen mit \n verbunden, wie das Backend sie liefert (BE-PDF-07).
+    buchungsdetails: 'COOP PRONTO BERN\nEINKAUF',
     betrag: 34.2,
     income: false,
     category: 'Lebensmittel',
@@ -74,6 +76,9 @@ const TRANSACTIONS: Transaction[] = [
     id: 2,
     buchungsdatum: '2026-07-05',
     buchungstext: 'MIGROS MM ZENTRUM',
+    // Ohne Detailzeilen — Kartenzahlungen tragen den Händler schon im Buchungstext, und vor
+    // BE-PDF-07 importierte Buchungen haben hier ebenfalls null.
+    buchungsdetails: null,
     betrag: 52.1,
     income: false,
     category: 'Lebensmittel',
@@ -109,6 +114,7 @@ function manyTransactions(count: number, firstId = 1): Transaction[] {
     id: firstId + index,
     buchungsdatum: '2026-07-15',
     buchungstext: `BUCHUNG ${firstId + index}`,
+    buchungsdetails: null,
     betrag: 10,
     income: false,
     category: 'Lebensmittel',
@@ -232,7 +238,7 @@ describe('CategoryOverview', () => {
     fixture.detectChanges();
 
     expect(component.errorMessage()).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('.status.error')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('app-notice.notice--error')).not.toBeNull();
     expect(component.summary()).toBeNull();
   });
 
@@ -385,10 +391,22 @@ describe('CategoryOverview', () => {
     );
   }
 
-  /** Die Buchungstexte der aufgeklappten Liste, in Anzeigereihenfolge. */
+  /**
+   * Die Buchungstexte der aufgeklappten Liste, in Anzeigereihenfolge.
+   *
+   * <p>Gezielt `.transaction__booking` und nicht `.transaction__text`: Letzteres ist seit
+   * BE-PDF-07 der Container beider Zeilen, sein `textContent` enthielte auch die Detailzeilen.
+   */
   function renderedTexts(): (string | undefined)[] {
     return Array.from(
-      (fixture.nativeElement as HTMLElement).querySelectorAll('.transaction__text'),
+      (fixture.nativeElement as HTMLElement).querySelectorAll('.transaction__booking'),
+    ).map((el) => el.textContent?.trim());
+  }
+
+  /** Die Detailzeilen der aufgeklappten Liste — nur die Buchungen, die welche haben. */
+  function renderedDetails(): (string | undefined)[] {
+    return Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('.transaction__details'),
     ).map((el) => el.textContent?.trim());
   }
 
@@ -424,7 +442,41 @@ describe('CategoryOverview', () => {
       fixture.detectChanges();
 
       expect(toggle.getAttribute('aria-expanded')).toBe('true');
-      expect(renderedTexts()).toEqual(['COOP PRONTO BERN', 'MIGROS MM ZENTRUM']);
+      expect(renderedTexts()).toEqual(['LASTSCHRIFT', 'MIGROS MM ZENTRUM']);
+    });
+
+    // US-13, AC 1: «Datum, Betrag und Empfänger». Der Empfänger steht bei PostFinance
+    // ausschliesslich in den Detailzeilen — der Buchungstext trägt nur die Zahlungsart, und
+    // 240 Buchungen eines echten Jahresauszugs verteilen sich auf 10 solcher Werte (#159).
+    it('shows the counterparty from the detail lines below the booking text', () => {
+      expandLebensmittel();
+
+      expect(renderedDetails()).toEqual(['COOP PRONTO BERN\nEINKAUF']);
+    });
+
+    // Kein Platzhalter: null heisst «keine Detailzeilen» oder «vor BE-PDF-07 importiert», und
+    // eine gerenderte Leerzeile behauptete, es gebe keine Gegenpartei.
+    it('omits the second line entirely when a booking has no detail lines', () => {
+      expandLebensmittel();
+
+      // Zwei Buchungen, aber nur eine Detailzeile — die zweite Buchung hat buchungsdetails null.
+      expect(renderedTexts()).toHaveLength(2);
+      expect(renderedDetails()).toHaveLength(1);
+    });
+
+    // Ohne die Detailzeilen läse ein Screenreader reihenweise «Kategorie von LASTSCHRIFT»: die
+    // Dropdowns wären untereinander nicht unterscheidbar.
+    it('names the category dropdown with booking text and counterparty', () => {
+      expandLebensmittel();
+
+      const labels = Array.from(
+        (fixture.nativeElement as HTMLElement).querySelectorAll(
+          '.transaction__category .visually-hidden',
+        ),
+      ).map((el) => el.textContent?.trim());
+
+      expect(labels[0]).toBe('Kategorie von LASTSCHRIFT, COOP PRONTO BERN, EINKAUF');
+      expect(labels[1]).toBe('Kategorie von MIGROS MM ZENTRUM');
     });
 
     it('collapses the row again on a second click without a further request', () => {
@@ -588,7 +640,7 @@ describe('CategoryOverview', () => {
 
       expect(component.drilldown()?.error).not.toBeNull();
       expect(
-        (fixture.nativeElement as HTMLElement).querySelector('.drilldown .status.error'),
+        (fixture.nativeElement as HTMLElement).querySelector('.drilldown app-notice.notice--error'),
       ).not.toBeNull();
     });
 
@@ -879,7 +931,7 @@ describe('CategoryOverview', () => {
       // und der Button bleibt für einen zweiten Versuch stehen.
       expect(renderedTexts()).toHaveLength(20);
       expect(
-        (fixture.nativeElement as HTMLElement).querySelector('.drilldown .status.error')
+        (fixture.nativeElement as HTMLElement).querySelector('.drilldown .drilldown__error')
           ?.textContent,
       ).toContain('Weitere Buchungen');
       expect(loadMoreButton()).not.toBeNull();

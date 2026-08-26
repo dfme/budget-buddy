@@ -63,6 +63,12 @@ public class SecurityConfig {
         // Actuator-Pfad — auch ein künftig per exposure.include hinzugefügter — über
         // "GET /** permitAll" automatisch öffentlich.
         "/actuator/health",
+        // Renders Dauerping (render.yaml healthCheckPath, INFRA-28). Braucht einen eigenen
+        // exakten Eintrag, weil oben nur der bare Pfad /actuator/health freigegeben ist und
+        // /actuator/** unten auf authenticated() steht — ohne ihn antwortet die Probe mit 401
+        // und Render stuft den Service als unhealthy ein. Bewusst kein /actuator/health/**:
+        // künftige Health-Gruppen sollen nicht automatisch öffentlich werden.
+        "/actuator/health/liveness",
         "/actuator/info",
         // Springs ERROR-Dispatch: @ResponseStatus auf einer Exception (z.B. 408 Timeout,
         // 409 Duplikat beim PDF-Import) läuft über response.sendError() und wird intern auf

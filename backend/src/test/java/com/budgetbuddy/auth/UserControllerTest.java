@@ -107,7 +107,9 @@ class UserControllerTest {
                         .cookie(jwtCookie())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"betrag\": 0}"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.field").value("betrag"))
+                .andExpect(jsonPath("$.message").value("Einkommen muss grösser als 0 sein."));
     }
 
     @Test
@@ -116,7 +118,9 @@ class UserControllerTest {
                         .cookie(jwtCookie())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"betrag\": -10}"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.field").value("betrag"))
+                .andExpect(jsonPath("$.message").value("Einkommen muss grösser als 0 sein."));
     }
 
     @Test
@@ -125,7 +129,125 @@ class UserControllerTest {
                         .cookie(jwtCookie())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.field").value("betrag"))
+                .andExpect(jsonPath("$.message").value("Einkommen ist erforderlich."));
+    }
+
+    // --- BE-AUTH-08: Rappen, Kapazitätsgrenze und Round-Trip ---
+
+    /**
+     * Der Kern von #148, und der Nachweis führt über die Datenbank: Vorher antwortete der Endpoint
+     * mit 200 und {@code monthly_income} stand danach auf {@code 4200.00} — der User bekam eine
+     * Erfolgsmeldung für einen Betrag, den er so nicht gespeichert hatte. Die zweite Assertion ist
+     * deshalb die eigentliche: der Wert in der DB ist <em>unverändert</em>, nicht bloss ungerundet.
+     */
+    @Test
+    void updateIncomeWithMoreThanTwoDecimalsReturns400AndLeavesTheStoredValueUntouched()
+            throws Exception {
+        mockMvc.perform(put("/api/users/me/income")
+                        .cookie(jwtCookie())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"betrag\": 4200.004}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.field").value("betrag"))
+                .andExpect(jsonPath("$.message")
+                        .value("Einkommen darf höchstens zwei Nachkommastellen haben."));
+
+        assertStoredIncome("4200.00");
+    }
+
+    /**
+     * Der gültige Randfall aus AC 1: {@code 100.000} ist wertgleich zu {@code 100.00} und muss
+     * durchgehen. Genau hier hätte ein {@code @Digits(fraction = 2)} am DTO abgelehnt.
+     */
+    @Test
+    void updateIncomeWithTrailingZerosBeyondRappenIsAccepted() throws Exception {
+        mockMvc.perform(put("/api/users/me/income")
+                        .cookie(jwtCookie())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"betrag\": 100.000}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.monthlyIncome").value(100.00));
+
+        assertStoredIncome("100.00");
+    }
+
+    /**
+     * Round-Trip für AC 4: Was der Endpoint annimmt, kommt unverändert zurück — geprüft über die
+     * Antwort <em>und</em> über einen erneuten GET, damit auch der Lesepfad belegt ist und nicht
+     * nur die Antwort des schreibenden Calls.
+     */
+    @Test
+    void anAcceptedAmountComesBackUnchanged() throws Exception {
+        mockMvc.perform(put("/api/users/me/income")
+                        .cookie(jwtCookie())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"betrag\": 7350.45}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.monthlyIncome").value(7350.45));
+
+        assertStoredIncome("7350.45");
+
+        mockMvc.perform(get("/api/users/me").cookie(jwtCookie()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.monthlyIncome").value(7350.45));
+    }
+
+    @Test
+    void updateIncomeAtTheCapacityLimitIsAccepted() throws Exception {
+        mockMvc.perform(put("/api/users/me/income")
+                        .cookie(jwtCookie())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"betrag\": 99999999.99}"))
+                .andExpect(status().isOk());
+
+        assertStoredIncome("99999999.99");
+    }
+
+    /**
+     * Ein Rappen über der Kapazität von {@code DECIMAL(10,2)}: vorher ein DB-Fehler (500), jetzt
+     * eine 400-Antwort mit der verletzten Regel. Die DB bleibt dabei unberührt.
+     */
+    @Test
+    void updateIncomeAboveTheCapacityLimitReturns400InsteadOfADatabaseError() throws Exception {
+        mockMvc.perform(put("/api/users/me/income")
+                        .cookie(jwtCookie())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"betrag\": 100000000.00}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.field").value("betrag"))
+                .andExpect(jsonPath("$.message")
+                        .value("Einkommen darf 99'999'999.99 nicht überschreiten."));
+
+        assertStoredIncome("4200.00");
+    }
+
+    /**
+     * Scope-Erweiterung: Ein Typfehler bricht in Jackson ab, <em>bevor</em> der Controller läuft.
+     * Ohne das {@code UserIncomeExceptionHandler}-Advice käme hier Springs Default-Body — und der
+     * Endpoint hätte zwei Formen für 400, obwohl das OpenAPI-Dokument eine zusagt. Der praktische
+     * Fall ist der Komma-Betrag aus einem Schweizer Formular.
+     */
+    @Test
+    void updateIncomeWithAStringBetragReturns400WithTheSameBodyShape() throws Exception {
+        mockMvc.perform(put("/api/users/me/income")
+                        .cookie(jwtCookie())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"betrag\": \"12,50\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.field").value("betrag"))
+                .andExpect(jsonPath("$.message").value("Wert hat den falschen Typ."));
+
+        assertStoredIncome("4200.00");
+    }
+
+    /** Liest {@code monthly_income} direkt aus der DB — der Nachweis hängt nicht an der Antwort. */
+    private void assertStoredIncome(String expected) {
+        java.math.BigDecimal stored = jdbcTemplate.queryForObject(
+                "SELECT monthly_income FROM users WHERE id = ?",
+                java.math.BigDecimal.class, userId);
+        org.assertj.core.api.Assertions.assertThat(stored).isEqualByComparingTo(expected);
     }
 
     @Test
