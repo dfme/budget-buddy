@@ -167,9 +167,33 @@ Claude-Code-Session heraus erledigen:
    nur einen der beiden Action-Inputs, weil nicht dokumentiert ist, welcher bei doppelter
    Belegung Vorrang hätte.
 
+   > **Der Scope muss `Actions` sein — nicht `Agents`.** Unter *Settings → Secrets and variables*
+   > liegen mehrere getrennte Speicher nebeneinander, darunter `Actions` und `Agents`. Sie sind
+   > gegeneinander abgeschottet: ein Actions-Workflow liest keine Agents-Secrets und umgekehrt.
+   > Ein im falschen Speicher hinterlegter Token ist von aussen nicht von einem fehlenden zu
+   > unterscheiden — der Lauf protokolliert dann schlicht `claude_code_oauth_token: ""`.
+   > Gegenprobe: `gh secret list --repo dfme/budget-buddy` zeigt genau die Actions-Secrets.
+
 3. **Verifizieren** — einen Test-PR öffnen und prüfen, dass der Lauf als `REQUEST_CHANGES` mit
    Inline-Threads ankommt. Ohne Schritt 1 und 2 startet der Workflow zwar, scheitert aber an der
    Authentifizierung.
+
+### Nicht zu verwechseln mit Agent HQ (`/agents`)
+
+GitHub bietet seit Februar 2026 unter `github.com/<owner>/<repo>/agents` **Agent HQ** an, wo
+Claude als Drittanbieter-Agent auswählbar ist. Das ist ein anderes Produkt als der Workflow hier:
+
+| | Agent HQ (`/agents`) | Dieser Workflow |
+| --- | --- | --- |
+| Auslöser | Agents-Tab, Issue zuweisen, `@`-Mention im PR — **immer ein Mensch** | `pull_request`-Event, **automatisch** |
+| Lizenz | Copilot Pro/Pro+/Max bzw. Business/Enterprise | Anthropic-Key oder OAuth-Token |
+| Secret-Scope | `Agents` | `Actions` |
+| Führt `.claude/skills/` aus | nicht dokumentiert | ja, nach dem Checkout |
+
+Für den Zweck von INFRA-31 — ein Erst-Review **ohne** menschliche Aktion bei jedem PR — kommt
+Agent HQ nach heutiger Doku nicht in Frage: ein automatischer Trigger auf `pull_request` ist dort
+nicht vorgesehen. Wer den Agenten dort trotzdem einrichtet, hat damit **nicht** diesen Workflow
+konfiguriert; die beiden teilen sich weder Secret noch Auslöser.
 
 ### Der Workflow läuft nie auf dem PR, der ihn ändert
 
