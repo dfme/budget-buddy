@@ -171,6 +171,25 @@
                             Anheben von Testcontainers prüfen, ob die Zeile entbehrlich wird.
                         -->
                         <api.version>1.44</api.version>
+
+                        <!--
+                            Startup-Healthcheck der Anthropic-API global abschalten (BE-CAT-07,
+                            #162). AnthropicStartupHealthCheck ist die einzige Komponente, die
+                            beim blossen Hochfahren eines Spring-Kontexts von sich aus ins Netz
+                            geht. AnthropicConfigTest konfiguriert bewusst einen Key, um den
+                            Produktionspfad der Client-Konstruktion abzudecken — der volle Kontext
+                            setzte damit einen echten Request an api.anthropic.com ab. Dessen
+                            asynchrone Antwort landete Sekunden später im Log-Puffer einer
+                            anderen Testklasse und machte den Lauf ordnungsabhängig; ohne Netz
+                            zur API brach ausserdem der lokale Build an sachfremder Stelle ab.
+
+                            Hier global statt in der einzelnen Testklasse, damit die Garantie
+                            auch für künftige Tests gilt, die einen Key setzen. Der 401-/
+                            Fehler-/OK-Pfad des Checks bleibt vollständig abgedeckt:
+                            AnthropicStartupHealthCheckTest ruft ping() direkt mit gemocktem
+                            Client auf und braucht keinen Spring-Kontext.
+                        -->
+                        <budgetbuddy.anthropic.startup-healthcheck.enabled>false</budgetbuddy.anthropic.startup-healthcheck.enabled>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>
