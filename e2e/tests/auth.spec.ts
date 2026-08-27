@@ -24,11 +24,6 @@ test.describe('Auth-Flow', () => {
       200,
     );
     await expect(page.getByRole('heading', { name: 'Login' })).toBeVisible();
-
-    // TEMPORAER (INFRA-16, AC 5): erzwingt einen roten E2E-Lauf, um zu belegen, dass der
-    // if: failure()-Artifact-Upload mit upload-artifact@v7 weiterhin greift. Wird unmittelbar
-    // nach dem Nachweis revertiert und darf niemals nach main gelangen.
-    expect(1, 'absichtlicher Fehlschlag fuer INFRA-16 AC 5').toBe(2);
   });
 
   test('Registrierung übers Formular führt in den Onboarding-Wizard', async ({
