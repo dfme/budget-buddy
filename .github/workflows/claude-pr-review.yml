@@ -39,7 +39,7 @@ jobs:
       # ruft `git diff main`. Mit einem flachen Klon fehlt der Merge-Base und der Vergleich
       # schlägt fehl.
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
