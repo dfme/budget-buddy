@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.anthropic.client.AnthropicClient;
 import com.budgetbuddy.categorization.AnthropicProperties;
+import com.budgetbuddy.categorization.AnthropicStartupHealthCheck;
 import com.budgetbuddy.support.PostgresTestDatabase;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -18,9 +19,17 @@ import org.springframework.test.context.TestPropertySource;
  * Verifiziert beide Konfigurationspfade der {@link AnthropicConfig} (BE-CAT-02).
  *
  * <p>Der Pfad <em>mit</em> Key ist der Produktionspfad, wird aber von keinem anderen Test berührt:
- * In Test und CI ist nie ein {@code ANTHROPIC_API_KEY} gesetzt, alle übrigen Tests durchlaufen
- * also ausschliesslich den keylosen Fall. Ohne diesen Test würde ein Fehler in der
+ * {@code ANTHROPIC_API_KEY} ist in Test und CI nie gesetzt, und {@link WithApiKey} ist die einzige
+ * Stelle im Testbaum, die {@code anthropic.api.key} überhaupt belegt. Alle übrigen Tests
+ * durchlaufen ausschliesslich den keylosen Fall. Ohne diesen Test würde ein Fehler in der
  * Client-Konstruktion erst beim Deployment auffallen.
+ *
+ * <p>Genau diese Sonderstellung machte die Klasse zur Ursache von #162: Ein echter Client in einem
+ * vollen Kontext bedeutet, dass {@link AnthropicStartupHealthCheck} beim
+ * {@code ApplicationReadyEvent} einen echten Request an {@code api.anthropic.com} absetzt. Der
+ * Schalter aus {@code pom.xml} unterbindet das global;
+ * {@link WithApiKey#startupHealthCheckIsDisabled()} hält den Zustand fest, damit er nicht
+ * unbemerkt zurückkehrt.
  */
 class AnthropicConfigTest {
 
@@ -63,6 +72,7 @@ class AnthropicConfigTest {
 
         @Autowired private ObjectProvider<AnthropicClient> clientProvider;
         @Autowired private AnthropicProperties properties;
+        @Autowired private ObjectProvider<AnthropicStartupHealthCheck> healthCheckProvider;
 
         /**
          * Der Client wird gebaut, ohne dass ein API-Call stattfindet — der Konstruktor geht nicht
@@ -72,6 +82,22 @@ class AnthropicConfigTest {
         void contextLoadsAndClientIsBuilt() {
             assertThat(properties.hasKey()).isTrue();
             assertThat(clientProvider.getIfAvailable()).isNotNull();
+        }
+
+        /**
+         * Regression zu #162 (BE-CAT-07): Dieser Kontext hat als einziger im Testbaum einen echten
+         * Client — hier und nur hier könnte der Startup-Healthcheck tatsächlich ins Netz gehen.
+         *
+         * <p>Der Nachweis läuft über die <em>Abwesenheit der Bean</em>, nicht über ein Grep nach
+         * Aufrufen: Solange {@code budgetbuddy.anthropic.startup-healthcheck.enabled=false} aus
+         * {@code pom.xml} greift, registriert Spring die Komponente gar nicht erst, und es
+         * existiert kein Codepfad, der {@code GET /v1/models} absetzen könnte. Fällt der Schalter
+         * aus der Surefire-Konfiguration, schlägt dieser Test fehl statt still einen echten
+         * Request abzusetzen.
+         */
+        @Test
+        void startupHealthCheckIsDisabled() {
+            assertThat(healthCheckProvider.getIfAvailable()).isNull();
         }
     }
 
