@@ -21,10 +21,12 @@
 // -----------------------------------------------------------------------------
 // A ist hell-first: :root trägt die hellen Werte, [data-theme="dark"] überschreibt.
 // Ohne gesetztes `data-theme`-Attribut greift `:root` → Light ist der Default.
-// Die nutzerseitige Theme-Umschaltung („Hell / Dunkel / System" in den
-// Einstellungen) ist als Teil von US-14 spezifiziert, aber noch nicht umgesetzt —
-// bisher schaltet nur der Dev-Toggle im Styleguide `data-theme` um. Die
-// Token-Architektur hier ist dafür bereits vorbereitet.
+// Gesetzt wird das Attribut seit FE-SET-04 an zwei Stellen: vom Inline-Script in
+// `index.html` vor dem ersten Bildaufbau und danach vom Service
+// `app/core/theme/theme.ts`, der die Wahl „Hell / Dunkel / System" aus den
+// Einstellungen hält (US-14). Auch „System" landet dort als `light`/`dark` —
+// einen `prefers-color-scheme`-Block gibt es hier bewusst nicht, sonst gäbe es
+// zwei Quellen für dieselbe Entscheidung.
 :root,
 :root[data-theme='light'] {
   color-scheme: light;

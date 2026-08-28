@@ -4,6 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, ValidatorFn, Validators } from '@angular/forms';
 
 import { AuthService } from '../auth/auth.service';
+import { Theme } from '../core/theme/theme';
 import { SafeToSpendService } from '../dashboard/safe-to-spend.service';
 import { Button } from '../shared/button/button';
 import { Card } from '../shared/card/card';
@@ -11,6 +12,7 @@ import { formatSwissAmount } from '../shared/format';
 import { Field } from '../shared/field/field';
 import { Input } from '../shared/input/input';
 import { Notice } from '../shared/notice/notice';
+import { Segment, SegmentOption } from '../shared/segment/segment';
 
 /**
  * Lässt höchstens zwei Nachkommastellen zu — CHF ist rappengenau (ADR-9).
@@ -30,16 +32,16 @@ const maxTwoDecimals: ValidatorFn = (control) => {
 /**
  * Einstellungen-Screen (FE-SET-01, US-14).
  *
- * <p>Route, Navigation und drei Abschnitts-Cards. Nur die «Einkommen»-Card hat Inhalt
- * (FE-SET-03); Passwort (FE-SET-02) und Erscheinungsbild (FE-SET-04) bleiben leer, bis die
- * jeweiligen Tasks sie füllen.
+ * <p>Route, Navigation und drei Abschnitts-Cards. „Einkommen" (FE-SET-03) und
+ * „Erscheinungsbild" (FE-SET-04) sind gefüllt; Passwort ändern (FE-SET-02) bleibt leer, bis die
+ * Task es füllt.
  *
  * <p>Kein Token- oder Header-Code: das httpOnly-JWT-Cookie wird durch den
  * `credentialsInterceptor` automatisch mitgesendet (ADR-7).
  */
 @Component({
   selector: 'app-settings',
-  imports: [ReactiveFormsModule, Card, Field, Input, Notice, Button],
+  imports: [ReactiveFormsModule, Card, Field, Input, Notice, Button, Segment],
   templateUrl: './settings.html',
   styleUrl: './settings.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -49,6 +51,16 @@ export class Settings {
   private readonly auth = inject(AuthService);
   private readonly safeToSpend = inject(SafeToSpendService);
   private readonly destroyRef = inject(DestroyRef);
+
+  /** Quelle und Ziel der Theme-Wahl; das Template liest `preference()` daraus. */
+  protected readonly theme = inject(Theme);
+
+  /** Die drei Optionen des Abschnitts „Erscheinungsbild". */
+  protected readonly themeOptions: readonly SegmentOption[] = [
+    { value: 'light', label: 'Hell' },
+    { value: 'dark', label: 'Dunkel' },
+    { value: 'system', label: 'System' },
+  ];
 
   /** `true`, sobald das Einkommen in dieser Sitzung zuletzt erfolgreich gespeichert wurde. */
   readonly incomeSaved = signal(false);
@@ -164,5 +176,20 @@ export class Settings {
           );
         },
       });
+  }
+
+  /**
+   * Übernimmt die Wahl aus dem Segment-Umschalter.
+   *
+   * <p>Die Bindung ist bewusst einweg plus Event statt `[(value)]`: {@link Theme} nimmt
+   * Änderungen nur über {@link Theme#select} an, weil dort neben dem Signal auch der
+   * `localStorage` geschrieben wird. {@link Segment} tippt seinen Wert als `string` —
+   * alles ausserhalb der drei Optionen kann nur aus einem Programmierfehler stammen und
+   * wird ignoriert, statt einen ungültigen Zustand ins Theme zu tragen.
+   */
+  protected selectTheme(value: string | undefined): void {
+    if (value === 'light' || value === 'dark' || value === 'system') {
+      this.theme.select(value);
+    }
   }
 }

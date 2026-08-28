@@ -4,12 +4,18 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { Router, provideRouter } from '@angular/router';
 
+import {
+  installMatchMedia,
+  restoreMatchMedia,
+  setSystemDark,
+} from '../../testing/prefers-color-scheme';
 import { App } from '../app';
 import { routes } from '../app.routes';
 import { AuthService } from '../auth/auth.service';
 import { User } from '../auth/user.model';
 import { authGuard } from '../core/guards/auth.guard';
 import { onboardingGuard } from '../core/guards/onboarding.guard';
+import { THEME_STORAGE_KEY, Theme } from '../core/theme/theme';
 import { Dashboard } from '../dashboard/dashboard';
 import { SafeToSpendResponse } from '../dashboard/safe-to-spend.model';
 import { Settings } from './settings';
@@ -59,6 +65,9 @@ describe('Settings', () => {
   let httpMock: HttpTestingController;
 
   beforeEach(async () => {
+    localStorage.removeItem(THEME_STORAGE_KEY);
+    installMatchMedia(false);
+
     await TestBed.configureTestingModule({
       imports: [Settings],
       providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
@@ -75,7 +84,33 @@ describe('Settings', () => {
     fixture.detectChanges();
   });
 
-  afterEach(() => httpMock.verify());
+  // Der Screen hat keinen Ladepfad — die Theme-Wahl liegt client-only im localStorage
+  // (US-14, Scope-Entscheid). `verify()` deckt auf, falls doch einmal ein Request
+  // abgesetzt würde, statt das nur an einem Textinhalt zu vermuten.
+  afterEach(() => {
+    httpMock.verify();
+    restoreMatchMedia();
+    localStorage.removeItem(THEME_STORAGE_KEY);
+    document.documentElement.removeAttribute('data-theme');
+  });
+
+  /** Die drei Buttons des Erscheinungsbild-Umschalters. */
+  function themeButtons(): HTMLButtonElement[] {
+    return Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>(
+        'app-segment button',
+      ),
+    );
+  }
+
+  /** Klickt die Option mit der gegebenen Beschriftung an. */
+  function clickTheme(label: string): void {
+    themeButtons()
+      .find((button) => button.textContent?.trim() === label)!
+      .click();
+    TestBed.tick();
+    fixture.detectChanges();
+  }
 
   // --- AC (FE-SET-01): Überschrift und drei Abschnitte als Cards ---
 
@@ -214,6 +249,55 @@ describe('Settings', () => {
     expect(fixture.componentInstance.incomeSubmitting()).toBe(true);
     httpMock.expectOne('/api/users/me/income').flush({ ...LARA, monthlyIncome: 4000 });
   });
+
+  // --- AC1: Auswahl Hell / Dunkel / System, sofort und ohne Reload ---
+
+  it('bietet genau die drei Optionen "Hell", "Dunkel" und "System" an', () => {
+    expect(themeButtons().map((button) => button.textContent?.trim())).toEqual([
+      'Hell',
+      'Dunkel',
+      'System',
+    ]);
+  });
+
+  it('stellt bei Klick sofort um und markiert die aktive Option', () => {
+    clickTheme('Dunkel');
+
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+    expect(TestBed.inject(Theme).preference()).toBe('dark');
+    expect(
+      themeButtons().find((button) => button.getAttribute('aria-pressed') === 'true')?.textContent,
+    ).toContain('Dunkel');
+  });
+
+  // --- AC6: Persistenz über localStorage ---
+
+  it('merkt sich die Wahl im localStorage', () => {
+    clickTheme('Dunkel');
+
+    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark');
+  });
+
+  // --- AC3: "System" ist der Ausgangszustand und folgt dem Betriebssystem ---
+
+  it('startet auf "System" und folgt einem Wechsel im Betriebssystem', () => {
+    expect(
+      themeButtons().find((button) => button.getAttribute('aria-pressed') === 'true')?.textContent,
+    ).toContain('System');
+
+    setSystemDark(true);
+    TestBed.tick();
+
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+  });
+
+  // --- AC5: Der Hinweis benennt die Reichweite der Wahl ---
+
+  it('weist darauf hin, dass die Wahl nur in diesem Browser gilt', () => {
+    const hint = (fixture.nativeElement as HTMLElement).querySelector('.settings__hint');
+
+    expect(hint?.textContent).toContain('nur in diesem Browser');
+  });
 });
 
 describe('Einkommen-Formular ohne erfasstes Einkommen', () => {
@@ -294,7 +378,12 @@ describe('Route /einstellungen', () => {
     router = TestBed.inject(Router);
   });
 
-  afterEach(() => httpMock.verify());
+  // Die geladene Settings-Komponente zieht den Theme-Service mit und setzt dabei
+  // `data-theme` — nach den Routing-Tests wieder abräumen.
+  afterEach(() => {
+    httpMock.verify();
+    document.documentElement.removeAttribute('data-theme');
+  });
 
   /** Beantwortet das `GET /api/users/me` des Guards. */
   async function answerProfile(user: User | null): Promise<void> {

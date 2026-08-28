@@ -17,6 +17,7 @@ import com.anthropic.core.http.Headers;
 import com.anthropic.errors.AnthropicException;
 import com.anthropic.errors.UnauthorizedException;
 import com.anthropic.services.blocking.ModelService;
+import com.budgetbuddy.support.ThreadScopedLogAppender;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,6 +37,11 @@ import org.springframework.beans.factory.ObjectProvider;
  * nicht erreichbar), damit die 401-spezifische Meldung nachweislich vom generischen Zweig
  * unterschieden wird — ein reiner „wirft nicht durch"-Test würde beide Zweige nicht auseinander
  * halten.
+ *
+ * <p>Weil diese Assertions auf einem prozessweit geteilten Logger sitzen, hängt der Test einen
+ * {@link ThreadScopedLogAppender} an und nicht den nackten {@code ListAppender}: Sonst zählen
+ * auch Zeilen mit, die ein fremder Thread zufällig gleichzeitig schreibt — die Ursache der
+ * Ordnungsabhängigkeit aus #162 (BE-CAT-07).
  */
 @ExtendWith(MockitoExtension.class)
 class AnthropicStartupHealthCheckTest {
@@ -50,7 +56,7 @@ class AnthropicStartupHealthCheckTest {
     @BeforeEach
     void attachLogAppender() {
         logger = (Logger) LoggerFactory.getLogger(AnthropicStartupHealthCheck.class);
-        logs = new ListAppender<>();
+        logs = new ThreadScopedLogAppender();
         logs.start();
         logger.addAppender(logs);
     }
@@ -121,6 +127,35 @@ class AnthropicStartupHealthCheckTest {
         assertThatCode(() -> check.ping(client)).doesNotThrowAnyException();
         assertThat(messagesAt(Level.WARN)).anyMatch(m -> m.contains("nicht erreichbar"));
         assertThat(messagesAt(Level.WARN)).noneMatch(m -> m.contains("ungültig oder widerrufen"));
+    }
+
+    /**
+     * Regression zu #162: Der Appender darf keine Zeile aufnehmen, die ein <em>fremder</em> Thread
+     * auf denselben Logger schreibt.
+     *
+     * <p>Nachgestellt wird exakt der gemeldete Ablauf: Ein
+     * {@code CompletableFuture.runAsync}-Thread aus einem anderen Spring-Kontext lieferte die
+     * generische WARN-Zeile nach, nachdem seine Testklasse längst beendet war — und liess damit
+     * das {@code noneMatch} in {@link #logsSpecific401WarnWhenKeyInvalid()} fehlschlagen, obwohl
+     * dieser Test die Zeile nie erzeugt hatte.
+     *
+     * <p>Der Test würde mit einem nackten {@code ListAppender} fehlschlagen; er ist damit der
+     * eigentliche Nachweis für die Wirkung von {@link ThreadScopedLogAppender}.
+     */
+    @Test
+    void ignoresLogEventsFromForeignThreads() throws InterruptedException {
+        Thread foreign = new Thread(
+                () -> LoggerFactory.getLogger(AnthropicStartupHealthCheck.class)
+                        .warn("Anthropic-Healthcheck: Anthropic-API nicht erreichbar "
+                                + "(Fremd-Thread)."),
+                "foreign-context-thread");
+        foreign.start();
+        // join() vor der Assertion: ohne das prüfte der Test nur, dass der Thread noch nicht
+        // fertig war, und wäre selbst zeitabhängig — genau der Fehler, den er behebt.
+        foreign.join();
+
+        assertThat(logs.list).isEmpty();
+        assertThat(messagesAt(Level.WARN)).isEmpty();
     }
 
     // --- Helpers ---

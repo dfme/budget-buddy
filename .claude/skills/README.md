@@ -6,7 +6,7 @@ im Repo eingecheckt — sie kommen also mit `git pull` und müssen nicht install
 | Skill | Befehl | Beschreibung |
 | ----- | ------ | ------------ |
 | [implement-issue](implement-issue/SKILL.md) | `/implement-issue <issue-number>` | GitHub Issue end-to-end umsetzen |
-| [review-pr](review-pr/SKILL.md) | `/review-pr <pr-number>` | Pull Request reviewen und Befunde absetzen |
+| [review-pr](review-pr/SKILL.md) | `/review-pr <pr-number>` | Pull Request reviewen und Befunde absetzen — zusätzlich [automatisch bei PR-Events](#automatischer-trigger-via-github-action) |
 | [plan-sprint](plan-sprint/SKILL.md) | `/plan-sprint` | Sprint planen, Vorschlag nach `docs/plans/sprints/` |
 
 Was ein Skill braucht, unterscheidet sich pro Skill. Hinter „das Skill geht bei mir nicht"
@@ -125,6 +125,155 @@ Zusätzlich muss Claude Code **aus dem Repo-Root** gestartet werden, und das Rep
 von `dfme/budget-buddy` sein — kein Fork. Die Skills adressieren das Repo teilweise fest über
 `gh api repos/dfme/budget-buddy/…`; aus einem Fork heraus zeigen diese Aufrufe und die
 `gh pr`-Kommandos auf verschiedene Repositories.
+
+## Automatischer Trigger via GitHub Action
+
+`review-pr` ist das einzige Skill, das **zusätzlich** automatisch läuft: der Workflow
+[`.github/workflows/claude-pr-review.yml`](../../.github/workflows/claude-pr-review.yml) startet
+es über die offizielle `anthropics/claude-code-action` bei jedem PR-Event (`opened`,
+`synchronize`, `ready_for_review`, `reopened`, Entwürfe ausgenommen). Es ist derselbe Skill aus
+demselben Verzeichnis — er liegt eingecheckt im Repo und ist nach dem Checkout im Runner
+verfügbar. Der manuelle Aufruf `/review-pr <nr>` bleibt unverändert bestehen.
+
+### Was der automatische Lauf anders macht
+
+**Er fragt nicht nach.** Schritt 7 des Skills verlangt in der Sitzung eine Bestätigung, bevor ein
+Review hinausgeht. In CI gibt es niemanden zu fragen — Warten hiesse dort nicht «sicherheitshalber
+nachfragen», sondern das Review verfällt. Der Skill erkennt den Fall an `GITHUB_ACTIONS=true` und
+setzt direkt ab; der Workflow-`prompt` sagt es zusätzlich (INFRA-34).
+
+Anlass war ein beobachteter Nichtdeterminismus: zwei Läufe auf demselben Commit von PR #212
+entschieden verschieden — einer setzte `CHANGES_REQUESTED` ab, der andere wartete auf eine
+Freigabe, die nie kommen konnte.
+
+**Alles andere bleibt gesperrt:** kein Approval, kein Merge, keine fremden Threads.
+
+### Was der automatische Lauf nicht kann
+
+| Punkt | Warum |
+| ----- | ----- |
+| **Die Dev-Freigabe ersetzen** | Ein Action-Lauf ist kein Dev. CLAUDE.md → „Git: Review-Konvention" Punkt 3 verlangt die Freigabe durch mindestens einen Menschen; das automatische Review ist ein zusätzliches Augenpaar, kein Approval. Das Ruleset erzwingt das ohnehin. |
+| **Den Vorgang übernehmen** (Assignee **und** Board-Karte) | Zwei verschiedene Ursachen, beide am echten Lauf 33019045344 beobachtet. **Assignee:** GitHub lehnt das grundsätzlich ab — *„Assigning agents is not supported with GitHub App installation tokens"*. Das ist eine harte Grenze des Installationstokens und **nicht** durch zusätzliche App-Rechte behebbar. **Board:** Das Projekt `dfme/4` ist über dieses Token nicht auflösbar; die App-Berechtigungen decken Contents, Pull Requests und Issues ab, nicht Projects. Schritt 1c des Skills meldet beides und läuft weiter — seit INFRA-27 ausdrücklich nicht blockierend. Assignee und Karte sind nach einem automatischen Lauf von Hand zu setzen. |
+| **Den eigenen PR reviewen** | Unverändert: GitHub lehnt `REQUEST_CHANGES` am eigenen PR mit `HTTP 422` ab. Die Action läuft als App und nicht als PR-Autor, ist davon also normalerweise nicht betroffen — bei PRs, die die App selbst eröffnet hätte, schon. |
+
+### Modell und Verbrauch
+
+Das Review läuft auf **`claude-sonnet-5`**, im Workflow explizit über `--model` gesetzt. Der Wert
+entspricht dem, was der Default zuletzt lieferte — festgeschrieben, damit er sich nicht still
+ändert: die Action ist als beweglicher Tag `@v1` eingebunden, und ohne die Zeile bestimmt Claude
+Code das Modell. Ein stärkeres Modell (`claude-opus-5`) bleibt eine Option, falls im Betrieb
+Befunde durchrutschen; dann genügt ein Wort in `claude_args`.
+
+Für interne Kleinaufgaben zieht Claude Code zusätzlich `claude-haiku-4-5` heran. Das hängt an
+einem eigenen Schalter (`ANTHROPIC_DEFAULT_HAIKU_MODEL`) und wird von `--model` **nicht** berührt.
+
+Ein vollständiger Review kostete zuletzt rund **$1.10** und ~6 Minuten (Lauf 33019045344). Läuft
+die Authentifizierung über `CLAUDE_CODE_OAUTH_TOKEN`, geht das gegen das Pro/Max-Kontingent statt
+auf eine API-Rechnung.
+
+### Einrichtung (einmalig, pro Repo)
+
+Beide Schritte brauchen einen Browser bzw. einen echten Schlüssel und lassen sich nicht aus einer
+Claude-Code-Session heraus erledigen:
+
+1. **Claude GitHub App installieren** — entweder `/install-github-app` in einer lokalen
+   Claude-Code-Session, oder von Hand über [github.com/apps/claude](https://github.com/apps/claude)
+   → *Install* → Repository `dfme/budget-buddy` auswählen.
+
+2. **Secret hinterlegen** — eine der beiden Varianten genügt, der Workflow unterstützt beide:
+
+   ```bash
+   # Variante A — API-Key aus der Anthropic Console (jeder Account)
+   gh secret set ANTHROPIC_API_KEY --repo dfme/budget-buddy
+
+   # Variante B — OAuth-Token (nur Claude Pro/Max), lokal erzeugen und hinterlegen
+   claude setup-token
+   gh secret set CLAUDE_CODE_OAUTH_TOKEN --repo dfme/budget-buddy
+   ```
+
+   Sind **beide** gesetzt, gewinnt `CLAUDE_CODE_OAUTH_TOKEN`. Der Workflow belegt bewusst immer
+   nur einen der beiden Action-Inputs, weil nicht dokumentiert ist, welcher bei doppelter
+   Belegung Vorrang hätte.
+
+   > **Der Scope muss `Actions` sein — nicht `Agents`.** Unter *Settings → Secrets and variables*
+   > liegen mehrere getrennte Speicher nebeneinander, darunter `Actions` und `Agents`. Sie sind
+   > gegeneinander abgeschottet: ein Actions-Workflow liest keine Agents-Secrets und umgekehrt.
+   > Ein im falschen Speicher hinterlegter Token ist von aussen nicht von einem fehlenden zu
+   > unterscheiden — der Lauf protokolliert dann schlicht `claude_code_oauth_token: ""`.
+   > Gegenprobe: `gh secret list --repo dfme/budget-buddy` zeigt genau die Actions-Secrets.
+
+3. **Verifizieren** — einen Test-PR öffnen und prüfen, dass ein Review ankommt. Ohne Schritt 1
+   und 2 startet der Workflow zwar, scheitert aber an der Authentifizierung.
+
+   Erwartet wird **nicht** in jedem Fall ein `REQUEST_CHANGES`: der Skill setzt das nur, wenn
+   mindestens ein blockierender Befund vorliegt. Ein sauberer PR bekommt korrekterweise einen
+   Kommentar mit den Befunden und `🔴 Blockierend: Keine`. Zum Verifizieren taugt deshalb jeder
+   Lauf, der die Schritte des Skills nachweislich durchlaufen hat (Tests selbst ausgeführt,
+   Ruleset gelesen, Befunde klassifiziert) — nicht erst einer, der blockiert.
+
+### Nicht zu verwechseln mit Agent HQ (`/agents`)
+
+GitHub bietet seit Februar 2026 unter `github.com/<owner>/<repo>/agents` **Agent HQ** an, wo
+Claude als Drittanbieter-Agent auswählbar ist. Das ist ein anderes Produkt als der Workflow hier:
+
+| | Agent HQ (`/agents`) | Dieser Workflow |
+| --- | --- | --- |
+| Auslöser | Agents-Tab, Issue zuweisen, `@`-Mention im PR — **immer ein Mensch** | `pull_request`-Event, **automatisch** |
+| Lizenz | Copilot Pro/Pro+/Max bzw. Business/Enterprise | Anthropic-Key oder OAuth-Token |
+| Secret-Scope | `Agents` | `Actions` |
+| Führt `.claude/skills/` aus | nicht dokumentiert | ja, nach dem Checkout |
+
+Für den Zweck von INFRA-31 — ein Erst-Review **ohne** menschliche Aktion bei jedem PR — kommt
+Agent HQ nach heutiger Doku nicht in Frage: ein automatischer Trigger auf `pull_request` ist dort
+nicht vorgesehen. Wer den Agenten dort trotzdem einrichtet, hat damit **nicht** diesen Workflow
+konfiguriert; die beiden teilen sich weder Secret noch Auslöser.
+
+### Der Workflow läuft nie auf dem PR, der ihn ändert
+
+Die Action bricht ab, sobald die Workflow-Datei im PR von der Fassung auf `main` abweicht:
+
+```
+Workflow validation failed. The workflow file must exist and have identical content
+to the version on the repository's default branch.
+```
+
+Der Job endet dabei mit **`success`** — er überspringt sich selbst, statt rot zu werden. Ein
+grüner Haken ist hier also *kein* Beleg, dass ein Review stattgefunden hat; nachgesehen wird im
+Log (`gh run view <id> --log`).
+
+Das ist Absicht und keine Fehlkonfiguration: könnte ein PR den Review-Workflow ändern und ihn im
+selben Zug auf sich selbst loslassen, liesse sich über einen PR beliebiger Code in einem Lauf mit
+Repo-Rechten ausführen. Zwei praktische Folgen:
+
+- **Der erste Lauf kommt erst nach dem Merge** dieses Workflows — verifizieren lässt er sich
+  also frühestens am *nächsten* PR, nicht an dem, der ihn einführt.
+- **Jede spätere Änderung an `claude-pr-review.yml`** trifft dieselbe Sperre. Der PR, der sie
+  enthält, wird nicht automatisch reviewt; erst die PRs danach laufen wieder.
+
+### Bestehende PRs brauchen einmal `main` im Branch
+
+Die Sperre oben vergleicht gegen den **PR-Branch**. Ein PR, der abzweigte, bevor
+`claude-pr-review.yml` auf `main` lag, kennt die Datei nicht — und wird deshalb gar nicht erst
+reviewt. Beobachtet: ein Close/Reopen löste an einem 12 Commits alten Branch **keinen einzigen
+Lauf** aus, auch keinen CI-Lauf. Erst das Nachziehen von `main` erzeugte einen.
+
+```bash
+gh pr update-branch <pr-number>   # zieht main in den Branch → Event `synchronize`
+```
+
+Neue PRs, die nach dem Merge von `main` abzweigen, haben die Datei automatisch dabei. Betroffen
+ist also nur der Bestand zum Einführungszeitpunkt — einmalig, danach nie wieder.
+
+### Zombie-Runs nach einem Actions-Ausfall
+
+Läufe, die während einer GitHub-Actions-Störung eingereiht werden, bleiben danach dauerhaft auf
+`queued` stehen: der wiederhergestellte Dienst holt sie nicht mehr ab. Sie sind auch nicht
+abbrechbar — `gh run cancel` antwortet *Cannot cancel a workflow run that is completed*, während
+`gh run list` sie weiter als `queued` führt. Dieser Widerspruch ist das Erkennungsmerkmal.
+
+Ein Re-Run hilft dann nicht; es braucht ein **neues Event** (Close/Reopen oder ein Push). Vorher
+[githubstatus.com](https://www.githubstatus.com) prüfen — solange der Incident läuft, ist jedes
+Nachtreten sinnlos.
 
 ## Wenn es klemmt
 

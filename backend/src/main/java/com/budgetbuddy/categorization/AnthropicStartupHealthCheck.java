@@ -7,6 +7,7 @@ import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
@@ -29,8 +30,26 @@ import org.springframework.stereotype.Component;
  * den Start nie: Er meldet ausschliesslich ins Log, ein Fehler verhindert das Hochfahren nicht
  * (dieselbe Fallback-Philosophie wie beim Import selbst, Churn-Risiko #1). Ohne konfigurierten
  * Key existiert kein {@link AnthropicClient}-Bean und der Check tut nichts.
+ *
+ * <p><strong>Abschaltbar über {@code budgetbuddy.anthropic.startup-healthcheck.enabled}</strong>
+ * (Default {@code true}, siehe {@code application.properties}). Der Schalter existiert für die
+ * Testausführung, wo er in {@code pom.xml} global auf {@code false} steht (BE-CAT-07, #162):
+ * Diese Komponente ist die einzige im Projekt, die beim blossen Hochfahren eines Kontexts von
+ * sich aus ins Netz geht. {@code AnthropicConfigTest} baut einen echten Client, um den
+ * Produktionspfad der Client-Konstruktion zu prüfen — ohne den Schalter setzte dieser Kontext
+ * einen echten Request an {@code api.anthropic.com} ab, dessen asynchrone Antwort später in den
+ * Log-Assertions einer <em>anderen</em> Testklasse landete und den Lauf ordnungsabhängig machte.
+ *
+ * <p>Bewusst ein Schalter und kein {@code @Profile}: Nur eine Handvoll Testklassen aktiviert das
+ * {@code test}-Profil, die betroffene gehört nicht dazu. Ein Property, das die Surefire-
+ * Konfiguration für <em>jeden</em> Testkontext setzt, deckt dagegen auch künftige Tests ab, die
+ * einen Key konfigurieren — die Garantie liegt damit in der Buildkonfiguration und nicht in der
+ * Disziplin der einzelnen Testklasse.
  */
 @Component
+@ConditionalOnProperty(
+        name = "budgetbuddy.anthropic.startup-healthcheck.enabled",
+        matchIfMissing = true)
 public class AnthropicStartupHealthCheck {
 
     private static final Logger log = LoggerFactory.getLogger(AnthropicStartupHealthCheck.class);
