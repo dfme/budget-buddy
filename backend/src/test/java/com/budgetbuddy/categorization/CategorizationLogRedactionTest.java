@@ -21,6 +21,7 @@ import com.anthropic.models.messages.TextBlock;
 import com.anthropic.models.messages.Usage;
 import com.anthropic.services.blocking.MessageService;
 import com.budgetbuddy.categorization.ClaudeCategorizationService.BatchCategorization;
+import com.budgetbuddy.support.ThreadScopedLogAppender;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Clock;
@@ -71,7 +72,11 @@ class CategorizationLogRedactionTest {
         claudeService = new ClaudeCategorizationService(
                 clientProvider, new AnthropicProperties("test-key", "claude-haiku-4-5"), clock);
 
-        appender = new ListAppender<>();
+        // ThreadScopedLogAppender statt ListAppender (BE-CAT-07): Die beobachteten Logger sind
+        // prozessweit geteilt, und ClaudeCategorizationService läuft produktiv in @Async-
+        // Importjobs. Ein Job-Thread aus einer anderen Testklasse könnte hier sonst Zeilen
+        // einstreuen — derselbe Mechanismus, der #162 ausgelöst hat.
+        appender = new ThreadScopedLogAppender();
         appender.start();
         for (Logger logger : observedLoggers) {
             // DEBUG erzwingen: Die DEBUG-Pfade sind in Prod unsichtbar, aber genau das Szenario

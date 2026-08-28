@@ -77,6 +77,13 @@ _gültig_ ist (kostenloser `GET /v1/models`-Call), und loggt genau eine Zeile:
 Der Check prüft die _Gültigkeit_, **nicht das Guthaben** (dafür bleibt Check 2), läuft
 asynchron und blockiert den Start nicht.
 
+In der **Testausführung ist er abgeschaltet** (`budgetbuddy.anthropic.startup-healthcheck.enabled=false`
+in `pom.xml`, BE-CAT-07): Er ist die einzige Komponente, die beim Hochfahren eines Spring-Kontexts
+von sich aus ins Netz geht, und ein echter Request aus einem Testkontext machte den Build sowohl
+ordnungsabhängig als auch abhängig von der Erreichbarkeit von `api.anthropic.com`. Seine drei
+Log-Zweige sind stattdessen in `AnthropicStartupHealthCheckTest` gegen einen gemockten Client
+abgedeckt. In Produktion läuft der Check unverändert.
+
 ### Variablen setzen (lokal)
 
 **PowerShell (Windows):**

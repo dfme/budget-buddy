@@ -32,6 +32,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `BE-CAT-03` | [HybridCategorizationService](BE-CAT-03-hybrid-categorization.md) | [#16](https://github.com/dfme/budget-buddy/issues/16) | US-05 | Sprint 3 |
 | `BE-CAT-04` | [PUT /transactions/{id}/category](BE-CAT-04-update-transaction-category.md) | [#19](https://github.com/dfme/budget-buddy/issues/19) | US-05 | Sprint 3 |
 | `BE-CAT-05` | [GET /transactions/summary](BE-CAT-05-transactions-summary.md) | [#20](https://github.com/dfme/budget-buddy/issues/20) | US-05 | Sprint 3 |
+| `BE-CAT-07` | [AnthropicStartupHealthCheckTest ist ordnungsabhängig und macht einen echten Netzwerk-Call](BE-CAT-07-healthcheck-test-isolation.md) | [#162](https://github.com/dfme/budget-buddy/issues/162) | — | Sprint 5 |
 | `BE-FC-01` | [FixedCost Entity und Repository](BE-FC-01-fixedcost-entity.md) | [#10](https://github.com/dfme/budget-buddy/issues/10) | US-03 | Sprint 4 |
 | `BE-FC-02` | [FixedCostService: CRUD und Normalisierung](BE-FC-02-fixedcost-service.md) | [#11](https://github.com/dfme/budget-buddy/issues/11) | US-03 | Sprint 4 |
 | `BE-FC-03` | [REST-Endpoints für Fixkosten](BE-FC-03-fixed-costs-endpoints.md) | [#12](https://github.com/dfme/budget-buddy/issues/12) | US-03 | Sprint 4 |
@@ -54,6 +55,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `DB-04` | [Flyway V4: category_lookup-Tabelle mit Seed-Daten](DB-04-category-lookup-seed.md) | [#7](https://github.com/dfme/budget-buddy/issues/7) | US-05 | Sprint 2 |
 | `DB-05` | [Migration von SQLite auf Neon Postgres (inkl. Entscheid-ADR)](DB-05-neon-postgres-migration.md) | [#89](https://github.com/dfme/budget-buddy/issues/89) | — | Sprint 4 |
 | `DB-07` | [Foreign Keys auf users ohne ON DELETE — Löschpfad für US-02](DB-07-user-loeschpfad.md) | [#142](https://github.com/dfme/budget-buddy/issues/142) | US-02 | Sprint 5 |
+| `E2E-AUTH-01` | [Playwright: Register → Login → Logout (Happy + Fehlerpfad)](E2E-AUTH-01-register-login-logout.md) | [#58](https://github.com/dfme/budget-buddy/issues/58) | US-01 | Sprint 5 |
 | `E2E-CAT-01` | [Playwright: Transaktionen kategorisieren (Happy Path + Fehlerpfad)](E2E-CAT-01-playwright-kategorisierung.md) | [#124](https://github.com/dfme/budget-buddy/issues/124) | US-05 | Sprint 5 |
 | `E2E-FC-01` | [Playwright: Fixkosten-Wizard (Happy Path + Fehlerpfad)](E2E-FC-01-playwright-fixkosten-wizard.md) | [#123](https://github.com/dfme/budget-buddy/issues/123) | US-03 | Sprint 5 |
 | `E2E-PDF-01` | [Playwright: PDF-Upload (Happy Path + Fehlerpfad)](E2E-PDF-01-playwright-pdf-upload.md) | [#122](https://github.com/dfme/budget-buddy/issues/122) | US-04 | Sprint 5 |
@@ -100,6 +102,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `INFRA-11` | [ANTHROPIC_API_KEY: Verifikation dokumentieren + automatischer Startup-Check](INFRA-11-verifikation-doku.md) | [#76](https://github.com/dfme/budget-buddy/issues/76) | US-05 | Sprint 3 |
 | `INFRA-12` | [INFRA-12 — Dokumentierte SQLite-Persistenz-Mitigation korrigieren](INFRA-12-persistenz-doku-korrigieren.md) | [#78](https://github.com/dfme/budget-buddy/issues/78) | — | Sprint 3 |
 | `INFRA-14` | [Playwright-E2E-Setup aufsetzen](INFRA-14-playwright-e2e-setup.md) | [#91](https://github.com/dfme/budget-buddy/issues/91) | — | Sprint 3 |
+| `INFRA-16` | [GitHub Actions auf Node-24-Runtime heben (Node-20-Deprecation)](INFRA-16-node24-actions.md) | [#121](https://github.com/dfme/budget-buddy/issues/121) | — | Sprint 5 |
 | `INFRA-17` | [SPA-Routen /import, /categories, /register per Deep-Link nicht erreichbar](INFRA-17-api-prefix-spa-catchall.md) | [#126](https://github.com/dfme/budget-buddy/issues/126) | — | Sprint 5 |
 | `INFRA-18` | [Sprint-Planung als /plan-sprint-Skill + Index für docs/plans/](INFRA-18-plan-sprint-skill.md) | [#127](https://github.com/dfme/budget-buddy/issues/127) | — | Sprint 3 |
 | `INFRA-28` | [INFRA-28 — Neon-Compute-Verbrauch: Health-Check und Hikari-Pool halten die DB dauerhaft wach](INFRA-28-neon-compute-health-check.md) | — | — | — |
