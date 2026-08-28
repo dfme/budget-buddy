@@ -115,4 +115,63 @@ test.describe('Auth-Flow', () => {
     await expect(authenticatedPage).toHaveURL(/\/dashboard$/);
     await expect(authenticatedPage.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
   });
+
+  test('Happy Path: Login (onboardetes Konto) → Dashboard sichtbar → Logout → zurück auf Login', async ({
+    page,
+    request,
+    testUser,
+  }) => {
+    // Registrierung und Onboarding-Abschluss laufen wie in der Auth-Fixture per API — der
+    // Register-Wizard-Weg ist bereits über den Test oben abgedeckt. Neu ist hier der Anschluss
+    // an ein Login übers echte Formular, das für ein onboardetes Konto auf /dashboard führt.
+    const registered = await request.post('/api/auth/register', { data: testUser });
+    expect(registered.status()).toBe(201);
+    const onboarded = await request.post('/api/users/me/onboarding-complete');
+    expect(onboarded.status()).toBe(200);
+
+    await page.goto('/login');
+    await page.getByLabel('E-Mail').fill(testUser.email);
+    await page.getByLabel('Passwort').fill(testUser.password);
+    await page.getByRole('button', { name: 'Einloggen' }).click();
+
+    await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+
+    // Der Sidebar-Button ist eindeutig: das mobile Account-Menü (shell.html) rendert seinen
+    // eigenen "Abmelden"-Button nur, wenn es geöffnet wurde — hier bleibt es zu.
+    await page.getByRole('button', { name: 'Abmelden' }).click();
+
+    await expect(page).toHaveURL(/\/login$/);
+    await expect(page.getByRole('heading', { name: 'Login' })).toBeVisible();
+
+    // Logout setzt das Cookie serverseitig zurück (JwtCookieFactory.clear()) — ein erneuter
+    // Versuch auf die geschützte Route muss also wieder auf /login umleiten.
+    await page.goto('/dashboard');
+    await expect(page).toHaveURL(/\/login$/);
+  });
+
+  test('Fehlerpfad: Login mit falschen Credentials zeigt Meldung, kein Dashboard-Zugriff', async ({
+    page,
+    context,
+    request,
+    testUser,
+  }) => {
+    const registered = await request.post('/api/auth/register', { data: testUser });
+    expect(registered.status()).toBe(201);
+
+    await page.goto('/login');
+    await page.getByLabel('E-Mail').fill(testUser.email);
+    await page.getByLabel('Passwort').fill('falsches-passwort');
+    await page.getByRole('button', { name: 'Einloggen' }).click();
+
+    // Der Backend-401 kommt ohne Body (User-Enumeration-Schutz, UserExceptionHandler); die
+    // Meldung ist deshalb reines Frontend-Mapping auf den Statuscode (login.ts), nicht aus der
+    // Response gelesen — genau das macht sie hier prüfenswert.
+    // toContainText statt toHaveText: der Text-Inhalt umfasst auch das aria-hidden Icon ("✕").
+    await expect(page.getByRole('alert')).toContainText('E-Mail oder Passwort falsch');
+    await expect(page).toHaveURL(/\/login$/);
+
+    const jwtCookie = (await context.cookies()).find((cookie) => cookie.name === 'jwt');
+    expect(jwtCookie, 'nach fehlgeschlagenem Login darf kein jwt-Cookie gesetzt sein').toBeUndefined();
+  });
 });

@@ -54,7 +54,8 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `DB-03` | [DB-03 — Flyway V3: fixed_costs-Tabelle](DB-03-fixed-costs-table.md) | [#6](https://github.com/dfme/budget-buddy/issues/6) | US-03 | Sprint 1 |
 | `DB-04` | [Flyway V4: category_lookup-Tabelle mit Seed-Daten](DB-04-category-lookup-seed.md) | [#7](https://github.com/dfme/budget-buddy/issues/7) | US-05 | Sprint 2 |
 | `DB-05` | [Migration von SQLite auf Neon Postgres (inkl. Entscheid-ADR)](DB-05-neon-postgres-migration.md) | [#89](https://github.com/dfme/budget-buddy/issues/89) | — | Sprint 4 |
-| `DB-07` | [DB-07 — Foreign Keys auf users ohne ON DELETE — Löschpfad für US-02](DB-07-user-loeschpfad.md) | [#142](https://github.com/dfme/budget-buddy/issues/142) | US-02 | Sprint 5 |
+| `DB-07` | [Foreign Keys auf users ohne ON DELETE — Löschpfad für US-02](DB-07-user-loeschpfad.md) | [#142](https://github.com/dfme/budget-buddy/issues/142) | US-02 | Sprint 5 |
+| `E2E-AUTH-01` | [Playwright: Register → Login → Logout (Happy + Fehlerpfad)](E2E-AUTH-01-register-login-logout.md) | [#58](https://github.com/dfme/budget-buddy/issues/58) | US-01 | Sprint 5 |
 | `E2E-CAT-01` | [Playwright: Transaktionen kategorisieren (Happy Path + Fehlerpfad)](E2E-CAT-01-playwright-kategorisierung.md) | [#124](https://github.com/dfme/budget-buddy/issues/124) | US-05 | Sprint 5 |
 | `E2E-FC-01` | [Playwright: Fixkosten-Wizard (Happy Path + Fehlerpfad)](E2E-FC-01-playwright-fixkosten-wizard.md) | [#123](https://github.com/dfme/budget-buddy/issues/123) | US-03 | Sprint 5 |
 | `E2E-PDF-01` | [Playwright: PDF-Upload (Happy Path + Fehlerpfad)](E2E-PDF-01-playwright-pdf-upload.md) | [#122](https://github.com/dfme/budget-buddy/issues/122) | US-04 | Sprint 5 |
