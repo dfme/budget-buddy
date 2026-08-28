@@ -99,10 +99,13 @@ export class Settings {
         },
         error: (err: HttpErrorResponse) => {
           this.passwordSubmitting.set(false);
+          // Der Endpoint liefert 400 sowohl für ein falsches aktuelles Passwort als auch für
+          // Bean-Validation-Fehler auf neuesPasswort (z. B. Leerzeichen-only, das clientseitig
+          // an minLength(8) vorbeikommt, weil Validators.required nicht trimmt) — beide Fälle
+          // liefern denselben Body {message: string}, der nie eine Nutzereingabe wiederholt.
+          const message = err.status === 400 ? (err.error?.message as string | undefined) : undefined;
           this.passwordErrorMessage.set(
-            err.status === 400
-              ? 'Aktuelles Passwort falsch'
-              : 'Passwort konnte nicht geändert werden. Bitte versuche es später erneut.',
+            message ?? 'Passwort konnte nicht geändert werden. Bitte versuche es später erneut.',
           );
         },
       });

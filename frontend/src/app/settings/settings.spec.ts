@@ -155,6 +155,25 @@ describe('Settings', () => {
     );
   });
 
+  it('zeigt die Backend-Meldung bei einem 400 wegen ungültigem neuen Passwort, nicht "Aktuelles Passwort falsch"', () => {
+    component.passwordForm.setValue({
+      aktuellesPasswort: 'altesPasswort',
+      neuesPasswort: '        ',
+    });
+
+    component.submitPassword();
+
+    httpMock
+      .expectOne('/api/users/me/password')
+      .flush(
+        { message: 'Neues Passwort ist erforderlich.' },
+        { status: 400, statusText: 'Bad Request' },
+      );
+    fixture.detectChanges();
+
+    expect(component.passwordErrorMessage()).toBe('Neues Passwort ist erforderlich.');
+  });
+
   it('setzt die alte Erfolgsmeldung vor einem neuen Versuch zurück', () => {
     component.passwordForm.setValue({
       aktuellesPasswort: 'altesPasswort',
