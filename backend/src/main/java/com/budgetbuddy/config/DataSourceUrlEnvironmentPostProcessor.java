@@ -89,18 +89,40 @@ public class DataSourceUrlEnvironmentPostProcessor implements EnvironmentPostPro
      * nur unerwünscht.
      */
     private boolean containsEmbeddedCredentials(String url) {
-        int authorityStart = url.indexOf("//");
-        if (authorityStart == -1) {
+        String authority = extractAuthority(url);
+        if (authority == null) {
             return url.contains("@");
         }
-        String afterScheme = url.substring(authorityStart + 2);
-        int pathStart = afterScheme.indexOf('/');
-        String authority = pathStart == -1 ? afterScheme : afterScheme.substring(0, pathStart);
         return authority.contains("@");
     }
 
+    /**
+     * Exakter Host-Vergleich statt Substring-Test: {@code url.contains("localhost")} würde einen
+     * legitimen Hostnamen wie {@code mylocalhost.example.com} fälschlich ablehnen.
+     */
     private boolean pointsToLocalhost(String url) {
-        return url.contains("localhost") || url.contains("127.0.0.1");
+        String host = extractHost(url);
+        return host != null && ("localhost".equalsIgnoreCase(host) || "127.0.0.1".equals(host));
+    }
+
+    private String extractHost(String url) {
+        String authority = extractAuthority(url);
+        if (authority == null) {
+            return null;
+        }
+        String hostPort = authority.contains("@") ? authority.substring(authority.indexOf('@') + 1) : authority;
+        int portStart = hostPort.indexOf(':');
+        return portStart == -1 ? hostPort : hostPort.substring(0, portStart);
+    }
+
+    private String extractAuthority(String url) {
+        int authorityStart = url.indexOf("//");
+        if (authorityStart == -1) {
+            return null;
+        }
+        String afterScheme = url.substring(authorityStart + 2);
+        int pathStart = afterScheme.indexOf('/');
+        return pathStart == -1 ? afterScheme : afterScheme.substring(0, pathStart);
     }
 
     private IllegalStateException fail(String message) {

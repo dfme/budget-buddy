@@ -78,6 +78,16 @@ class DataSourceUrlEnvironmentPostProcessorTest {
     }
 
     @Test
+    void hostnameContainingLocalhostAsSubstringIsNotFalselyRejected() {
+        MockEnvironment environment = new MockEnvironment();
+        environment.setActiveProfiles("prod");
+        environment.setProperty("spring.datasource.url", "jdbc:postgresql://mylocalhost.example.com/budgetbuddy?sslmode=require");
+
+        assertThatCode(() -> postProcessor.postProcessEnvironment(environment, null))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
     void invalidUrlOutsideProdProfileIsIgnored() {
         MockEnvironment environment = new MockEnvironment();
         environment.setActiveProfiles("default");
