@@ -29,15 +29,6 @@ const LARA: User = {
 
 const LARA_NO_INCOME: User = { ...LARA, monthlyIncome: null };
 
-/** Antwort von `GET /api/budget/safe-to-spend`, wenn bereits ein Einkommen erfasst ist. */
-const WITH_INCOME: SafeToSpendResponse = {
-  amount: 500,
-  weeksLeft: 2,
-  negative: false,
-  noIncome: false,
-  incomeSuggestion: null,
-};
-
 const NO_INCOME_WITH_SUGGESTION: SafeToSpendResponse = {
   amount: null,
   weeksLeft: 3,
@@ -76,11 +67,11 @@ describe('Settings', () => {
     httpMock = TestBed.inject(HttpTestingController);
     loginAs(httpMock, LARA);
 
+    // Der Constructor überspringt den Vorschlags-Call für LARA (siehe settings.ts): sie hat
+    // bereits ein Einkommen, das Backend liefert für diesen Fall laut SafeToSpendResponse-Doku
+    // ohnehin immer `incomeSuggestion: null`. `afterEach`s `httpMock.verify()` deckt einen
+    // ungewollten Call auf, falls die Optimierung doch einmal bricht.
     fixture = TestBed.createComponent(Settings);
-    // Der Constructor lädt den Vorschlag unabhängig vom aktuellen Einkommen (siehe
-    // settings.ts) — bei erfasstem Einkommen liefert das Backend laut SafeToSpendResponse-Doku
-    // ohnehin `incomeSuggestion: null`.
-    httpMock.expectOne('/api/budget/safe-to-spend').flush(WITH_INCOME);
     fixture.detectChanges();
   });
 
@@ -137,6 +128,14 @@ describe('Settings', () => {
     expect(input.value).toBe('3000');
   });
 
+  // --- AC1: Das Feld ist im UI als optional gekennzeichnet ---
+
+  it('weist im Hinweistext darauf hin, dass das Betragsfeld optional ist', () => {
+    const hint = (fixture.nativeElement as HTMLElement).querySelector('form .settings__hint');
+
+    expect(hint?.textContent).toContain('Optional');
+  });
+
   // --- AC3: Kein Vorschlag, solange bereits ein Einkommen erfasst ist ---
 
   it('zeigt keine Vorschlags-Notice, wenn bereits ein Einkommen erfasst ist', () => {
@@ -144,6 +143,10 @@ describe('Settings', () => {
     expect(
       (fixture.nativeElement as HTMLElement).querySelector('.income-suggestion'),
     ).toBeNull();
+  });
+
+  it('lädt den Einkommens-Vorschlag nicht, wenn bereits ein Einkommen erfasst ist', () => {
+    httpMock.expectNone('/api/budget/safe-to-spend');
   });
 
   // --- AC1/AC4: Betrag ist optional, Beträge <= 0 werden clientseitig abgefangen ---
@@ -156,6 +159,18 @@ describe('Settings', () => {
     httpMock.expectNone('/api/users/me/income');
     expect(fixture.componentInstance.incomeForm.controls.betrag.hasError('min')).toBe(true);
     expect(fixture.componentInstance.incomeError()).toBe('Betrag muss grösser als 0 sein.');
+  });
+
+  it('zeigt bei einem zu niedrigen Betrag mit zu vielen Nachkommastellen die Nachkommastellen-Meldung', () => {
+    // 0.005 verletzt beide Regeln (< 0.01 und > 2 Nachkommastellen) — "muss grösser als 0 sein"
+    // wäre hier irreführend, die eigentliche Verletzung ist die Nachkommastellen-Regel.
+    fixture.componentInstance.incomeForm.controls.betrag.setValue(0.005);
+
+    fixture.componentInstance.submitIncome();
+
+    expect(fixture.componentInstance.incomeError()).toBe(
+      'Betrag darf höchstens zwei Nachkommastellen haben.',
+    );
   });
 
   it.each([10.999, 0.015, 3000.123])(
@@ -294,7 +309,9 @@ describe('Settings', () => {
   // --- AC5: Der Hinweis benennt die Reichweite der Wahl ---
 
   it('weist darauf hin, dass die Wahl nur in diesem Browser gilt', () => {
-    const hint = (fixture.nativeElement as HTMLElement).querySelector('.settings__hint');
+    const hint = (fixture.nativeElement as HTMLElement).querySelector(
+      'app-segment + .settings__hint',
+    );
 
     expect(hint?.textContent).toContain('nur in diesem Browser');
   });

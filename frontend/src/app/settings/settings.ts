@@ -88,8 +88,22 @@ export class Settings {
   });
 
   constructor() {
-    // Läuft unabhängig vom aktuellen Einkommen: liegt bereits eines vor, liefert das Backend
-    // laut SafeToSpendResponse-Doku ohnehin `incomeSuggestion: null`.
+    // Ein Nutzer, der das Feld nach erfolgreichem Speichern oder einer Fehlermeldung erneut
+    // ändert, ohne abzuschicken, soll die alte Meldung nicht mehr sehen — sie beträfe dann einen
+    // Betrag, der so nie gespeichert wurde.
+    this.incomeForm.controls.betrag.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        this.incomeSaved.set(false);
+        this.incomeErrorMessage.set(null);
+      });
+
+    // Ein bereits erfasstes Einkommen macht den Call überflüssig: das Backend liefert für diesen
+    // Fall laut SafeToSpendResponse-Doku ohnehin immer `incomeSuggestion: null`.
+    if (this.auth.currentUser()?.monthlyIncome != null) {
+      return;
+    }
+
     this.safeToSpend
       .getSafeToSpend()
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -119,11 +133,14 @@ export class Settings {
     if (!control.touched || control.valid) {
       return null;
     }
-    if (control.hasError('min')) {
-      return 'Betrag muss grösser als 0 sein.';
-    }
+    // `maxDecimals` zuerst: bei z. B. 0.005 schlagen beide Validatoren an, aber „muss grösser
+    // als 0 sein" ist irreführend für einen Betrag, der grösser als 0 ist — die eigentliche
+    // Verletzung ist die Nachkommastellen-Regel.
     if (control.hasError('maxDecimals')) {
       return 'Betrag darf höchstens zwei Nachkommastellen haben.';
+    }
+    if (control.hasError('min')) {
+      return 'Betrag muss grösser als 0 sein.';
     }
     return null;
   }
