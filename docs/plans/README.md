@@ -23,6 +23,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `BE-AUTH-02` | [BE-AUTH-02 — GET /users/me und PUT /users/me/income](BE-AUTH-02-users-me.md) | [#9](https://github.com/dfme/budget-buddy/issues/9) | — | Sprint 1 |
 | `BE-AUTH-03` | [Register-, Login- und Logout-Endpoints](BE-AUTH-03-auth-endpoints.md) | [#46](https://github.com/dfme/budget-buddy/issues/46) | — | Sprint 1 |
 | `BE-AUTH-04` | [BE-AUTH-04 — ADR-Auth-Doku korrigieren (httpOnly-Cookie statt Bearer/Interceptor)](BE-AUTH-04-adr-auth-doku.md) | [#103](https://github.com/dfme/budget-buddy/issues/103) | — | Sprint 3 |
+| `BE-AUTH-05` | [Vor- und Nachname im User-Model ergänzen](BE-AUTH-05-user-vor-nachname.md) | [#114](https://github.com/dfme/budget-buddy/issues/114) | — | Sprint 5 |
 | `BE-AUTH-06` | [BE-AUTH-06 — «Kein manueller Interceptor»-Vereinfachung präzisieren](BE-AUTH-06-interceptor-doku-praezisieren.md) | [#115](https://github.com/dfme/budget-buddy/issues/115) | — | Sprint 3 |
 | `BE-AUTH-07` | [BE-AUTH-07 — Interceptor-Beschreibung nur in ADR-2 führen](BE-AUTH-07-interceptor-single-source.md) | [#117](https://github.com/dfme/budget-buddy/issues/117) | — | Sprint 3 |
 | `BE-AUTH-08` | [monthly_income auf Rappen und Kapazität prüfen](BE-AUTH-08-income-rappen-validierung.md) | [#148](https://github.com/dfme/budget-buddy/issues/148) | — | Sprint 5 |
