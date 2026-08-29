@@ -32,9 +32,8 @@ const maxTwoDecimals: ValidatorFn = (control) => {
 /**
  * Einstellungen-Screen (FE-SET-01, US-14).
  *
- * <p>Route, Navigation und drei Abschnitts-Cards. „Einkommen" (FE-SET-03) und
- * „Erscheinungsbild" (FE-SET-04) sind gefüllt; Passwort ändern (FE-SET-02) bleibt leer, bis die
- * Task es füllt.
+ * <p>Route, Navigation und drei Abschnitts-Cards — «Passwort» (FE-SET-02), «Einkommen»
+ * (FE-SET-03) und «Erscheinungsbild» (FE-SET-04) — sind alle gefüllt.
  *
  * <p>Kein Token- oder Header-Code: das httpOnly-JWT-Cookie wird durch den
  * `credentialsInterceptor` automatisch mitgesendet (ADR-7).
@@ -54,6 +53,80 @@ export class Settings {
 
   /** Quelle und Ziel der Theme-Wahl; das Template liest `preference()` daraus. */
   protected readonly theme = inject(Theme);
+
+  /** `true`, sobald das Passwort in dieser Sitzung zuletzt erfolgreich geändert wurde. */
+  readonly passwordSaved = signal(false);
+
+  /** Fehlermeldung nach fehlgeschlagenem Passwort-Submit oder `null`. */
+  readonly passwordErrorMessage = signal<string | null>(null);
+
+  /** `true`, solange ein Passwort-Request läuft — sperrt den Submit-Button. */
+  readonly passwordSubmitting = signal(false);
+
+  readonly passwordForm = this.fb.nonNullable.group({
+    aktuellesPasswort: ['', [Validators.required]],
+    neuesPasswort: ['', [Validators.required, Validators.minLength(8)]],
+  });
+
+  /** Fehlermeldung fürs Feld "Aktuelles Passwort" oder `null`, solange gültig oder unberührt. */
+  aktuellesPasswortError(): string | null {
+    const control = this.passwordForm.controls.aktuellesPasswort;
+    if (!control.touched || control.valid) {
+      return null;
+    }
+    return 'Aktuelles Passwort ist erforderlich.';
+  }
+
+  /** Fehlermeldung fürs Feld "Neues Passwort" oder `null`, solange gültig oder unberührt. */
+  neuesPasswortError(): string | null {
+    const control = this.passwordForm.controls.neuesPasswort;
+    if (!control.touched || control.valid) {
+      return null;
+    }
+    if (control.hasError('required')) {
+      return 'Neues Passwort ist erforderlich.';
+    }
+    if (control.hasError('minlength')) {
+      return 'Passwort muss mindestens 8 Zeichen lang sein.';
+    }
+    return null;
+  }
+
+  submitPassword(): void {
+    if (this.passwordForm.invalid) {
+      this.passwordForm.markAllAsTouched();
+      return;
+    }
+
+    // Beide Meldungen zurücksetzen: sonst stünde nach einem zweiten Versuch die alte
+    // Erfolgsmeldung neben dem laufenden Request (analog fixed-cost-wizard.ts).
+    this.passwordSaved.set(false);
+    this.passwordErrorMessage.set(null);
+    this.passwordSubmitting.set(true);
+
+    const { aktuellesPasswort, neuesPasswort } = this.passwordForm.getRawValue();
+    this.auth
+      .changePassword(aktuellesPasswort, neuesPasswort)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.passwordSubmitting.set(false);
+          this.passwordSaved.set(true);
+          this.passwordForm.reset({ aktuellesPasswort: '', neuesPasswort: '' });
+        },
+        error: (err: HttpErrorResponse) => {
+          this.passwordSubmitting.set(false);
+          // Der Endpoint liefert 400 sowohl für ein falsches aktuelles Passwort als auch für
+          // Bean-Validation-Fehler auf neuesPasswort (z. B. Leerzeichen-only, das clientseitig
+          // an minLength(8) vorbeikommt, weil Validators.required nicht trimmt) — beide Fälle
+          // liefern denselben Body {message: string}, der nie eine Nutzereingabe wiederholt.
+          const message = err.status === 400 ? (err.error?.message as string | undefined) : undefined;
+          this.passwordErrorMessage.set(
+            message ?? 'Passwort konnte nicht geändert werden. Bitte versuche es später erneut.',
+          );
+        },
+      });
+  }
 
   /** Die drei Optionen des Abschnitts „Erscheinungsbild". */
   protected readonly themeOptions: readonly SegmentOption[] = [

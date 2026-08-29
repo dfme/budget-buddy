@@ -1,7 +1,46 @@
 <section class="settings">
   <h1>Einstellungen</h1>
 
-  <app-card title="Passwort" />
+  <app-card title="Passwort">
+    <form [formGroup]="passwordForm" (ngSubmit)="submitPassword()" novalidate>
+      <app-field
+        label="Aktuelles Passwort"
+        inputId="aktuellesPasswort"
+        [error]="aktuellesPasswortError()"
+      >
+        <input
+          appInput
+          id="aktuellesPasswort"
+          type="password"
+          formControlName="aktuellesPasswort"
+          autocomplete="current-password"
+          required
+        />
+      </app-field>
+
+      <app-field label="Neues Passwort" inputId="neuesPasswort" [error]="neuesPasswortError()">
+        <input
+          appInput
+          id="neuesPasswort"
+          type="password"
+          formControlName="neuesPasswort"
+          autocomplete="new-password"
+          required
+        />
+      </app-field>
+
+      @if (passwordErrorMessage(); as message) {
+        <app-notice variant="error">{{ message }}</app-notice>
+      }
+      @if (passwordSaved()) {
+        <app-notice variant="info">Passwort geändert.</app-notice>
+      }
+
+      <button appButton block type="submit" [disabled]="passwordForm.invalid || passwordSubmitting()">
+        {{ passwordSubmitting() ? 'Wird geändert…' : 'Passwort ändern' }}
+      </button>
+    </form>
+  </app-card>
 
   <app-card title="Einkommen">
     <form [formGroup]="incomeForm" (ngSubmit)="submitIncome()" novalidate>

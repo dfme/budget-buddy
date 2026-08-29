@@ -53,6 +53,7 @@ function loginAs(httpMock: HttpTestingController, user: User): void {
 
 describe('Settings', () => {
   let fixture: ComponentFixture<Settings>;
+  let component: Settings;
   let httpMock: HttpTestingController;
 
   beforeEach(async () => {
@@ -72,6 +73,7 @@ describe('Settings', () => {
     // ohnehin immer `incomeSuggestion: null`. `afterEach`s `httpMock.verify()` deckt einen
     // ungewollten Call auf, falls die Optimierung doch einmal bricht.
     fixture = TestBed.createComponent(Settings);
+    component = fixture.componentInstance;
     fixture.detectChanges();
   });
 
@@ -115,6 +117,117 @@ describe('Settings', () => {
     ).map((el) => el.textContent?.trim());
 
     expect(cardTitles).toEqual(['Passwort', 'Einkommen', 'Erscheinungsbild']);
+  });
+
+  // --- FE-SET-02: Passwort ändern ---
+
+  it('sperrt den Submit-Button, solange das Formular ungültig ist', () => {
+    const button = fixture.nativeElement.querySelector('button[type="submit"]') as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+  });
+
+  it('deaktiviert den Submit-Button, solange der zu kurze neue Passwort clientseitig abgelehnt wird', () => {
+    component.passwordForm.setValue({ aktuellesPasswort: 'altesPasswort', neuesPasswort: 'kurz' });
+
+    component.submitPassword();
+
+    httpMock.expectNone('/api/users/me/password');
+    expect(component.passwordForm.invalid).toBe(true);
+    expect(component.neuesPasswortError()).toBe('Passwort muss mindestens 8 Zeichen lang sein.');
+  });
+
+  it('ändert das Passwort und zeigt eine In-App-Bestätigung, Felder werden geleert', () => {
+    component.passwordForm.setValue({
+      aktuellesPasswort: 'altesPasswort',
+      neuesPasswort: 'neuesPasswort123',
+    });
+
+    component.submitPassword();
+
+    const req = httpMock.expectOne('/api/users/me/password');
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual({
+      aktuellesPasswort: 'altesPasswort',
+      neuesPasswort: 'neuesPasswort123',
+    });
+    req.flush(null);
+    fixture.detectChanges();
+
+    expect(component.passwordForm.controls.aktuellesPasswort.value).toBe('');
+    expect(component.passwordForm.controls.neuesPasswort.value).toBe('');
+    expect(component.passwordSubmitting()).toBe(false);
+    expect(component.passwordErrorMessage()).toBeNull();
+
+    const notice: HTMLElement = fixture.nativeElement.querySelector('app-notice');
+    expect(notice.getAttribute('role')).toBe('status');
+    expect(notice.querySelector('.notice__body')?.textContent?.trim()).toBe('Passwort geändert.');
+  });
+
+  it('lehnt ein falsches aktuelles Passwort mit "Aktuelles Passwort falsch" ab, der User bleibt eingeloggt', () => {
+    component.passwordForm.setValue({
+      aktuellesPasswort: 'falschesPasswort',
+      neuesPasswort: 'neuesPasswort123',
+    });
+
+    component.submitPassword();
+
+    httpMock
+      .expectOne('/api/users/me/password')
+      .flush(
+        { message: 'Aktuelles Passwort falsch' },
+        { status: 400, statusText: 'Bad Request' },
+      );
+    fixture.detectChanges();
+
+    expect(component.passwordErrorMessage()).toBe('Aktuelles Passwort falsch');
+    expect(component.passwordSaved()).toBe(false);
+    expect(component.passwordSubmitting()).toBe(false);
+
+    const notice: HTMLElement = fixture.nativeElement.querySelector('app-notice');
+    expect(notice.getAttribute('role')).toBe('alert');
+    expect(notice.querySelector('.notice__body')?.textContent?.trim()).toBe(
+      'Aktuelles Passwort falsch',
+    );
+  });
+
+  it('zeigt die Backend-Meldung bei einem 400 wegen ungültigem neuen Passwort, nicht "Aktuelles Passwort falsch"', () => {
+    component.passwordForm.setValue({
+      aktuellesPasswort: 'altesPasswort',
+      neuesPasswort: '        ',
+    });
+
+    component.submitPassword();
+
+    httpMock
+      .expectOne('/api/users/me/password')
+      .flush(
+        { message: 'Neues Passwort ist erforderlich.' },
+        { status: 400, statusText: 'Bad Request' },
+      );
+    fixture.detectChanges();
+
+    expect(component.passwordErrorMessage()).toBe('Neues Passwort ist erforderlich.');
+  });
+
+  it('setzt die alte Erfolgsmeldung vor einem neuen Versuch zurück', () => {
+    component.passwordForm.setValue({
+      aktuellesPasswort: 'altesPasswort',
+      neuesPasswort: 'neuesPasswort123',
+    });
+    component.submitPassword();
+    httpMock.expectOne('/api/users/me/password').flush(null);
+    expect(component.passwordSaved()).toBe(true);
+
+    component.passwordForm.setValue({
+      aktuellesPasswort: 'falschesPasswort',
+      neuesPasswort: 'neuesPasswort123',
+    });
+    component.submitPassword();
+
+    expect(component.passwordSaved()).toBe(false);
+    httpMock
+      .expectOne('/api/users/me/password')
+      .flush(null, { status: 400, statusText: 'Bad Request' });
   });
 
   // --- AC2: Ist ein Einkommen erfasst, steht der aktuelle Wert im Feld ---
@@ -264,6 +377,8 @@ describe('Settings', () => {
     expect(fixture.componentInstance.incomeSubmitting()).toBe(true);
     httpMock.expectOne('/api/users/me/income').flush({ ...LARA, monthlyIncome: 4000 });
   });
+
+  // --- FE-SET-04: Erscheinungsbild ---
 
   // --- AC1: Auswahl Hell / Dunkel / System, sofort und ohne Reload ---
 

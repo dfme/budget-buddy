@@ -89,6 +89,22 @@ export class AuthService {
       .pipe(tap((user) => this.currentUserState.set(user)));
   }
 
+  /**
+   * Ändert das Passwort (`PUT /api/users/me/password`, US-14, FE-SET-02).
+   *
+   * <p>Feldnamen sind bewusst deutsch (`aktuellesPasswort`/`neuesPasswort`) — sie entsprechen
+   * wörtlich {@code ChangePasswordRequest} im Backend. Kein State-Update: der Endpoint antwortet
+   * 200 ohne Body, es gibt kein aktualisiertes Profil zu übernehmen.
+   *
+   * <p>Das Backend prüft `aktuellesPasswort` gegen den gespeicherten Hash und `neuesPasswort`
+   * gegen die Mindestlänge (8 Zeichen); beide Verletzungen liefern 400 mit
+   * `{ message: string }`. Bei falschem aktuellem Passwort lautet die Meldung wörtlich
+   * "Aktuelles Passwort falsch" (AC aus US-14).
+   */
+  changePassword(aktuellesPasswort: string, neuesPasswort: string): Observable<void> {
+    return this.http.put<void>('/api/users/me/password', { aktuellesPasswort, neuesPasswort });
+  }
+
   /** Loggt aus; das Backend invalidiert das Cookie (Max-Age=0), wir leeren den State. */
   logout(): Observable<void> {
     return this.http
