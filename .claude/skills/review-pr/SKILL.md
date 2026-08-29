@@ -356,13 +356,28 @@ Zwei Regeln für den Body:
 GitHub berechnet den Review-Status pro Reviewer aus dessen letztem **formellen** Review
 (`APPROVED`/`CHANGES_REQUESTED`) — ein späterer `COMMENTED`-Review desselben Accounts überschreibt
 das **nicht**. Postet die aktuelle Runde `COMMENTED`, weil sie keine blockierenden Punkte mehr
-findet, und liegt unter den in Schritt 1b gelesenen Reviews ein eigener (`gh api user --jq
-.login`) mit `state == CHANGES_REQUESTED`, bleibt die PR ohne Eingriff technisch blockiert, obwohl
-nichts mehr zu beanstanden ist — beobachtet an PR #212 (#224): trotz eines späteren `COMMENTED`
-von `claude` ohne verbleibende Blocker und einem menschlichen `APPROVED` blieb `reviewDecision`
-auf `CHANGES_REQUESTED` stehen. Eine neue **eigene** `REQUEST_CHANGES` braucht diesen Schritt
-dagegen nicht — die ersetzt den vorherigen Stand desselben Reviewers automatisch, weil beides
-formelle Zustände sind.
+findet, und liegt unter den in Schritt 1b gelesenen Reviews ein eigener mit
+`state == CHANGES_REQUESTED`, bleibt die PR ohne Eingriff technisch blockiert, obwohl nichts mehr
+zu beanstanden ist — beobachtet an PR #212 (#224): trotz eines späteren `COMMENTED` von `claude`
+ohne verbleibende Blocker und einem menschlichen `APPROVED` blieb `reviewDecision` auf
+`CHANGES_REQUESTED` stehen. Eine neue **eigene** `REQUEST_CHANGES` braucht diesen Schritt dagegen
+nicht — die ersetzt den vorherigen Stand desselben Reviewers automatisch, weil beides formelle
+Zustände sind.
+
+Die eigene Login für den Abgleich **nicht** über `gh api user --jq .login` ermitteln (das ist
+Preflight Schritt 0 vorbehalten und dort für den interaktiven, personenbezogenen Token gedacht) —
+`/user` ist ein reiner Nutzer-Endpoint und liefert für ein GitHub-App-Installationstoken (der
+automatische Lauf) `403`, weil eine App kein „Nutzer" im Sinne dieses Endpoints ist. Stattdessen
+die GraphQL-`viewer`-Abfrage, die für beide Token-Typen funktioniert:
+
+```bash
+gh api graphql -f query='{ viewer { login } }' --jq .data.viewer.login
+```
+
+Belegt an PR #227 (#224, Testlauf zur Dismiss-Verifikation): der automatische Lauf identifizierte
+sich selbst korrekt als `claude[bot]`, meldete aber im Review-Body live einen `403` auf
+`gh api user --jq .login` und schlug die `viewer`-Abfrage als funktionierende Alternative vor —
+das eigene Review hat den Fehler in dieser Anleitung selbst gefunden.
 
 Trifft die Bedingung zu, nach dem Posten des neuen Reviews den alten automatisch dismissen:
 
@@ -373,16 +388,23 @@ gh api repos/dfme/budget-buddy/pulls/<pr>/reviews/<alter-review-databaseId>/dism
   -f event=DISMISS
 ```
 
-Schlägt das mit `403`/`404` fehl, nicht verschweigen: laut GitHub-Doku verlangt Dismiss
-Repo-Admin-Rechte oder Eintrag in einer eigens konfigurierten Dismiss-Liste — mehr als das
-ohnehin vorhandene `pull-requests: write`. Beim App-Token der GitHub Action ist ein Fehlschlag
-deshalb der wahrscheinliche Fall, beim persönlichen Token im interaktiven Lauf eher nicht. Bei
-einem Fehlschlag einen PR-Kommentar setzen, der auf den veralteten Review verlinkt und um
-manuelles Dismiss durch jemanden mit ausreichender Berechtigung bittet:
+**Jeder Fehlschlag auf dem Weg dorthin zählt als Fehlschlag** — nicht nur eine `403`/`404` auf den
+Dismiss-Aufruf selbst, sondern genauso ein Fehlschlag schon beim Ermitteln der eigenen Login. Ein
+Fehlschlag darf nie zum stillen Auslassen des ganzen Abschnitts führen (beobachtet an PR #227: der
+Lauf erkannte den `403` korrekt, unterliess dann aber sowohl den Dismiss-Versuch als auch den
+dokumentierten Fallback-Kommentar — die PR blieb kommentarlos blockiert). Bei jedem Fehlschlag
+stattdessen einen PR-Kommentar setzen, der auf den veralteten Review verlinkt und um manuelles
+Dismiss durch jemanden mit ausreichender Berechtigung bittet:
 
 ```bash
-gh pr comment <pr> --body "Automatisches Dismiss des veralteten CHANGES_REQUESTED-Reviews (<Link>) ist fehlgeschlagen (fehlende Berechtigung) — bitte manuell im GitHub-UI dismissen, sonst bleibt die PR trotz behobener Punkte blockiert."
+gh pr comment <pr> --body "Automatisches Dismiss des veralteten CHANGES_REQUESTED-Reviews (<Link>) ist fehlgeschlagen (<Ursache: Berechtigung fehlt / eigene Login nicht ermittelbar>) — bitte manuell im GitHub-UI dismissen, sonst bleibt die PR trotz behobener Punkte blockiert."
 ```
+
+Laut GitHub-Doku verlangt Dismiss selbst (wenn die Login-Ermittlung gelingt) Repo-Admin-Rechte
+oder Eintrag in einer eigens konfigurierten Dismiss-Liste — mehr als das ohnehin vorhandene
+`pull-requests: write`. Beim App-Token der GitHub Action ist ein Fehlschlag deshalb der
+wahrscheinliche Fall, beim persönlichen Token im interaktiven Lauf eher nicht — in beiden Fällen
+greift derselbe Fallback-Kommentar.
 
 Gelingt der Dismiss, ebenfalls kurz kommentieren, damit der Vorgang im PR-Verlauf nachvollziehbar
 bleibt.
