@@ -20,6 +20,8 @@ const LARA_ONBOARDED: User = {
   email: 'lara@example.ch',
   monthlyIncome: null,
   onboardingCompleted: true,
+  firstName: null,
+  lastName: null,
 };
 
 describe('FixedCostWizard', () => {

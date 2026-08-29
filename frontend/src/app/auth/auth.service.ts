@@ -29,10 +29,20 @@ export class AuthService {
   /** Abgeleitet: `true`, sobald ein User geladen ist. */
   readonly isAuthenticated = computed(() => this.currentUserState() !== null);
 
-  /** Legt ein Konto an; bei Erfolg setzt das Backend das JWT-Cookie und wir den State. */
-  register(email: string, password: string): Observable<User> {
+  /**
+   * Legt ein Konto an; bei Erfolg setzt das Backend das JWT-Cookie und wir den State.
+   *
+   * <p>`firstName`/`lastName` sind optional (BE-AUTH-05, #114) — ein leeres Formularfeld wird
+   * hier nicht herausgefiltert, das Backend normalisiert Blank-Strings selbst zu `null`.
+   */
+  register(
+    email: string,
+    password: string,
+    firstName: string | null = null,
+    lastName: string | null = null,
+  ): Observable<User> {
     return this.http
-      .post<User>('/api/auth/register', { email, password })
+      .post<User>('/api/auth/register', { email, password, firstName, lastName })
       .pipe(tap((user) => this.currentUserState.set(user)));
   }
 

@@ -11,6 +11,8 @@ const LARA: User = {
   email: 'lara@example.ch',
   monthlyIncome: null,
   onboardingCompleted: false,
+  firstName: null,
+  lastName: null,
 };
 
 const LARA_ONBOARDED: User = { ...LARA, onboardingCompleted: true };
@@ -45,7 +47,12 @@ describe('Register', () => {
   });
 
   it('does not call the backend when the password is shorter than 8 characters', () => {
-    component.form.setValue({ email: 'lara@example.ch', password: 'short' });
+    component.form.setValue({
+      email: 'lara@example.ch',
+      password: 'short',
+      firstName: '',
+      lastName: '',
+    });
 
     component.submit();
 
@@ -58,7 +65,12 @@ describe('Register', () => {
     // Ein frisch registriertes Konto hat onboardingCompleted = false (User-Konstruktor,
     // BE-AUTH-03). Der direkte Sprung erspart den Umweg über den onboardingGuard-Redirect
     // (FE-FC-02), landet aber am selben Ziel wie dieser.
-    component.form.setValue({ email: 'lara@example.ch', password: 'supersecret' });
+    component.form.setValue({
+      email: 'lara@example.ch',
+      password: 'supersecret',
+      firstName: '',
+      lastName: '',
+    });
 
     component.submit();
 
@@ -67,6 +79,8 @@ describe('Register', () => {
     expect(req.request.body).toEqual({
       email: 'lara@example.ch',
       password: 'supersecret',
+      firstName: '',
+      lastName: '',
     });
     req.flush(LARA);
 
@@ -75,10 +89,38 @@ describe('Register', () => {
     expect(component.submitting()).toBe(false);
   });
 
+  // BE-AUTH-05 (#114): Vorname/Nachname sind optional, aber wenn ausgefüllt, gehen sie mit.
+  it('registers with an optionally provided first and last name', () => {
+    component.form.setValue({
+      email: 'lara@example.ch',
+      password: 'supersecret',
+      firstName: 'Lara',
+      lastName: 'Meier',
+    });
+
+    component.submit();
+
+    const req = httpMock.expectOne('/api/auth/register');
+    expect(req.request.body).toEqual({
+      email: 'lara@example.ch',
+      password: 'supersecret',
+      firstName: 'Lara',
+      lastName: 'Meier',
+    });
+    req.flush({ ...LARA, firstName: 'Lara', lastName: 'Meier' });
+
+    expect(navigate).toHaveBeenCalledWith(['/onboarding']);
+  });
+
   it('redirects to the dashboard if the account is already onboarded', () => {
     // Praktisch nicht der Regelfall bei einer Neuregistrierung, aber die Weiche entscheidet
     // strikt nach der Serverantwort — kein Sonderfall für „gerade registriert".
-    component.form.setValue({ email: 'lara@example.ch', password: 'supersecret' });
+    component.form.setValue({
+      email: 'lara@example.ch',
+      password: 'supersecret',
+      firstName: '',
+      lastName: '',
+    });
 
     component.submit();
     httpMock.expectOne('/api/auth/register').flush(LARA_ONBOARDED);
@@ -87,7 +129,12 @@ describe('Register', () => {
   });
 
   it('shows a specific error and does not redirect on 409', () => {
-    component.form.setValue({ email: 'lara@example.ch', password: 'supersecret' });
+    component.form.setValue({
+      email: 'lara@example.ch',
+      password: 'supersecret',
+      firstName: '',
+      lastName: '',
+    });
 
     component.submit();
 
@@ -101,7 +148,12 @@ describe('Register', () => {
   // Deckt den gerenderten Fehler ab, nicht nur das Signal: ein Umbau auf eine Komponente
   // mit `role="status"` liesse den Screenreader-Fehler sonst still verschwinden.
   it('kündigt den Formular-Fehler assertiv an (role=alert)', () => {
-    component.form.setValue({ email: 'lara@example.ch', password: 'supersecret' });
+    component.form.setValue({
+      email: 'lara@example.ch',
+      password: 'supersecret',
+      firstName: '',
+      lastName: '',
+    });
 
     component.submit();
     httpMock.expectOne('/api/auth/register').flush(null, { status: 409, statusText: 'Conflict' });

@@ -42,6 +42,11 @@ export class Register {
   readonly form = this.fb.nonNullable.group({
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(8)]],
+    // Bewusst ohne Validators.required (BE-AUTH-05, #114): ein Pflichtfeld würde die
+    // Registrierungshürde erhöhen (Churn-Risiko #1). Ein leer abgeschicktes Feld normalisiert
+    // das Backend zu null.
+    firstName: [''],
+    lastName: [''],
   });
 
   /** Fehlermeldung fürs E-Mail-Feld oder `null`, solange es gültig oder unberührt ist. */
@@ -83,8 +88,8 @@ export class Register {
     this.errorMessage.set(null);
     this.submitting.set(true);
 
-    const { email, password } = this.form.getRawValue();
-    this.auth.register(email, password).subscribe({
+    const { email, password, firstName, lastName } = this.form.getRawValue();
+    this.auth.register(email, password, firstName, lastName).subscribe({
       next: (user) => {
         this.submitting.set(false);
         this.router.navigate([user.onboardingCompleted ? '/dashboard' : '/onboarding']);

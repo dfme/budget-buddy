@@ -54,12 +54,23 @@ class UsersMigrationTest {
         Map<String, String> typeByColumn = schema().columnTypes(TABLE);
 
         assertThat(typeByColumn).containsOnlyKeys(
-                "id", "email", "password_hash", "monthly_income", "onboarding_completed");
+                "id", "email", "password_hash", "monthly_income", "onboarding_completed",
+                "first_name", "last_name");
 
         assertThat(typeByColumn.get("id")).isEqualTo("bigint");
         assertThat(typeByColumn.get("email")).isEqualTo("text");
         assertThat(typeByColumn.get("password_hash")).isEqualTo("text");
         assertThat(typeByColumn.get("onboarding_completed")).isEqualTo("boolean");
+        assertThat(typeByColumn.get("first_name")).isEqualTo("text");
+        assertThat(typeByColumn.get("last_name")).isEqualTo("text");
+    }
+
+    @Test
+    void firstNameAndLastNameAreNullable() {
+        // BE-AUTH-05 (#114): Bestandsuser haben keinen Namen, und die Registrierung fragt ihn nur
+        // optional ab — ein NOT NULL würde beides brechen.
+        assertThat(schema().notNullFlags(TABLE).get("first_name")).isFalse();
+        assertThat(schema().notNullFlags(TABLE).get("last_name")).isFalse();
     }
 
     @Test

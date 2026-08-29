@@ -23,17 +23,41 @@ public class AuthService {
     }
 
     /**
-     * Legt einen neuen User an (E-Mail + bcrypt-Hash) und liefert die persistierte Entity.
+     * Legt einen neuen User an (E-Mail + bcrypt-Hash, ohne Namen) und liefert die persistierte
+     * Entity.
      *
      * @throws EmailAlreadyExistsException wenn die E-Mail bereits vergeben ist (→ 409).
      */
     @Transactional
     public User register(String email, String rawPassword) {
+        return register(email, rawPassword, null, null);
+    }
+
+    /**
+     * Legt einen neuen User an und liefert die persistierte Entity (BE-AUTH-05, #114).
+     *
+     * <p>{@code firstName}/{@code lastName} sind optional und werden vor dem Speichern
+     * normalisiert: ein Blank-String (nur Whitespace oder leer) wird zu {@code null} — sonst
+     * würde ein leer abgeschicktes Formularfeld als {@code ""} statt als "kein Name hinterlegt"
+     * in der DB landen, und der E-Mail-Fallback im Konto-Block griffe nicht mehr.
+     *
+     * @throws EmailAlreadyExistsException wenn die E-Mail bereits vergeben ist (→ 409).
+     */
+    @Transactional
+    public User register(String email, String rawPassword, String firstName, String lastName) {
         if (userRepository.existsByEmail(email)) {
             throw new EmailAlreadyExistsException(email);
         }
-        User user = new User(email, passwordEncoder.encode(rawPassword));
+        User user = new User(
+                email,
+                passwordEncoder.encode(rawPassword),
+                blankToNull(firstName),
+                blankToNull(lastName));
         return userRepository.save(user);
+    }
+
+    private static String blankToNull(String value) {
+        return (value == null || value.isBlank()) ? null : value;
     }
 
     /**

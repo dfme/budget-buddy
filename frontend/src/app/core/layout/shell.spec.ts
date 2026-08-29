@@ -13,6 +13,8 @@ const LARA: User = {
   email: 'lara.meier@example.ch',
   monthlyIncome: null,
   onboardingCompleted: false,
+  firstName: null,
+  lastName: null,
 };
 
 /** Minimale Route-Ziele, damit `routerLinkActive` echte Navigation sehen kann. */
@@ -148,17 +150,56 @@ describe('Shell', () => {
     ['lara.meier@example.ch', 'LM'],
     ['lara@example.ch', 'LA'],
     ['marc_keller@example.ch', 'MK'],
-  ])('leitet die Initialen aus %s als %s ab', (email, expected) => {
+  ])('leitet die Initialen ohne Namen aus %s als %s ab (E-Mail-Fallback)', (email, expected) => {
     login({ ...LARA, email });
 
     expect(avatarButton().textContent?.trim()).toBe(expected);
     expect(query('.nav__avatar')?.textContent?.trim()).toBe(expected);
   });
 
+  // BE-AUTH-05 (#114): sobald ein Name hinterlegt ist, hat er Vorrang vor dem E-Mail-Fallback.
+  it.each([
+    ['Lara', 'Meier', 'LM'],
+    ['Marc', null, 'MA'],
+    [null, 'Keller', 'KE'],
+  ])(
+    'leitet die Initialen aus firstName=%s/lastName=%s als %s ab',
+    (firstName, lastName, expected) => {
+      login({ ...LARA, firstName, lastName });
+
+      expect(avatarButton().textContent?.trim()).toBe(expected);
+      expect(query('.nav__avatar')?.textContent?.trim()).toBe(expected);
+    },
+  );
+
   it('zeigt die E-Mail im Konto-Block der Sidebar', () => {
     login();
 
     expect(query('.nav__user-mail')?.textContent?.trim()).toBe(LARA.email);
+  });
+
+  it('zeigt ohne hinterlegten Namen keinen Namen im Konto-Block — nur die E-Mail', () => {
+    login();
+
+    expect(query('.nav__user-name')).toBeNull();
+    expect(query('.account-menu__name')).toBeNull();
+  });
+
+  it('zeigt den Namen im Konto-Block der Sidebar, wenn hinterlegt', () => {
+    login({ ...LARA, firstName: 'Lara', lastName: 'Meier' });
+
+    expect(query('.nav__user-name')?.textContent?.trim()).toBe('Lara Meier');
+    expect(query('.nav__user-mail')?.textContent?.trim()).toBe(LARA.email);
+  });
+
+  it('zeigt den Namen im mobilen Konto-Popover, wenn hinterlegt', () => {
+    login({ ...LARA, firstName: 'Lara', lastName: 'Meier' });
+
+    avatarButton().click();
+    fixture.detectChanges();
+
+    expect(query('.account-menu__name')?.textContent?.trim()).toBe('Lara Meier');
+    expect(query('.account-menu__mail')?.textContent?.trim()).toBe(LARA.email);
   });
 
   describe('Konto-Popover (Mobile)', () => {
@@ -301,7 +342,9 @@ describe('Shell', () => {
 
       query<HTMLButtonElement>('.nav__logout')!.click();
 
-      httpMock.expectOne('/api/auth/logout').flush(null, { status: 500, statusText: 'Server Error' });
+      httpMock
+        .expectOne('/api/auth/logout')
+        .flush(null, { status: 500, statusText: 'Server Error' });
 
       expect(auth.isAuthenticated()).toBe(false);
       expect(navigate).toHaveBeenCalledWith(['/login']);

@@ -10,6 +10,8 @@ const LARA: User = {
   email: 'lara@example.ch',
   monthlyIncome: null,
   onboardingCompleted: false,
+  firstName: null,
+  lastName: null,
 };
 
 describe('AuthService', () => {
@@ -31,7 +33,7 @@ describe('AuthService', () => {
     expect(service.isAuthenticated()).toBe(false);
   });
 
-  it('register posts credentials and sets the auth state', () => {
+  it('register posts credentials without a name and sets the auth state', () => {
     service.register('lara@example.ch', 'supersecret').subscribe();
 
     const req = httpMock.expectOne('/api/auth/register');
@@ -39,11 +41,31 @@ describe('AuthService', () => {
     expect(req.request.body).toEqual({
       email: 'lara@example.ch',
       password: 'supersecret',
+      firstName: null,
+      lastName: null,
     });
     req.flush(LARA);
 
     expect(service.currentUser()).toEqual(LARA);
     expect(service.isAuthenticated()).toBe(true);
+  });
+
+  // BE-AUTH-05 (#114): firstName/lastName sind optional, gehen aber immer im Body mit —
+  // der Feldname ist Teil des Vertrags, wie bei den übrigen Feldern dieses Service.
+  it('register posts firstName and lastName when provided', () => {
+    service.register('lara@example.ch', 'supersecret', 'Lara', 'Meier').subscribe();
+
+    const req = httpMock.expectOne('/api/auth/register');
+    expect(req.request.body).toEqual({
+      email: 'lara@example.ch',
+      password: 'supersecret',
+      firstName: 'Lara',
+      lastName: 'Meier',
+    });
+    req.flush({ ...LARA, firstName: 'Lara', lastName: 'Meier' });
+
+    expect(service.currentUser()?.firstName).toBe('Lara');
+    expect(service.currentUser()?.lastName).toBe('Meier');
   });
 
   it('login posts credentials and sets the auth state', () => {

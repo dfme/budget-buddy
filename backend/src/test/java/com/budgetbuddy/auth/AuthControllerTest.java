@@ -62,12 +62,32 @@ class AuthControllerTest {
                 .andExpect(header().string(
                         HttpHeaders.SET_COOKIE, Matchers.containsString("SameSite=Strict")))
                 .andExpect(jsonPath("$.email").value("lara@example.ch"))
-                .andExpect(jsonPath("$.onboardingCompleted").value(false));
+                .andExpect(jsonPath("$.onboardingCompleted").value(false))
+                .andExpect(jsonPath("$.firstName").doesNotExist())
+                .andExpect(jsonPath("$.lastName").doesNotExist());
 
         String storedHash = jdbcTemplate.queryForObject(
                 "SELECT password_hash FROM users WHERE email = 'lara@example.ch'", String.class);
         assertThat(storedHash).isNotEqualTo("geheim123");
         assertThat(storedHash).startsWith("$2"); // bcrypt-Prefix
+    }
+
+    @Test
+    void registerWithNameStoresAndReturnsFirstNameAndLastName() throws Exception {
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\": \"lara@example.ch\", \"password\": \"geheim123\", "
+                                + "\"firstName\": \"Lara\", \"lastName\": \"Meier\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.firstName").value("Lara"))
+                .andExpect(jsonPath("$.lastName").value("Meier"));
+
+        String firstName = jdbcTemplate.queryForObject(
+                "SELECT first_name FROM users WHERE email = 'lara@example.ch'", String.class);
+        String lastName = jdbcTemplate.queryForObject(
+                "SELECT last_name FROM users WHERE email = 'lara@example.ch'", String.class);
+        assertThat(firstName).isEqualTo("Lara");
+        assertThat(lastName).isEqualTo("Meier");
     }
 
     @Test

@@ -62,10 +62,30 @@ export class Shell {
   protected readonly email = computed(() => this.auth.currentUser()?.email ?? '');
 
   /**
-   * Initialen für den Avatar. Das Backend liefert keinen Namen (US-14 offen),
-   * deshalb aus dem Local-Part der E-Mail: `lara.meier@…` → «LM», `lara@…` → «LA».
+   * Voller Name aus `firstName`/`lastName`, oder `null`, solange kein Name hinterlegt ist
+   * (BE-AUTH-05, #114) — dann zeigt der Konto-Block nur die E-Mail, wie vor diesem Feld.
    */
-  protected readonly initials = computed(() => initialsFromEmail(this.email()));
+  protected readonly fullName = computed(() => {
+    const user = this.auth.currentUser();
+    const parts = [user?.firstName, user?.lastName].filter(
+      (part): part is string => !!part?.trim(),
+    );
+    return parts.length > 0 ? parts.join(' ') : null;
+  });
+
+  /**
+   * Initialen für den Avatar: aus dem Namen, wenn hinterlegt (BE-AUTH-05, #114), sonst aus dem
+   * Local-Part der E-Mail als Fallback: `lara.meier@…` → «LM», `lara@…` → «LA».
+   */
+  protected readonly initials = computed(() => {
+    const user = this.auth.currentUser();
+    const firstName = user?.firstName?.trim();
+    const lastName = user?.lastName?.trim();
+    if (firstName || lastName) {
+      return initialsFromName(firstName, lastName);
+    }
+    return initialsFromEmail(this.email());
+  });
 
   /** Offen/zu des Konto-Popovers in der Topbar (nur Mobile sichtbar). */
   protected readonly accountMenuOpen = signal(false);
@@ -123,6 +143,18 @@ export class Shell {
       },
     });
   }
+}
+
+/**
+ * Zwei Initialen aus Vor-/Nachname (BE-AUTH-05, #114). Sind beide vorhanden, je der erste
+ * Buchstabe (`Lara Meier` → «LM») — analog zu `initialsFromEmail` bei einem mehrteiligen
+ * Local-Part. Ist nur einer der beiden gesetzt, die ersten zwei Buchstaben davon.
+ */
+function initialsFromName(firstName: string | undefined, lastName: string | undefined): string {
+  if (firstName && lastName) {
+    return (firstName[0] + lastName[0]).toUpperCase();
+  }
+  return (firstName ?? lastName ?? '').slice(0, 2).toUpperCase();
 }
 
 /**
