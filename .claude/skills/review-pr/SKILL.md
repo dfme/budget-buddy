@@ -87,7 +87,7 @@ gh api graphql -f query='
 {
   repository(owner: "dfme", name: "budget-buddy") {
     pullRequest(number: <pr-number>) {
-      reviews(first: 20) { nodes { author{login} state submittedAt body } }
+      reviews(first: 20) { nodes { databaseId author{login} state submittedAt body } }
       reviewThreads(first: 30) {
         nodes { isResolved path line comments(first: 5) { nodes { author{login} body } } }
       }
@@ -98,6 +98,10 @@ gh api graphql -f query='
 
 Reviews laufen parallel. Wer das überspringt, postet Threads zu Befunden, die schon jemand
 anders angebracht hat — der Autor muss dann dasselbe Problem zweimal auflösen.
+
+`databaseId` wird für Schritt 8 mitgeholt: dort geht es darum, einen eigenen alten
+`CHANGES_REQUESTED`-Review aufzuheben, und das REST-Dismiss-Endpoint verlangt die numerische ID,
+nicht die GraphQL-Node-ID.
 
 **1c. Review übernehmen.** Erst jetzt, nach 1b: das Ergebnis von 1b entscheidet mit, ob überhaupt
 übernommen werden soll. Reviewt bereits jemand anders, ist eine stille zweite Übernahme genau der
@@ -224,6 +228,23 @@ Dabei zwei verschiedene Fragen trennen:
   (`expect(row).toContain('1')` matcht gegen jede Zahl mit einer `1`), und ACs, die von keinem
   Test berührt werden. Beides ist in einem grünen Lauf unsichtbar.
 
+#### Ausnahme: nicht-interaktive Läufe — synchron statt im Hintergrund
+
+Im interaktiven CLI-Lauf darf ein langer Verifikationsbefehl in den Hintergrund gehen: eine
+spätere Gesprächsrunde holt die Benachrichtigung ab, sobald er fertig ist. Im nicht-interaktiven
+Lauf (`GITHUB_ACTIONS=true`, siehe Schritt 7) gibt es diese spätere Runde nicht — die GitHub
+Action führt einen einzelnen, einmaligen SDK-Query aus. Ein im Hintergrund gestarteter
+`./mvnw package` oder `npx ng test` liefert sein Ergebnis dann an niemanden mehr; das Modell kann
+die Session beenden, ohne je zu erfahren, ob der Befehl grün oder rot war. Beobachtet an PR #223,
+Lauf [33239595160](https://github.com/dfme/budget-buddy/actions/runs/33239595160): der SDK-Query
+endete nach 19 Turns mit `is_error: false` — kein Crash, das Modell hat die Session einfach vor
+dem Ergebnis beendet. Für den betroffenen Commit existiert entsprechend kein Review-Objekt.
+
+| `GITHUB_ACTIONS` | Verifikationsbefehle |
+| ---------------- | --------------------- |
+| nicht gesetzt | Hintergrundausführung erlaubt — der Normalfall bei langen Läufen |
+| `true` | **synchron ausführen und auf das Ergebnis warten**, nie im Hintergrund |
+
 ### 5. BEFUNDE KLASSIFIZIEREN
 
 Jeden Befund vor dem Posten einsortieren:
@@ -330,6 +351,42 @@ Zwei Regeln für den Body:
   zweimal da. Ein bereits abgesetzter Body lässt sich nachträglich anpassen:
   `gh api repos/dfme/budget-buddy/pulls/<pr>/reviews/<review-id> --method PUT --input body.json`
 
+#### Veralteten eigenen `CHANGES_REQUESTED`-Review aufheben
+
+GitHub berechnet den Review-Status pro Reviewer aus dessen letztem **formellen** Review
+(`APPROVED`/`CHANGES_REQUESTED`) — ein späterer `COMMENTED`-Review desselben Accounts überschreibt
+das **nicht**. Postet die aktuelle Runde `COMMENTED`, weil sie keine blockierenden Punkte mehr
+findet, und liegt unter den in Schritt 1b gelesenen Reviews ein eigener (`gh api user --jq
+.login`) mit `state == CHANGES_REQUESTED`, bleibt die PR ohne Eingriff technisch blockiert, obwohl
+nichts mehr zu beanstanden ist — beobachtet an PR #212 (#224): trotz eines späteren `COMMENTED`
+von `claude` ohne verbleibende Blocker und einem menschlichen `APPROVED` blieb `reviewDecision`
+auf `CHANGES_REQUESTED` stehen. Eine neue **eigene** `REQUEST_CHANGES` braucht diesen Schritt
+dagegen nicht — die ersetzt den vorherigen Stand desselben Reviewers automatisch, weil beides
+formelle Zustände sind.
+
+Trifft die Bedingung zu, nach dem Posten des neuen Reviews den alten automatisch dismissen:
+
+```bash
+gh api repos/dfme/budget-buddy/pulls/<pr>/reviews/<alter-review-databaseId>/dismissals \
+  --method PUT \
+  -f message="Alle blockierenden Punkte aus dem Review vom <Datum> sind behoben, siehe <Link zum neuen Review>." \
+  -f event=DISMISS
+```
+
+Schlägt das mit `403`/`404` fehl, nicht verschweigen: laut GitHub-Doku verlangt Dismiss
+Repo-Admin-Rechte oder Eintrag in einer eigens konfigurierten Dismiss-Liste — mehr als das
+ohnehin vorhandene `pull-requests: write`. Beim App-Token der GitHub Action ist ein Fehlschlag
+deshalb der wahrscheinliche Fall, beim persönlichen Token im interaktiven Lauf eher nicht. Bei
+einem Fehlschlag einen PR-Kommentar setzen, der auf den veralteten Review verlinkt und um
+manuelles Dismiss durch jemanden mit ausreichender Berechtigung bittet:
+
+```bash
+gh pr comment <pr> --body "Automatisches Dismiss des veralteten CHANGES_REQUESTED-Reviews (<Link>) ist fehlgeschlagen (fehlende Berechtigung) — bitte manuell im GitHub-UI dismissen, sonst bleibt die PR trotz behobener Punkte blockiert."
+```
+
+Gelingt der Dismiss, ebenfalls kurz kommentieren, damit der Vorgang im PR-Verlauf nachvollziehbar
+bleibt.
+
 ### 9. WIRKUNG VERIFIZIEREN
 
 Nach dem Absetzen prüfen, dass die Threads tatsächlich greifen:
@@ -354,7 +411,10 @@ Titel `[TASK-ID] Kurzbeschreibung`, neue freie ID im betroffenen Bereich, Label 
 - **Nie mergen.** Der Merge auf `main` wird ausschliesslich von einem Dev getriggert.
 - **Nie ungefragt absetzen** — in der interaktiven Sitzung. Schritt 7 ist dort ein verbindliches
   Gate. Im nicht-interaktiven Lauf (`GITHUB_ACTIONS=true`) entfällt es, weil es keinen Adressaten
-  hat; siehe Schritt 7 → «Ausnahme». Das ist die **einzige** Grenze mit einer solchen Ausnahme.
+  hat; siehe Schritt 7 → «Ausnahme». Eine zweite `GITHUB_ACTIONS`-bedingte Ausnahme gilt für
+  Schritt 4: dort wird nicht das Gate aufgehoben, sondern Hintergrundausführung durch synchrones
+  Warten ersetzt, weil eine im Hintergrund gestartete Verifikation sonst spurlos verlorengeht
+  (siehe Schritt 4 → «Ausnahme»).
 - **Fremde Threads nie anfassen** — weder auflösen noch löschen noch bearbeiten. Ob ein Befund
   erledigt ist, entscheidet, wer ihn angebracht hat.
 - **Keine Karte auf `Done`.** Schritt 1c bewegt Karten nur in den Review hinein. `Done` folgt aus
@@ -364,6 +424,10 @@ Titel `[TASK-ID] Kurzbeschreibung`, neue freie ID im betroffenen Bereich, Label 
 - **Eigene Threads dürfen korrigiert werden.** Ein selbst gepostetes Duplikat zu löschen ist
   richtig und ausdrücklich erlaubt — Zögern führt sonst zu doppelter Auflösearbeit beim Autor.
   Auflösen des eigenen Threads bleibt dem Autor des PR überlassen.
+- **Eigene veraltete Reviews dürfen dismissed werden.** Kein Widerspruch zu „Nie ungefragt
+  absetzen" oder „Fremde Threads nie anfassen": ein Dismiss ändert nichts an fremden Inhalten, es
+  räumt nur den eigenen, durch Nachbesserung überholten `CHANGES_REQUESTED`-Stand auf (siehe
+  Schritt 8 → «Veralteten eigenen CHANGES_REQUESTED-Review aufheben»).
 
 ## Sprache
 
