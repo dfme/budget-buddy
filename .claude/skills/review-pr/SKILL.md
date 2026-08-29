@@ -314,6 +314,18 @@ Absetzen — und nur, weil das Team mit INFRA-31 genau diesen Automatismus besch
 
 ### 8. REVIEW ABSETZEN
 
+**Jeder Lauf setzt ein echtes Review-Objekt ab — ohne Ausnahme.** Auch wenn das Fazit exakt dem
+eines vorherigen Laufs entspricht (keine neuen Blocker, nichts hat sich am Ergebnis geändert), muss
+der `gh api .../reviews`-Aufruf trotzdem erfolgen. Die Versuchung, das Fazit stattdessen nur in den
+Fortschritts-Kommentar zu schreiben ("das vorherige Review deckt das ja schon ab"), ist real:
+beobachtet an PR #223 (Lauf 33247869625) — der Agent führte die volle Verifikation korrekt und
+synchron durch, schrieb ein ausführliches "kein Blocker"-Fazit in den Fortschritts-Kommentar, setzte
+aber nie ein Review ab. Für den aktuellen Head-Commit existierte danach weiterhin kein
+Review-Objekt — exakt der Zustand, den der Guard in `claude-pr-review.yml` erkennen soll, nur mit
+einer anderen Ursache als der ursprünglich vermuteten (Backgrounding, INFRA-35). Ein
+Fortschritts-Kommentar ist niemals ein Ersatz für ein Review: nur Review-Objekte zählen für
+`reviewDecision`, blockierende Inline-Threads und die Wirkungsverifikation in Schritt 9.
+
 Review-State ist **`REQUEST_CHANGES`**, sobald mindestens ein Thread gesetzt wird. `COMMENTED`
 blockiert nie — das war die Ursache bei PR #88.
 

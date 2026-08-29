@@ -112,17 +112,25 @@ jobs:
       # "Claude finished …"-Banner an, wodurch der stille Fehlschlag wie ein Erfolg aussieht.
       #
       # Dieser Schritt prüft deshalb unabhängig vom Agentenverhalten, ob für den Commit, der den
-      # Lauf ausgelöst hat, tatsächlich ein Review-Objekt existiert, und macht den Job sichtbar
-      # rot, wenn nicht — statt dass ein stiller Fehlschlag wie ein Erfolg aussieht.
+      # Lauf ausgelöst hat, tatsächlich ein Review-Objekt existiert, und macht das sichtbar, wenn
+      # nicht — statt dass ein stiller Fehlschlag wie ein Erfolg aussieht.
       #
-      # Die Fehlermeldung nennt zwei Ursachen und nicht nur die von INFRA-35, weil sich an genau
-      # diesem PR eine zweite bestätigt hat: Läufe, deren PR `claude-pr-review.yml` selbst ändert,
-      # überspringt `claude-code-action` grundsätzlich per eigener Validierung (siehe
-      # `.claude/skills/README.md` → „Der Workflow läuft nie auf dem PR, der ihn ändert") — auch
-      # dann existiert kein Review-Objekt, ohne dass Backgrounding die Ursache wäre. Der Guard
-      # unterscheidet die beiden Fälle bewusst nicht (keine zusätzliche Diff-Prüfung, um den
-      # Schritt einfach zu halten) und schlägt in beiden gleichermassen sichtbar fehl — das
-      # entspricht der AC, die jeden fehlenden Review als Fehlschlag behandelt.
+      # Absichtlich `::warning::` statt `::error::`/`exit 1`: dieser Check ist kein Required
+      # Status Check im Ruleset „protect main" (nur `required_review_thread_resolution` und
+      # `required_approving_review_count` sind es) und kann einen Merge folglich nie aufhalten.
+      # Ein rotes, fehlgeschlagenes Ergebnis würde das Gegenteil suggerieren — genau das führte an
+      # PR #223 zu Verwirrung, nachdem das fehlende Review von Hand nachgetragen war, der Lauf
+      # aber weiterhin als `failure` stehen blieb. Eine Warnung bleibt sichtbar (Annotation in der
+      # Run-Summary und als Warn-Badge neben dem Check in der PR-Checks-Liste), ohne die
+      # Dringlichkeit eines echten Blockers vorzutäuschen.
+      #
+      # Die Meldung nennt drei bekannte Ursachen: (a) INFRA-35 selbst (Hintergrundbefehl ohne
+      # Folge-Runde), (b) `claude-code-action` überspringt sich selbst, weil dieser PR
+      # `claude-pr-review.yml` ändert (siehe `.claude/skills/README.md` → „Der Workflow läuft nie
+      # auf dem PR, der ihn ändert") — beide ohne Handlungsbedarf —, und (c) der Agent hat seine
+      # Analyse vollständig in den Fortschritts-Kommentar geschrieben, aber keinen tatsächlichen
+      # Review-Aufruf abgesetzt (beobachtet an PR #223, Lauf 33247869625) — hier ist manuelles
+      # Nachtragen nötig, siehe SKILL.md Schritt 8.
       - name: Verify a review was actually posted
         env:
           GH_TOKEN: ${{ github.token }}
@@ -131,7 +139,7 @@ jobs:
           COUNT=$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews" \
             --jq "[.[] | select(.commit_id == \"$HEAD_SHA\")] | length")
           if [ "$COUNT" -eq 0 ]; then
-            echo "::error::Kein Review-Objekt für Commit $HEAD_SHA gefunden. Zwei bekannte Ursachen: (a) der Review-Agent hat die Session beendet, bevor er das Ergebnis eines Hintergrundbefehls abwarten konnte (INFRA-35), oder (b) dieser PR ändert claude-pr-review.yml selbst, wodurch claude-code-action sich laut eigener Validierung selbst überspringt (normal, kein Fehler — siehe .claude/skills/README.md -> 'Der Workflow läuft nie auf dem PR, der ihn ändert'). Bei (b) ist kein Handeln nötig, der Lauf funktioniert wieder ab dem nächsten PR nach dem Merge."
-            exit 1
+            echo "::warning::Kein Review-Objekt für Commit $HEAD_SHA gefunden. Drei bekannte Ursachen: (a) der Review-Agent hat die Session beendet, bevor er das Ergebnis eines Hintergrundbefehls abwarten konnte (INFRA-35) — kein Handeln nötig, wird beim nächsten Lauf erneut versucht; (b) dieser PR ändert claude-pr-review.yml selbst, wodurch claude-code-action sich laut eigener Validierung selbst überspringt (normal, kein Fehler — siehe .claude/skills/README.md -> 'Der Workflow läuft nie auf dem PR, der ihn ändert') — kein Handeln nötig, der Lauf funktioniert wieder ab dem nächsten PR nach dem Merge; (c) der Agent hat seine Analyse in den Fortschritts-Kommentar geschrieben, ohne ein Review-Objekt abzusetzen — hier fehlt tatsächlich ein Review, bitte manuell nachtragen oder einen neuen Lauf anstossen."
+          else
+            echo "Review-Objekt für Commit $HEAD_SHA gefunden ($COUNT)."
           fi
-          echo "Review-Objekt für Commit $HEAD_SHA gefunden ($COUNT)."
