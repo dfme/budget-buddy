@@ -1,0 +1,5 @@
+# Fail-fast Prüfung der Datasource-URL im prod-Profil (INFRA-25).
+# EnvironmentPostProcessor laeuft vor jeglicher Bean-Erzeugung, also bevor Hikari/pgjdbc die
+# Datasource-URL zu Gesicht bekommen.
+org.springframework.boot.env.EnvironmentPostProcessor=\
+com.budgetbuddy.config.DataSourceUrlEnvironmentPostProcessor

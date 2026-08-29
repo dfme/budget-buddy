@@ -190,6 +190,23 @@
                             Client auf und braucht keinen Spring-Kontext.
                         -->
                         <budgetbuddy.anthropic.startup-healthcheck.enabled>false</budgetbuddy.anthropic.startup-healthcheck.enabled>
+
+                        <!--
+                            Fail-fast-Prüfung der Datasource-URL im prod-Profil global abschalten
+                            (INFRA-25). DataSourceUrlEnvironmentPostProcessor läuft als
+                            EnvironmentPostProcessor vor jeder Bean-Erzeugung — also auch vor den
+                            Werten, die ProdProfileSmokeTest per @DynamicPropertySource registriert
+                            (Testcontainers-Postgres auf localhost, mit dem Profil "prod" bewusst
+                            gebootet). Zu diesem frühen Zeitpunkt steht deshalb noch der
+                            Localhost-Default aus application.properties, nicht die dynamische
+                            Testcontainers-URL — der Check würde also einen legitimen Test blocken,
+                            den er gar nicht adressieren soll. Analog zum Anthropic-Healthcheck
+                            oben global statt pro Testklasse, damit auch künftige Tests mit
+                            @ActiveProfiles("prod") + Testcontainers nicht daran scheitern. Die
+                            Fehlerfälle selbst deckt DataSourceUrlEnvironmentPostProcessorTest ohne
+                            Spring-Kontext ab.
+                        -->
+                        <budgetbuddy.datasource.url-failfast.enabled>false</budgetbuddy.datasource.url-failfast.enabled>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>
