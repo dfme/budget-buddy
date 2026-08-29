@@ -127,9 +127,31 @@ GitHub Action das Dismiss-Recht hat.
 3. "Harte Grenzen": neuer Punkt "Eigene veraltete Reviews dürfen dismissed werden" — Klarstellung,
    dass das nicht im Widerspruch zu "Nie ungefragt absetzen" oder "Fremde Threads nie anfassen"
    steht, analog zum bestehenden Punkt zu eigenen Threads.
+4. Beim Testen (PR #227) fand der automatische Lauf selbst einen echten Fehler in Schritt 2:
+   `gh api user --jq .login` (aus Preflight kopiert) liefert für das GitHub-App-Installationstoken
+   `403`, weil `/user` ein reiner Personen-Endpoint ist. Ersetzt durch
+   `gh api graphql -f query='{ viewer { login } }'`, die für beide Token-Typen funktioniert.
+   Zusätzlich klargestellt: jeder Fehlschlag auf dem Weg (nicht nur der Dismiss-Call selbst) muss
+   in den Fallback-Kommentar münden, nie in stilles Auslassen.
+5. Bei der Verifikation entdeckt: `claude-code-action` scheint SKILL.md-Änderungen nur beim
+   *ersten* Lauf einer PR (`opened`) verlässlich aus dem PR-Branch zu laden — jeder Folgelauf
+   (`synchronize`) auf derselben PR lud nachweislich (per Selbstauskunft, zweimal in Folge an PR
+   #227) den Text von `origin/main`, obwohl das Arbeitsverzeichnis laut Checkout-Log korrekt war.
+   Das macht den Auto-Dismiss-Zweig von Variante C vor dem Merge grundsätzlich nicht end-to-end
+   testbar, da seine Auslösebedingung (ein bereits bestehender eigener `CHANGES_REQUESTED`) erst ab
+   einem zweiten Lauf entstehen kann. Entscheidung mit dem User: kein weiterer Testversuch über
+   mehrere PRs (unklares Ergebnis, weitere Kosten) — stattdessen in
+   [`.claude/skills/README.md`](../../.claude/skills/README.md#eine-skillmd-änderung-lässt-sich-an-ihrer-eigenen-pr-nicht-zuverlässig-durchtesten)
+   als generelle Einschränkung für künftige Skill-Änderungen dokumentiert (im selben PR, kein
+   Folge-Issue — reine Doku-Lücke, kein Bug in unserem Code).
 
 ### Acceptance Criteria (Zusatz, aus Issue #224)
 
 - [x] Variante entschieden und hier festgehalten (Variante C, Hybrid)
 - [x] `SKILL.md` entsprechend der gewählten Variante ergänzt
-- [ ] Manuell an einem echten Testlauf verifiziert
+- [x] Manuell an einem echten Testlauf verifiziert — mit einer dokumentierten Einschränkung: der
+      Auto-Dismiss-Zweig selbst liess sich wegen des Skill-Loading-Verhaltens (Punkt 5 oben) nicht
+      end-to-end nachweisen und wird erst am ersten echten Vorkommnis nach dem Merge sichtbar. Die
+      Login-Ermittlung (`gh api graphql viewer`) und die Fallback-Kommentar-Pflicht bei jedem
+      Fehlschlag sind dagegen direkt aus einem gefundenen, echten Bug entstanden und damit
+      empirisch motiviert.

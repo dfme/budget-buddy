@@ -264,6 +264,38 @@ gh pr update-branch <pr-number>   # zieht main in den Branch → Event `synchron
 Neue PRs, die nach dem Merge von `main` abzweigen, haben die Datei automatisch dabei. Betroffen
 ist also nur der Bestand zum Einführungszeitpunkt — einmalig, danach nie wieder.
 
+### Eine SKILL.md-Änderung lässt sich an ihrer eigenen PR nicht zuverlässig durchtesten
+
+Analog zur Workflow-Datei oben, aber subtiler: `.claude/skills/review-pr/SKILL.md` selbst scheint
+ebenfalls einer ähnlichen Vertrauensgrenze zu unterliegen — nur greift hier kein sichtbarer Skip,
+sondern der Lauf verwendet still den Text von `main` statt vom PR-Branch, obwohl das
+Arbeitsverzeichnis nachweislich korrekt aus dem PR-Merge-Commit ausgecheckt ist (per
+`git log -1 --format=%H` im Checkout-Schritt geprüft).
+
+Beobachtet bei der Verifikation von #224 (PR-Testläufe #225–#227): eine PR, die nur die SKILL.md
+änderte (keine Workflow-Datei), bekam bei einem **einzigen, ersten** Lauf (`opened`-Event, PR #226)
+nachweislich die eigene, geänderte Anweisung zu fassen — belegt über beobachtbares Verhalten
+(synchrones Warten durch eine künstlich verlangsamte Verifikation), nicht nur über eine
+Selbstauskunft. Bei einer anderen PR (#227) mit **mehreren aufeinanderfolgenden** Läufen
+(`opened`, dann zwei `synchronize`) meldete der zweite und dritte Lauf jeweils selbst und
+übereinstimmend, den Text von `origin/main` geladen zu haben — nicht die im PR-Branch geänderte
+Fassung, obwohl diese laut Checkout-Log korrekt auf der Platte lag. Ob schon der *erste* Lauf einer
+mehrfach gepushten PR betroffen ist, liess sich dabei nicht sauber isolieren, da der dort geprüfte
+Befund (ein CLAUDE.md-Verstoss) in alter wie neuer SKILL.md-Fassung identisch erkannt worden wäre.
+
+Sicher ist damit nur: **sobald eine PR mehr als einen Lauf hinter sich hat, ist nicht mehr
+garantiert, dass ein Folgelauf die im selben PR geänderte SKILL.md tatsächlich verwendet.** Das
+betrifft ausschliesslich das Testen eigener Skill-Änderungen an ihrer eigenen, noch offenen PR —
+für gewöhnliche PRs (die `review-pr` nur *anwenden*, nicht *ändern*) ist es irrelevant, weil deren
+review-pr-Verhalten ohnehin immer von `main` kommt.
+
+**Praktische Folge für künftige Skill-Änderungen:** eine Verhaltensänderung lässt sich vor dem
+Merge nur über die **erste** Wegwerf-PR verifizieren, die die Änderung einführt — niemals über
+einen zweiten Push zur Nachbesserung auf derselben PR. Bedingungen, deren Auslöser erst ab einem
+zweiten Lauf entstehen (z. B. „reagiere auf einen eigenen Review-Zustand aus einem vorherigen
+Lauf"), sind vor dem Merge grundsätzlich nicht end-to-end testbar und müssen am ersten echten
+Vorkommnis nach dem Merge beobachtet werden.
+
 ### Zombie-Runs nach einem Actions-Ausfall
 
 Läufe, die während einer GitHub-Actions-Störung eingereiht werden, bleiben danach dauerhaft auf
