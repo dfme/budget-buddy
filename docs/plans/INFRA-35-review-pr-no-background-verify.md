@@ -155,3 +155,58 @@ GitHub Action das Dismiss-Recht hat.
       Login-Ermittlung (`gh api graphql viewer`) und die Fallback-Kommentar-Pflicht bei jedem
       Fehlschlag sind dagegen direkt aus einem gefundenen, echten Bug entstanden und damit
       empirisch motiviert.
+
+## Nachtrag: Guard-Meldung und fehlendes Review-Objekt trotz vollständiger Analyse
+
+**Branch:** `fix/INFRA-35-guard-warning-und-review-objekt`
+**Bestätigt am:** 2026-08-29 (gleicher Tag wie der Merge von PR #228 — beide Punkte beim ersten
+echten Einsatz des neuen Guards entdeckt, an PR #223 und #212)
+
+Auf Wunsch als Nachtrag zu diesem Plan statt als eigener Plan geführt — beide Punkte hängen direkt
+am selben Guard-Mechanismus, den dieser Plan eingeführt hat. Details und Kontext: Issue #224,
+Abschnitt „Nachtrag: Guard-Meldung und fehlendes Review-Objekt trotz vollständiger Analyse".
+
+### Kontext
+
+Nach dem Merge von PR #228 zwei Dinge am ersten echten Einsatz entdeckt:
+
+1. **Guard meldete `::error::` + `exit 1`, obwohl er nichts blockieren kann.** Der Guard ist kein
+   Required Status Check im Ruleset „protect main" — ein hartes `failure` suggerierte trotzdem
+   eine Blockade. An PR #223 blieb der Lauf nach manuellem Nachtragen des fehlenden Reviews
+   weiterhin auf `failure` stehen, was verwirrend war.
+2. **Echter Bug:** An PR #223 (Lauf 33247869625) führte der Agent `./mvnw package` korrekt
+   synchron aus (573 Tests, 0 Failures) und schrieb ein vollständiges „kein Blocker"-Fazit — aber
+   nur in den Fortschritts-Kommentar, nie als tatsächlichen Review-Aufruf. Der Guard erkannte das
+   fehlende Review-Objekt korrekt, aber aus einer dritten, bis dahin unbekannten Ursache.
+
+### Implementierungsschritte
+
+1. `claude-pr-review.yml`: Guard-Schritt von `::error::`/`exit 1` auf `::warning::` (kein `exit 1`)
+   umgestellt — bleibt sichtbar (Run-Summary, Warn-Badge in der PR-Checks-Liste), täuscht aber
+   keine Dringlichkeit vor, die es nicht gibt. Meldung um die dritte Ursache ergänzt.
+2. `SKILL.md` Schritt 8: neuer einleitender Absatz — jeder Lauf muss ein echtes Review-Objekt
+   absetzen, auch wenn sich am Fazit gegenüber einem vorherigen Lauf nichts ändert. Ein
+   Fortschritts-Kommentar ist kein Ersatz.
+
+### Sofortmassnahmen ausserhalb des Codes (bereits erledigt, nicht Teil dieses PRs)
+
+- PR #212: veralteter `CHANGES_REQUESTED`-Review von `claude` manuell dismissed
+  (`pullrequestreview-5035742446`) — `reviewDecision` jetzt leer, PR mergebar.
+- PR #223: fehlendes Review-Objekt manuell nachgetragen (`pullrequestreview-5057731003`, unter
+  `dfme`) — Review-Abdeckung vollständig.
+
+### Test-Strategie
+
+Kein automatisiertes Testharness (wie beim Hauptplan). Verifikation: YAML-Syntax-Check
+(`python3 -c "import yaml; ..."`) und Bash-Syntax-Check (`bash -n`) für den geänderten Guard-Schritt
+lokal durchgeführt. Live-Verifikation des neuen `::warning::`-Verhaltens erst am nächsten
+tatsächlichen PR mit fehlendem Review möglich (analog zur bereits dokumentierten
+Testbarkeitsgrenze für SKILL.md-Änderungen an der eigenen PR).
+
+### Acceptance Criteria (Nachtrag, aus Issue #224)
+
+- [x] `claude-pr-review.yml`-Guard nutzt `::warning::` statt `::error::`/`exit 1`
+- [x] Meldung nennt alle drei bekannten Ursachen (Backgrounding, Workflow-Validierungs-Skip,
+      fehlendes Review trotz vollständiger Analyse)
+- [x] `SKILL.md` Schritt 8 verlangt explizit ein Review-Objekt bei jedem Lauf, unabhängig vom
+      Fazit gegenüber einem vorherigen Lauf
