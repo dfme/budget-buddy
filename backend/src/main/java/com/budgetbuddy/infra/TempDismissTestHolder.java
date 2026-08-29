@@ -1,19 +1,21 @@
 package com.budgetbuddy.infra;
 
+import java.math.BigDecimal;
+
 /**
- * WEGWERF für INFRA-35 (#224): erzeugt absichtlich einen ADR-9-Verstoss (double statt
- * BigDecimal für CHF-Beträge), damit der automatische review-pr-Lauf einen echten
- * blockierenden Befund postet. Wird nicht gemerged.
+ * WEGWERF für INFRA-35 (#224): der ADR-9-Verstoss aus dem ersten Commit ist hier behoben
+ * (BigDecimal statt double), damit der zweite review-pr-Lauf keine Blocker mehr findet und den
+ * neuen Self-Dismiss-Mechanismus (Variante C) auslöst. Wird nicht gemerged.
  */
 public class TempDismissTestHolder {
 
-    private double amountChf;
+    private BigDecimal amountChf;
 
-    public double getAmountChf() {
+    public BigDecimal getAmountChf() {
         return amountChf;
     }
 
-    public void setAmountChf(double amountChf) {
+    public void setAmountChf(BigDecimal amountChf) {
         this.amountChf = amountChf;
     }
 }
