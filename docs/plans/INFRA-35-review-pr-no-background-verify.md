@@ -110,14 +110,26 @@ ohne verbleibende Blocker, dann sogar `dfme` → `APPROVED` — `reviewDecision`
 - **C — Hybrid:** automatischer Dismiss-Versuch (A), mit Rückfall auf den Hinweis (B), falls die
   API-Berechtigung fehlt.
 
-**Entscheidung:** _ausstehend — wird mit dem User geklärt, bevor die Umsetzung beginnt._
+**Entscheidung:** Variante C (Hybrid) — automatischer Dismiss-Versuch mit Rückfall auf einen
+PR-Kommentar, falls die Berechtigung fehlt. Robust unabhängig davon, ob der App-Token in der
+GitHub Action das Dismiss-Recht hat.
 
-### Implementierungsschritte (Zusatz, nach Variantenentscheidung zu ergänzen)
+### Implementierungsschritte (Zusatz)
 
-_Wird nach der Variantenwahl ausgefüllt._
+1. `SKILL.md` Schritt 1b: GraphQL-Query um `databaseId` der Reviews ergänzt — das
+   REST-Dismiss-Endpoint verlangt die numerische ID, nicht die GraphQL-Node-ID.
+2. `SKILL.md` Schritt 8: neuer Unterabschnitt "Veralteten eigenen CHANGES_REQUESTED-Review
+   aufheben" — Bedingung (aktuelle Runde postet `COMMENTED` UND ein eigener `CHANGES_REQUESTED`
+   liegt aus Schritt 1b vor), automatischer Dismiss-Versuch über
+   `pulls/{pr}/reviews/{id}/dismissals`, bei `403`/`404` Fallback auf `gh pr comment` mit Hinweis
+   auf nötiges manuelles Dismiss. Begründet, warum eine neue eigene `REQUEST_CHANGES` diesen
+   Schritt nicht braucht (ersetzt den Stand desselben Reviewers automatisch).
+3. "Harte Grenzen": neuer Punkt "Eigene veraltete Reviews dürfen dismissed werden" — Klarstellung,
+   dass das nicht im Widerspruch zu "Nie ungefragt absetzen" oder "Fremde Threads nie anfassen"
+   steht, analog zum bestehenden Punkt zu eigenen Threads.
 
 ### Acceptance Criteria (Zusatz, aus Issue #224)
 
-- [ ] Variante entschieden und hier festgehalten
-- [ ] `SKILL.md` entsprechend der gewählten Variante ergänzt
+- [x] Variante entschieden und hier festgehalten (Variante C, Hybrid)
+- [x] `SKILL.md` entsprechend der gewählten Variante ergänzt
 - [ ] Manuell an einem echten Testlauf verifiziert
