@@ -224,6 +224,23 @@ Dabei zwei verschiedene Fragen trennen:
   (`expect(row).toContain('1')` matcht gegen jede Zahl mit einer `1`), und ACs, die von keinem
   Test berührt werden. Beides ist in einem grünen Lauf unsichtbar.
 
+#### Ausnahme: nicht-interaktive Läufe — synchron statt im Hintergrund
+
+Im interaktiven CLI-Lauf darf ein langer Verifikationsbefehl in den Hintergrund gehen: eine
+spätere Gesprächsrunde holt die Benachrichtigung ab, sobald er fertig ist. Im nicht-interaktiven
+Lauf (`GITHUB_ACTIONS=true`, siehe Schritt 7) gibt es diese spätere Runde nicht — die GitHub
+Action führt einen einzelnen, einmaligen SDK-Query aus. Ein im Hintergrund gestarteter
+`./mvnw package` oder `npx ng test` liefert sein Ergebnis dann an niemanden mehr; das Modell kann
+die Session beenden, ohne je zu erfahren, ob der Befehl grün oder rot war. Beobachtet an PR #223,
+Lauf [33239595160](https://github.com/dfme/budget-buddy/actions/runs/33239595160): der SDK-Query
+endete nach 19 Turns mit `is_error: false` — kein Crash, das Modell hat die Session einfach vor
+dem Ergebnis beendet. Für den betroffenen Commit existiert entsprechend kein Review-Objekt.
+
+| `GITHUB_ACTIONS` | Verifikationsbefehle |
+| ---------------- | --------------------- |
+| nicht gesetzt | Hintergrundausführung erlaubt — der Normalfall bei langen Läufen |
+| `true` | **synchron ausführen und auf das Ergebnis warten**, nie im Hintergrund |
+
 ### 5. BEFUNDE KLASSIFIZIEREN
 
 Jeden Befund vor dem Posten einsortieren:
@@ -354,7 +371,10 @@ Titel `[TASK-ID] Kurzbeschreibung`, neue freie ID im betroffenen Bereich, Label 
 - **Nie mergen.** Der Merge auf `main` wird ausschliesslich von einem Dev getriggert.
 - **Nie ungefragt absetzen** — in der interaktiven Sitzung. Schritt 7 ist dort ein verbindliches
   Gate. Im nicht-interaktiven Lauf (`GITHUB_ACTIONS=true`) entfällt es, weil es keinen Adressaten
-  hat; siehe Schritt 7 → «Ausnahme». Das ist die **einzige** Grenze mit einer solchen Ausnahme.
+  hat; siehe Schritt 7 → «Ausnahme». Eine zweite `GITHUB_ACTIONS`-bedingte Ausnahme gilt für
+  Schritt 4: dort wird nicht das Gate aufgehoben, sondern Hintergrundausführung durch synchrones
+  Warten ersetzt, weil eine im Hintergrund gestartete Verifikation sonst spurlos verlorengeht
+  (siehe Schritt 4 → «Ausnahme»).
 - **Fremde Threads nie anfassen** — weder auflösen noch löschen noch bearbeiten. Ob ein Befund
   erledigt ist, entscheidet, wer ihn angebracht hat.
 - **Keine Karte auf `Done`.** Schritt 1c bewegt Karten nur in den Review hinein. `Done` folgt aus
