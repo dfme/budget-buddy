@@ -102,3 +102,36 @@ jobs:
           claude_args: |
             --model claude-sonnet-5
             --allowedTools "Bash,Read,Glob,Grep,mcp__github_inline_comment__create_inline_comment"
+
+      # Gürtel zum Hosenträger (INFRA-35): der Skill-Prompt sagt dem Agenten, dass er im
+      # nicht-interaktiven Lauf synchron statt im Hintergrund verifizieren muss (SKILL.md
+      # Schritt 4 → «Ausnahme») — aber ein Prompt-Text erzwingt kein Verhalten. Bei PR #223
+      # (Lauf 33239595160) startete der Agent `./mvnw package` im Hintergrund und beendete die
+      # Session danach, ohne das Ergebnis abzuwarten: kein Crash (`is_error: false`), aber auch
+      # kein Review-Objekt für den Commit. Der Fortschritts-Kommentar hängt trotzdem ein
+      # "Claude finished …"-Banner an, wodurch der stille Fehlschlag wie ein Erfolg aussieht.
+      #
+      # Dieser Schritt prüft deshalb unabhängig vom Agentenverhalten, ob für den Commit, der den
+      # Lauf ausgelöst hat, tatsächlich ein Review-Objekt existiert, und macht den Job sichtbar
+      # rot, wenn nicht — statt dass ein stiller Fehlschlag wie ein Erfolg aussieht.
+      #
+      # Die Fehlermeldung nennt zwei Ursachen und nicht nur die von INFRA-35, weil sich an genau
+      # diesem PR eine zweite bestätigt hat: Läufe, deren PR `claude-pr-review.yml` selbst ändert,
+      # überspringt `claude-code-action` grundsätzlich per eigener Validierung (siehe
+      # `.claude/skills/README.md` → „Der Workflow läuft nie auf dem PR, der ihn ändert") — auch
+      # dann existiert kein Review-Objekt, ohne dass Backgrounding die Ursache wäre. Der Guard
+      # unterscheidet die beiden Fälle bewusst nicht (keine zusätzliche Diff-Prüfung, um den
+      # Schritt einfach zu halten) und schlägt in beiden gleichermassen sichtbar fehl — das
+      # entspricht der AC, die jeden fehlenden Review als Fehlschlag behandelt.
+      - name: Verify a review was actually posted
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          COUNT=$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews" \
+            --jq "[.[] | select(.commit_id == \"$HEAD_SHA\")] | length")
+          if [ "$COUNT" -eq 0 ]; then
+            echo "::error::Kein Review-Objekt für Commit $HEAD_SHA gefunden. Zwei bekannte Ursachen: (a) der Review-Agent hat die Session beendet, bevor er das Ergebnis eines Hintergrundbefehls abwarten konnte (INFRA-35), oder (b) dieser PR ändert claude-pr-review.yml selbst, wodurch claude-code-action sich laut eigener Validierung selbst überspringt (normal, kein Fehler — siehe .claude/skills/README.md -> 'Der Workflow läuft nie auf dem PR, der ihn ändert'). Bei (b) ist kein Handeln nötig, der Lauf funktioniert wieder ab dem nächsten PR nach dem Merge."
+            exit 1
+          fi
+          echo "Review-Objekt für Commit $HEAD_SHA gefunden ($COUNT)."

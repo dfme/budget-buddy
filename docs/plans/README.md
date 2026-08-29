@@ -77,6 +77,8 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `FE-PDF-02` | [FE-PDF-02 — Ergebnis-Anzeige nach PDF-Import](FE-PDF-02-import-ergebnis-anzeige.md) | [#28](https://github.com/dfme/budget-buddy/issues/28) | US-04 | Sprint 3 |
 | `FE-PDF-03` | [Duplikat-Dialog](FE-PDF-03-duplikat-dialog.md) | [#29](https://github.com/dfme/budget-buddy/issues/29) | US-04 | Sprint 4 |
 | `FE-SET-01` | [Einstellungen-Screen: Route und Navigation](FE-SET-01-einstellungen-screen.md) | [#177](https://github.com/dfme/budget-buddy/issues/177) | US-14 | Sprint 5 |
+| `FE-SET-02` | [Passwort ändern](FE-SET-02-passwort-aendern.md) | [#178](https://github.com/dfme/budget-buddy/issues/178) | US-14 | Sprint 5 |
+| `FE-SET-03` | [Einkommen manuell erfassen und ändern](FE-SET-03-einkommen-aendern.md) | [#179](https://github.com/dfme/budget-buddy/issues/179) | US-14 | Sprint 5 |
 | `FE-SET-04` | [Erscheinungsbild: Hell, Dunkel, System](FE-SET-04-erscheinungsbild.md) | [#180](https://github.com/dfme/budget-buddy/issues/180) | US-14 | Sprint 5 |
 | `FE-STS-01` | [Safe-to-Spend Dashboard-Widget](FE-STS-01-safe-to-spend-widget.md) | [#33](https://github.com/dfme/budget-buddy/issues/33) | US-06 | Sprint 4 |
 | `FE-STS-02` | [Negativ-Banner](FE-STS-02-negativ-banner.md) | [#34](https://github.com/dfme/budget-buddy/issues/34) | US-06 | Sprint 4 |
@@ -107,3 +109,4 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `INFRA-25` | [Fail-fast im prod-Profil bei fehlender oder ungültiger Datasource-URL](INFRA-25-prod-datasource-failfast.md) | [#150](https://github.com/dfme/budget-buddy/issues/150) | — | Sprint 5 |
 | `INFRA-28` | [INFRA-28 — Neon-Compute-Verbrauch: Health-Check und Hikari-Pool halten die DB dauerhaft wach](INFRA-28-neon-compute-health-check.md) | — | — | — |
 | `INFRA-31` | [Automatisches PR-Review via GitHub Action einrichten (Claude Code)](INFRA-31-claude-pr-review-action.md) | [#215](https://github.com/dfme/budget-buddy/issues/215) | — | Sprint 5 |
+| `INFRA-35` | [Automatisches PR-Review verstummt bei Hintergrund-Verifikation im nicht-interaktiven Lauf](INFRA-35-review-pr-no-background-verify.md) | [#224](https://github.com/dfme/budget-buddy/issues/224) | — | Sprint 5 |

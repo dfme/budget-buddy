@@ -1,8 +1,99 @@
 <section class="settings">
   <h1>Einstellungen</h1>
 
-  <app-card title="Passwort" />
-  <app-card title="Einkommen" />
+  <app-card title="Passwort">
+    <form [formGroup]="passwordForm" (ngSubmit)="submitPassword()" novalidate>
+      <app-field
+        label="Aktuelles Passwort"
+        inputId="aktuellesPasswort"
+        [error]="aktuellesPasswortError()"
+      >
+        <input
+          appInput
+          id="aktuellesPasswort"
+          type="password"
+          formControlName="aktuellesPasswort"
+          autocomplete="current-password"
+          required
+        />
+      </app-field>
+
+      <app-field label="Neues Passwort" inputId="neuesPasswort" [error]="neuesPasswortError()">
+        <input
+          appInput
+          id="neuesPasswort"
+          type="password"
+          formControlName="neuesPasswort"
+          autocomplete="new-password"
+          required
+        />
+      </app-field>
+
+      @if (passwordErrorMessage(); as message) {
+        <app-notice variant="error">{{ message }}</app-notice>
+      }
+      @if (passwordSaved()) {
+        <app-notice variant="info">Passwort geändert.</app-notice>
+      }
+
+      <button appButton block type="submit" [disabled]="passwordForm.invalid || passwordSubmitting()">
+        {{ passwordSubmitting() ? 'Wird geändert…' : 'Passwort ändern' }}
+      </button>
+    </form>
+  </app-card>
+
+  <app-card title="Einkommen">
+    <form [formGroup]="incomeForm" (ngSubmit)="submitIncome()" novalidate>
+      <app-field label="Monatseinkommen (CHF)" inputId="monthlyIncome" [error]="incomeError()">
+        <input
+          appInput
+          id="monthlyIncome"
+          type="number"
+          formControlName="betrag"
+          inputmode="decimal"
+          min="0.01"
+          step="0.01"
+        />
+      </app-field>
+      <p class="settings__hint">
+        Optional — ohne Angabe schätzt BudgetBuddy dein Einkommen aus den Gutschriften.
+      </p>
+
+      @if (incomeSuggestionText(); as suggestion) {
+        <div class="income-suggestion">
+          <app-notice variant="info">{{ suggestion }}</app-notice>
+          <button
+            appButton
+            variant="ghost"
+            type="button"
+            class="income-suggestion__apply"
+            [disabled]="incomeSubmitting()"
+            (click)="applyIncomeSuggestion()"
+          >
+            {{ incomeSubmitting() ? 'Wird übernommen…' : 'Übernehmen' }}
+          </button>
+        </div>
+      }
+
+      @if (incomeErrorMessage(); as message) {
+        <app-notice variant="error">{{ message }}</app-notice>
+      }
+      @if (incomeSaved()) {
+        <app-notice variant="info">Einkommen gespeichert.</app-notice>
+      }
+
+      <button
+        appButton
+        block
+        type="submit"
+        [disabled]="
+          incomeForm.invalid || incomeSubmitting() || incomeForm.controls.betrag.value === null
+        "
+      >
+        {{ incomeSubmitting() ? 'Wird gespeichert…' : 'Einkommen speichern' }}
+      </button>
+    </form>
+  </app-card>
 
   <app-card title="Erscheinungsbild">
     <app-segment

@@ -164,4 +164,20 @@ describe('AuthService', () => {
     expect(emitted?.monthlyIncome).toBe(3800);
     expect(service.currentUser()?.monthlyIncome).toBe(3800);
   });
+
+  it('changePassword puts the German field names the backend expects (FE-SET-02)', () => {
+    let completed = false;
+    service.changePassword('altesPasswort', 'neuesPasswort123').subscribe(() => (completed = true));
+
+    const req = httpMock.expectOne('/api/users/me/password');
+    expect(req.request.method).toBe('PUT');
+    // Der Feldname ist Teil des Vertrags: das Backend bindet auf ChangePasswordRequest.
+    expect(req.request.body).toEqual({
+      aktuellesPasswort: 'altesPasswort',
+      neuesPasswort: 'neuesPasswort123',
+    });
+    req.flush(null);
+
+    expect(completed).toBe(true);
+  });
 });
