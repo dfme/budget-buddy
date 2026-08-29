@@ -65,11 +65,59 @@ Kontrolle, dass die App selbst unberührt bleibt (keine App-Code-Änderung in di
 
 ## Acceptance Criteria (aus Issue #224)
 
-- [ ] `SKILL.md` Schritt 4 verlangt im nicht-interaktiven Lauf synchrone Ausführung der
+- [x] `SKILL.md` Schritt 4 verlangt im nicht-interaktiven Lauf synchrone Ausführung der
       Verifikationsbefehle statt Hintergrundausführung, mit Begründung. Lokaler, interaktiver Lauf
       bleibt unverändert.
-- [ ] Die Aussage "Das ist die einzige Grenze mit einer solchen Ausnahme" ist korrigiert.
-- [ ] `claude-pr-review.yml` prüft nach dem Claude-Action-Schritt, ob für den aktuellen Head-SHA
+- [x] Die Aussage "Das ist die einzige Grenze mit einer solchen Ausnahme" ist korrigiert.
+- [x] `claude-pr-review.yml` prüft nach dem Claude-Action-Schritt, ob für den aktuellen Head-SHA
       ein Review-Objekt existiert; fehlt es, schlägt der Job sichtbar fehl.
-- [ ] Manuell verifiziert: Testlauf mit künstlich verlangsamtem Verifikationsschritt zeigt kein
+- [x] Manuell verifiziert: Testlauf mit künstlich verlangsamtem Verifikationsschritt zeigt kein
       Backgrounding mehr im nicht-interaktiven Modus, oder der neue Guard schlägt zuverlässig an.
+      Beide Zweige empirisch bestätigt an zwei Wegwerf-PRs: #226 (SKILL.md-Anweisung allein, ohne
+      Workflow-Änderung) zeigte den Agenten 9 Minuten synchron durch eine künstliche 150s-Sleep
+      warten und danach ein Review-Objekt für den korrekten Head-Commit erzeugen (Lauf
+      33240773942); #225 (mit Workflow-Änderung) zeigte den neuen Guard zuverlässig anschlagen,
+      weil `claude-code-action` PRs, die die Workflow-Datei selbst ändern, per eigener
+      Validierung überspringt — ein anderer Auslöser als das Backgrounding, aber exakt das vom
+      Guard erwartete Verhalten (kein Review → Job sichtbar rot). Beide PRs ohne Merge
+      geschlossen, Branches gelöscht.
+
+## Zusätzlicher Scope: veralteter `CHANGES_REQUESTED`-Review von `claude` bleibt nach Nachbesserung blockierend
+
+> Während der Umsetzung an PR #212 beobachtet und auf ausdrücklichen Wunsch des Users in dieses
+> Issue/diese PR statt in ein separates Ticket aufgenommen (Issue #224 entsprechend ergänzt,
+> [Kommentar](https://github.com/dfme/budget-buddy/issues/224#issuecomment-5461139492)).
+
+**Problem:** GitHub bildet den Review-Status pro Reviewer aus dessen letztem *formellen* Review
+(`APPROVED` oder `CHANGES_REQUESTED`) — ein späterer `COMMENTED`-Review desselben Accounts
+überschreibt das nicht. Da `review-pr` nie approven darf (Schritt 8 / "Harte Grenzen"), kann ein
+Folgelauf, der keine blockierenden Punkte mehr findet, nur `COMMENTED` posten — der alte
+`CHANGES_REQUESTED`-Status bleibt bestehen, die PR bleibt blockiert. Belegt an PR #212 (siehe
+Issue #224): `claude` → `CHANGES_REQUESTED`, dann `claude` → `COMMENTED` an einem späteren Commit
+ohne verbleibende Blocker, dann sogar `dfme` → `APPROVED` — `reviewDecision` blieb trotzdem
+`CHANGES_REQUESTED`. Bestätigt am Ruleset: `dismiss_stale_reviews_on_push: false`.
+
+**Drei Lösungsvarianten zur Wahl (siehe Issue #224 für Details):**
+
+- **A — automatischer Self-Dismiss:** `review-pr` dismissed einen eigenen offenen
+  `CHANGES_REQUESTED`-Review automatisch, sobald ein Folgelauf keine blockierenden Punkte mehr
+  findet. Offen: ob der App-Token in der GitHub Action das API-seitig darf (Dismiss verlangt laut
+  GitHub-Doku Admin-Rechte oder Eintrag in einer Dismiss-Liste) — nur durch einen echten Testlauf
+  zu klären.
+- **B — dokumentierter manueller Schritt:** Kein automatisches Eingreifen; `review-pr` weist im
+  Review-Body/Fortschritts-Kommentar auf den veralteten Status hin und verlinkt den zu
+  dismissenden Review.
+- **C — Hybrid:** automatischer Dismiss-Versuch (A), mit Rückfall auf den Hinweis (B), falls die
+  API-Berechtigung fehlt.
+
+**Entscheidung:** _ausstehend — wird mit dem User geklärt, bevor die Umsetzung beginnt._
+
+### Implementierungsschritte (Zusatz, nach Variantenentscheidung zu ergänzen)
+
+_Wird nach der Variantenwahl ausgefüllt._
+
+### Acceptance Criteria (Zusatz, aus Issue #224)
+
+- [ ] Variante entschieden und hier festgehalten
+- [ ] `SKILL.md` entsprechend der gewählten Variante ergänzt
+- [ ] Manuell an einem echten Testlauf verifiziert
