@@ -251,6 +251,43 @@ class ClaudeCategorizationServiceTest {
         assertThat(capturedUserPrompt()).contains("1. " + TRANSACTION);
     }
 
+    // --- Datenminimierung (BE-CAT-06) ---
+
+    /**
+     * Die AC im Wortlaut: ein Text mit IBAN, Kartennummer und Betrag erzeugt einen Prompt, der
+     * keines dieser Elemente enthält.
+     *
+     * <p>Geprüft wird am Prompt, nicht am Sanitizer — {@link PromptSanitizer} hat seine eigenen
+     * Tests. Die Frage hier ist, ob er auf dem Weg zur API überhaupt angewendet wird.
+     */
+    @Test
+    void promptContainsNeitherIbanNorCardNumberNorAmount() {
+        respondWith(Category.WOHNEN);
+
+        service.categorize("GIRO POST CH7709000000850055555 XXXX4417 MIETE 1'234.56");
+
+        assertThat(capturedUserPrompt())
+                .doesNotContain("CH7709000000850055555")
+                .doesNotContain("XXXX4417")
+                .doesNotContain("1'234.56")
+                .contains("<IBAN>", "<KARTE>", "<BETRAG>");
+    }
+
+    /**
+     * Die Gegenrichtung: Die Maskierung darf die Kategorisierung nicht kaputt machen. Der
+     * Zwecktoken {@code MIETE} überlebt, und das Ergebnis kommt unverändert beim Aufrufer an.
+     */
+    @Test
+    void maskedTextStillYieldsTheCorrectCategory() {
+        respondWith(Category.WOHNEN);
+
+        Optional<CategorizationResult> result =
+                service.categorize("GIRO POST MUSTER, LEA MIETE JANUAR 2025");
+
+        assertThat(result).contains(claude(Category.WOHNEN));
+        assertThat(capturedUserPrompt()).contains("MIETE JANUAR 2025").doesNotContain("MUSTER");
+    }
+
     // --- Circuit Breaker ---
 
     @Test
