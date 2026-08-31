@@ -1,6 +1,13 @@
 import { CurrencyPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnInit,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -11,7 +18,12 @@ import { Field } from '../shared/field/field';
 import { Input } from '../shared/input/input';
 import { Modal } from '../shared/modal/modal';
 import { Notice } from '../shared/notice/notice';
-import { FixedCostDetail, FixedCostSummary, INTERVALL_OPTIONS, Intervall } from './fixed-cost.model';
+import {
+  FixedCostDetail,
+  FixedCostSummary,
+  INTERVALL_OPTIONS,
+  Intervall,
+} from './fixed-cost.model';
 import { FixedCostService } from './fixed-cost.service';
 import { MIN_BETRAG_CHF, maxTwoDecimals, nonBlank } from './fixed-cost.validators';
 
@@ -32,7 +44,17 @@ import { MIN_BETRAG_CHF, maxTwoDecimals, nonBlank } from './fixed-cost.validator
  */
 @Component({
   selector: 'app-fixed-cost-list',
-  imports: [CurrencyPipe, ReactiveFormsModule, RouterLink, Button, Card, Field, Input, Modal, Notice],
+  imports: [
+    CurrencyPipe,
+    ReactiveFormsModule,
+    RouterLink,
+    Button,
+    Card,
+    Field,
+    Input,
+    Modal,
+    Notice,
+  ],
   templateUrl: './fixed-cost-list.html',
   styleUrl: './fixed-cost-list.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

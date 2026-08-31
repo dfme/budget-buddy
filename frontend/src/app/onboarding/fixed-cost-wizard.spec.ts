@@ -264,7 +264,9 @@ describe('FixedCostWizard', () => {
     // Waehrend der zweite Request laeuft, darf die Meldung des ersten nicht stehen bleiben.
     expect(component.savedBezeichnung()).toBeNull();
     expect(component.submitting()).toBe(true);
-    httpMock.expectOne('/api/fixed-costs').flush({ ...MIETE, id: 3, bezeichnung: 'Handy', betrag: 40 });
+    httpMock
+      .expectOne('/api/fixed-costs')
+      .flush({ ...MIETE, id: 3, bezeichnung: 'Handy', betrag: 40 });
   });
 
   // --- FE-FC-02: Onboarding abschliessen ---

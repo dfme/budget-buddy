@@ -11,9 +11,9 @@
   } @else if (summary(); as data) {
     @if (data.exceedsIncome) {
       <app-notice class="income-warning" variant="warning">
-        Deine Fixkosten ({{ data.summeMonatlich | currency: 'CHF' : 'symbol' : '1.2-2' }}) übersteigen
-        dein Einkommen ({{ data.monthlyIncome | currency: 'CHF' : 'symbol' : '1.2-2' }}) — Safe-to-Spend
-        kann nicht berechnet werden.
+        Deine Fixkosten ({{ data.summeMonatlich | currency: 'CHF' : 'symbol' : '1.2-2' }})
+        übersteigen dein Einkommen ({{ data.monthlyIncome | currency: 'CHF' : 'symbol' : '1.2-2' }})
+        — Safe-to-Spend kann nicht berechnet werden.
       </app-notice>
     }
 
@@ -59,7 +59,11 @@
                           />
                         </app-field>
 
-                        <app-field label="Betrag (CHF)" inputId="edit-betrag" [error]="betragError()">
+                        <app-field
+                          label="Betrag (CHF)"
+                          inputId="edit-betrag"
+                          [error]="betragError()"
+                        >
                           <input
                             appInput
                             id="edit-betrag"
@@ -104,11 +108,13 @@
                 } @else {
                   <tr>
                     <td>{{ item.bezeichnung }}</td>
-                    <td class="numeric">{{ item.betrag | currency: 'CHF' : 'symbol' : '1.2-2' }}</td>
+                    <td class="numeric">
+                      {{ item.betrag | currency: 'CHF' : 'symbol' : '1.2-2' }}
+                    </td>
                     <td>{{ intervallLabel(item.intervall) }}</td>
-                    <td class="numeric">{{
-                      item.monatsbetrag | currency: 'CHF' : 'symbol' : '1.2-2'
-                    }}</td>
+                    <td class="numeric">
+                      {{ item.monatsbetrag | currency: 'CHF' : 'symbol' : '1.2-2' }}
+                    </td>
                     <td class="actions">
                       <button appButton variant="ghost" type="button" (click)="startEdit(item)">
                         Bearbeiten
@@ -124,7 +130,9 @@
             <tfoot>
               <tr>
                 <th scope="row" colspan="3">Total</th>
-                <td class="numeric">{{ data.summeMonatlich | currency: 'CHF' : 'symbol' : '1.2-2' }}</td>
+                <td class="numeric">
+                  {{ data.summeMonatlich | currency: 'CHF' : 'symbol' : '1.2-2' }}
+                </td>
                 <td></td>
               </tr>
             </tfoot>
@@ -142,8 +150,7 @@
       (confirm)="confirmDelete()"
       (cancel)="cancelDelete()"
     >
-      «{{ item.bezeichnung }}» wirklich löschen? Diese Aktion kann nicht rückgängig gemacht
-      werden.
+      «{{ item.bezeichnung }}» wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.
     </app-modal>
   }
 </section>

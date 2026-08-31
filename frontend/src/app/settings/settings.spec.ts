@@ -124,7 +124,9 @@ describe('Settings', () => {
   // --- FE-SET-02: Passwort ändern ---
 
   it('sperrt den Submit-Button, solange das Formular ungültig ist', () => {
-    const button = fixture.nativeElement.querySelector('button[type="submit"]') as HTMLButtonElement;
+    const button = fixture.nativeElement.querySelector(
+      'button[type="submit"]',
+    ) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
   });
 
@@ -175,10 +177,7 @@ describe('Settings', () => {
 
     httpMock
       .expectOne('/api/users/me/password')
-      .flush(
-        { message: 'Aktuelles Passwort falsch' },
-        { status: 400, statusText: 'Bad Request' },
-      );
+      .flush({ message: 'Aktuelles Passwort falsch' }, { status: 400, statusText: 'Bad Request' });
     fixture.detectChanges();
 
     expect(component.passwordErrorMessage()).toBe('Aktuelles Passwort falsch');
@@ -255,9 +254,7 @@ describe('Settings', () => {
 
   it('zeigt keine Vorschlags-Notice, wenn bereits ein Einkommen erfasst ist', () => {
     expect(fixture.componentInstance.incomeSuggestionText()).toBeNull();
-    expect(
-      (fixture.nativeElement as HTMLElement).querySelector('.income-suggestion'),
-    ).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.income-suggestion')).toBeNull();
   });
 
   it('lädt den Einkommens-Vorschlag nicht, wenn bereits ein Einkommen erfasst ist', () => {
@@ -340,7 +337,7 @@ describe('Settings', () => {
     httpMock
       .expectOne('/api/users/me/income')
       .flush(
-        { field: 'betrag', message: 'Betrag darf 99\'999\'999.99 nicht überschreiten.' },
+        { field: 'betrag', message: "Betrag darf 99'999'999.99 nicht überschreiten." },
         { status: 400, statusText: 'Bad Request' },
       );
     fixture.detectChanges();
@@ -463,9 +460,7 @@ describe('Einkommen-Formular ohne erfasstes Einkommen', () => {
   it('zeigt keine Vorschlags-Notice, wenn die Heuristik nichts gefunden hat', async () => {
     await createWith(NO_INCOME_WITHOUT_SUGGESTION);
 
-    expect(
-      (fixture.nativeElement as HTMLElement).querySelector('.income-suggestion'),
-    ).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.income-suggestion')).toBeNull();
   });
 
   // --- AC3: Vorschlag erscheint am Feld ---
@@ -583,13 +578,18 @@ describe('Route /einstellungen', () => {
     const secondNavigation = router.navigateByUrl('/dashboard');
     await secondNavigation;
     const req = httpMock.expectOne('/api/budget/safe-to-spend');
-    req.flush({ amount: 650, weeksLeft: 2, negative: false, noIncome: false, incomeSuggestion: null });
+    req.flush({
+      amount: 650,
+      weeksLeft: 2,
+      negative: false,
+      noIncome: false,
+      incomeSuggestion: null,
+    });
     root.detectChanges();
 
-    const dashboard = root.debugElement.query(By.directive(Dashboard)).componentInstance as Dashboard;
+    const dashboard = root.debugElement.query(By.directive(Dashboard))
+      .componentInstance as Dashboard;
     expect(dashboard.data()?.amount).toBe(650);
-    expect((root.nativeElement as HTMLElement).textContent).not.toContain(
-      'Kein Betrag verfügbar',
-    );
+    expect((root.nativeElement as HTMLElement).textContent).not.toContain('Kein Betrag verfügbar');
   });
 });

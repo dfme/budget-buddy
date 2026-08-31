@@ -295,9 +295,9 @@ describe('Dashboard', () => {
     expectSafeToSpendRequest(httpMock).flush(SINGLE_WEEK);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.safe-to-spend__last-week').textContent.trim()).toBe(
-      'Letzte Woche des Monats',
-    );
+    expect(
+      fixture.nativeElement.querySelector('.safe-to-spend__last-week').textContent.trim(),
+    ).toBe('Letzte Woche des Monats');
     // Der Hinweis tritt neben das Wochen-Label, er ersetzt es nicht.
     expect(fixture.nativeElement.querySelector('.safe-to-spend__week-label').textContent).toBe(
       'noch 1 Woche im Monat',
