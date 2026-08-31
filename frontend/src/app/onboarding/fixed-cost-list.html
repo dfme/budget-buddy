@@ -106,15 +106,12 @@
                     </td>
                   </tr>
                 } @else {
+                  <!-- prettier-ignore -->
                   <tr>
                     <td>{{ item.bezeichnung }}</td>
-                    <td class="numeric">
-                      {{ item.betrag | currency: 'CHF' : 'symbol' : '1.2-2' }}
-                    </td>
+                    <td class="numeric">{{ item.betrag | currency: 'CHF' : 'symbol' : '1.2-2' }}</td>
                     <td>{{ intervallLabel(item.intervall) }}</td>
-                    <td class="numeric">
-                      {{ item.monatsbetrag | currency: 'CHF' : 'symbol' : '1.2-2' }}
-                    </td>
+                    <td class="numeric">{{ item.monatsbetrag | currency: 'CHF' : 'symbol' : '1.2-2' }}</td>
                     <td class="actions">
                       <button appButton variant="ghost" type="button" (click)="startEdit(item)">
                         Bearbeiten
@@ -128,11 +125,10 @@
               }
             </tbody>
             <tfoot>
+              <!-- prettier-ignore -->
               <tr>
                 <th scope="row" colspan="3">Total</th>
-                <td class="numeric">
-                  {{ data.summeMonatlich | currency: 'CHF' : 'symbol' : '1.2-2' }}
-                </td>
+                <td class="numeric">{{ data.summeMonatlich | currency: 'CHF' : 'symbol' : '1.2-2' }}</td>
                 <td></td>
               </tr>
             </tfoot>
