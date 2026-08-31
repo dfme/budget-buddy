@@ -56,8 +56,17 @@ public class AuthService {
         return userRepository.save(user);
     }
 
+    /**
+     * Trimmt umgebenden Whitespace und normalisiert das Ergebnis zu {@code null}, falls davon
+     * nichts übrig bleibt. Ohne das {@code trim()} landete z. B. {@code " Lara"} mit führendem
+     * Leerzeichen in der DB und damit auch im Konto-Block der App-Shell (Review-Befund #230).
+     */
     private static String blankToNull(String value) {
-        return (value == null || value.isBlank()) ? null : value;
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     /**

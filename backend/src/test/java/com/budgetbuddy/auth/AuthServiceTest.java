@@ -92,6 +92,23 @@ class AuthServiceTest {
     }
 
     @Test
+    void registerTrimsSurroundingWhitespaceFromName() {
+        // Review-Befund #230: ohne trim() landete " Lara" mit führendem Leerzeichen in der DB
+        // und damit auch im Konto-Block der App-Shell.
+        when(userRepository.existsByEmail("lara@example.ch")).thenReturn(false);
+        when(passwordEncoder.encode("geheim123")).thenReturn("bcrypt-hash");
+        when(userRepository.save(org.mockito.ArgumentMatchers.any(User.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        authService.register("lara@example.ch", "geheim123", " Lara ", "  Meier");
+
+        ArgumentCaptor<User> saved = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(saved.capture());
+        assertThat(saved.getValue().getFirstName()).isEqualTo("Lara");
+        assertThat(saved.getValue().getLastName()).isEqualTo("Meier");
+    }
+
+    @Test
     void registerWithDuplicateEmailThrowsAndDoesNotSave() {
         when(userRepository.existsByEmail("lara@example.ch")).thenReturn(true);
 

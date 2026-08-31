@@ -63,8 +63,11 @@ class AuthControllerTest {
                         HttpHeaders.SET_COOKIE, Matchers.containsString("SameSite=Strict")))
                 .andExpect(jsonPath("$.email").value("lara@example.ch"))
                 .andExpect(jsonPath("$.onboardingCompleted").value(false))
-                .andExpect(jsonPath("$.firstName").doesNotExist())
-                .andExpect(jsonPath("$.lastName").doesNotExist());
+                // Review-Befund #230: doesNotExist() lässt einen vorhandenen null-Wert
+                // ununterscheidbar von einem fehlenden Feld durch — value(nullValue()) prüft den
+                // tatsächlichen Vertrag (Feld ist da, Wert ist null).
+                .andExpect(jsonPath("$.firstName").value(Matchers.nullValue()))
+                .andExpect(jsonPath("$.lastName").value(Matchers.nullValue()));
 
         String storedHash = jdbcTemplate.queryForObject(
                 "SELECT password_hash FROM users WHERE email = 'lara@example.ch'", String.class);

@@ -2,6 +2,7 @@ package com.budgetbuddy.auth;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -94,8 +95,11 @@ class UserControllerTest {
 
         mockMvc.perform(get("/api/users/me").cookie(jwtCookie()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.firstName").doesNotExist())
-                .andExpect(jsonPath("$.lastName").doesNotExist());
+                // Review-Befund #230: doesNotExist() lässt einen vorhandenen null-Wert
+                // ununterscheidbar von einem fehlenden Feld durch — value(nullValue()) prüft den
+                // tatsächlichen Vertrag (Feld ist da, Wert ist null).
+                .andExpect(jsonPath("$.firstName").value(nullValue()))
+                .andExpect(jsonPath("$.lastName").value(nullValue()));
     }
 
     @Test
