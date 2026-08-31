@@ -105,6 +105,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `INFRA-11` | [ANTHROPIC_API_KEY: Verifikation dokumentieren + automatischer Startup-Check](INFRA-11-verifikation-doku.md) | [#76](https://github.com/dfme/budget-buddy/issues/76) | US-05 | Sprint 3 |
 | `INFRA-12` | [INFRA-12 — Dokumentierte SQLite-Persistenz-Mitigation korrigieren](INFRA-12-persistenz-doku-korrigieren.md) | [#78](https://github.com/dfme/budget-buddy/issues/78) | — | Sprint 3 |
 | `INFRA-14` | [Playwright-E2E-Setup aufsetzen](INFRA-14-playwright-e2e-setup.md) | [#91](https://github.com/dfme/budget-buddy/issues/91) | — | Sprint 3 |
+| `INFRA-15` | [Prettier als npm-Script verdrahten und Bestand formatieren](INFRA-15-prettier-format-ci.md) | [#113](https://github.com/dfme/budget-buddy/issues/113) | — | Sprint 5 |
 | `INFRA-16` | [GitHub Actions auf Node-24-Runtime heben (Node-20-Deprecation)](INFRA-16-node24-actions.md) | [#121](https://github.com/dfme/budget-buddy/issues/121) | — | Sprint 5 |
 | `INFRA-17` | [SPA-Routen /import, /categories, /register per Deep-Link nicht erreichbar](INFRA-17-api-prefix-spa-catchall.md) | [#126](https://github.com/dfme/budget-buddy/issues/126) | — | Sprint 5 |
 | `INFRA-18` | [Sprint-Planung als /plan-sprint-Skill + Index für docs/plans/](INFRA-18-plan-sprint-skill.md) | [#127](https://github.com/dfme/budget-buddy/issues/127) | — | Sprint 3 |
