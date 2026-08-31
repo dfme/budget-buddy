@@ -49,7 +49,8 @@ public class AuthController {
         @ApiResponse(responseCode = "409", description = "E-Mail bereits registriert", content = {})
     })
     public ResponseEntity<UserProfileResponse> register(@Valid @RequestBody RegisterRequest request) {
-        User user = authService.register(request.email(), request.password());
+        User user = authService.register(
+                request.email(), request.password(), request.firstName(), request.lastName());
         return authenticatedResponse(user, HttpStatus.CREATED);
     }
 

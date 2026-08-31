@@ -25,6 +25,8 @@ const LARA: User = {
   email: 'lara@example.ch',
   monthlyIncome: 3000,
   onboardingCompleted: true,
+  firstName: null,
+  lastName: null,
 };
 
 const LARA_NO_INCOME: User = { ...LARA, monthlyIncome: null };

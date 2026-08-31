@@ -28,6 +28,9 @@
          `aria-expanded` + `aria-controls` beschreiben das tatsächliche Verhalten. -->
     @if (accountMenuOpen()) {
       <div class="account-menu" id="account-menu">
+        @if (fullName(); as name) {
+          <p class="account-menu__name">{{ name }}</p>
+        }
         <p class="account-menu__mail">{{ email() }}</p>
         <a
           class="account-menu__item"
@@ -71,7 +74,12 @@
     <div class="nav__account">
       <div class="nav__user">
         <span class="nav__avatar" aria-hidden="true">{{ initials() }}</span>
-        <span class="nav__user-mail">{{ email() }}</span>
+        <span class="nav__user-info">
+          @if (fullName(); as name) {
+            <span class="nav__user-name">{{ name }}</span>
+          }
+          <span class="nav__user-mail">{{ email() }}</span>
+        </span>
       </div>
       <a
         class="nav__settings"

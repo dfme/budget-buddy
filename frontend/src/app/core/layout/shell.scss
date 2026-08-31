@@ -97,6 +97,18 @@
   border-radius: $r-md;
   box-shadow: $shadow-card;
 
+  // Nur sichtbar, wenn ein Name hinterlegt ist (BE-AUTH-05, #114) — sonst bleibt
+  // `__mail` allein stehen, wie vor diesem Feld.
+  &__name {
+    padding: $sp-2 $sp-3 0;
+    font-size: $fs-sm;
+    font-weight: 600;
+    color: $c-ink;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   &__mail {
     padding: $sp-2 $sp-3;
     font-size: $fs-xs;
@@ -259,6 +271,25 @@
   gap: $sp-3;
   padding: $sp-2 $sp-3;
   min-width: 0;
+}
+
+.nav__user-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+// Nur sichtbar, wenn ein Name hinterlegt ist (BE-AUTH-05, #114) — sonst bleibt
+// die E-Mail allein stehen, wie vor diesem Feld.
+.nav__user-name {
+  display: block;
+  min-width: 0;
+  font-size: $fs-sm;
+  font-weight: 600;
+  color: $c-ink;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .nav__user-mail {

@@ -34,20 +34,40 @@ public class User {
     @Column(name = "onboarding_completed", nullable = false)
     private boolean onboardingCompleted;
 
+    @Column(name = "first_name")
+    private String firstName;
+
+    @Column(name = "last_name")
+    private String lastName;
+
     protected User() {
         // JPA
     }
 
     /**
-     * Erzeugt einen neuen User bei der Registrierung (BE-AUTH-03).
+     * Erzeugt einen neuen User bei der Registrierung (BE-AUTH-03), ohne Namen.
      *
      * @param email E-Mail-Adresse (eindeutig).
      * @param passwordHash bcrypt-Hash des Passworts — niemals Klartext (ADR-7).
      */
     public User(String email, String passwordHash) {
+        this(email, passwordHash, null, null);
+    }
+
+    /**
+     * Erzeugt einen neuen User bei der Registrierung (BE-AUTH-05, #114).
+     *
+     * @param email E-Mail-Adresse (eindeutig).
+     * @param passwordHash bcrypt-Hash des Passworts — niemals Klartext (ADR-7).
+     * @param firstName Vorname, optional (Onboarding-Hürde, Churn-Risiko #1) — kann {@code null} sein.
+     * @param lastName Nachname, optional — kann {@code null} sein.
+     */
+    public User(String email, String passwordHash, String firstName, String lastName) {
         this.email = email;
         this.passwordHash = passwordHash;
         this.onboardingCompleted = false;
+        this.firstName = firstName;
+        this.lastName = lastName;
     }
 
     public Long getId() {
@@ -72,6 +92,14 @@ public class User {
 
     public boolean isOnboardingCompleted() {
         return onboardingCompleted;
+    }
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
     }
 
     /**

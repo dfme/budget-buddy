@@ -2,6 +2,7 @@ package com.budgetbuddy.auth;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -59,9 +60,12 @@ class UserControllerTest {
     void insertUser() {
         jdbcTemplate.update("DELETE FROM users");
         jdbcTemplate.update(
-                "INSERT INTO users (email, password_hash, monthly_income, onboarding_completed)"
-                        + " VALUES (?, ?, ?, ?)",
-                "lara@example.ch", "bcrypt-hash", new java.math.BigDecimal("4200.00"), true);
+                "INSERT INTO users"
+                        + " (email, password_hash, monthly_income, onboarding_completed,"
+                        + " first_name, last_name)"
+                        + " VALUES (?, ?, ?, ?, ?, ?)",
+                "lara@example.ch", "bcrypt-hash", new java.math.BigDecimal("4200.00"), true,
+                "Lara", "Meier");
         userId = jdbcTemplate.queryForObject(
                 "SELECT id FROM users WHERE email = 'lara@example.ch'", Long.class);
     }
@@ -77,7 +81,25 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.id").value((int) userId))
                 .andExpect(jsonPath("$.email").value("lara@example.ch"))
                 .andExpect(jsonPath("$.monthlyIncome").value(4200.00))
-                .andExpect(jsonPath("$.onboardingCompleted").value(true));
+                .andExpect(jsonPath("$.onboardingCompleted").value(true))
+                .andExpect(jsonPath("$.firstName").value("Lara"))
+                .andExpect(jsonPath("$.lastName").value("Meier"));
+    }
+
+    @Test
+    void getCurrentUserWithoutNameReturnsNullFirstNameAndLastName() throws Exception {
+        // Bestandsuser (BE-AUTH-05, #114): kein Namen hinterlegt — der Client fällt dann auf die
+        // E-Mail-Darstellung zurück, das Backend liefert einfach null statt eines leeren Strings.
+        jdbcTemplate.update(
+                "UPDATE users SET first_name = NULL, last_name = NULL WHERE id = ?", userId);
+
+        mockMvc.perform(get("/api/users/me").cookie(jwtCookie()))
+                .andExpect(status().isOk())
+                // Review-Befund #230: doesNotExist() lässt einen vorhandenen null-Wert
+                // ununterscheidbar von einem fehlenden Feld durch — value(nullValue()) prüft den
+                // tatsächlichen Vertrag (Feld ist da, Wert ist null).
+                .andExpect(jsonPath("$.firstName").value(nullValue()))
+                .andExpect(jsonPath("$.lastName").value(nullValue()));
     }
 
     @Test

@@ -22,6 +22,8 @@ const LARA: User = {
   email: 'lara@example.ch',
   monthlyIncome: null,
   onboardingCompleted: false,
+  firstName: null,
+  lastName: null,
 };
 
 /** Dieselbe Nutzerin nach abgeschlossenem Onboarding. */

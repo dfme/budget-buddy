@@ -3,6 +3,9 @@
 
   <app-card>
     <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <!-- Pflichtfelder zuerst (Review-Befund #230): die optionalen Namensfelder unten
+           unterstreichen, dass sie übersprungen werden dürfen, statt den Blick beim Öffnen des
+           Formulars auf Felder zu lenken, die gar nicht ausgefüllt werden müssen. -->
       <app-field label="E-Mail" inputId="email" [error]="emailError()">
         <input
           appInput
@@ -22,6 +25,26 @@
           formControlName="password"
           autocomplete="new-password"
           required
+        />
+      </app-field>
+
+      <app-field label="Vorname (optional)" inputId="firstName">
+        <input
+          appInput
+          id="firstName"
+          type="text"
+          formControlName="firstName"
+          autocomplete="given-name"
+        />
+      </app-field>
+
+      <app-field label="Nachname (optional)" inputId="lastName">
+        <input
+          appInput
+          id="lastName"
+          type="text"
+          formControlName="lastName"
+          autocomplete="family-name"
         />
       </app-field>
 

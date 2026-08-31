@@ -19,6 +19,8 @@ const LARA: User = {
   email: 'lara@example.ch',
   monthlyIncome: null,
   onboardingCompleted: false,
+  firstName: null,
+  lastName: null,
 };
 
 // Guard nutzt `inject`, wird darum in einem Injection-Context ausgeführt.
