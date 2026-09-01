@@ -61,6 +61,17 @@ Zeitbudget (#192). Der Prompt ist eine nummerierte Liste; die Kategorienliste st
 darin, sondern als `enum`-Constraint im Structured-Output-Schema, das aus dem `Category`-Enum
 abgeleitet wird. Eine Kategorie ausserhalb der Liste ist damit strukturell ausgeschlossen.
 
+**Maskierung vor dem Versand (BE-CAT-06):** Was hinausgeht, ist nicht der rohe Buchungstext,
+sondern seine von `PromptSanitizer` maskierte Fassung — IBAN, Karten- und Kontonummern, Beträge,
+undurchsichtige Referenzen, der Name einer natürlichen Gegenpartei und E-Mail-Adressen fallen
+vorher weg. Angewendet wird das in `ClaudeCategorizationService.buildUserPrompt`, der einzigen
+Stelle, an der Text in einen API-Request gerät. Die **Lookup-Stufe davor sieht weiterhin den
+unmaskierten Text**: sie ist lokal, ihr Input verlässt das System nicht, und eine Maskierung
+senkte dort nur die Trefferquote. Für IBAN und Kartennummer ist der Sanitizer die zweite Linie —
+`DETAIL_NOISE` im Parser verwirft sie schon beim Einlesen (#196); für den Gegenpartei-Namen ist er
+die einzige. Zwei Restexpositionen sind bekannt und in BE-CAT-08 (#233) festgehalten: ein Vorname in
+einer frei getippten Zweckzeile und die Telefonnummer eines Händlers.
+
 **Beispiel-Prompt an Claude API:**
 
 ```

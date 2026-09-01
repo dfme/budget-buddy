@@ -46,6 +46,14 @@ import org.springframework.stereotype.Service;
  * ist damit strukturell ausgeschlossen statt bloss erbeten — und Enum und Prompt können nicht
  * mehr auseinanderlaufen, wenn später eine Kategorie dazukommt.
  *
+ * <p><strong>Datenminimierung</strong> (BE-CAT-06): Was hinausgeht, ist nicht der rohe
+ * Transaktionstext, sondern seine von {@link PromptSanitizer} maskierte Fassung — IBAN,
+ * Karten- und Kontonummern, Beträge, Referenzen und der Name einer natürlichen Gegenpartei
+ * fallen vorher weg. Angewendet wird das in {@link #buildUserPrompt}, weil das die einzige
+ * Stelle ist, an der Text in einen Request gerät. Die Lookup-Stufe davor
+ * ({@link HybridCategorizationService}) sieht weiterhin den unmaskierten Text: sie ist lokal,
+ * und eine Maskierung senkte dort nur die Trefferquote.
+ *
  * <p><strong>Circuit Breaker:</strong> Ohne Schutz würde ein API-Ausfall den Import lange
  * blockieren (ein Timeout pro Bündel). Nach {@link #FAILURE_THRESHOLD} fehlgeschlagenen Calls in
  * Folge gilt Claude deshalb als nicht erreichbar und alle weiteren Bündel werden für
@@ -312,13 +320,18 @@ public class ClaudeCategorizationService implements CategorizationPort {
      * {@link Category} abgeleitet wird. Sie zusätzlich in den Prompt zu schreiben wäre eine
      * zweite Kopie derselben Liste — genau die Art Duplikat, die auseinanderläuft, wenn später
      * eine Kategorie dazukommt.
+     *
+     * <p><strong>Hier und nur hier läuft {@link PromptSanitizer}</strong> (BE-CAT-06): Diese
+     * Methode ist die einzige Stelle, an der Transaktionstext in einen API-Request serialisiert
+     * wird. Die Maskierung an den Aufrufer weiterzureichen wäre eine Einladung, sie beim nächsten
+     * neuen Aufrufpfad zu vergessen.
      */
     private String buildUserPrompt(List<String> transactionTexts, List<Integer> batch) {
         StringBuilder prompt = new StringBuilder("Kategorisiere diese Transaktionen:\n");
         for (int position = 0; position < batch.size(); position++) {
             prompt.append(position + 1)
                     .append(". ")
-                    .append(transactionTexts.get(batch.get(position)))
+                    .append(PromptSanitizer.sanitize(transactionTexts.get(batch.get(position))))
                     .append('\n');
         }
         return prompt.toString();
