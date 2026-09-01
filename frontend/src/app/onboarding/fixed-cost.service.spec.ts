@@ -56,7 +56,9 @@ describe('FixedCostService', () => {
 
   it('lädt die Übersicht über GET /api/fixed-costs', () => {
     const summary: FixedCostSummary = {
-      fixedCosts: [{ id: 7, bezeichnung: 'Miete', betrag: 1200, intervall: 'monatlich', monatsbetrag: 1200 }],
+      fixedCosts: [
+        { id: 7, bezeichnung: 'Miete', betrag: 1200, intervall: 'monatlich', monatsbetrag: 1200 },
+      ],
       summeMonatlich: 1200,
       monthlyIncome: 3000,
       exceedsIncome: false,

@@ -120,7 +120,8 @@ export class Settings {
           // Bean-Validation-Fehler auf neuesPasswort (z. B. Leerzeichen-only, das clientseitig
           // an minLength(8) vorbeikommt, weil Validators.required nicht trimmt) — beide Fälle
           // liefern denselben Body {message: string}, der nie eine Nutzereingabe wiederholt.
-          const message = err.status === 400 ? (err.error?.message as string | undefined) : undefined;
+          const message =
+            err.status === 400 ? (err.error?.message as string | undefined) : undefined;
           this.passwordErrorMessage.set(
             message ?? 'Passwort konnte nicht geändert werden. Bitte versuche es später erneut.',
           );

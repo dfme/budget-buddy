@@ -2,7 +2,12 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
-import { CreateFixedCostRequest, FixedCost, FixedCostDetail, FixedCostSummary } from './fixed-cost.model';
+import {
+  CreateFixedCostRequest,
+  FixedCost,
+  FixedCostDetail,
+  FixedCostSummary,
+} from './fixed-cost.model';
 
 /**
  * Kapselt die CRUD-Calls für Fixkosten (US-03, FE-FC-01/FE-FC-03).

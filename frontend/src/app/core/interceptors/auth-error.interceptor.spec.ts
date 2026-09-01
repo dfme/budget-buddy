@@ -34,7 +34,9 @@ describe('authErrorInterceptor', () => {
     let errored = false;
     http.get('/api/transactions').subscribe({ error: () => (errored = true) });
 
-    httpMock.expectOne('/api/transactions').flush(null, { status: 401, statusText: 'Unauthorized' });
+    httpMock
+      .expectOne('/api/transactions')
+      .flush(null, { status: 401, statusText: 'Unauthorized' });
 
     expect(resetState).toHaveBeenCalledTimes(1);
     expect(navigate).toHaveBeenCalledWith(['/login']);
@@ -92,7 +94,9 @@ describe('authErrorInterceptor', () => {
       error: (err) => (status = err.status),
     });
 
-    httpMock.expectOne('/api/transactions').flush(null, { status: 500, statusText: 'Server Error' });
+    httpMock
+      .expectOne('/api/transactions')
+      .flush(null, { status: 500, statusText: 'Server Error' });
 
     expect(status).toBe(500);
     expect(resetState).not.toHaveBeenCalled();

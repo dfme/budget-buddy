@@ -36,7 +36,12 @@
         <app-notice variant="info">Passwort geändert.</app-notice>
       }
 
-      <button appButton block type="submit" [disabled]="passwordForm.invalid || passwordSubmitting()">
+      <button
+        appButton
+        block
+        type="submit"
+        [disabled]="passwordForm.invalid || passwordSubmitting()"
+      >
         {{ passwordSubmitting() ? 'Wird geändert…' : 'Passwort ändern' }}
       </button>
     </form>

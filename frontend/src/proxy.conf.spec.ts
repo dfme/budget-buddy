@@ -20,7 +20,9 @@ describe('Dev-Proxy Konfiguration', () => {
   const backend = 'http://localhost:8080';
 
   it('leitet /api an das Backend auf :8080 weiter', () => {
-    const entry = (proxyConfig as Record<string, { target: string; changeOrigin: boolean }>)['/api'];
+    const entry = (proxyConfig as Record<string, { target: string; changeOrigin: boolean }>)[
+      '/api'
+    ];
     expect(entry).toBeDefined();
     expect(entry.target).toBe(backend);
     expect(entry.changeOrigin).toBe(true);

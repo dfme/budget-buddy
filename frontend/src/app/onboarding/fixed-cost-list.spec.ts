@@ -13,8 +13,20 @@ import { FixedCostDetail, FixedCostSummary } from './fixed-cost.model';
 // registriert sein — im echten App-Bootstrap erledigt das app.config.ts.
 registerLocaleData(localeDeCh);
 
-const MIETE: FixedCostDetail = { id: 1, bezeichnung: 'Miete', betrag: 1200, intervall: 'monatlich', monatsbetrag: 1200 };
-const SERAFE: FixedCostDetail = { id: 2, bezeichnung: 'Serafe', betrag: 335, intervall: 'jaehrlich', monatsbetrag: 27.92 };
+const MIETE: FixedCostDetail = {
+  id: 1,
+  bezeichnung: 'Miete',
+  betrag: 1200,
+  intervall: 'monatlich',
+  monatsbetrag: 1200,
+};
+const SERAFE: FixedCostDetail = {
+  id: 2,
+  bezeichnung: 'Serafe',
+  betrag: 335,
+  intervall: 'jaehrlich',
+  monatsbetrag: 27.92,
+};
 
 function summaryOf(
   fixedCosts: FixedCostDetail[],
@@ -118,7 +130,9 @@ describe('FixedCostList', () => {
 
   it('zeigt eine Fehlermeldung, wenn das Laden fehlschlägt', () => {
     fixture.detectChanges();
-    httpMock.expectOne('/api/fixed-costs').flush('boom', { status: 500, statusText: 'Internal Server Error' });
+    httpMock
+      .expectOne('/api/fixed-costs')
+      .flush('boom', { status: 500, statusText: 'Internal Server Error' });
     fixture.detectChanges();
 
     expect(component.errorMessage()).not.toBeNull();
@@ -169,13 +183,23 @@ describe('FixedCostList', () => {
 
     const putReq = httpMock.expectOne('/api/fixed-costs/1');
     expect(putReq.request.method).toBe('PUT');
-    expect(putReq.request.body).toEqual({ bezeichnung: 'Miete neu', betrag: 1250, intervall: 'monatlich' });
+    expect(putReq.request.body).toEqual({
+      bezeichnung: 'Miete neu',
+      betrag: 1250,
+      intervall: 'monatlich',
+    });
     putReq.flush({ ...MIETE, bezeichnung: 'Miete neu', betrag: 1250, monatsbetrag: 1250 });
 
     // Re-Fetch nach dem Schreiben: summeMonatlich/exceedsIncome hängen von allen Positionen ab.
     const getReq = httpMock.expectOne('/api/fixed-costs');
     expect(getReq.request.method).toBe('GET');
-    getReq.flush(summaryOf([{ ...MIETE, bezeichnung: 'Miete neu', betrag: 1250, monatsbetrag: 1250 }], 3000, false));
+    getReq.flush(
+      summaryOf(
+        [{ ...MIETE, bezeichnung: 'Miete neu', betrag: 1250, monatsbetrag: 1250 }],
+        3000,
+        false,
+      ),
+    );
     fixture.detectChanges();
 
     expect(component.editingId()).toBeNull();
@@ -198,7 +222,9 @@ describe('FixedCostList', () => {
     component.startEdit(MIETE);
     component.editForm.setValue({ bezeichnung: 'Miete', betrag: 1250, intervall: 'monatlich' });
     component.saveEdit(MIETE.id);
-    httpMock.expectOne('/api/fixed-costs/1').flush('bad', { status: 400, statusText: 'Bad Request' });
+    httpMock
+      .expectOne('/api/fixed-costs/1')
+      .flush('bad', { status: 400, statusText: 'Bad Request' });
     fixture.detectChanges();
 
     expect(component.editError()).toContain('vom Server abgelehnt');
@@ -268,7 +294,9 @@ describe('FixedCostList', () => {
 
     component.requestDelete(MIETE);
     component.confirmDelete();
-    httpMock.expectOne('/api/fixed-costs/1').flush('boom', { status: 500, statusText: 'Internal Server Error' });
+    httpMock
+      .expectOne('/api/fixed-costs/1')
+      .flush('boom', { status: 500, statusText: 'Internal Server Error' });
     fixture.detectChanges();
 
     expect(component.deleteError()).toContain('Löschen fehlgeschlagen');
