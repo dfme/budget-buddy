@@ -24,6 +24,12 @@ Each fixture answers one question the others cannot:
     Kreditkarten Rechnung *.pdf           Viseca layout, foreign currency
     Raiffeisen_..._110_Buchungen.pdf      length: the generic branch at #192 size
 
+NOT generated here: "Kontoauszug 01.06.2026 - 30.06.2026 - CH93... .pdf" is a REAL
+Raiffeisen statement, anonymised in place by anonymize_raiffeisen_statement.py. It
+covers what a generator cannot -- the bank's own typesetting. The generated
+Raiffeisen fixture above prints "01.06.2026", the real one "01.06.26", and the
+generic branch used to accept only the first (BE-PDF-12). Keep both.
+
 ALL THREE PostFinance statements use the REAL PostFinance typesetting: the
 booking line carries the payment TYPE ("LASTSCHRIFT", "GOOGLE PAY"), and the
 merchant sits in the detail lines below it, buried under card number,
