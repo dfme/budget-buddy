@@ -6,15 +6,15 @@ argument-hint: "<issue-number>"
 
 # implement-issue
 
-Implement a GitHub Issue end-to-end: read the issue, ask clarifying questions if needed, present a plan for confirmation, implement with tests, run a security review and a local review, then open a PR.
+Ein GitHub Issue end-to-end umsetzen: Issue lesen, bei Bedarf Rückfragen stellen, einen Plan zur Bestätigung vorlegen, mit Tests implementieren, einen Security-Review und einen lokalen Review durchführen, dann einen PR öffnen.
 
-## Usage
+## Verwendung
 
 ```
 /implement-issue <issue-number>
 ```
 
-## Workflow
+## Ablauf
 
 ### 0. PREFLIGHT
 
@@ -38,8 +38,8 @@ Implementierung nicht aufhalten. Der Assignee in Schritt 1b hängt nicht daran: 
 
 ### 1. EINLESEN UND ÜBERNEHMEN
 
-**1a. Issue lesen.** Run `gh issue view <issue-number>` and read title, body, labels, and
-assignees in full.
+**1a. Issue lesen.** `gh issue view <issue-number>` ausführen und Titel, Body, Label und
+Assignees vollständig lesen.
 
 **1b. Issue übernehmen.** Das Issue wird der Person zugewiesen, die das Kommando abgesetzt hat,
 und die Board-Karte auf `In Progress` gesetzt — **hier am Anfang, nicht erst beim Branch.** Der
@@ -133,50 +133,54 @@ zurückdrehen und das dem User bestätigen. Den Ausgangszustand deshalb festhalt
 geschrieben wird.
 
 ### 2. ANALYSE
-- Extract the Task-ID from the issue title — it is always in square brackets, e.g. `[BE-FC-01]`
-- Identify affected and new files
-- Understand requirements and acceptance criteria
-- **Check how each AC is verified, don't just read what it demands.** When an AC names a search
-  (grep, search string) as its proof, run that search twice: once **narrow, exactly as the AC
-  words it**, and once **broad over the underlying concept**. Compare the hit sets. Anything the
-  broad search finds that the AC does not list means the AC is incomplete — the AC's wording is
-  too narrow, not the implementation.
+- Die Task-ID aus dem Issue-Titel ziehen — sie steht immer in eckigen Klammern, z. B. `[BE-FC-01]`
+- Betroffene und neue Dateien bestimmen
+- Anforderungen und Acceptance Criteria verstehen
+- **Prüfen, wie jedes AC nachgewiesen wird, nicht nur lesen, was es verlangt.** Nennt ein AC eine
+  Suche (grep, Suchbegriff) als seinen Nachweis, diese Suche zweimal ausführen: einmal **eng,
+  genau im Wortlaut des AC**, und einmal **breit über den zugrundeliegenden Begriff**. Die
+  Treffermengen vergleichen. Alles, was die breite Suche findet und das AC nicht aufführt,
+  bedeutet, dass das AC unvollständig ist — zu eng formuliert ist das AC, nicht die
+  Implementierung.
 
-  Example (#115): the AC's grep `kein manueller (Http)?Interceptor` matched 3 spots,
-  `grep -ri interceptor docs/adr CLAUDE.md` matched 8. That difference was the actual work —
-  `CLAUDE.md:161` said "kein HttpInterceptor" without "manueller" and slipped the AC's grep.
-- Mark any unclear or ambiguous points
+  Beispiel (#115): Der grep des AC `kein manueller (Http)?Interceptor` traf 3 Stellen,
+  `grep -ri interceptor docs/adr CLAUDE.md` traf 8. Genau diese Differenz war die eigentliche
+  Arbeit — `CLAUDE.md:161` sagte „kein HttpInterceptor" ohne „manueller" und rutschte damit
+  durch den grep des AC.
+- Unklare oder mehrdeutige Punkte markieren
 
-### 3. FRAGEN (when needed)
-If anything is unclear, ask the user before proceeding. Do not make assumptions on blocking decisions — ask. Only continue once all open points are resolved.
+### 3. FRAGEN (bei Bedarf)
+Ist etwas unklar, den User fragen, bevor es weitergeht. Bei blockierenden Entscheidungen nichts annehmen — nachfragen. Erst weitermachen, wenn alle offenen Punkte geklärt sind.
 
-If the broad search from step 2 turned up hits outside the ACs, put that delta to the user
-**before** presenting the plan, with three options: (a) fix them along and declare the scope
-extension in the PR body, (b) follow-up issue, (c) deliberately leave them, with a reason.
-Never decide this alone — scope is a team call.
+Hat die breite Suche aus Schritt 2 Treffer ausserhalb der ACs ergeben, dieses Delta dem User
+**vor** dem Präsentieren des Plans vorlegen, mit drei Optionen: (a) mitbeheben und die
+Scope-Erweiterung im PR-Body deklarieren, (b) Folge-Issue, (c) bewusst stehen lassen, mit
+Begründung. Das nie allein entscheiden — Scope ist eine Teamentscheidung.
 
 ### 4. PLAN PRÄSENTIEREN
-Present the full plan to the user:
+Dem User den vollständigen Plan vorlegen:
 
-- **Branch name** — derived from the Task-ID in the issue title and the nature of the change:
-  - Feature work: `feature/<TASK-ID>-<kurztext>` (e.g. `feature/BE-FC-01-fixedcost-entity`)
-  - Bug fix: `fix/<TASK-ID>-<kurztext>` (e.g. `fix/INFRA-05-cors-header`)
-- **Betroffene Files** — list existing files to modify and new files to create
-- **Implementierungsschritte** — numbered list of concrete steps
-- **Test-Strategie** — which tests will be written (unit / integration / E2E)
+- **Branch-Name** — abgeleitet aus der Task-ID im Issue-Titel und der Art der Änderung:
+  - Feature-Arbeit: `feature/<TASK-ID>-<kurztext>` (z. B. `feature/BE-FC-01-fixedcost-entity`)
+  - Bugfix: `fix/<TASK-ID>-<kurztext>` (z. B. `fix/INFRA-05-cors-header`)
+- **Betroffene Dateien** — bestehende Dateien zum Ändern und neu anzulegende Dateien auflisten
+- **Implementierungsschritte** — nummerierte Liste konkreter Schritte
+- **Test-Strategie** — welche Tests geschrieben werden (Unit / Integration / E2E)
 
-Wait for explicit user confirmation before continuing. If the user requests changes, revise and re-present the full plan from the top.
+Auf die ausdrückliche Bestätigung des Users warten, bevor es weitergeht. Wünscht der User Änderungen, überarbeiten und den vollständigen Plan von vorn neu präsentieren.
 
 ### 5. PLAN ABLEGEN
-After the user confirms the plan, persist it as markdown under `docs/plans/` before creating the branch:
+Nachdem der User den Plan bestätigt hat, diesen als Markdown unter `docs/plans/` ablegen, bevor der Branch erstellt wird:
 
-- File path: `docs/plans/<TASK-ID>-<kurztext>.md` (same `<kurztext>` as the branch name, e.g. `docs/plans/INFRA-01-spring-boot-skeleton.md`)
-- The directory stays **flat** — no subdirectories. Sprint membership is a property of the board,
-  not of the file, and it changes on carryover (#13 and #16 were planned in Sprint 2 and finished
-  in Sprint 3). A folder per sprint would force `git mv` and break the file history. Sprint, area
-  and story are columns in the index instead, which a directory tree cannot express at once.
-- Start the file with this header — **exactly these fields, in this order.** Two competing formats
-  grew in the existing 45 plans (bullet list vs. table); new plans use the bullet form:
+- Dateipfad: `docs/plans/<TASK-ID>-<kurztext>.md` (derselbe `<kurztext>` wie im Branch-Namen, z. B. `docs/plans/INFRA-01-spring-boot-skeleton.md`)
+- Die Ablage bleibt **flach** — keine Unterverzeichnisse. Die Sprint-Zugehörigkeit ist eine
+  Eigenschaft des Boards, nicht der Datei, und sie ändert sich bei Carryover (#13 und #16 wurden
+  in Sprint 2 geplant und erst in Sprint 3 fertig). Ein Ordner pro Sprint erzwänge `git mv` und
+  bräche die Dateihistorie. Sprint, Bereich und Story sind stattdessen Spalten im Index, was ein
+  Verzeichnisbaum nicht gleichzeitig abbilden kann.
+- Die Datei mit diesem Header beginnen — **genau diese Felder, in dieser Reihenfolge.** In den
+  bestehenden 45 Plänen sind zwei konkurrierende Formate gewachsen (Aufzählung vs. Tabelle); neue
+  Pläne verwenden die Aufzählungsform:
 
   ```markdown
   # [<TASK-ID>] <Titel>
@@ -189,27 +193,30 @@ After the user confirms the plan, persist it as markdown under `docs/plans/` bef
   - **Bestätigt am:** <YYYY-MM-DD>
   ```
 
-  The `Sprint` line records the sprint the plan was *written* in. Do not update it later when an
-  issue carries over — the board holds the current truth, the plan holds the historical one.
-- Content after the header: the confirmed plan — decisions, affected/new files, implementation
-  steps, test strategy, and the acceptance criteria from the issue.
+  Die Zeile `Sprint` hält den Sprint fest, in dem der Plan *geschrieben* wurde. Sie später bei
+  Carryover eines Issues nicht nachziehen — das Board hält die aktuelle Wahrheit, der Plan die
+  historische.
+- Inhalt nach dem Header: der bestätigte Plan — Entscheide, betroffene und neue Dateien,
+  Implementierungsschritte, Test-Strategie und die Acceptance Criteria aus dem Issue.
 
-Then add one row to the index in `docs/plans/README.md`, in the table's existing sort order
-(by Task-ID) — same values you just wrote into the header:
+Danach eine Zeile an den Index in `docs/plans/README.md` anhängen, in der bestehenden
+Sortierreihenfolge der Tabelle (nach Task-ID) — dieselben Werte, die gerade in den Header
+geschrieben wurden:
 
 ```markdown
 | `<TASK-ID>` | [<Titel>](<TASK-ID>-<kurztext>.md) | [#<nr>](https://github.com/dfme/budget-buddy/issues/<nr>) | US-XX | Sprint N |
 ```
 
-Commit `docs/plans/README.md` together with the plan.
+`docs/plans/README.md` zusammen mit dem Plan committen.
 
-The index deliberately carries only columns that do not change after the plan is written.
-**Do not add Status or Story Points** — those live on the board, change constantly, and a copy
-of them would be stale from the moment it is written. If the index ever gets out of sync (missing
-rows, hand edits), `scripts/plans-index.sh` rebuilds it completely from files plus board;
-`--check` verifies without writing. That script is a repair tool, not a step in this workflow.
+Der Index führt bewusst nur Spalten, die sich nach dem Schreiben des Plans nicht mehr ändern.
+**Kein Status und keine Story Points ergänzen** — die stehen auf dem Board, ändern sich laufend,
+und eine Kopie davon wäre ab ihrer Erzeugung veraltet. Läuft der Index doch einmal auseinander
+(fehlende Zeilen, Handarbeit), baut `scripts/plans-index.sh` ihn vollständig aus Dateien plus
+Board neu auf; `--check` prüft, ohne zu schreiben. Dieses Skript ist ein Reparaturwerkzeug, kein
+Schritt in diesem Ablauf.
 
-`docs/plans/` is listed in `.claudeignore`, so these files stay out of Claude's automatic context/search. They serve as a human-readable artifact and git history; do not rely on reading them back in later runs.
+`docs/plans/` steht in `.claudeignore`, diese Dateien bleiben also aus Claudes automatischem Kontext und dessen Suche heraus. Sie dienen als menschenlesbares Artefakt und als Git-Historie; nicht darauf bauen, sie in späteren Läufen wieder einlesen zu können.
 
 ### 6. BRANCH ERSTELLEN
 ```bash
@@ -218,19 +225,19 @@ git checkout -b feature/<TASK-ID>-<kurztext>
 ```
 
 ### 7. IMPLEMENTIEREN
-Implement code and tests according to the confirmed plan. Follow all conventions in CLAUDE.md:
-- Package structure by domain (not layer)
-- `BigDecimal` for all CHF amounts — never `double` or `float`
-- No secrets in git — API keys and JWT secret via environment variables only
-- Claude API always behind `CategorizationPort` interface
-- Timeouts + fallback to `"Sonstiges"` for all external calls
+Code und Tests gemäss dem bestätigten Plan implementieren. Alle Konventionen aus CLAUDE.md einhalten:
+- Package-Struktur nach Domäne (nicht nach Schicht)
+- `BigDecimal` für alle CHF-Beträge — nie `double` oder `float`
+- Keine Secrets im Git — API-Keys und JWT-Secret ausschliesslich über Umgebungsvariablen
+- Claude-API immer hinter dem Interface `CategorizationPort`
+- Timeouts + Fallback auf `"Sonstiges"` bei allen externen Calls
 
-For documentation changes:
-- Back every statement about the code with `file:line`. Documentation describes the state that
-  is, never the one that is planned — `8fb4dab` wrote "kein manueller `HttpInterceptor` nötig"
-  months before the Angular frontend existed, and it took three rounds (#103, #115, plus the
-  original commit) to walk it back.
-- Do not replace one unqualified simplification with the next one.
+Bei Änderungen an der Dokumentation:
+- Jede Aussage über den Code mit `file:line` belegen. Dokumentation beschreibt den Ist-Zustand,
+  nie den geplanten — `8fb4dab` schrieb „kein manueller `HttpInterceptor` nötig" Monate bevor das
+  Angular-Frontend überhaupt existierte, und es brauchte drei Runden (#103, #115 und den
+  ursprünglichen Commit), um das zurückzudrehen.
+- Nicht eine unqualifizierte Vereinfachung durch die nächste ersetzen.
 
 ### 8. SECURITY-REVIEW
 
@@ -369,15 +376,15 @@ Das Ergebnis geht in den PR-Body (Schritt 10): pro zutreffender Matrix-Zeile ein
 plus jede bewusste Auslassung mit Begründung.
 
 ### 9. LOKALER REVIEW
-Review all changes before creating a PR:
-- Run `git diff main` and check for correctness and convention violations — security is covered
-  separately in step 8, so do not re-do it here
-- List every AC individually with its concrete proof — command plus result, or `file:line`
-- Flag ACs whose only proof is the same search the issue itself proposed: those are unverified,
-  not confirmed
-- Present the findings from **both** step 8 and step 9 to the user in one go — two separate
-  confirmation gates for one PR are friction without gain
-- Wait for explicit user confirmation that the PR may be created
+Alle Änderungen prüfen, bevor ein PR erstellt wird:
+- `git diff main` ausführen und auf Korrektheit und Konventionsverstösse prüfen — die Sicherheit
+  ist in Schritt 8 gesondert abgedeckt und wird hier nicht wiederholt
+- Jedes AC einzeln mit seinem konkreten Nachweis auflisten — Kommando plus Ergebnis oder `file:line`
+- ACs kennzeichnen, deren einziger Nachweis dieselbe Suche ist, die das Issue selbst vorgeschlagen
+  hat: die gelten als unbelegt, nicht als bestätigt
+- Die Befunde aus **beiden** Schritten, 8 und 9, dem User in einem Zug vorlegen — zwei getrennte
+  Bestätigungs-Gates für einen PR sind Reibung ohne Gewinn
+- Auf die ausdrückliche Bestätigung des Users warten, dass der PR erstellt werden darf
 
 ### 10. PR ERSTELLEN
 ```bash
@@ -386,28 +393,28 @@ gh pr create \
   --body "..."
 ```
 
-PR body must include:
-- Closing keyword that links the issue: `Closes #<issue-number>` — creates the formal
-  link in the issue's Development panel (PR targets `main`, the default branch) and
-  auto-closes the issue when the PR is merged.
-- Summary (2–3 bullet points)
-- Test plan (checklist)
-- **Security-Review** — the result from step 8: one line per applicable row of the trigger matrix
-  with its proof, plus any deliberate omission with a reason. Rows the diff does not touch are left
-  out; do not pad the section with "n/a". If the review produced follow-up issues for pre-existing
-  gaps, link them here.
+Der PR-Body muss enthalten:
+- Das Closing-Keyword, das das Issue verlinkt: `Closes #<issue-number>` — es erzeugt die formale
+  Verknüpfung im Development-Panel des Issues (der PR zielt auf `main`, den Default-Branch) und
+  schliesst das Issue automatisch, sobald der PR gemergt wird.
+- Zusammenfassung (2–3 Stichpunkte)
+- Test-Plan (Checkliste)
+- **Security-Review** — das Ergebnis aus Schritt 8: pro zutreffender Zeile der Auslösematrix ein
+  Satz mit Nachweis, plus jede bewusste Auslassung mit Begründung. Zeilen, die der Diff nicht
+  berührt, bleiben weg; den Abschnitt nicht mit „n/a" auffüllen. Hat der Review Folge-Issues für
+  vorbestehende Lücken erzeugt, hier verlinken.
 
 ### 11. ISSUE VERLINKEN UND AUF REVIEW SETZEN
 
-**11a. Backlink.** `gh pr create` prints the new PR URL. Post a backlink comment on the issue so
-the link is also explicit in the issue timeline:
+**11a. Backlink.** `gh pr create` gibt die URL des neuen PR aus. Einen Backlink-Kommentar am
+Issue setzen, damit der Link auch in der Issue-Timeline ausdrücklich steht:
 
 ```bash
 gh issue comment <issue-number> --body "🔀 PR erstellt: <pr-url>"
 ```
 
-Confirm to the user that PR and issue are now linked in both directions (PR → issue via
-`Closes #<issue-number>` + Development panel, issue → PR via the backlink comment).
+Dem User bestätigen, dass PR und Issue jetzt in beide Richtungen verknüpft sind (PR → Issue über
+`Closes #<issue-number>` plus Development-Panel, Issue → PR über den Backlink-Kommentar).
 
 **11b. Board-Karte auf `Review`.** Mit dem offenen PR ist die Implementierung abgegeben — die
 Karte steht ab hier falsch auf `In Progress`. Sie wandert deshalb sofort weiter, ohne auf den

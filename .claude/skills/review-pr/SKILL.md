@@ -6,10 +6,10 @@ argument-hint: "<pr-number>"
 
 # review-pr
 
-Review a GitHub Pull Request and post the findings so that blocking ones actually
-block the merge.
+Einen GitHub Pull Request reviewen und die Befunde so absetzen, dass die blockierenden
+auch tatsächlich den Merge blockieren.
 
-## Usage
+## Verwendung
 
 ```
 /review-pr <pr-number>
@@ -36,7 +36,7 @@ Daraus folgt die Aufteilung:
 Und daraus folgt die Warnung: Einen 🟡-Punkt „nur zur Info" als Thread zu setzen, blockiert den
 PR ungewollt. Die Klassifikation ist deshalb eine echte Entscheidung, kein Formatierungsdetail.
 
-## Workflow
+## Ablauf
 
 ### 0. PREFLIGHT
 

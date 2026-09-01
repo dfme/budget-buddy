@@ -5,17 +5,17 @@ description: Sprint planen — Backlog-Hygiene prüfen, Velocity und Carryover a
 
 # plan-sprint
 
-Plan the next sprint from the board: check backlog hygiene, derive capacity from real velocity,
-collect carryover, cross-check dependencies, and produce a sprint proposal. The board is written
-only on a separate, explicit go-ahead.
+Den nächsten Sprint aus dem Board planen: Backlog-Hygiene prüfen, Kapazität aus der echten
+Velocity ableiten, Carryover sammeln, Abhängigkeiten kreuzprüfen und einen Sprint-Vorschlag
+erzeugen. Ins Board geschrieben wird nur auf gesonderten, ausdrücklichen Zuruf.
 
-## Usage
+## Verwendung
 
 ```
 /plan-sprint
 ```
 
-No argument. The sprint number is derived from the board and confirmed with the user.
+Kein Argument. Die Sprint-Nummer wird aus dem Board abgeleitet und mit dem User bestätigt.
 
 ## Die zentrale Regel
 
@@ -61,7 +61,7 @@ Details in [.claude/skills/README.md](../README.md).
 
 Relevante Felder: `Status`, `Priority`, `Area`, `Story Points` (Number), `Sprint` (Iteration).
 
-## Workflow
+## Ablauf
 
 ### 1. SPRINT BESTIMMEN
 
