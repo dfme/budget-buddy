@@ -53,16 +53,29 @@ reproduzierbar:
 
 ## Acceptance Criteria (aus Issue #113)
 
-- [ ] `npm run format` und `npm run format:check` in `frontend/package.json` hinterlegt
-- [ ] Alle bestehenden Dateien im `frontend/` sind formatiert — `npx prettier --check .` läuft
+- [x] `npm run format` und `npm run format:check` in `frontend/package.json` hinterlegt
+- [x] Alle bestehenden Dateien im `frontend/` sind formatiert — `npx prettier --check .` läuft
       sauber durch
-- [ ] `.prettierignore` angelegt (`dist/`, `.angular/`, `coverage/`, `node_modules/`)
-- [ ] Frontend-Job in `.github/workflows/build.yml` führt `format:check` aus und schlägt bei
+- [x] `.prettierignore` angelegt (`dist/`, `.angular/`, `coverage/`, `node_modules/`)
+- [x] Frontend-Job in `.github/workflows/build.yml` führt `format:check` aus und schlägt bei
       Verstoss fehl
-- [ ] Formatierung ist ein eigener Commit, getrennt von Script- und CI-Änderung
-- [ ] `ng build` und `ng test` laufen nach der Formatierung unverändert grün
+- [x] Formatierung ist ein eigener Commit, getrennt von Script- und CI-Änderung
+- [x] `ng build` und `ng test` laufen nach der Formatierung unverändert grün
 
 ## Nicht Teil dieses Tasks
 
 Formatierung von Dateien ausserhalb `frontend/` (Markdown in `docs/`, `render.yaml`) und
 ESLint — beides ein eigener Entscheid.
+
+## Nachtrag: E2E-Regression durch Prettier-Reflow (PR #235)
+
+Der Formatierungs-Commit hat `fixed-cost-wizard.spec.ts` rot laufen lassen. Prettier hat
+`<td class="numeric">{{ ... }}</td>` in `fixed-cost-list.html` auf eigene Zeilen umgebrochen,
+weil es `td` (CSS-Default `table-cell`) als whitespace-insensitiv einstuft. Angular rendert den
+Umbruch aber als echten Text-Space vor/nach der Interpolation (`" CHF 1'200.00 "` statt
+`"CHF 1'200.00"`) — sichtbar am verankerten Regex in `toHaveText(/^CHF\s.../)`. Fix:
+`<!-- prettier-ignore -->` gezielt auf den zwei betroffenen `<tr>` statt global
+`htmlWhitespaceSensitivity: strict`, was die `@if`/`@for`-Einrückung im ganzen Projekt verändert
+hätte. `frontend/src/app/transactions/category-overview.html` hat dasselbe Zellen-Muster,
+bleibt aber (geringere Einschachtelung) aktuell unter `printWidth` — kein akuter Fehler, aber
+dasselbe latente Risiko bei künftigen Änderungen an der Datei.
