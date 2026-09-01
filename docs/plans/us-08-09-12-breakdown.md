@@ -10,8 +10,9 @@ und E2E-Tests als Referenzgrössen: einfache Migration = 1 SP, Playwright-Testfa
 
 US-08 ("Neu"-Label + In-App-Benachrichtigung bei neu erkanntem Abo) und US-09 (In-App-Benachrichtigung
 bei neuem Bericht) verlangen beide einen Benachrichtigungsmechanismus. Es existiert im ganzen
-Projekt noch keiner — weder Backend noch Frontend (`shared/notice/` ist eine inline Banner-Komponente
-für Formulare, kein Inbox-/Toast-System). Zwei unabhängige Ad-hoc-Lösungen würden dieselbe
+Projekt noch keiner — weder Backend noch Frontend (`shared/notice/` ist eine inline Banner-Komponente,
+die z. B. in Dashboard, Kategorie-Übersicht und PDF-Upload steckt, aber kein Inbox-/Toast-System).
+Zwei unabhängige Ad-hoc-Lösungen würden dieselbe
 Funktion zweimal bauen und vermutlich divergieren.
 
 **Vorschlag:** ein schlankes, generisches `notification/`-Modul (analog zur bestehenden
@@ -121,11 +122,11 @@ US-09  DB-10 → BE-RPT-01 → BE-RPT-02 → BE-RPT-03 → FE-RPT-01 → E2E-RPT
 4. **US-09 zuletzt** — grösster Zuschnitt, plus der offene Punkt zum E-Mail-Versand sollte vor
    Sprint-Zusage geklärt sein (Scope-Cut auf `BE-RPT-05` oder volle AC-Erfüllung im selben Sprint).
 
-Gesamt: 3 (US-12) + 3 (Fundament) + 5 (US-08) + 9 inkl. Stretch (US-09) = **20 Issues** über die
+Gesamt: 4 (US-12) + 3 (Fundament) + 5 (US-08) + 9 inkl. Stretch (US-09) = **21 Issues** über die
 drei Stories plus Fundament.
 
 **Story Points:** 10 (US-12) + 7 (Fundament) + 17 (US-08) + 26 (US-09, ohne `BE-RPT-05`) =
-**60 SP** — grob eine ganze Sprint-Kapazität (Referenz SPRINT-05: 55–60 SP). Für eine
+**60 SP** — grob eine ganze Sprint-Kapazität (Referenz SPRINT-05: 55 SP über 25 Issues). Für eine
 Sprint-Einplanung eignet sich daher entweder eine Aufteilung über zwei Sprints (z. B. US-12 +
 Fundament + US-08 in Sprint N, US-09 in Sprint N+1) oder eine Priorisierung innerhalb dieses
 Zuschnitts — Entscheidung bleibt beim Team, nicht Teil dieses Dokuments.
