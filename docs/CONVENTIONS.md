@@ -1,6 +1,6 @@
 # Konventionen
 
-Referenzdokument zu [CLAUDE.md](../../CLAUDE.md), das die wichtigsten Regeln in Kurzform enthält.
+Referenzdokument zu [CLAUDE.md](../CLAUDE.md), das die wichtigsten Regeln in Kurzform enthält.
 Hier stehen die vollständigen Tabellen und Begründungen.
 
 ## Git: Branching-Strategie
@@ -56,10 +56,10 @@ Beispiel: [#68](https://github.com/dfme/budget-buddy/issues/68) — `[INFRA-08] 
 3. **Freigabe durch mind. 1 Dev** — der PR muss von mindestens einem Dev genehmigt werden, bevor er gemergt werden darf
 4. **Merge nur durch Dev** — der Merge auf `main` wird ausschliesslich von einem Dev getriggert, nie von Claude
 
-**Automatisches Review (INFRA-31):** [`.github/workflows/claude-pr-review.yml`](../../.github/workflows/claude-pr-review.yml)
+**Automatisches Review (INFRA-31):** [`.github/workflows/claude-pr-review.yml`](../.github/workflows/claude-pr-review.yml)
 läuft denselben Skill zusätzlich automatisch bei jedem PR-Event — das ergänzt Punkt 1, ersetzt
 aber nicht Punkt 3 (ein Action-Lauf ist kein Dev) und bewegt keine Board-Karte. Details:
-[.claude/skills/README.md](../../.claude/skills/README.md#automatischer-trigger-via-github-action).
+[.claude/skills/README.md](../.claude/skills/README.md#automatischer-trigger-via-github-action).
 
 ## Sprint-Planung: Iteration-Feld ist führend
 
@@ -133,7 +133,7 @@ e2e/
 
 Regel: Pro Must-Have Story je 1 Happy Path + 1 Fehlerpfad.
 
-Getestet wird gegen **ein** JAR aus dem Maven-Profil `prod` auf Port 8081 (nicht 8080 — der gehört dem Dev-Backend): es liefert SPA und API vom selben Origin und ist damit dasselbe Artefakt, das auf Render deployt wird. Nur so verhält sich das `SameSite=Strict`-JWT-Cookie im Test wie in Produktion (ADR-7). Identisch ist das Artefakt, nicht die Laufzeitkonfiguration: die Testinstanz läuft ohne `SPRING_PROFILES_ACTIVE=prod` und damit ohne `app.cookie.secure=true` — das `Secure`-Flag ist über `JwtCookieFactoryTest` abgedeckt, nicht über E2E. Setup, Fixture-Nutzung und CI-Einbindung: [e2e/README.md](../../e2e/README.md).
+Getestet wird gegen **ein** JAR aus dem Maven-Profil `prod` auf Port 8081 (nicht 8080 — der gehört dem Dev-Backend): es liefert SPA und API vom selben Origin und ist damit dasselbe Artefakt, das auf Render deployt wird. Nur so verhält sich das `SameSite=Strict`-JWT-Cookie im Test wie in Produktion (ADR-7). Identisch ist das Artefakt, nicht die Laufzeitkonfiguration: die Testinstanz läuft ohne `SPRING_PROFILES_ACTIVE=prod` und damit ohne `app.cookie.secure=true` — das `Secure`-Flag ist über `JwtCookieFactoryTest` abgedeckt, nicht über E2E. Setup, Fixture-Nutzung und CI-Einbindung: [e2e/README.md](../e2e/README.md).
 
 ## Backend: Claude API hinter Interface
 

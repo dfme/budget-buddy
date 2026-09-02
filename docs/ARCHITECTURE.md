@@ -1,6 +1,6 @@
 # Architecture
 
-Referenzdokument zu [CLAUDE.md](../../CLAUDE.md). Vollständiger ADR-Index inkl. Status,
+Referenzdokument zu [CLAUDE.md](../CLAUDE.md). Vollständiger ADR-Index inkl. Status,
 Kategorien und verworfener Alternativen: [docs/adr/README.md](adr/README.md).
 
 ## C2 Container Diagram

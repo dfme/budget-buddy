@@ -1,6 +1,6 @@
 # Tech Stack, PDF-Spezifika, Auth, Gotchas
 
-Referenzdokument zu [CLAUDE.md](../../CLAUDE.md). ADRs mit vollständiger Begründung und
+Referenzdokument zu [CLAUDE.md](../CLAUDE.md). ADRs mit vollständiger Begründung und
 verworfenen Alternativen: [docs/adr/README.md](adr/README.md).
 
 ## Backend
