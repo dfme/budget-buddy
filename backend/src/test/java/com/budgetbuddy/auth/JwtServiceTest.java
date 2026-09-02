@@ -29,7 +29,18 @@ class JwtServiceTest {
     void generatesAndValidatesToken() {
         String token = jwtService.generateToken(42L);
 
-        assertThat(jwtService.validateAndGetUserId(token)).isEqualTo(42L);
+        JwtService.TokenClaims claims = jwtService.validate(token);
+        assertThat(claims.userId()).isEqualTo(42L);
+        assertThat(claims.tokenVersion()).isEqualTo(0L);
+    }
+
+    @Test
+    void generatesAndValidatesTokenWithExplicitTokenVersion() {
+        String token = jwtService.generateToken(42L, 3L);
+
+        JwtService.TokenClaims claims = jwtService.validate(token);
+        assertThat(claims.userId()).isEqualTo(42L);
+        assertThat(claims.tokenVersion()).isEqualTo(3L);
     }
 
     @Test
@@ -38,7 +49,7 @@ class JwtServiceTest {
         JwtService shortLived = new JwtService(new JwtProperties(SECRET, Duration.ofSeconds(-1)));
         String expired = shortLived.generateToken(1L);
 
-        assertThatThrownBy(() -> jwtService.validateAndGetUserId(expired))
+        assertThatThrownBy(() -> jwtService.validate(expired))
                 .isInstanceOf(ExpiredJwtException.class);
     }
 
@@ -53,7 +64,7 @@ class JwtServiceTest {
         String tamperedSignature = (first == 'A' ? 'B' : 'A') + parts[2].substring(1);
         String tampered = parts[0] + "." + parts[1] + "." + tamperedSignature;
 
-        assertThatThrownBy(() -> jwtService.validateAndGetUserId(tampered))
+        assertThatThrownBy(() -> jwtService.validate(tampered))
                 .isInstanceOf(JwtException.class);
     }
 
@@ -63,7 +74,7 @@ class JwtServiceTest {
                 new JwtService(new JwtProperties("a-completely-different-secret-0123456789", Duration.ofHours(1)));
         String foreignToken = other.generateToken(5L);
 
-        assertThatThrownBy(() -> jwtService.validateAndGetUserId(foreignToken))
+        assertThatThrownBy(() -> jwtService.validate(foreignToken))
                 .isInstanceOf(SignatureException.class);
     }
 }

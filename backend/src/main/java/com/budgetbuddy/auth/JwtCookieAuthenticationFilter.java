@@ -20,18 +20,27 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * Liest das JWT aus dem httpOnly-Cookie, validiert es (HS256) und befüllt bei Erfolg den
  * {@link SecurityContextHolder} mit der User-ID als Principal (BE-AUTH-01, ADR-7).
  *
- * <p>Bei fehlendem, ungültigem oder abgelaufenem Token bleibt der SecurityContext leer; die
- * Autorisierung in {@code SecurityConfig} antwortet dann via EntryPoint mit 401. Der Filter
- * selbst schreibt keine Fehlerantwort und blockiert den Chain-Durchlauf nie.
+ * <p>Bei fehlendem, ungültigem, abgelaufenem oder mit veralteter {@code tokenVersion} versehenem
+ * Token bleibt der SecurityContext leer; die Autorisierung in {@code SecurityConfig} antwortet
+ * dann via EntryPoint mit 401. Der Filter selbst schreibt keine Fehlerantwort und blockiert den
+ * Chain-Durchlauf nie.
+ *
+ * <p>Der Vergleich der {@code tokenVersion} (BE-AUTH-11, #201) braucht einen DB-Lookup pro
+ * authentifiziertem Request — der Filter ist damit nicht mehr rein zustandslos, wie es ADR-7
+ * ursprünglich vorsah. Das ist der bewusst akzeptierte Trade-off: nur damit macht eine
+ * Passwort-Änderung zuvor ausgestellte Tokens tatsächlich ungültig, statt sie bis zum
+ * natürlichen Ablauf gültig zu lassen.
  */
 public class JwtCookieAuthenticationFilter extends OncePerRequestFilter {
 
     static final String COOKIE_NAME = "jwt";
 
     private final JwtService jwtService;
+    private final UserRepository userRepository;
 
-    public JwtCookieAuthenticationFilter(JwtService jwtService) {
+    public JwtCookieAuthenticationFilter(JwtService jwtService, UserRepository userRepository) {
         this.jwtService = jwtService;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -47,9 +56,15 @@ public class JwtCookieAuthenticationFilter extends OncePerRequestFilter {
 
     private void authenticate(String token, HttpServletRequest request) {
         try {
-            long userId = jwtService.validateAndGetUserId(token);
+            JwtService.TokenClaims claims = jwtService.validate(token);
+            User user = userRepository.findById(claims.userId()).orElse(null);
+            if (user == null || user.getTokenVersion() != claims.tokenVersion()) {
+                // Unbekannter User oder Token stammt von vor einer Passwort-Änderung.
+                SecurityContextHolder.clearContext();
+                return;
+            }
             var authentication =
-                    new UsernamePasswordAuthenticationToken(userId, null, List.of());
+                    new UsernamePasswordAuthenticationToken(claims.userId(), null, List.of());
             authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(authentication);
         } catch (JwtException e) {

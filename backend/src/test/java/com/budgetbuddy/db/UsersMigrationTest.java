@@ -55,7 +55,7 @@ class UsersMigrationTest {
 
         assertThat(typeByColumn).containsOnlyKeys(
                 "id", "email", "password_hash", "monthly_income", "onboarding_completed",
-                "first_name", "last_name");
+                "first_name", "last_name", "token_version");
 
         assertThat(typeByColumn.get("id")).isEqualTo("bigint");
         assertThat(typeByColumn.get("email")).isEqualTo("text");
@@ -63,6 +63,14 @@ class UsersMigrationTest {
         assertThat(typeByColumn.get("onboarding_completed")).isEqualTo("boolean");
         assertThat(typeByColumn.get("first_name")).isEqualTo("text");
         assertThat(typeByColumn.get("last_name")).isEqualTo("text");
+        assertThat(typeByColumn.get("token_version")).isEqualTo("bigint");
+    }
+
+    @Test
+    void tokenVersionIsNotNullWithZeroDefault() {
+        // BE-AUTH-11 (#201): Bestandsuser müssen bei der Migration auf 0 landen, identisch mit
+        // frisch registrierten Usern — sonst würde ein bestehendes Token sofort als veraltet gelten.
+        assertThat(schema().notNullFlags(TABLE).get("token_version")).isTrue();
     }
 
     @Test

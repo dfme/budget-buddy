@@ -7,12 +7,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.budgetbuddy.support.PostgresTestDatabase;
 import jakarta.servlet.http.Cookie;
 import java.time.Duration;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -22,18 +25,21 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * End-to-End-Test des JWT-Cookie-Filters über die echte SecurityFilterChain (Schritt 4):
- * gültiges Cookie → 200 + User-ID im SecurityContext, ungültiges/abgelaufenes/fehlendes
- * Cookie → 401. Deckt damit alle Acceptance Criteria von BE-AUTH-01 ab.
+ * gültiges Cookie → 200 + User-ID im SecurityContext, ungültiges/abgelaufenes/fehlendes Cookie →
+ * 401. Deckt damit alle Acceptance Criteria von BE-AUTH-01 ab, plus die Erweiterung aus
+ * BE-AUTH-11 (#201): der Filter braucht seit der {@code tokenVersion}-Prüfung eine echte
+ * {@code users}-Tabelle und läuft deshalb — anders als vor #201 — mit aktivem Flyway.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @Import(JwtCookieAuthenticationFilterTest.TestController.class)
 class JwtCookieAuthenticationFilterTest {
 
     @DynamicPropertySource
     static void datasourceProperties(DynamicPropertyRegistry registry) {
-        PostgresTestDatabase.registerWithoutFlyway(registry, "jwt_cookie_filter");
+        PostgresTestDatabase.register(registry, "jwt_cookie_filter");
     }
 
     @Autowired
@@ -45,13 +51,29 @@ class JwtCookieAuthenticationFilterTest {
     @Autowired
     private JwtProperties jwtProperties;
 
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    private long userId;
+
+    @BeforeEach
+    void insertUser() {
+        jdbcTemplate.update("DELETE FROM users");
+        jdbcTemplate.update(
+                "INSERT INTO users (email, password_hash, onboarding_completed, token_version)"
+                        + " VALUES (?, ?, ?, ?)",
+                "filter-test@example.ch", "bcrypt-hash", false, 0);
+        userId = jdbcTemplate.queryForObject(
+                "SELECT id FROM users WHERE email = 'filter-test@example.ch'", Long.class);
+    }
+
     @Test
     void validCookieGrantsAccessAndExposesUserId() throws Exception {
-        String token = jwtService.generateToken(99L);
+        String token = jwtService.generateToken(userId);
 
         mockMvc.perform(get("/api/test/me").cookie(new Cookie("jwt", token)))
                 .andExpect(status().isOk())
-                .andExpect(content().string("99"));
+                .andExpect(content().string(Long.toString(userId)));
     }
 
     @Test
@@ -66,7 +88,7 @@ class JwtCookieAuthenticationFilterTest {
         // Vergangenheit → ExpiredJwtException im Filter → 401.
         JwtService expiredIssuer =
                 new JwtService(new JwtProperties(jwtProperties.secret(), Duration.ofSeconds(-1)));
-        String expired = expiredIssuer.generateToken(99L);
+        String expired = expiredIssuer.generateToken(userId);
 
         mockMvc.perform(get("/api/test/me").cookie(new Cookie("jwt", expired)))
                 .andExpect(status().isUnauthorized());
@@ -75,6 +97,25 @@ class JwtCookieAuthenticationFilterTest {
     @Test
     void noCookieReturns401() throws Exception {
         mockMvc.perform(get("/api/test/me"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void outdatedTokenVersionReturns401() throws Exception {
+        // Token trägt tokenVersion=0, die DB steht bereits auf 1 — simuliert ein Token, das vor
+        // einer Passwort-Änderung ausgestellt wurde (BE-AUTH-11, #201).
+        jdbcTemplate.update("UPDATE users SET token_version = 1 WHERE id = ?", userId);
+        String staleToken = jwtService.generateToken(userId, 0);
+
+        mockMvc.perform(get("/api/test/me").cookie(new Cookie("jwt", staleToken)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void tokenForUnknownUserReturns401() throws Exception {
+        String token = jwtService.generateToken(userId + 1_000_000);
+
+        mockMvc.perform(get("/api/test/me").cookie(new Cookie("jwt", token)))
                 .andExpect(status().isUnauthorized());
     }
 

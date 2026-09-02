@@ -18,7 +18,8 @@ Alternative Authentifizierungs-Methoden: Server-Side Session, OAuth 2.0, API Key
 
 Wir nutzen **JWT (JSON Web Token) mit HS256 Signing, bcrypt Password Hashing und httpOnly Cookie als Token-Storage**:
 
-- **JWT Creation:** User login → Backend erstellt signiertes Token (1 Stunde Expiry)
+- **JWT Creation:** User login → Backend erstellt signiertes Token (24 Stunden Expiry,
+  `app.jwt.expiration`)
 - **Token Storage:** `httpOnly; Secure; SameSite=Strict` Cookie — kein JavaScript-Zugriff möglich
 - **JWT Transport:** Browser sendet Cookie automatisch mit; kein `Authorization`-Header, kein localStorage
 - **Backend Validation:** Spring Security validiert Signature + Expiry automatisch
@@ -46,7 +47,29 @@ Wir nutzen **JWT (JSON Web Token) mit HS256 Signing, bcrypt Password Hashing und
 - **CORS-Konfiguration:** `withCredentials` erfordert explizites `Access-Control-Allow-Origin` (kein Wildcard `*`)
   - Mitigation: Origin-Whitelist in Spring CORS-Config; im Prod-Betrieb mit gebündelter SPA kein CORS-Problem
 - **Token Revocation:** Token bleibt bis Expiry technisch gültig — Cookie-Clearing ist nur clientseitig sicher
-  - Mitigation: Kurze Expiry (1 Stunde) + Backend setzt `Max-Age=0` beim Logout; für MVP ausreichend
+  - Mitigation: Backend setzt `Max-Age=0` beim Logout; für den Passwort-Änderung-Pfad zusätzlich
+    `token_version` am User (BE-AUTH-11, #201, siehe unten) — für alle anderen Fälle (gestohlenes,
+    nie explizit invalidiertes Token) bleibt die 24-Stunden-Expiry die Obergrenze des Zeitfensters
+
+### Nachtrag (BE-AUTH-11, #201): Token-Invalidierung bei Passwort-Änderung
+
+Ohne serverseitige Session gab es ursprünglich keinen Weg, ein einzelnes JWT vor Ablauf gezielt
+zu invalidieren — auch nicht, wenn ein Nutzer sein Passwort ändert, weil er einen Missbrauch
+vermutet. Die Users-Tabelle trägt seit Flyway `V08` eine `token_version`-Spalte
+(`BIGINT NOT NULL DEFAULT 0`), die als eigener Claim ins JWT geschrieben wird; eine
+Passwort-Änderung erhöht sie um 1. Der `JwtCookieAuthenticationFilter` lädt den User und vergleicht
+die `token_version` bei **jedem** authentifizierten Request gegen den Claim — bei Abweichung wird
+das Token wie ein ungültiges behandelt.
+
+Das hebt die Kernannahme „kein Session-Lookup, keine DB-Abhängigkeit im Filter" (siehe „Positive:
+Stateless" oben) für den Filter **teilweise** auf: ein DB-Read pro authentifiziertem Request kommt
+hinzu. Akzeptiert, weil es der einzige der im Ticket diskutierten Wege war, der das eigentliche
+Bedrohungsszenario löst — ein Angreifer mit gestohlenem Token bleibt sonst bis zum natürlichen
+Ablauf eingeloggt, obwohl der Nutzer mit der Passwort-Änderung genau das beenden wollte.
+
+Bewusst kein automatischer Cookie-Reissue beim Passwortwechsel: die aufrufende Session wird durch
+das Hochzählen ebenfalls ausgeloggt und muss sich neu einloggen — das bestätigt dem Nutzer aktiv,
+dass die Änderung wirksam war.
 
 ## Alternatives
 

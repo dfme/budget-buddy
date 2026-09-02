@@ -85,7 +85,9 @@ public class UserController {
     @PutMapping("/password")
     @Operation(summary = "Passwort ändern",
             description = "Prüft aktuellesPasswort gegen den gespeicherten bcrypt-Hash und "
-                    + "ersetzt ihn bei Erfolg durch den Hash von neuesPasswort.")
+                    + "ersetzt ihn bei Erfolg durch den Hash von neuesPasswort. Invalidiert dabei "
+                    + "alle zuvor ausgestellten JWTs, inklusive des Cookies der aufrufenden "
+                    + "Session (BE-AUTH-11) — der Client muss sich danach neu einloggen.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Passwort geändert", content = {}),
         @ApiResponse(responseCode = "400",
