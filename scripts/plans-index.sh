@@ -101,6 +101,12 @@ HEADER
 
     # BE-AUTH-01-jwt-filter.md -> Task-ID "BE-AUTH-01"
     task_id="$(sed -E 's/^([A-Z0-9]+(-[A-Z0-9]+)*-[0-9]+)-.*\.md$/\1/' <<<"$base")"
+    if [[ "$task_id" == "$base" ]]; then
+      # Datei folgt nicht dem TASK-ID-slug.md-Schema (z.B. ein Zuschnittsdokument) — kein Task-ID.
+      task_id_cell="—"
+    else
+      task_id_cell="\`${task_id}\`"
+    fi
 
     # Titel aus der ersten Überschrift, ohne das führende "[TASK-ID] "
     title="$(sed -n '1s/^# //p' "$file" | sed -E 's/^\[[^]]+\] *//')"
@@ -119,8 +125,8 @@ HEADER
       issue_cell="—"; story="—"; sprint="—"
     fi
 
-    printf '| `%s` | [%s](%s) | %s | %s | %s |\n' \
-      "$task_id" "$title" "$base" "$issue_cell" "$story" "$sprint"
+    printf '| %s | [%s](%s) | %s | %s | %s |\n' \
+      "$task_id_cell" "$title" "$base" "$issue_cell" "$story" "$sprint"
   done
 } >"$tmp"
 
