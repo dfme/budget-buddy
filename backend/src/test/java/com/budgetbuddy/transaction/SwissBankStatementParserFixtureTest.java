@@ -14,10 +14,17 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 /**
- * Integrationstests von {@link SwissBankStatementParser} gegen vollständig synthetische
- * Bank-PDF-Fixtures (Kontoinhaber «Peter Muster») aus {@code src/test/resources/pdf/}. Deckt die
- * drei realen Layouts ab: Viseca-Kreditkarte, PostFinance und UBS (plus die generische
- * Raiffeisen-Logik in {@link SwissBankStatementParserTest}).
+ * Integrationstests von {@link SwissBankStatementParser} gegen die Bank-PDF-Fixtures
+ * (Kontoinhaber «Peter Muster») aus {@code src/test/resources/pdf/}. Deckt alle vier Layouts ab:
+ * Viseca-Kreditkarte, PostFinance, UBS und das generische (Raiffeisen-Kontoauszug).
+ *
+ * <p>Die ersten drei Layouts stehen auf erzeugten Fixtures (generate_pdf_fixtures.py), das
+ * generische auf einem <em>echten, anonymisierten</em> Auszug: Personen, Adressen, IBANs,
+ * Referenznummern und die Beträge, die Vermögen verraten, sind ersetzt — Satzbild, Schriften und
+ * Struktur stammen unverändert von der Bank. Genau darauf kommt es hier an. Die erzeugte
+ * Raiffeisen-Fixture druckt {@code 01.06.2026}, der echte Auszug {@code 01.06.26}; auf letzterem
+ * lieferte der Parser stillschweigend null Buchungen (BE-PDF-12). Was ein Generator nicht kennt,
+ * kann er auch nicht testen.
  *
  * <p>Die stärkste Invariante je Auszug ist die Kreuzprobe: Die Summe der extrahierten Gutschriften
  * bzw. Belastungen muss exakt der im PDF gedruckten Total-/Umsatzzeile entsprechen. Stimmt sie,
@@ -35,6 +42,8 @@ class SwissBankStatementParserFixtureTest {
   private static final String UBS = "/pdf/UBS_Konto_Bewegungen_2021_Juli.pdf";
   private static final String POST_JAHR = "/pdf/Post_Kontoauszug_2025_240_Buchungen.pdf";
   private static final String POST_JULI = "/pdf/Post_Kontoauszug_2026_Juli_20_Buchungen.pdf";
+  private static final String RAIFFEISEN_ECHT =
+      "/pdf/Kontoauszug 01.06.2026 - 30.06.2026 - CH9300762011623852957 - 2026-06-30.pdf";
 
   @Nested
   class Viseca {
@@ -649,6 +658,109 @@ class SwissBankStatementParserFixtureTest {
                   assertThat(t.fullText())
                       .doesNotContain("BAHNHOFSTRASSE", "MUSTERWEG", "TRIBSCHENSTRASSE",
                           "8000 ZUERICH", "6002 LUZERN", "3050 BERN"));
+    }
+  }
+
+  /**
+   * Generisches Layout am echten, anonymisierten Raiffeisen-Kontoauszug: zwei Seiten, 17 Buchungen,
+   * mehrzeilige Blöcke, Übertrag über die Seitengrenze.
+   *
+   * <p>Die gedruckten Zahlen, gegen die hier geprüft wird: {@code Saldovortrag 8'450.20}, die
+   * Umsatzzeile der letzten Seite {@code Umsatz 8'122.21 5'480.00} und
+   * {@code Saldo zu Ihren Gunsten 5'807.99}.
+   */
+  @Nested
+  class RaiffeisenEchterAuszug {
+
+    @Test
+    void extractsAllRows_andSumsMatchUmsatzLine() {
+      List<ParsedTransaction> txns = parser.parse(bytes(RAIFFEISEN_ECHT));
+
+      assertThat(txns).hasSize(17);
+      // Kreuzprobe gegen die gedruckte Umsatzzeile — verifiziert Beträge, Richtung und
+      // Vollständigkeit in einem.
+      assertThat(sum(txns, false)).isEqualByComparingTo("8122.21");
+      assertThat(sum(txns, true)).isEqualByComparingTo("5480.00");
+    }
+
+    @Test
+    void saldoChain_endsAtPrintedSchlusssaldo() {
+      List<ParsedTransaction> txns = parser.parse(bytes(RAIFFEISEN_ECHT));
+
+      BigDecimal schlusssaldo =
+          new BigDecimal("8450.20").add(sum(txns, true)).subtract(sum(txns, false));
+      assertThat(schlusssaldo).isEqualByComparingTo("5807.99");
+    }
+
+    /**
+     * Regression für BE-PDF-12: Der echte Auszug datiert {@code dd.MM.yy}, die erzeugte Fixture
+     * {@code dd.MM.yyyy}. Solange das generische Layout nur die vierstellige Form kannte, passte
+     * keine einzige Buchungszeile — und weil eine {@code Saldovortrag}-Zeile da war, galt der
+     * Auszug als erkannt und der Import meldete «erfolgreich, 0 Transaktionen».
+     */
+    @Test
+    void zweistelligesJahr_isParsedAs2026() {
+      List<ParsedTransaction> txns = parser.parse(bytes(RAIFFEISEN_ECHT));
+
+      assertThat(txns)
+          .isNotEmpty()
+          .extracting(ParsedTransaction::buchungsdatum)
+          .allMatch(d -> d.getYear() == 2026);
+    }
+
+    /**
+     * Der Händler steht in der Buchungszeile, nicht — wie bei PostFinance — in den Detailzeilen.
+     * Das ist die Eigenschaft, die dieses Layout für die Kategorisierung einfach macht, und sie
+     * darf beim mehrzeiligen Block nicht verloren gehen.
+     */
+    @Test
+    void mehrzeiligerBlock_keepsMerchantInBuchungstext() {
+      List<ParsedTransaction> txns = parser.parse(bytes(RAIFFEISEN_ECHT));
+
+      assertThat(byText(txns, "Zahlung Helsana Versicherungen AG"))
+          .satisfies(
+              t -> {
+                assertThat(t.betrag()).isEqualByComparingTo("1335.90");
+                assertThat(t.isIncome()).isFalse();
+                assertThat(t.buchungsdatum()).isEqualTo(LocalDate.of(2026, 6, 1));
+                assertThat(t.details()).contains("Bezahlt für: Muster Anna");
+              });
+    }
+
+    /**
+     * Die Gutschrift steht auf Seite 2, ihr Vorgänger-Saldo auf Seite 1. Die Richtung kommt aus
+     * dem Saldo-Delta, das also über die Seitengrenze hinweg fortgeschrieben werden muss.
+     */
+    @Test
+    void gutschriftOnSecondPage_isIncome() {
+      List<ParsedTransaction> txns = parser.parse(bytes(RAIFFEISEN_ECHT));
+
+      assertThat(txns)
+          .filteredOn(ParsedTransaction::isIncome)
+          .singleElement()
+          .satisfies(
+              t -> {
+                assertThat(t.buchungstext()).isEqualTo("Gutschrift MUSTER AG");
+                assertThat(t.betrag()).isEqualByComparingTo("5480.00");
+                assertThat(t.buchungsdatum()).isEqualTo(LocalDate.of(2026, 6, 25));
+              });
+    }
+
+    /**
+     * {@code Übertrag} und {@code Umsatz} tragen zwei Beträge und stehen mitten im Buchungsteil —
+     * ohne führendes Datum dürfen sie weder als Buchung noch als Detailzeile durchkommen.
+     */
+    @Test
+    void uebertragAndUmsatzLines_areNeitherBookingNorDetail() {
+      List<ParsedTransaction> txns = parser.parse(bytes(RAIFFEISEN_ECHT));
+
+      assertThat(txns)
+          .allSatisfy(
+              t ->
+                  assertThat(t.fullText())
+                      .doesNotContain(
+                          "Übertrag 6", "Umsatz", "Saldo zu Ihren Gunsten", "Gegenbericht",
+                          "Genossenschaft", "Kontoinhaber", "Kontoart"));
     }
   }
 
