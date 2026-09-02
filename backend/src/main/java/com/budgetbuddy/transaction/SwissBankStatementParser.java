@@ -187,23 +187,30 @@ public class SwissBankStatementParser {
    * die <em>kombinierte</em> Einzeilerform, die Raiffeisen druckt: {@code Zürichstrasse 130, 8600
    * Dübendorf}. Sie setzt am abschliessenden {@code <PLZ> <Ort>} an, verlangt davor aber ein
    * <em>Komma</em> oder das Länderkürzel {@code CH} — das trennt die Postanschrift von einer
-   * Zweckzeile mit eingebetteter Jahreszahl ({@code LOHN JULI 2026 SOWIE SPESEN}), in der {@code
-   * 2026} sonst als PLZ durchginge. Mit dieser Klammer deckt die Alternative auch die kommalose
-   * Firmenanschrift ({@code Bahnhofstrasse 1 CH 8000 Zürich}), den Nicht-Strassen-Präfix
+   * Zweckzeile mit eingebetteter Jahreszahl ({@code LOHN JULI 2026 SOWIE SPE…}, in echten
+   * PostFinance-Auszügen durch Wortumbruch auf zwei Zeilen), in der {@code 2026} sonst als PLZ
+   * durchginge. Mit dieser Klammer deckt die Alternative auch die kommalose Firmenanschrift
+   * ({@code Bahnhofstrasse 1 CH 8000 Zürich}), den Nicht-Strassen-Präfix
    * ({@code KOS Archiv, 4503 Solothurn}) und die real vorkommende Doppelkommastelle
    * ({@code Schulhausstrasse 2,, 8000 Zürich}) ab.
+   *
+   * <p>Das {@code CH} steht als {@code (?-i:CH)} ausdrücklich case-<em>sensitiv</em> — sonst
+   * träfe unter dem globalen {@code (?i)} von {@link #DETAIL_NOISE} auch ein kleingeschriebenes
+   * {@code ch} mitten in einer Zweckzeile ({@code zahlung via ch 1234 …}). Das Länderkürzel wird
+   * durchgängig gross gedruckt; die Grossschreibung ist hier also das eigentliche Signal — dieselbe
+   * Überlegung wie bei {@link #NOISE_OPAQUE_REFERENCE}.
    *
    * <p>Heuristik mit zwei bekannten Rändern: (1) Eine Zweckzeile, die mit einer vierstelligen Zahl
    * <em>beginnt</em> ({@code 2026 PRAEMIE}), fiele über die erste Alternative heraus. (2) Seit der
    * dritten Alternative fällt zusätzlich eine Zeile heraus, die auf {@code , <vierstellig> <Ort>}
    * oder {@code CH <vierstellig> <Ort>} <em>endet</em> — eine Zweckzeile mit Jahreszahl <em>ohne</em>
-   * Komma/CH davor ({@code LOHN JULI 2026 SOWIE SPESEN}) bleibt dagegen erhalten. Beide Ränder sind
+   * Komma/CH davor ({@code LOHN JULI 2026 SOWIE SPE…}) bleibt dagegen erhalten. Beide Ränder sind
    * in den vorliegenden Auszügen nicht als Fehltreffer beobachtet.
    */
   private static final String NOISE_ADDRESS =
       "^[1-9]\\d{3}\\s+\\p{L}[\\p{L}.\\-' ]*$"
           + "|^\\p{L}[\\p{L}.\\-' ]*(?:strasse|str\\.|weg|gasse|platz|allee|ring)\\s*\\d+[a-z]?$"
-          + "|^.+(?:,\\s*|\\sCH\\s+)[1-9]\\d{3}\\s+\\p{L}[\\p{L}.\\-' ]*$";
+          + "|^.+(?:,\\s*|\\s(?-i:CH)\\s+)[1-9]\\d{3}\\s+\\p{L}[\\p{L}.\\-' ]*$";
 
   /** Auftragsnummer hinter ihrem Label ({@code DAUERAUFTRAG: 90-11223344}). */
   private static final String NOISE_ORDER_NUMBER = "^dauerauftrag:\\s*\\d";
