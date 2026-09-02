@@ -96,7 +96,15 @@ public class SecurityConfig {
             .exceptionHandling(ex ->
                 ex.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
             .addFilterBefore(new JwtCookieAuthenticationFilter(jwtService),
-                UsernamePasswordAuthenticationFilter.class);
+                UsernamePasswordAuthenticationFilter.class)
+            // Vor dem JWT-Filter, damit sein finally auch dessen Log-Zeilen umschliesst und den
+            // MDC in jedem Fall wieder leert (INFRA-37).
+            //
+            // Die Reihenfolge dieser beiden Aufrufe ist nicht beliebig: HttpSecurity kennt die
+            // Position eines eigenen Filters erst, nachdem er hinzugefügt wurde. Vertauscht
+            // scheitert der Start mit «The Filter class JwtCookieAuthenticationFilter does not
+            // have a registered order» — laut und sofort, nicht still in falscher Reihenfolge.
+            .addFilterBefore(new LoggingContextFilter(), JwtCookieAuthenticationFilter.class);
         return http.build();
     }
 

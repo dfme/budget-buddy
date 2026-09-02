@@ -189,6 +189,30 @@ Ein fehlgeschlagener Claude-Call darf nie den gesamten Import-Flow blockieren (C
 Dasselbe gilt seit ADR-14 für ein aufgebrauchtes Zeitbudget: Der Rest fällt auf `Sonstiges`, der
 Import wird trotzdem vollständig gespeichert.
 
+## Backend: Logging-Kontext (MDC)
+
+User-ID und Request-ID gehören **nicht** in den Log-Text, sondern in den MDC (INFRA-37).
+`LoggingContextFilter` vergibt pro Request eine `requestId`, `JwtCookieAuthenticationFilter`
+legt nach gültigem JWT die `userId` dazu; `logging.pattern.level` in `application.properties`
+stellt beide jeder Zeile voran:
+
+```
+2026-09-02T14:56:24.159+02:00  INFO [req:687a85fe user:99] … : Testendpunkt aufgerufen
+```
+
+Regel: Keine neue Log-Zeile schreibt die User-ID selbst in ihren Text — sie stünde sonst doppelt.
+Wer sie braucht, bekommt sie automatisch.
+
+Zwei Stellen müssen den Kontext aktiv wieder abräumen, weil Threads wiederverwendet werden:
+`LoggingContextFilter` (Tomcat-Thread, `finally` — auch im Fehlerfall) und `MdcTaskDecorator` am
+`importExecutor` (Pool-Thread). Ohne das trüge der nächste Request bzw. der nächste Importlauf die
+User-ID seines Vorgängers — ein Log, das falsche Zuordnungen behauptet, ist schlechter als eines
+ohne Zuordnung.
+
+In den MDC gehen **nur** diese beiden IDs. Kein Name, keine E-Mail, keine Beträge: Render-Logs
+liegen ausserhalb der Datenbank und unter anderer Zugriffskontrolle (siehe *Sicherheit* oben und
+die Redaktionspraxis aus BE-PDF-06).
+
 ## Testing: Frameworks
 
 | Stufe       | Backend                                                                                 | Frontend        | Coverage-Ziel |
