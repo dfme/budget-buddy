@@ -822,12 +822,17 @@ class SwissBankStatementParserFixtureTest {
     void uebertragAndUmsatzLines_areNeitherBookingNorDetail() {
       List<ParsedTransaction> txns = parser.parse(bytes(RAIFFEISEN_ECHT));
 
+      // isNotEmpty(), weil allSatisfy auf einer leeren Liste grün wäre — der Test soll nicht
+      // stillschweigend bestehen, wenn der Parser gar nichts mehr findet.
+      // "Übertrag 3" statt nur "Übertrag": Letzteres ist ein legitimer Buchungstext
+      // ("Übertrag auf Mitglieder Sparkonto ..."), gemeint ist die Summenzeile mit Betrag.
       assertThat(txns)
+          .isNotEmpty()
           .allSatisfy(
               t ->
                   assertThat(t.fullText())
                       .doesNotContain(
-                          "Übertrag 6", "Umsatz", "Saldo zu Ihren Gunsten", "Gegenbericht",
+                          "Übertrag 3", "Umsatz", "Saldo zu Ihren Gunsten", "Gegenbericht",
                           "Genossenschaft", "Kontoinhaber", "Kontoart"));
     }
   }

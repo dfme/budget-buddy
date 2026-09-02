@@ -96,6 +96,9 @@ public class SwissBankStatementParser {
    */
   private static final String DATE_ANY_RE = "\\d{2}\\.\\d{2}\\.(?:\\d{4}|\\d{2})";
 
+  /** Vierstellige Jahresform, exakt — wählt in {@link #parseGenericDate} den Formatter. */
+  private static final Pattern DATE4_ONLY = Pattern.compile(DATE4_RE);
+
   /** Betrags-Token an beliebiger Stelle einer Zeile. */
   private static final Pattern AMOUNT_TOKEN = Pattern.compile(AMOUNT);
 
@@ -348,6 +351,11 @@ public class SwissBankStatementParser {
     if (head.contains("Kontobewegungen") && head.contains("UBS")) {
       return Format.UBS;
     }
+    // Fallback für jedes nicht erkannte Layout — mit einer Folge, die DATE_ANY_RE hinzugefügt
+    // hat: Ein unbekannter Auszug mit zweistelligen Jahren lief vorher garantiert leer aus und
+    // damit in UnsupportedStatementFormatException; jetzt kann er teilweise parsen. Bewusst in
+    // Kauf genommen, weil GENERIC_ROW zwei Beträge am Zeilenende verlangt — Viseca hat nur
+    // einen, PostFinance und UBS fängt die Kopfzeilenerkennung oben ab.
     return Format.GENERIC;
   }
 
@@ -438,7 +446,10 @@ public class SwissBankStatementParser {
    * 20. Jahrhundert sind kein Anwendungsfall.
    */
   private static LocalDate parseGenericDate(String value) {
-    return LocalDate.parse(value, value.length() == 10 ? DATE_4 : DATE_2);
+    // Unterscheidung über die Jahresform selbst, nicht über die Stringlänge: Die Länge stimmt
+    // nur, solange der Wert aus DATE_ANY_RE stammt — eine Kopplung, die beim Lesen unsichtbar
+    // ist und beim nächsten Aufrufer bricht.
+    return LocalDate.parse(value, DATE4_ONLY.matcher(value).matches() ? DATE_4 : DATE_2);
   }
 
   // === Viseca / Kreditkarte =====================================================================
