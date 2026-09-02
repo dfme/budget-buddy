@@ -116,11 +116,13 @@ CLAUDE.md).
 ```
 Woche 1                                         Woche 2
 ──────────────────────────────────────────      ──────────────────────────────────────────
-Dev A: #245 DB-08 ─► #246 BE-NOTIF-01 ─►         #200 BE-AUTH-10 ─► #243 BE-CAT-09 ─►
-       #247 FE-NOTIF-01 (Fundament zuerst)       #241 BE-PDF-13 ─► #233 BE-CAT-08 ─► #257 INFRA-37
+Dev A: #245 DB-08 ─► #246 BE-NOTIF-01 ─►         #200 BE-AUTH-10 ─► #201 BE-AUTH-11 ─►
+       #247 FE-NOTIF-01 (Fundament zuerst)       #243 BE-CAT-09 ─► #241 BE-PDF-13 ─►
+                                                  #233 BE-CAT-08 ─► #257 INFRA-37
 
 Dev B: #249 FE-CAT-08 ─► #248 BE-STS-06 ─►       #251 E2E-STS-02 ─► #193 BE-PDF-10 ─►
-       #250 FE-STS-04                            #186 FE-CAT-06 ─► #205 BE-FC-04 ─► #207 INFRA-29
+       #250 FE-STS-04                            #208 BE-STS-05 ─► #186 FE-CAT-06 ─►
+                                                  #205 BE-FC-04 ─► #207 INFRA-29
 
 Dev C: #252 DB-09 (sofort) ─► #190 E2E-FC-02 ─►  #254 BE-REC-02 ─► #255 FE-REC-01
        #197 BE-PDF-11 (Lückenfüller, während      (nach #247) ─► #256 E2E-REC-01
@@ -130,8 +132,8 @@ Dev C: #252 DB-09 (sofort) ─► #190 E2E-FC-02 ─►  #254 BE-REC-02 ─► #
 
 | Dev | Issues | SP |
 | --- | ------ | -- |
-| A | #245 (1) · #246 (3) · #247 (3) · #200 (2) · #243 (1) · #241 (2) · #233 (3) · #257 (3) | 18 |
-| B | #249 (1) · #248 (3) · #250 (3) · #251 (3) · #193 (3) · #186 (1) · #205 (2) · #207 (3) | 19 |
+| A | #245 (1) · #246 (3) · #247 (3) · #200 (2) · #201 (3) · #243 (1) · #241 (2) · #233 (3) · #257 (3) | 21 |
+| B | #249 (1) · #248 (3) · #250 (3) · #251 (3) · #193 (3) · #208 (3) · #186 (1) · #205 (2) · #207 (3) | 22 |
 | C | #252 (1) · #190 (3) · #197 (3) · #253 (5) · #254 (3) · #255 (5) · #256 (3) | 23 |
 
 - **Kritischer Pfad ist teamübergreifend, nicht dev-intern:** Dev Cs gesamte US-08-Kette
@@ -146,8 +148,8 @@ Dev C: #252 DB-09 (sofort) ─► #190 E2E-FC-02 ─►  #254 BE-REC-02 ─► #
 - **`#249` (FE-CAT-08) ist die einzige Verzweigung ausserhalb des kritischen Pfads** — unabhängig
   von `#248`, sollte trotzdem früh bei Dev B laufen, damit die 3-stufige STS-Kette danach ungestört
   durchlaufen kann.
-- **13 von 25 Issues haben keine offene Vorbedingung** und sind ab Tag 1 parallelisierbar; die
-  restlichen 12 folgen den beiden dokumentierten Ketten (Fundament→US-08, `#248`-Kette).
+- **17 von 25 Issues haben keine offene Vorbedingung** und sind ab Tag 1 parallelisierbar; die
+  restlichen 8 folgen den beiden dokumentierten Ketten (Fundament→US-08, `#248`-Kette).
 
 ## Bewusst *nicht* in Sprint 6
 
