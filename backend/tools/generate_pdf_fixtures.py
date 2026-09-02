@@ -24,6 +24,18 @@ Each fixture answers one question the others cannot:
     Kreditkarten Rechnung *.pdf           Viseca layout, foreign currency
     Raiffeisen_..._110_Buchungen.pdf      length: the generic branch at #192 size
 
+NOT generated here: "Kontoauszug 01.06.2026 - 30.06.2026 - CH93... .pdf" is a REAL
+Raiffeisen statement, anonymised in place -- every text run decoded through the
+font's ToUnicode CMap, replaced, re-encoded with the same subsetted glyphs, so the
+bank's own typesetting survives. That is what a generator cannot produce: the
+generated Raiffeisen fixture above prints "01.06.2026", the real one "01.06.26",
+and the generic branch used to accept only the first (BE-PDF-12). Keep both.
+
+The transform is deliberately NOT scripted into this repo. Its replacement table
+would have to spell out the original values -- name, address, IBAN, counterparties,
+balances -- and a table of what was removed is the same disclosure as the document
+it was removed from. Verify the fixture by reading it, not by replaying the diff.
+
 ALL THREE PostFinance statements use the REAL PostFinance typesetting: the
 booking line carries the payment TYPE ("LASTSCHRIFT", "GOOGLE PAY"), and the
 merchant sits in the detail lines below it, buried under card number,

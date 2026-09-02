@@ -79,6 +79,26 @@ public class SwissBankStatementParser {
   private static final String DATE4_RE = "\\d{2}\\.\\d{2}\\.\\d{4}";
   private static final String DATE2_RE = "\\d{2}\\.\\d{2}\\.\\d{2}";
 
+  /**
+   * Datum mit vier- <em>oder</em> zweistelligem Jahr — nur fürs generische Layout.
+   *
+   * <p>Die anderen drei Layouts drucken je genau eine Form, und dort ist die Einschränkung ein
+   * Teil der Formaterkennung. Das generische ist der Fallback für alles Übrige und darf sich
+   * nicht auf eine Form festlegen: Der echte Raiffeisen-Kontoauszug druckt {@code 01.06.26}, die
+   * bisherige Fixture {@code 01.06.2026}.
+   *
+   * <p>Die vierstellige Alternative steht zuerst, weil sie sich so liest, wie die Engine
+   * ohnehin auflöst — <em>nicht</em>, weil die andere Reihenfolge falsch parsen würde. Beide
+   * Reihenfolgen liefern gegen alle vier vorkommenden Zeilenformen identische Gruppen: Bei
+   * {@code 01.06.2026} scheitert der Teilmatch {@code 01.06.20} sofort am {@code \s+} gegen die
+   * {@code 2}, die Engine backtrackt und nimmt die vierstellige Form. Wer diese Regex ändert,
+   * sollte die Reihenfolge also als Lesbarkeit behandeln und nicht als Schutzmechanismus.
+   */
+  private static final String DATE_ANY_RE = "\\d{2}\\.\\d{2}\\.(?:\\d{4}|\\d{2})";
+
+  /** Vierstellige Jahresform, exakt — wählt in {@link #parseGenericDate} den Formatter. */
+  private static final Pattern DATE4_ONLY = Pattern.compile(DATE4_RE);
+
   /** Betrags-Token an beliebiger Stelle einer Zeile. */
   private static final Pattern AMOUNT_TOKEN = Pattern.compile(AMOUNT);
 
@@ -89,8 +109,8 @@ public class SwissBankStatementParser {
   // --- Generisch (Raiffeisen-Kontoauszug) -------------------------------------------------------
   private static final Pattern GENERIC_ROW =
       Pattern.compile(
-          "^(" + DATE4_RE + ")\\s+(?:" + DATE4_RE + "\\s+)?(.+?)\\s+(" + AMOUNT + ")\\s+("
-              + AMOUNT + ")$");
+          "^(" + DATE_ANY_RE + ")\\s+(?:" + DATE_ANY_RE + "\\s+)?(.+?)\\s+(" + AMOUNT
+              + ")\\s+(" + AMOUNT + ")$");
   private static final Pattern SALDOVORTRAG =
       Pattern.compile("(?i)saldovortrag.*?(" + AMOUNT + ")\\s*$");
 
@@ -331,6 +351,11 @@ public class SwissBankStatementParser {
     if (head.contains("Kontobewegungen") && head.contains("UBS")) {
       return Format.UBS;
     }
+    // Fallback für jedes nicht erkannte Layout — mit einer Folge, die DATE_ANY_RE hinzugefügt
+    // hat: Ein unbekannter Auszug mit zweistelligen Jahren lief vorher garantiert leer aus und
+    // damit in UnsupportedStatementFormatException; jetzt kann er teilweise parsen. Bewusst in
+    // Kauf genommen, weil GENERIC_ROW zwei Beträge am Zeilenende verlangt — Viseca hat nur
+    // einen, PostFinance und UBS fängt die Kopfzeilenerkennung oben ab.
     return Format.GENERIC;
   }
 
@@ -399,7 +424,7 @@ public class SwissBankStatementParser {
           previousSaldo = saldo;
           current =
               new MutableRow(
-                  LocalDate.parse(row.group(1), DATE_4),
+                  parseGenericDate(row.group(1)),
                   row.group(2).strip(),
                   parseAmount(row.group(3)).abs(),
                   isIncome);
@@ -413,6 +438,18 @@ public class SwissBankStatementParser {
       }
     }
     return toResult(rows);
+  }
+
+  /**
+   * Parst ein Datum des generischen Layouts, das in beiden Jahresformen vorkommt. Zweistellig
+   * heisst {@code 20yy} (Basisjahr 2000, siehe {@link #DATE_2}) — Kontoauszüge aus dem
+   * 20. Jahrhundert sind kein Anwendungsfall.
+   */
+  private static LocalDate parseGenericDate(String value) {
+    // Unterscheidung über die Jahresform selbst, nicht über die Stringlänge: Die Länge stimmt
+    // nur, solange der Wert aus DATE_ANY_RE stammt — eine Kopplung, die beim Lesen unsichtbar
+    // ist und beim nächsten Aufrufer bricht.
+    return LocalDate.parse(value, DATE4_ONLY.matcher(value).matches() ? DATE_4 : DATE_2);
   }
 
   // === Viseca / Kreditkarte =====================================================================
