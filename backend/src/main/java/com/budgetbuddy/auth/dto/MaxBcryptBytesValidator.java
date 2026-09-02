@@ -12,6 +12,8 @@ import java.nio.charset.StandardCharsets;
  */
 public class MaxBcryptBytesValidator implements ConstraintValidator<MaxBcryptBytes, String> {
 
+    // Bei Änderung dieser Zahl auch MaxBcryptBytes.message() nachziehen — sonst behauptet die
+    // Fehlermeldung eine andere Grenze, als tatsächlich geprüft wird.
     static final int MAX_BYTES = 72;
 
     @Override

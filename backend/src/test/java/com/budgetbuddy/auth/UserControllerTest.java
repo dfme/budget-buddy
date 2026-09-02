@@ -412,20 +412,21 @@ class UserControllerTest {
     }
 
     @Test
-    void changePasswordWithEmojiPasswordOver72BytesReturns400() throws Exception {
-        // 40 Emoji sind nur 40 Codepoints, aber 160 UTF-8-Bytes — belegt die Byte- statt
-        // Zeichen-Zählung (AC aus #200).
+    void changePasswordWithUmlautPasswordOver72BytesReturns400() throws Exception {
+        // 40 Umlaute sind 40 char (Java zählt UTF-16-Codeeinheiten), aber 80 UTF-8-Bytes: ein
+        // zeichenbasiertes @Size(max = 72) liesse das durch, die Byte-Prüfung nicht (AC aus #200).
+        // "😀".repeat(40) hätte das nicht belegt — als Surrogatpaar sind das bereits 80 char.
         setPasswordHash("altesPasswort1");
-        String emojiPassword = "😀".repeat(40);
+        String tooManyBytesPassword = "ä".repeat(40);
 
         mockMvc.perform(put("/api/users/me/password")
                         .cookie(jwtCookie())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"aktuellesPasswort\": \"altesPasswort1\", "
-                                + "\"neuesPasswort\": \"" + emojiPassword + "\"}"))
+                                + "\"neuesPasswort\": \"" + tooManyBytesPassword + "\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Passwort ist zu lang (maximal 72 Bytes)."))
-                .andExpect(content().string(not(containsString(emojiPassword))));
+                .andExpect(content().string(not(containsString(tooManyBytesPassword))));
     }
 
     @Test
