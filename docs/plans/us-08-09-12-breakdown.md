@@ -1,4 +1,4 @@
-# Zuschnitt: US-08, US-09, US-12
+# Zuschnitt: US-08, US-09
 
 Vorbereitender Zuschnitt für die Issue-Erstellung (noch keine GitHub-Issues angelegt). US-02
 bleibt bewusst ausserhalb des Scopes.
@@ -27,25 +27,6 @@ der beiden Stories, sondern als eigener, kleiner Vorlauf-Block.
 
 Ohne dieses Fundament brauchen US-08 und US-09 je einen eigenen Bolt-on — das ist der einzige
 Punkt in diesem Zuschnitt, der beide Stories blockiert, deshalb zuerst.
-
----
-
-## US-12 — Zwischen Monaten wechseln (Should, 10 SP)
-
-Kleinster Zuschnitt der drei: kein neues Modul, keine Migration. Die Kategorie-Übersicht hat
-Monatswechsel bereits (`FE-CAT-04`, #144) inkl. Query-Param-Sync und `MonthNav`-Komponente
-(`frontend/src/app/shared/month-nav/month-nav.ts`) — der fehlt aber der "Keine Daten"-Hinweis laut
-AC, und das Dashboard/Safe-to-Spend kennt bislang gar keinen Monat (`SafeToSpendService.calculate`
-ist fest auf den aktuellen Kalendermonat verdrahtet).
-
-| ID | Titel | Beschreibung | SP | Abhängig von |
-| -- | ----- | ------------ | -- | ------------- |
-| `BE-STS-06` | Safe-to-Spend: Monat-Parameter + Abgeschlossen-Status | `SafeToSpendService.calculate(userId, YearMonth)` statt fest auf "heute"; `BudgetController` bekommt `@RequestParam String month` (optional, Default = laufender Monat, `MonthParser` wiederverwenden). Für Monate < aktuellem Monat: Response-Variante `status=CLOSED` statt Wochenbudget-Berechnung. | 3 | — |
-| `FE-CAT-08` | Kategorie-Übersicht: "Keine Daten"-Hinweis | Fehlt laut AC noch: Hinweistext "Keine Daten für [Monat Jahr] — PDF hochladen?" wenn der gewählte Monat nicht in `availableMonths()` enthalten ist. Kleine Ergänzung zu #144, kein neuer Screen. | 1 | — |
-| `FE-STS-04` | Dashboard-Monatswechsel | `MonthNav` (bestehende Komponente) im Dashboard einbinden, gleiches Pattern wie `category-overview.ts` (Monat-Signal, Query-Param-Sync). "Abgeschlossen"-Banner für Vergangenheitsmonate, "Keine Daten"-Hinweis analog `FE-CAT-08`. | 3 | `BE-STS-06` |
-| `E2E-STS-02` | Playwright: Monatswechsel | Happy Path: Default = aktueller Monat, Wechsel zu Vormonat → "Abgeschlossen" auf Dashboard + Kategorien + Safe-to-Spend synchron. Fehlerpfad: Monat ohne importierte Daten → Hinweis + Upload-CTA. | 3 | `FE-STS-04` |
-
-`FE-CAT-08` ist unabhängig von der `BE-STS-06`-Kette und kann parallel/zuerst erledigt werden.
 
 ---
 
@@ -104,9 +85,7 @@ schätzbar. Grobe Grössenordnung nach Entscheid: 3–5 SP für Anbindung + Temp
 ## Reihenfolge (Abhängigkeits-Empfehlung)
 
 ```
-US-12  BE-STS-06 → FE-STS-04 → E2E-STS-02     (FE-CAT-08 parallel, unabhängig)
-                                                          │
-Fundament   DB-08 → BE-NOTIF-01 → FE-NOTIF-01 ────────────┤
+Fundament   DB-08 → BE-NOTIF-01 → FE-NOTIF-01 ────────────┐
                                                           │
 US-08        DB-09 → BE-REC-01 → BE-REC-02 → FE-REC-01 → E2E-REC-01
                                                           │
@@ -114,19 +93,18 @@ US-09  DB-10 → BE-RPT-01 → BE-RPT-02 → BE-RPT-03 → FE-RPT-01 → E2E-RPT
                        └→ BE-RPT-04 → FE-SET-05           (→ BE-RPT-05, Stretch)
 ```
 
-1. **US-12 zuerst** — keine Abhängigkeit zum Fundament, kleinster Zuschnitt, schnellster Abschluss.
-2. **Notification-Fundament** direkt danach oder parallel zu US-12 — blockiert sowohl US-08 als
-   auch US-09, deshalb nicht aufschieben.
-3. **US-08 vor US-09** — geringere Komplexität (kein neuer Scheduler, keine neue externe
+1. **Notification-Fundament zuerst** — blockiert sowohl US-08 als auch US-09, deshalb nicht
+   aufschieben.
+2. **US-08 vor US-09** — geringere Komplexität (kein neuer Scheduler, keine neue externe
    Abhängigkeit), gleiche Grössenordnung an Nutzen für Marc.
-4. **US-09 zuletzt** — grösster Zuschnitt, plus der offene Punkt zum E-Mail-Versand sollte vor
+3. **US-09 zuletzt** — grösster Zuschnitt, plus der offene Punkt zum E-Mail-Versand sollte vor
    Sprint-Zusage geklärt sein (Scope-Cut auf `BE-RPT-05` oder volle AC-Erfüllung im selben Sprint).
 
-Gesamt: 4 (US-12) + 3 (Fundament) + 5 (US-08) + 9 inkl. Stretch (US-09) = **21 Issues** über die
-drei Stories plus Fundament.
+Gesamt: 3 (Fundament) + 5 (US-08) + 9 inkl. Stretch (US-09) = **17 Issues** über die zwei Stories
+plus Fundament.
 
-**Story Points:** 10 (US-12) + 7 (Fundament) + 17 (US-08) + 26 (US-09, ohne `BE-RPT-05`) =
-**60 SP** — grob eine ganze Sprint-Kapazität (Referenz SPRINT-05: 55 SP über 25 Issues). Für eine
-Sprint-Einplanung eignet sich daher entweder eine Aufteilung über zwei Sprints (z. B. US-12 +
-Fundament + US-08 in Sprint N, US-09 in Sprint N+1) oder eine Priorisierung innerhalb dieses
-Zuschnitts — Entscheidung bleibt beim Team, nicht Teil dieses Dokuments.
+**Story Points:** 7 (Fundament) + 17 (US-08) + 26 (US-09, ohne `BE-RPT-05`) = **50 SP** — grob
+eine ganze Sprint-Kapazität (Referenz SPRINT-05: 55 SP über 25 Issues). Für eine Sprint-Einplanung
+eignet sich daher entweder eine Aufteilung über zwei Sprints (z. B. Fundament + US-08 in Sprint N,
+US-09 in Sprint N+1) oder eine Priorisierung innerhalb dieses Zuschnitts — Entscheidung bleibt beim
+Team, nicht Teil dieses Dokuments.
