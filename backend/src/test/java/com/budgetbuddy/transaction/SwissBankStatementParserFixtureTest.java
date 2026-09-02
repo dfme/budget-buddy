@@ -666,11 +666,55 @@ class SwissBankStatementParserFixtureTest {
    * mehrzeilige Blöcke, Übertrag über die Seitengrenze.
    *
    * <p>Die gedruckten Zahlen, gegen die hier geprüft wird: {@code Saldovortrag 8'450.20}, die
-   * Umsatzzeile der letzten Seite {@code Umsatz 8'122.21 5'480.00} und
-   * {@code Saldo zu Ihren Gunsten 5'807.99}.
+   * Umsatzzeile der letzten Seite {@code Umsatz 5'315.89 5'480.00} und
+   * {@code Saldo zu Ihren Gunsten 8'614.31}.
    */
   @Nested
   class RaiffeisenEchterAuszug {
+
+    /** Jeder Buchungstext, der in der Fixture stehen darf — Muster-Familie und Firmen. */
+    private static final List<String> ERLAUBTE_BUCHUNGSTEXTE =
+        List.of(
+            "Bancomat Bezug RB Musterhausen",
+            "Dauerauftrag Geigenbauatelier Schürch AG",
+            "Dauerauftrag Lena Muster",
+            "Dauerauftrag Peter Muster",
+            "Einkauf TWINT ALPAHIRT UNTERWEGS",
+            "Gebührenbelastung Depot",
+            "Gutschrift MUSTER AG",
+            "Zahlung Einwohnergemeinde Musterhausen",
+            "Zahlung GA Weissenstein GmbH",
+            "Zahlung Helsana Versicherungen AG",
+            "Zahlung Regio Energie Solothurn",
+            "Zahlung Rita Beispiel-Muster",
+            "Zahlung Securitas AG Schweizerische Bewachungsgesellschaft Bern",
+            "Zahlung TS-Velos GmbH",
+            "Zahlung TWINT MUSTER, LENA",
+            "Übertrag auf Mitglieder Sparkonto CH66 0076 2011 6238 5295 8");
+
+    /** Jede Detailzeile, die der Parser aus der Fixture übernehmen darf. */
+    private static final List<String> ERLAUBTE_DETAILZEILEN =
+        List.of(
+            "BAHNHOFSTRASSE 1 CH 8000 ZUERICH",
+            "Beispielweg 7, 4500 Solothurn",
+            "Bezahlt für: Anna Maria Muster",
+            "Bezahlt für: Anna Muster",
+            "Bezahlt für: Lena Muster",
+            "Bezahlt für: Muster Anna",
+            "Bezahlt für: Muster Peter",
+            "Bezahlt für: Peter Muster",
+            "Endbegünstigter: Lena",
+            "Gutschein für Lena",
+            "Jurastrasse 2, 4554 Etziken",
+            "KOS Archiv, 4503 Solothurn",
+            "Musterweg 14, 8000 Zürich",
+            "Reg. Nr 10000001",
+            "Rötistrasse 17, 4502 Solothurn",
+            "Salarzahlung",
+            "Schulhausstrasse 2,, 8000 Zürich",
+            "Seilerstrasse 7, 3011 Bern",
+            "Wynigenstrasse 20, 3400 Burgdorf",
+            "Zürichstrasse 130, 8600 Dübendorf");
 
     @Test
     void extractsAllRows_andSumsMatchUmsatzLine() {
@@ -679,7 +723,7 @@ class SwissBankStatementParserFixtureTest {
       assertThat(txns).hasSize(17);
       // Kreuzprobe gegen die gedruckte Umsatzzeile — verifiziert Beträge, Richtung und
       // Vollständigkeit in einem.
-      assertThat(sum(txns, false)).isEqualByComparingTo("8122.21");
+      assertThat(sum(txns, false)).isEqualByComparingTo("5315.89");
       assertThat(sum(txns, true)).isEqualByComparingTo("5480.00");
     }
 
@@ -689,7 +733,7 @@ class SwissBankStatementParserFixtureTest {
 
       BigDecimal schlusssaldo =
           new BigDecimal("8450.20").add(sum(txns, true)).subtract(sum(txns, false));
-      assertThat(schlusssaldo).isEqualByComparingTo("5807.99");
+      assertThat(schlusssaldo).isEqualByComparingTo("8614.31");
     }
 
     /**
@@ -720,7 +764,7 @@ class SwissBankStatementParserFixtureTest {
       assertThat(byText(txns, "Zahlung Helsana Versicherungen AG"))
           .satisfies(
               t -> {
-                assertThat(t.betrag()).isEqualByComparingTo("1335.90");
+                assertThat(t.betrag()).isEqualByComparingTo("412.60");
                 assertThat(t.isIncome()).isFalse();
                 assertThat(t.buchungsdatum()).isEqualTo(LocalDate.of(2026, 6, 1));
                 assertThat(t.details()).contains("Bezahlt für: Muster Anna");
@@ -744,6 +788,30 @@ class SwissBankStatementParserFixtureTest {
                 assertThat(t.betrag()).isEqualByComparingTo("5480.00");
                 assertThat(t.buchungsdatum()).isEqualTo(LocalDate.of(2026, 6, 25));
               });
+    }
+
+    /**
+     * Macht die Anonymisierung der Fixture prüfbar — Auflage aus dem Review von #242.
+     *
+     * <p>Bewusst eine <em>Positiv</em>liste. Eine Negativliste müsste die Ausgangswerte des
+     * echten Auszugs nennen und wäre damit selbst die Offenlegung, die die Anonymisierung
+     * verhindern soll — derselbe Fehler, an dem die erste Fassung dieses PR gescheitert ist.
+     * So herum trägt jeder Eintrag seine Freigabe: Wer der Fixture Text hinzufügt, muss ihn
+     * hier ergänzen, und genau dabei fällt Personenbezogenes auf.
+     *
+     * <p>Deckt Buchungstexte <em>und</em> Detailzeilen ab, weil beide in den
+     * Kategorisierungs-Input gehen ({@link ParsedTransaction#fullText()}).
+     */
+    @Test
+    void jederText_stehtAufDerPositivliste() {
+      List<ParsedTransaction> txns = parser.parse(bytes(RAIFFEISEN_ECHT));
+
+      assertThat(txns).hasSize(17);
+      assertThat(txns)
+          .extracting(ParsedTransaction::buchungstext)
+          .isSubsetOf(ERLAUBTE_BUCHUNGSTEXTE);
+      assertThat(txns.stream().flatMap(t -> t.details().stream()).toList())
+          .isSubsetOf(ERLAUBTE_DETAILZEILEN);
     }
 
     /**

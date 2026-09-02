@@ -87,9 +87,12 @@ public class SwissBankStatementParser {
    * nicht auf eine Form festlegen: Der echte Raiffeisen-Kontoauszug druckt {@code 01.06.26}, die
    * bisherige Fixture {@code 01.06.2026}.
    *
-   * <p>Die vierstellige Alternative steht bewusst zuerst. Andernfalls griffe bei
-   * {@code 01.06.2026} die zweistellige, {@code 01.06.20} wäre das Datum und die verbleibende
-   * {@code 26} fiele in den Buchungstext.
+   * <p>Die vierstellige Alternative steht zuerst, weil sie sich so liest, wie die Engine
+   * ohnehin auflöst — <em>nicht</em>, weil die andere Reihenfolge falsch parsen würde. Beide
+   * Reihenfolgen liefern gegen alle vier vorkommenden Zeilenformen identische Gruppen: Bei
+   * {@code 01.06.2026} scheitert der Teilmatch {@code 01.06.20} sofort am {@code \s+} gegen die
+   * {@code 2}, die Engine backtrackt und nimmt die vierstellige Form. Wer diese Regex ändert,
+   * sollte die Reihenfolge also als Lesbarkeit behandeln und nicht als Schutzmechanismus.
    */
   private static final String DATE_ANY_RE = "\\d{2}\\.\\d{2}\\.(?:\\d{4}|\\d{2})";
 
