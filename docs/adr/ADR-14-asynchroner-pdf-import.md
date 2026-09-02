@@ -18,7 +18,7 @@ Produktion lief er damit reproduzierbar ins Budget und verwarf **den gesamten Im
 
 Zweimal innerhalb einer Stunde, derselbe Auszug mit 108 Transaktionen. Der Nutzer wartete 30
 Sekunden ohne jede Rückmeldung und bekam danach nichts — der einzige Schreibzugriff war der
-abschliessende Commit. Das ist Risiko #1 aus CLAUDE.md («Churn-Falle») im konkreten Fall.
+abschliessende Commit. Das ist Risiko #1 aus README.md («Churn-Falle») im konkreten Fall.
 
 ### Die Ursache ist die Anzahl der Requests, nicht ihre Dauer
 

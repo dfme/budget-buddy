@@ -148,4 +148,4 @@ Wir nutzen **Angular 21.x** mit folgender Konfiguration:
 - [Angular Signals Guide](https://angular.io/guide/signals)
 - [Angular Reactive Forms](https://angular.io/guide/reactive-forms)
 - [ng2-charts Documentation](https://valor-software.com/ng2-charts/)
-- CLAUDE.md — Technology Stack
+- docs/TECH-STACK.md

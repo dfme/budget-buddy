@@ -1,8 +1,35 @@
 # BudgetBuddy
 
-BudgetBuddy ist eine Web-App für in der Schweiz wohnhafte Studenten und Berufseinsteiger, die durch das einfache Einlesen von Kontoauszügen einen klaren Überblick über ihre monatlichen Ausgaben erhalten. Die App kategorisiert Transaktionen automatisch und zeigt einen wöchentlichen "Safe-to-Spend"-Betrag an, damit Nutzer jederzeit wissen, wie viel sie noch ausgeben können.
+**Kurs:** CAS Application Development with AI (ADAI) 2026 · BFH Biel · Ilja Rasin
 
-Weitere Details zu Projektidee, Personas, Architektur und Tech-Stack: siehe [CLAUDE.md](CLAUDE.md).
+**BudgetBuddy** ist eine Web-App für in der Schweiz wohnhafte Studenten und Berufseinsteiger, die ihnen durch das einfache Einlesen von Kontoauszügen einen klaren Überblick über ihre monatlichen Ausgaben gibt. Die App kategorisiert Transaktionen automatisch und zeigt einen wöchentlichen "Safe-to-Spend"-Betrag an — damit Nutzer jederzeit wissen, wie viel sie noch ausgeben können. Durch gezielte, lebensnahe Sparvorschläge hilft BudgetBuddy jungen Menschen, finanzielle Kontrolle zu gewinnen und erste Rücklagen aufzubauen.
+
+Technische Konventionen, Architektur und Tech-Stack für die Entwicklung: siehe [CLAUDE.md](CLAUDE.md).
+Vollständige User Stories mit Acceptance Criteria: [docs/requirements/](docs/requirements/).
+
+## Zielgruppe (Personas)
+
+### Persona 1 — Lara (22), Studentin (Bern)
+
+- Studium Soziale Arbeit, arbeitet 20% in einer Bar, wohnhaft in der Schweiz
+- **Problem:** Verliert Mitte des Monats den Überblick, ob das Geld noch für Miete und Lebensmittel reicht
+- **Frustration:** Mühsame Excel-Tabellen, die sie nie aktualisiert; scrollt panisch durch Banking-App
+- **Ziel:** "Safe-to-Spend"-Betrag pro Woche
+- **Hürde:** Aufschieberitis — wenn der erste PDF-Upload zu kompliziert ist, bricht sie sofort ab
+
+### Persona 2 — Marc (25), Junior-Verkäufer (Zürich)
+
+- Hat gerade Lehre abgeschlossen, arbeitet im Detailhandel, wohnhaft in der Schweiz
+- **Problem:** 0 CHF übrig am Monatsende trotz Vollzeitjob ("Kleinvieh" frisst Budget auf)
+- **Frustration:** Bank warnt ihn nicht proaktiv vor unnötigen Ausgaben
+- **Ziel:** Ersten Notgroschen von 1.000 CHF ansparen
+- **Hürde:** Datenschutz-Skepsis — warum private Daten einer Web-App anvertrauen?
+
+## 3 grösste Risiken
+
+1. **Churn-Falle** — manueller PDF-Import + Kategorisierung führt zu Nutzungsabbruch nach erstem Aha-Effekt
+2. **Liability & Compliance** — sensible Transaktionsdaten = Hacking-Ziel; ein Datenleck ist existenzbedrohend
+3. **Feature-Lücke der Banken** — UBS, Raiffeisen etc. bauen eigene PFM-Tools; Business Case kann über Nacht wegfallen
 
 ## Lokal starten (Dev)
 
@@ -74,8 +101,8 @@ starten).
 ## Environment Variables
 
 Secrets werden ausschliesslich über die Umgebung übergeben — **niemals** im
-Git-Repository, in `application.properties` oder im Code hardcodiert (siehe CLAUDE.md →
-"Sicherheit: Keine Secrets im Git"):
+Git-Repository, in `application.properties` oder im Code hardcodiert (siehe
+[docs/CONVENTIONS.md](docs/CONVENTIONS.md) → "Sicherheit: Keine Secrets im Git"):
 
 | Variable            | Required | Beschreibung                                                        |
 | ------------------- | -------- | ------------------------------------------------------------------- |

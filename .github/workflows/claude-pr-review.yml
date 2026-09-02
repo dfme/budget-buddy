@@ -5,7 +5,7 @@ name: Claude PR Review
 # `.claude/skills/review-pr/` und ist nach dem Checkout im Workspace verfügbar.
 #
 # Das Review ist eine Ergänzung, kein Ersatz: die Freigabe durch mindestens einen Dev
-# (CLAUDE.md → „Git: Review-Konvention") bleibt unberührt. Ein Action-Lauf ist kein Dev,
+# (docs/CONVENTIONS.md → „Git: Review-Konvention") bleibt unberührt. Ein Action-Lauf ist kein Dev,
 # und das Ruleset „protect main" erzwingt das ohnehin.
 on:
   pull_request:

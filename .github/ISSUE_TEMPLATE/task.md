@@ -52,7 +52,7 @@ Gehört zu der User-Story: <!-- z.B. [US-03](../../docs/requirements/US-03-fixko
 - [ ] Happy Path ist durch einen automatisierten Test abgedeckt — mit dem Framework, das zur
       Aufgabe passt: JUnit (Backend), Vitest/Angular TestBed (Frontend) oder Playwright (E2E).
       <!-- Die E2E-Abdeckung der Must-Have-Stories (US-03/04/05/06: je 1 Happy Path +
-           1 Fehlerpfad, siehe CLAUDE.md "Testing: Frameworks") ist davon unabhängig und
+           1 Fehlerpfad, siehe docs/CONVENTIONS.md "Testing: Frameworks") ist davon unabhängig und
            wird in eigenen E2E-Tasks pro Story erfasst — nicht pro Issue. Dieser Punkt hier
            ist damit auch für eine Frontend-Story ohne Playwright erfüllbar. -->
 - [ ] Alle Acceptance Criteria oben sind abhakbar erfüllt
