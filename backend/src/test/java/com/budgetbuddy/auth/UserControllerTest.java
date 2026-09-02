@@ -393,6 +393,42 @@ class UserControllerTest {
     }
 
     @Test
+    void changePasswordWithNewPasswordOver72BytesReturns400InsteadOf500() throws Exception {
+        // BE-AUTH-10 (#200): 73 ASCII-Bytes reissen die bcrypt-Grenze knapp — der Grenzfall.
+        setPasswordHash("altesPasswort1");
+        String hashBefore = currentPasswordHash();
+        String tooLongPassword = "a".repeat(73);
+
+        mockMvc.perform(put("/api/users/me/password")
+                        .cookie(jwtCookie())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"aktuellesPasswort\": \"altesPasswort1\", "
+                                + "\"neuesPasswort\": \"" + tooLongPassword + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Passwort ist zu lang (maximal 72 Bytes)."))
+                .andExpect(content().string(not(containsString(tooLongPassword))));
+
+        org.assertj.core.api.Assertions.assertThat(currentPasswordHash()).isEqualTo(hashBefore);
+    }
+
+    @Test
+    void changePasswordWithEmojiPasswordOver72BytesReturns400() throws Exception {
+        // 40 Emoji sind nur 40 Codepoints, aber 160 UTF-8-Bytes — belegt die Byte- statt
+        // Zeichen-Zählung (AC aus #200).
+        setPasswordHash("altesPasswort1");
+        String emojiPassword = "😀".repeat(40);
+
+        mockMvc.perform(put("/api/users/me/password")
+                        .cookie(jwtCookie())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"aktuellesPasswort\": \"altesPasswort1\", "
+                                + "\"neuesPasswort\": \"" + emojiPassword + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Passwort ist zu lang (maximal 72 Bytes)."))
+                .andExpect(content().string(not(containsString(emojiPassword))));
+    }
+
+    @Test
     void changePasswordWithBlankCurrentPasswordReturns400WithGermanMessage() throws Exception {
         setPasswordHash("altesPasswort1");
 
