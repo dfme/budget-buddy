@@ -111,12 +111,12 @@ public class PdfImportService {
         List<ParsedTransaction> parsed = parser.parse(pdfBytes);
         Instant parseEnd = clock.instant();
         if (parseEnd.isAfter(deadline)) {
-            log.warn("PDF-Import für User {} nach dem Parsen abgebrochen (Timeout {}s).",
-                    userId, parseTimeout.toSeconds());
+            log.warn("PDF-Import nach dem Parsen abgebrochen (Timeout {}s).",
+                    parseTimeout.toSeconds());
             throw new PdfImportTimeoutException(parseTimeout);
         }
-        log.info("PDF-Import für User {}: {} Transaktion(en) erkannt (Parse {} ms).",
-                userId, parsed.size(), Duration.between(parseStart, parseEnd).toMillis());
+        log.info("PDF-Import: {} Transaktion(en) erkannt (Parse {} ms).",
+                parsed.size(), Duration.between(parseStart, parseEnd).toMillis());
 
         ImportJob job = importJobRepository.save(
                 new ImportJob(userId, pdfSha256, parsed.size(), parseEnd));
@@ -134,8 +134,8 @@ public class PdfImportService {
             // Pool und Queue voll. Statt den Upload-Request zu blockieren oder einen eigenen
             // Fehlerstatus zu erfinden, endet das im regulären Job-Fehlerpfad: Das Frontend
             // pollt ohnehin und zeigt dieselbe Meldung wie bei jedem anderen Job-Fehler.
-            log.error("Import-Job {} für User {} konnte nicht gestartet werden (Executor voll).",
-                    job.getId(), userId, e);
+            log.error("Import-Job {} konnte nicht gestartet werden (Executor voll).",
+                    job.getId(), e);
             job.fail(clock.instant());
             return importJobRepository.save(job);
         }

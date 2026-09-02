@@ -37,6 +37,9 @@ public class AsyncConfig {
         executor.setMaxPoolSize(2);
         executor.setQueueCapacity(50);
         executor.setThreadNamePrefix("pdf-import-");
+        // Ohne den Decorator liefe der Import ohne User-ID im Log — der Pool-Thread kennt den
+        // MDC des Upload-Requests nicht (INFRA-37).
+        executor.setTaskDecorator(new MdcTaskDecorator());
         // Ein laufender Import soll beim Shutdown noch fertig werden — sonst stünde ein Job für
         // immer auf RUNNING und das Frontend pollte ins Leere.
         executor.setWaitForTasksToCompleteOnShutdown(true);
