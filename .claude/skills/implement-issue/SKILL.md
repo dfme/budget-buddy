@@ -242,7 +242,7 @@ Bei Änderungen an der Dokumentation:
 ### 8. SECURITY-REVIEW
 
 Läuft **vor** dem allgemeinen Review, weil ein Sicherheitsbefund die Implementierung ändert und
-nicht nur den PR-Text. Der Grund steht in CLAUDE.md als Risiko #2: die App hält Kontoauszüge, ein
+nicht nur den PR-Text. Der Grund steht in README.md als Risiko #2: die App hält Kontoauszüge, ein
 Datenleck ist existenzbedrohend. Ein Bug in der Safe-to-Spend-Rechnung zeigt eine falsche Zahl; ein
 Bug in der Mandantentrennung zeigt Laras Kontoauszug an Marc.
 

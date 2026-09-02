@@ -287,7 +287,7 @@ Nach dem Entscheid (offen, sofern nicht abgehakt):
       `frontend/src/styles.scss`, Komponenten-/CDK-Frage dort entscheiden.
       Danach FE-UI-03 (Basiskomponenten in `frontend/src/app/shared/`),
       FE-UI-04 (App-Shell), Chart-Integration (ng2-charts)
-- [ ] ADR-11 (UI-Design-System) + CLAUDE.md (Tech-Stack, ADR-Tabelle) nachziehen
+- [ ] ADR-11 (UI-Design-System) + docs/TECH-STACK.md / docs/ARCHITECTURE.md (Tech-Stack, ADR-Tabelle) nachziehen
 
 ### Nutzerseitige Theme-Präferenz — entschieden, jetzt Teil von US-14
 

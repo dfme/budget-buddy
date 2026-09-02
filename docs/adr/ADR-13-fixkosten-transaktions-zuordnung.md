@@ -171,7 +171,7 @@ US-03 entfiele, Fixkosten würden als wiederkehrende Belastungen erkannt.
 
 **Verworfen:** US-03 ist Must-Have und der Einstiegspunkt des Onboardings — er funktioniert *bevor*
 der erste Auszug hochgeladen ist. Ihn zu streichen hiesse, dass ein neuer Nutzer ohne PDF-Import gar
-keinen Safe-to-Spend sieht, und trifft damit direkt Risiko #1 aus CLAUDE.md (Churn beim ersten
+keinen Safe-to-Spend sieht, und trifft damit direkt Risiko #1 aus README.md (Churn beim ersten
 Upload).
 
 ### D) Ganze Kategorien aus den Ausgaben ausnehmen

@@ -1,0 +1,559 @@
+<title>BudgetBuddy Zwischenstand</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --c-bg:#ffffff;
+    --c-bg-subtle:#f6f8f7;
+    --c-surface:#ffffff;
+    --c-line:#e3e8e6;
+    --c-line-strong:#cbd4d1;
+    --c-ink:#101413;
+    --c-ink-2:#5b6462;
+    --c-ink-3:#8b9694;
+    --c-accent:#0f6b5f;
+    --c-accent-hover:#0b544a;
+    --c-accent-soft:#e6f2f0;
+    --c-positive:#0f6b5f;
+    --c-positive-soft:#e6f2f0;
+    --c-negative:#b3261e;
+    --c-negative-soft:#fdecea;
+    --c-warning:#8a6100;
+    --c-warning-soft:#fdf3dd;
+    --c-transport:#2f6f9f;
+    --c-versicherung:#7a5fa3;
+    --c-freizeit:#c2803a;
+    --shadow-card:0 1px 2px rgba(16,20,19,.05);
+    --shadow-elev:0 12px 32px rgba(16,20,19,.10);
+    --font-display:'Archivo', 'IBM Plex Sans', system-ui, sans-serif;
+    --font-body:'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+    --font-mono:'IBM Plex Mono', ui-monospace, 'SF Mono', monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --c-bg:#121917;
+      --c-bg-subtle:#0e1312;
+      --c-surface:#171f1d;
+      --c-line:#26302e;
+      --c-line-strong:#36423f;
+      --c-ink:#e6efec;
+      --c-ink-2:#9db0aa;
+      --c-ink-3:#6f817b;
+      --c-accent:#2dbfa4;
+      --c-accent-hover:#45cbb2;
+      --c-accent-soft:#10302a;
+      --c-positive:#2dbfa4;
+      --c-positive-soft:#10302a;
+      --c-negative:#f2837b;
+      --c-negative-soft:#2e1a19;
+      --c-warning:#e0b64f;
+      --c-warning-soft:#2a2313;
+      --c-transport:#5ba0d4;
+      --c-versicherung:#ab8fd4;
+      --c-freizeit:#e0a45f;
+      --shadow-card:0 1px 2px rgba(0,0,0,.35);
+      --shadow-elev:0 12px 32px rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="dark"]{
+    --c-bg:#121917;
+    --c-bg-subtle:#0e1312;
+    --c-surface:#171f1d;
+    --c-line:#26302e;
+    --c-line-strong:#36423f;
+    --c-ink:#e6efec;
+    --c-ink-2:#9db0aa;
+    --c-ink-3:#6f817b;
+    --c-accent:#2dbfa4;
+    --c-accent-hover:#45cbb2;
+    --c-accent-soft:#10302a;
+    --c-positive:#2dbfa4;
+    --c-positive-soft:#10302a;
+    --c-negative:#f2837b;
+    --c-negative-soft:#2e1a19;
+    --c-warning:#e0b64f;
+    --c-warning-soft:#2a2313;
+    --c-transport:#5ba0d4;
+    --c-versicherung:#ab8fd4;
+    --c-freizeit:#e0a45f;
+    --shadow-card:0 1px 2px rgba(0,0,0,.35);
+    --shadow-elev:0 12px 32px rgba(0,0,0,.4);
+  }
+
+  *,*::before,*::after{ box-sizing:border-box; }
+  html{ -webkit-text-size-adjust:100%; }
+  body{
+    margin:0;
+    background:var(--c-bg-subtle);
+    color:var(--c-ink);
+    font-family:var(--font-body);
+    line-height:1.5;
+    overflow-x:hidden;
+  }
+  h1,h2,h3,p,figure{ margin:0; }
+  ul{ margin:0; padding:0; list-style:none; }
+  :focus-visible{ outline:2px solid var(--c-accent); outline-offset:2px; border-radius:4px; }
+
+  .eyebrow{
+    font-family:var(--font-mono);
+    font-size:.72rem;
+    letter-spacing:.09em;
+    text-transform:uppercase;
+    color:var(--c-accent);
+    font-weight:500;
+  }
+
+  /* ---------- deck shell ---------- */
+  .deck{
+    position:relative;
+    height:100dvh;
+    min-height:560px;
+    width:100%;
+    background:var(--c-bg-subtle);
+  }
+  .progress{
+    position:absolute; top:0; left:0; right:0; height:3px;
+    background:var(--c-line);
+    z-index:20;
+  }
+  .progress-bar{
+    height:100%; background:var(--c-accent);
+    width:calc(100% / 9);
+    transition:width .35s ease;
+  }
+  @media (prefers-reduced-motion: reduce){ .progress-bar{ transition:none; } }
+
+  .slide{
+    position:absolute; inset:0;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    padding:clamp(1.75rem,5vw,4.5rem) clamp(1.75rem,7vw,6rem);
+    opacity:0;
+    visibility:hidden;
+    transform:translateY(6px);
+    transition:opacity .3s ease, transform .3s ease;
+    overflow-y:auto;
+  }
+  .slide.is-active{
+    opacity:1; visibility:visible; transform:translateY(0);
+    z-index:5;
+  }
+  @media (prefers-reduced-motion: reduce){ .slide{ transition:none; } }
+
+  .slide-inner{ max-width:1180px; margin:0 auto; width:100%; }
+
+  h1{ font-family:var(--font-display); font-weight:800; text-wrap:balance; color:var(--c-ink); }
+  h2{ font-family:var(--font-display); font-weight:800; text-wrap:balance; color:var(--c-ink);
+      font-size:clamp(1.6rem,3.4vw,2.5rem); letter-spacing:-.01em; margin-top:.4rem; }
+  h3{ font-family:var(--font-display); font-weight:700; color:var(--c-ink); font-size:1.05rem; }
+  p{ color:var(--c-ink-2); }
+  .lede{ font-size:clamp(1rem,1.7vw,1.2rem); color:var(--c-ink-2); max-width:62ch; margin-top:.9rem; }
+
+  /* ---------- title slide ---------- */
+  .title-slide h1{ font-size:clamp(2.6rem,8vw,5.2rem); line-height:.98; margin-top:.5rem; }
+  .title-slide .tag{
+    display:inline-flex; align-items:center; gap:.5rem;
+    font-family:var(--font-mono); font-size:.78rem; color:var(--c-ink-2);
+    border:1px solid var(--c-line-strong); border-radius:999px;
+    padding:.35rem .8rem; margin-top:1.6rem;
+  }
+  .tag .dot{ width:6px; height:6px; border-radius:50%; background:var(--c-accent); }
+  .title-meta{ margin-top:2.2rem; display:flex; gap:2rem; flex-wrap:wrap; }
+  .title-meta div{ font-family:var(--font-mono); font-size:.85rem; color:var(--c-ink-3); }
+  .title-meta strong{ display:block; color:var(--c-ink); font-family:var(--font-body); font-weight:600; font-size:.95rem; }
+
+  /* ---------- generic components ---------- */
+  .grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; margin-top:1.8rem; }
+  .grid-3{ display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; margin-top:1.8rem; }
+  .grid-4{ display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-top:1.8rem; }
+  @media (max-width:760px){ .grid-2,.grid-3,.grid-4{ grid-template-columns:1fr; } }
+
+  .card{
+    background:var(--c-surface); border:1px solid var(--c-line); border-radius:14px;
+    padding:1.3rem 1.4rem; box-shadow:var(--shadow-card);
+  }
+  .card h3{ margin-bottom:.5rem; }
+  .card p{ font-size:.92rem; }
+  .card .role{ font-family:var(--font-mono); font-size:.72rem; color:var(--c-ink-3); text-transform:uppercase; letter-spacing:.06em; margin-bottom:.3rem; display:block; }
+
+  .stat{
+    background:var(--c-surface); border:1px solid var(--c-line); border-radius:14px;
+    padding:1.1rem 1.3rem; box-shadow:var(--shadow-card);
+  }
+  .stat .n{ font-family:var(--font-mono); font-weight:600; font-size:clamp(1.8rem,3.5vw,2.6rem); color:var(--c-accent); font-variant-numeric:tabular-nums; line-height:1; }
+  .stat .l{ margin-top:.4rem; font-size:.85rem; color:var(--c-ink-2); }
+
+  .pill{
+    display:inline-flex; align-items:center; gap:.4rem;
+    font-family:var(--font-mono); font-size:.72rem; letter-spacing:.03em;
+    padding:.25rem .65rem; border-radius:999px; font-weight:500;
+  }
+  .pill.done{ background:var(--c-positive-soft); color:var(--c-positive); }
+  .pill.wip{ background:var(--c-warning-soft); color:var(--c-warning); }
+  .pill.next{ background:var(--c-accent-soft); color:var(--c-accent); }
+
+  /* ---------- workflow chain ---------- */
+  .chain{ display:flex; align-items:stretch; flex-wrap:wrap; gap:.6rem; margin-top:2rem; }
+  .chain .step{
+    flex:1 1 140px;
+    background:var(--c-surface); border:1px solid var(--c-line); border-radius:12px;
+    padding:.9rem 1rem; box-shadow:var(--shadow-card); position:relative;
+  }
+  .chain .step .k{ font-family:var(--font-mono); font-size:.68rem; color:var(--c-ink-3); }
+  .chain .step .v{ font-weight:600; margin-top:.25rem; font-size:.95rem; }
+  .chain .arrow{
+    display:flex; align-items:center; justify-content:center;
+    color:var(--c-ink-3); font-size:1.1rem; flex:0 0 auto; padding:0 .1rem;
+  }
+  @media (max-width:820px){ .chain{ flex-direction:column; } .chain .arrow{ transform:rotate(90deg); padding:.1rem 0; } }
+
+  /* ---------- architecture diagram ---------- */
+  .arch{ margin-top:2.2rem; display:flex; flex-direction:column; gap:0; }
+  .arch-row{ display:flex; align-items:center; gap:.9rem; flex-wrap:wrap; }
+  .box{
+    background:var(--c-surface); border:1px solid var(--c-line-strong); border-radius:12px;
+    padding:1rem 1.15rem; box-shadow:var(--shadow-card); min-width:180px; flex:1 1 200px;
+  }
+  .box .t{ font-weight:700; font-family:var(--font-display); font-size:1rem; }
+  .box .s{ font-family:var(--font-mono); font-size:.72rem; color:var(--c-ink-3); margin-top:.25rem; }
+  .box.accent{ border-color:var(--c-accent); }
+  .arch-arrow{ color:var(--c-ink-3); font-family:var(--font-mono); font-size:1.3rem; flex:0 0 auto; }
+  .branch{ display:flex; align-items:center; gap:.9rem; margin:.7rem 0 0 calc(180px + .9rem + 1.3rem); flex-wrap:wrap; }
+  .branch-connector{ width:2px; align-self:stretch; background:var(--c-line-strong); margin-left:calc(180px + .45rem); min-height:1.6rem; }
+  @media (max-width:820px){ .arch-row{ flex-direction:column; } .arch-arrow{ transform:rotate(90deg); } .branch,.branch-connector{ margin-left:0; } }
+
+  /* ---------- two-column AI slide ---------- */
+  .split{ display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; margin-top:1.8rem; }
+  @media (max-width:820px){ .split{ grid-template-columns:1fr; } }
+  .split-col{ background:var(--c-surface); border:1px solid var(--c-line); border-radius:16px; padding:1.5rem 1.6rem; box-shadow:var(--shadow-card); }
+  .split-col h3{ font-size:1.15rem; margin-bottom:.2rem; }
+  .split-col .sub{ font-size:.82rem; color:var(--c-ink-3); font-family:var(--font-mono); }
+  .split-col ul{ margin-top:1.1rem; display:flex; flex-direction:column; gap:.85rem; }
+  .split-col li{ font-size:.92rem; color:var(--c-ink-2); padding-left:1.1rem; position:relative; }
+  .split-col li::before{ content:''; position:absolute; left:0; top:.5em; width:5px; height:5px; border-radius:50%; background:var(--c-accent); }
+  .split-col li strong{ color:var(--c-ink); font-weight:600; }
+  .banner{
+    margin-top:1.6rem; text-align:center; font-family:var(--font-mono); font-size:.85rem;
+    color:var(--c-ink-2); border-top:1px solid var(--c-line); padding-top:1.1rem;
+  }
+  .banner strong{ color:var(--c-accent); }
+
+  /* ---------- roadmap ---------- */
+  .road{ margin-top:2rem; display:flex; flex-direction:column; gap:.9rem; }
+  .road-row{ display:flex; align-items:center; gap:1rem; }
+  .road-label{ flex:0 0 168px; font-weight:600; font-size:.92rem; }
+  .road-track{ flex:1; height:34px; background:var(--c-bg-subtle); border:1px solid var(--c-line); border-radius:8px; position:relative; overflow:hidden; }
+  .road-fill{ position:absolute; inset:0; border-radius:8px; display:flex; align-items:center; padding:0 .7rem; font-family:var(--font-mono); font-size:.72rem; color:#fff; white-space:nowrap; }
+  @media (max-width:700px){ .road-row{ flex-direction:column; align-items:flex-start; gap:.4rem; } .road-label{ flex:none; } .road-track{ width:100%; } }
+
+  /* ---------- risks ---------- */
+  .risk-list{ margin-top:1.8rem; display:flex; flex-direction:column; gap:1rem; }
+  .risk{ display:flex; gap:1.1rem; align-items:flex-start; background:var(--c-surface); border:1px solid var(--c-line); border-radius:12px; padding:1rem 1.2rem; box-shadow:var(--shadow-card); }
+  .risk .num{ font-family:var(--font-mono); font-weight:600; color:var(--c-negative); font-size:1.1rem; flex:0 0 auto; }
+  .risk-title{ font-weight:600; }
+  .risk-desc{ font-size:.88rem; margin-top:.15rem; }
+  .learning{
+    margin-top:1.6rem; background:var(--c-accent-soft); border:1px solid var(--c-accent); border-radius:12px;
+    padding:1.1rem 1.3rem;
+  }
+  .learning .k{ font-family:var(--font-mono); font-size:.72rem; color:var(--c-accent); text-transform:uppercase; letter-spacing:.06em; }
+  .learning p{ color:var(--c-ink); margin-top:.4rem; font-size:.92rem; }
+
+  /* ---------- closing ---------- */
+  .close-slide{ align-items:flex-start; }
+  .close-slide h1{ font-size:clamp(2.2rem,6vw,4rem); }
+
+  /* ---------- nav ---------- */
+  .nav{
+    position:absolute; bottom:0; left:0; right:0; z-index:20;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:1rem clamp(1.25rem,4vw,3rem);
+    background:linear-gradient(to top, var(--c-bg-subtle) 40%, transparent);
+    pointer-events:none;
+  }
+  .nav > *{ pointer-events:auto; }
+  .nav-btn{
+    display:flex; align-items:center; justify-content:center;
+    width:38px; height:38px; border-radius:50%;
+    background:var(--c-surface); border:1px solid var(--c-line-strong);
+    color:var(--c-ink); cursor:pointer;
+    box-shadow:var(--shadow-card);
+  }
+  .nav-btn:hover{ border-color:var(--c-accent); color:var(--c-accent); }
+  .nav-btn:disabled{ opacity:.35; cursor:default; }
+  .nav-btn:disabled:hover{ border-color:var(--c-line-strong); color:var(--c-ink); }
+  .dots{ display:flex; gap:.45rem; }
+  .dots button{ width:7px; height:7px; border-radius:50%; background:var(--c-line-strong); border:none; padding:0; cursor:pointer; }
+  .dots button.is-active{ background:var(--c-accent); width:18px; border-radius:4px; transition:width .25s ease; }
+  .counter{ font-family:var(--font-mono); font-size:.78rem; color:var(--c-ink-3); min-width:3.4rem; text-align:center; }
+  .nav-center{ display:flex; align-items:center; gap:1rem; }
+</style>
+
+<div class="deck" id="deck" tabindex="0" aria-label="Präsentation BudgetBuddy Zwischenstand">
+  <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+
+  <!-- 1 -->
+  <section class="slide title-slide is-active">
+    <div class="slide-inner">
+      <div class="eyebrow">CAS Application Development with AI · BFH Biel</div>
+      <h1>BudgetBuddy</h1>
+      <p class="lede">Wöchentlicher Safe-to-Spend-Betrag für Studierende und Berufseinsteiger in der Schweiz — automatisch aus dem Kontoauszug, nicht manuell erfasst.</p>
+      <div class="tag"><span class="dot"></span> Projekt-Zwischenstand</div>
+      <div class="title-meta">
+        <div><strong>Stack</strong>Angular · Spring Boot · PostgreSQL · Claude API</div>
+        <div><strong>Stand</strong>100 Issues geschlossen · 113 PRs gemerged</div>
+        <div><strong>Datum</strong>02.09.2026</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="eyebrow">01 — Projektidee</div>
+      <h2>Kontoauszug lesen ist nicht dasselbe wie wissen, was noch übrig ist</h2>
+      <p class="lede">BudgetBuddy liest PDF-Kontoauszüge ein, kategorisiert Transaktionen automatisch und zeigt, wie viel diese Woche noch sicher ausgegeben werden kann.</p>
+      <div class="grid-2">
+        <div class="card">
+          <span class="role">Persona · Lara, 22</span>
+          <h3>Studentin, Bern</h3>
+          <p>Verliert Mitte Monat den Überblick, ob das Geld noch für Miete und Lebensmittel reicht — bricht bei kompliziertem Onboarding sofort ab.</p>
+          <p style="margin-top:.6rem;color:var(--c-accent);font-weight:600;">Ziel: Safe-to-Spend pro Woche</p>
+        </div>
+        <div class="card">
+          <span class="role">Persona · Marc, 25</span>
+          <h3>Junior-Verkäufer, Zürich</h3>
+          <p>0 CHF übrig am Monatsende trotz Vollzeitjob — skeptisch, private Finanzdaten einer Web-App anzuvertrauen.</p>
+          <p style="margin-top:.6rem;color:var(--c-accent);font-weight:600;">Ziel: 1'000 CHF Notgroschen</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="eyebrow">02 — Architektur</div>
+      <h2>Ein Single-JAR-Monolith, bewusst gegen Overengineering</h2>
+      <div class="arch">
+        <div class="arch-row">
+          <div class="box"><div class="t">Angular SPA</div><div class="s">Signals · Reactive Forms</div></div>
+          <div class="arch-arrow">→</div>
+          <div class="box accent"><div class="t">Spring Boot API</div><div class="s">Java 25 · Single JAR · Render</div></div>
+          <div class="arch-arrow">→</div>
+          <div class="box"><div class="t">PostgreSQL</div><div class="s">Neon, Frankfurt/EU</div></div>
+        </div>
+        <div class="branch-connector"></div>
+        <div class="branch">
+          <div class="box" style="border-style:dashed;"><div class="t">Claude API</div><div class="s">Haiku: Kategorisierung · Sonnet: Monatsbericht</div></div>
+        </div>
+      </div>
+      <div class="grid-3" style="margin-top:2rem;">
+        <div class="card"><h3>Auth</h3><p>JWT HS256, httpOnly Cookie, kein Token im Client-JS.</p></div>
+        <div class="card"><h3>Import</h3><p>Parse synchron, Kategorisierung async — seit ADR-14.</p></div>
+        <div class="card"><h3>Geld</h3><p>Immer <code style="font-family:var(--font-mono)">BigDecimal</code>, nie <code style="font-family:var(--font-mono)">double</code>.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="eyebrow">03 — Wie wir arbeiten</div>
+      <h2>Jede Änderung: Issue → Branch → PR → Review → Merge</h2>
+      <div class="chain">
+        <div class="step"><div class="k">Board</div><div class="v">Issue</div></div>
+        <div class="arrow">→</div>
+        <div class="step"><div class="k">feature/&lt;TASK-ID&gt;</div><div class="v">Branch</div></div>
+        <div class="arrow">→</div>
+        <div class="step"><div class="k">JUnit · Vitest · Playwright</div><div class="v">Code + Tests</div></div>
+        <div class="arrow">→</div>
+        <div class="step"><div class="k">GitHub</div><div class="v">Pull Request</div></div>
+        <div class="arrow">→</div>
+        <div class="step"><div class="k">Claude + Dev</div><div class="v">Review</div></div>
+        <div class="arrow">→</div>
+        <div class="step"><div class="k">nur durch Dev</div><div class="v">Merge</div></div>
+      </div>
+      <div class="grid-3" style="margin-top:1.8rem;">
+        <div class="card"><h3>Kein Commit auf main</h3><p>Jeder Branch geht per PR gegen main — auch für Claude, ausnahmslos.</p></div>
+        <div class="card"><h3>Task-ID-Konvention</h3><p><span style="font-family:var(--font-mono)">INFRA · BE-CAT · FE-STS · E2E</span> — kodiert Bereich, verlinkt Issue ↔ Branch ↔ PR.</p></div>
+        <div class="card"><h3>Sprint = Board-Feld</h3><p>Iteration-Feld ist führend, nicht Milestones — kennt den Sprint per Datum.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="eyebrow">04 — KI in unserer Methodik</div>
+      <h2>KI arbeitet an zwei Stellen — im Prozess und im Produkt</h2>
+      <div class="split">
+        <div class="split-col">
+          <span class="role">Prozess</span>
+          <h3>KI als Mitentwickler im Workflow</h3>
+          <div class="sub">Claude Code Skills</div>
+          <ul>
+            <li><strong>implement-issue</strong> — Issue lesen, Plan zur Freigabe vorlegen, Branch + Code + Tests, lokaler Review, PR öffnen.</li>
+            <li><strong>review-pr</strong> — Diff gegen das Issue prüfen, Tests selbst ausführen, Befunde als blockierend/nicht-blockierend trennen.</li>
+            <li><strong>Automatisches PR-Review</strong> — läuft zusätzlich bei jedem PR-Event via GitHub Action, ersetzt aber nie die Freigabe durch einen Dev.</li>
+            <li><strong>plan-sprint</strong> — Backlog-Hygiene, Velocity und Abhängigkeiten aus dem Board ableiten.</li>
+          </ul>
+        </div>
+        <div class="split-col">
+          <span class="role">Produkt</span>
+          <h3>KI als Feature in der App</h3>
+          <div class="sub">Hybrid-Kategorisierung</div>
+          <ul>
+            <li><strong>Lookup zuerst</strong> — deckt ~70–80% der Transaktionen kostenlos und deterministisch ab.</li>
+            <li><strong>Claude Haiku, gebündelt</strong> — bis zu 20 Transaktionen pro Request, für den Rest.</li>
+            <li><strong>Datenminimierung</strong> — IBAN, Beträge und Namen werden vor jedem Claude-Call maskiert.</li>
+            <li><strong>Resilienz</strong> — Timeout + Fallback „Sonstiges", Circuit Breaker nach 3 Fehlversuchen.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="banner">Mensch bleibt Gatekeeper — <strong>KI schlägt vor, gemerged wird nur von einem Dev.</strong></div>
+    </div>
+  </section>
+
+  <!-- 6 -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="eyebrow">05 — Zwischenstand</div>
+      <h2>Wo wir stehen</h2>
+      <div class="grid-4">
+        <div class="stat"><div class="n">100</div><div class="l">Issues geschlossen</div></div>
+        <div class="stat"><div class="n">113</div><div class="l">Pull Requests gemerged</div></div>
+        <div class="stat"><div class="n">16</div><div class="l">Architecture Decision Records</div></div>
+        <div class="stat"><div class="n">18</div><div class="l">offene Issues — Bugs &amp; Verfeinerungen</div></div>
+      </div>
+      <p class="lede" style="margin-top:1.8rem;">Kernfunktionen aller Must-Have Storys — Fixkosten, PDF-Import, Kategorisierung, Safe-to-Spend — sind produktiv. Offene Punkte sind Edge Cases, Tech-Debt und Verfeinerungen, keine fehlenden Kernfeatures.</p>
+    </div>
+  </section>
+
+  <!-- 7 -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="eyebrow">06 — Nächste Schritte</div>
+      <h2>Zuschnitt für US-08, US-09, US-12 steht — 60 Story Points</h2>
+      <div class="road">
+        <div class="road-row">
+          <div class="road-label">US-12 · Monatswechsel</div>
+          <div class="road-track"><div class="road-fill" style="width:100%;background:var(--c-accent);">10 SP · kein neues Modul</div></div>
+        </div>
+        <div class="road-row">
+          <div class="road-label">Notification-Fundament</div>
+          <div class="road-track"><div class="road-fill" style="width:70%;background:var(--c-ink-3);">7 SP · Basis für US-08 + US-09</div></div>
+        </div>
+        <div class="road-row">
+          <div class="road-label">US-08 · Abos erkennen</div>
+          <div class="road-track"><div class="road-fill" style="width:80%;background:var(--c-transport);">17 SP · Erkennung im Import-Flow</div></div>
+        </div>
+        <div class="road-row">
+          <div class="road-label">US-09 · KI-Monatsbericht</div>
+          <div class="road-track"><div class="road-fill" style="width:100%;background:var(--c-versicherung);">26 SP + Stretch · erster @Scheduled-Job</div></div>
+        </div>
+      </div>
+      <p class="lede" style="margin-top:1.6rem;">Reihenfolge nach Abhängigkeit: US-12 zuerst (kleinster Zuschnitt), dann das gemeinsame Notification-Fundament, danach US-08 vor US-09. Einplanung auf Sprints ist Team-Entscheid, nicht vorweggenommen.</p>
+    </div>
+  </section>
+
+  <!-- 8 -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="eyebrow">07 — Risiken &amp; Learnings</div>
+      <h2>Was uns wachhält</h2>
+      <div class="risk-list">
+        <div class="risk"><div class="num">01</div><div><div class="risk-title">Churn-Falle</div><div class="risk-desc">Manueller PDF-Import + Kategorisierung führt zu Nutzungsabbruch nach dem ersten Aha-Effekt.</div></div></div>
+        <div class="risk"><div class="num">02</div><div><div class="risk-title">Liability &amp; Compliance</div><div class="risk-desc">Sensible Transaktionsdaten sind ein Hacking-Ziel — ein Datenleck ist existenzbedrohend.</div></div></div>
+        <div class="risk"><div class="num">03</div><div><div class="risk-title">Feature-Lücke der Banken</div><div class="risk-desc">UBS, Raiffeisen &amp; Co. bauen eigene PFM-Tools — der Business Case kann über Nacht wegfallen.</div></div></div>
+      </div>
+      <div class="learning">
+        <div class="k">Learning aus #192</div>
+        <p>Der vollständig synchrone Import lief bei ~110 Transaktionen reproduzierbar ins 30-Sekunden-Zeitbudget und verwarf den gesamten Import. Lösung: Parsen bleibt synchron, Kategorisierung läuft als Async-Job mit Fortschritts-Polling (ADR-14) — ein Import geht seither nie mehr verloren.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9 -->
+  <section class="slide close-slide">
+    <div class="slide-inner">
+      <div class="eyebrow">Fragen</div>
+      <h1>Danke.</h1>
+      <p class="lede">BudgetBuddy — CAS Application Development with AI, BFH Biel.</p>
+    </div>
+  </section>
+
+  <div class="nav">
+    <button class="nav-btn" id="prevBtn" aria-label="Vorherige Folie">&#8592;</button>
+    <div class="nav-center">
+      <div class="dots" id="dots"></div>
+      <div class="counter" id="counter">1 / 9</div>
+    </div>
+    <button class="nav-btn" id="nextBtn" aria-label="Nächste Folie">&#8594;</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var total = slides.length;
+  var idx = 0;
+  var dotsEl = document.getElementById('dots');
+  var counterEl = document.getElementById('counter');
+  var progressBar = document.getElementById('progressBar');
+  var prevBtn = document.getElementById('prevBtn');
+  var nextBtn = document.getElementById('nextBtn');
+  var deck = document.getElementById('deck');
+
+  slides.forEach(function(_, i){
+    var b = document.createElement('button');
+    b.setAttribute('aria-label', 'Zu Folie ' + (i+1));
+    b.addEventListener('click', function(){ go(i); });
+    dotsEl.appendChild(b);
+  });
+
+  function render(){
+    slides.forEach(function(s, i){ s.classList.toggle('is-active', i === idx); });
+    Array.prototype.forEach.call(dotsEl.children, function(d, i){ d.classList.toggle('is-active', i === idx); });
+    counterEl.textContent = (idx+1) + ' / ' + total;
+    progressBar.style.width = ((idx+1) / total * 100) + '%';
+    prevBtn.disabled = idx === 0;
+    nextBtn.disabled = idx === total - 1;
+    try { localStorage.setItem('bb-deck-slide', String(idx)); } catch(e){}
+  }
+
+  function go(i){
+    idx = Math.max(0, Math.min(total - 1, i));
+    render();
+  }
+
+  prevBtn.addEventListener('click', function(){ go(idx - 1); });
+  nextBtn.addEventListener('click', function(){ go(idx + 1); });
+
+  window.addEventListener('keydown', function(e){
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown'){ go(idx + 1); e.preventDefault(); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp'){ go(idx - 1); e.preventDefault(); }
+    else if (e.key === 'Home'){ go(0); }
+    else if (e.key === 'End'){ go(total - 1); }
+  });
+
+  var startX = null;
+  deck.addEventListener('touchstart', function(e){ startX = e.touches[0].clientX; }, {passive:true});
+  deck.addEventListener('touchend', function(e){
+    if (startX === null) return;
+    var dx = e.changedTouches[0].clientX - startX;
+    if (Math.abs(dx) > 50){ go(idx + (dx < 0 ? 1 : -1)); }
+    startX = null;
+  }, {passive:true});
+
+  try {
+    var saved = parseInt(localStorage.getItem('bb-deck-slide'), 10);
+    if (!isNaN(saved) && saved >= 0 && saved < total) idx = saved;
+  } catch(e){}
+
+  render();
+  deck.focus();
+})();
+</script>

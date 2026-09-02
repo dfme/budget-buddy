@@ -75,8 +75,8 @@ und bei Neon läuft dieselbe Major-Version — andernfalls wäre der Dialekt-Mis
   *Affinität*: Werte lagen physisch als `REAL` in der Datei und liefen sehr wohl durch
   Binär-Gleitkomma ([#141](https://github.com/dfme/budget-buddy/issues/141)). PostgreSQL speichert
   `numeric(10,2)` exakt und erhält die Skala über den Round-Trip.
-- **Tests laufen gegen dieselbe Engine wie Produktion.** Der Dialekt-Mismatch, vor dem `CLAUDE.md`
-  unter *What NOT to Use* warnte, ist beseitigt statt verschoben.
+- **Tests laufen gegen dieselbe Engine wie Produktion.** Der Dialekt-Mismatch, vor dem
+  `docs/TECH-STACK.md` unter *What NOT to Use* warnte, ist beseitigt statt verschoben.
 - **Echte Parallelität möglich.** Der Single-Writer-Engpass von SQLite entfällt.
 
 ### Negative — was mit SQLite verloren geht
@@ -115,7 +115,7 @@ Dazu kommen:
   Modus weder Zertifikatskette noch Hostname. Dagegen hülfe nur `sslmode=verify-full`, und das ist
   spürbarer Aufwand — pgjdbc zieht dafür `sslrootcert` heran statt des JVM-Truststores, das
   Zertifikat müsste also ins Deployment. Für ein Kursprojekt mit Testdaten ist das Restrisiko
-  akzeptiert; es steht hier, weil Risiko #2 aus `CLAUDE.md` (Datenleck, nDSG) es sonst
+  akzeptiert; es steht hier, weil Risiko #2 aus `README.md` (Datenleck, nDSG) es sonst
   stillschweigend unterschlüge. Vor echten Nutzerdaten ist `verify-full` nachzuholen.
 - **`COLLATE NOCASE` hat keine Entsprechung.** Die case-insensitive Zuordnung in
   `category_lookup` liegt jetzt in der Anwendung: `CategoryLearningService` normalisiert Patterns

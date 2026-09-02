@@ -152,7 +152,7 @@ Freigabe, die nie kommen konnte.
 
 | Punkt | Warum |
 | ----- | ----- |
-| **Die Dev-Freigabe ersetzen** | Ein Action-Lauf ist kein Dev. CLAUDE.md → „Git: Review-Konvention" Punkt 3 verlangt die Freigabe durch mindestens einen Menschen; das automatische Review ist ein zusätzliches Augenpaar, kein Approval. Das Ruleset erzwingt das ohnehin. |
+| **Die Dev-Freigabe ersetzen** | Ein Action-Lauf ist kein Dev. [docs/CONVENTIONS.md](../../docs/CONVENTIONS.md) → „Git: Review-Konvention" Punkt 3 verlangt die Freigabe durch mindestens einen Menschen; das automatische Review ist ein zusätzliches Augenpaar, kein Approval. Das Ruleset erzwingt das ohnehin. |
 | **Den Vorgang übernehmen** (Assignee **und** Board-Karte) | Zwei verschiedene Ursachen, beide am echten Lauf 33019045344 beobachtet. **Assignee:** GitHub lehnt das grundsätzlich ab — *„Assigning agents is not supported with GitHub App installation tokens"*. Das ist eine harte Grenze des Installationstokens und **nicht** durch zusätzliche App-Rechte behebbar. **Board:** Das Projekt `dfme/4` ist über dieses Token nicht auflösbar; die App-Berechtigungen decken Contents, Pull Requests und Issues ab, nicht Projects. Schritt 1c des Skills meldet beides und läuft weiter — seit INFRA-27 ausdrücklich nicht blockierend. Assignee und Karte sind nach einem automatischen Lauf von Hand zu setzen. |
 | **Den eigenen PR reviewen** | Unverändert: GitHub lehnt `REQUEST_CHANGES` am eigenen PR mit `HTTP 422` ab. Die Action läuft als App und nicht als PR-Autor, ist davon also normalerweise nicht betroffen — bei PRs, die die App selbst eröffnet hätte, schon. |
 
@@ -361,13 +361,13 @@ Token aus. Da dieser Schritt nicht blockierend ist, laufen sie trotzdem vollstä
 Karte ist dann von Hand zu setzen.
 
 Ein solcher Token ist ein Secret wie jedes andere: **nie ins Repo**, weder in `.env` noch
-sonstwo — es gilt CLAUDE.md → „Sicherheit: Keine Secrets im Git". Bei versehentlichem Commit
-sofort widerrufen und neu erzeugen.
+sonstwo — es gilt [docs/CONVENTIONS.md](../../docs/CONVENTIONS.md) → „Sicherheit: Keine Secrets im
+Git". Bei versehentlichem Commit sofort widerrufen und neu erzeugen.
 
 ## Harte Grenzen (gelten für alle Skills)
 
-Unabhängig von den Rechten, die ein Token technisch hergibt (siehe CLAUDE.md →
-„Git: Review-Konvention"):
+Unabhängig von den Rechten, die ein Token technisch hergibt (siehe
+[docs/CONVENTIONS.md](../../docs/CONVENTIONS.md) → „Git: Review-Konvention"):
 
 - **Nie auf `main` committen oder pushen** — immer Feature-/Bugfix-Branch plus PR.
 - **Nie approven** — die Freigabe kommt von mindestens einem Dev.

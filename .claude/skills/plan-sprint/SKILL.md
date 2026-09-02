@@ -66,7 +66,7 @@ Relevante Felder: `Status`, `Priority`, `Area`, `Story Points` (Number), `Sprint
 ### 1. SPRINT BESTIMMEN
 
 Das **Iteration-Feld `Sprint` ist führend** — nicht Milestones. Die bestehenden Milestones
-`Sprint 1`–`Sprint 3` sind Historie und werden nicht fortgeführt (siehe CLAUDE.md).
+`Sprint 1`–`Sprint 3` sind Historie und werden nicht fortgeführt (siehe docs/CONVENTIONS.md).
 
 Aktuelle und kommende Iteration auslesen, dem User die erkannte Sprint-Nummer nennen und
 bestätigen lassen, bevor irgendetwas anderes passiert.
@@ -78,7 +78,7 @@ melden oder nachfragen — nur der Priority-Schritt schreibt, und auch der nur i
 
 **2a. Priority aus MoSCoW.** Die Zuordnung Issue → User Story läuft über das `us-*`-Label, nicht
 über die Body-Zeile „Gehört zu der User-Story" (die ist nur in einem Bruchteil der Issues
-gepflegt). MoSCoW steht in der User-Story-Tabelle in CLAUDE.md:
+gepflegt). MoSCoW steht in der User-Story-Tabelle in docs/requirements/README.md:
 
 | MoSCoW | Priority      |
 | ------ | ------------- |

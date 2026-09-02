@@ -441,7 +441,7 @@ Titel `[TASK-ID] Kurzbeschreibung`, neue freie ID im betroffenen Bereich, Label 
 
 ## Harte Grenzen
 
-- **Nie approven.** Die Freigabe kommt von mindestens einem Dev (CLAUDE.md, Review-Konvention).
+- **Nie approven.** Die Freigabe kommt von mindestens einem Dev (docs/CONVENTIONS.md, Review-Konvention).
 - **Nie mergen.** Der Merge auf `main` wird ausschliesslich von einem Dev getriggert.
 - **Nie ungefragt absetzen** — in der interaktiven Sitzung. Schritt 7 ist dort ein verbindliches
   Gate. Im nicht-interaktiven Lauf (`GITHUB_ACTIONS=true`) entfällt es, weil es keinen Adressaten
