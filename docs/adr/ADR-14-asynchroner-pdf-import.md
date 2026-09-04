@@ -157,6 +157,14 @@ angefordert hat.
 - Die Lookup-Trefferquote bleibt der billigste Hebel: Jeder Treffer kostet 0 ms statt ~1.1 s. Die
   Referenzmessung zeigte **0 von 2** Treffern, ADR-6 rechnet mit 70–80 %. Bündelung und
   Trefferquote wirken zusätzlich, nicht alternativ.
-- Bei einem Neustart mitten im Lauf bleibt ein Job auf `RUNNING` stehen, wenn der Pool ihn nicht
+- ~~Bei einem Neustart mitten im Lauf bleibt ein Job auf `RUNNING` stehen, wenn der Pool ihn nicht
   mehr fertigstellen kann. Ein Aufräum-Job beim Start ist bewusst nicht gebaut — bei einer
-  Einzelinstanz mit `waitForTasksToCompleteOnShutdown` ist das Fenster klein.
+  Einzelinstanz mit `waitForTasksToCompleteOnShutdown` ist das Fenster klein.~~
+  **Geschlossen durch BE-PDF-11 ([#197](https://github.com/dfme/budget-buddy/issues/197)):**
+  `StaleImportJobCleaner` setzt solche Jobs beim Start und danach periodisch auf `FAILED`. Die
+  Annahme «das Fenster ist klein» hat zweimal nicht getragen. Erstens ist Renders Grace-Period vor
+  dem `SIGKILL` kürzer als die 60 s, auf die `waitForTasksToCompleteOnShutdown` wartet — und weil
+  jeder Merge auf `main` deployt, trifft das jeden Import, der gerade läuft. Zweitens ist die Grösse
+  des Fensters gar nicht der Punkt: Der Duplikatcheck beim Upload fragt `import_jobs` nach einem
+  *laufenden* Import derselben Datei, eine verwaiste Zeile sperrt den erneuten Upload deshalb
+  dauerhaft mit 409. Ein seltenes Ereignis mit unbegrenzter Wirkung ist kein kleines Fenster.

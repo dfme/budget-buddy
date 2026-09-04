@@ -1,5 +1,7 @@
 package com.budgetbuddy.transaction;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -37,6 +39,26 @@ public interface ImportJobRepository extends JpaRepository<ImportJob, Long> {
      */
     boolean existsByUserIdAndPdfSha256AndStatus(
             Long userId, String pdfSha256, ImportJobStatus status);
+
+    /**
+     * Jobs, die noch auf einem Status stehen, aber älter sind als die Schranke — die Grundlage der
+     * Bereinigung verwaister Läufe (BE-PDF-11, siehe {@link StaleImportJobCleaner}).
+     *
+     * <p><strong>Bewusst ohne User-Einschränkung</strong>, als einzige Methode dieses Repositories.
+     * Das ist keine Lücke in der Mandantentrennung, sondern deren Gegenstück: Diese Query steht auf
+     * keinem Request-Pfad. Aufgerufen wird sie ausschliesslich vom {@link StaleImportJobCleaner},
+     * der beim Start und danach periodisch läuft — dort gibt es keinen authentifizierten User, den
+     * man einsetzen könnte, und die aufzuräumenden Jobs gehören per Definition beliebigen Usern.
+     * Nach aussen dringt nichts: Der Cleaner gibt nur eine Anzahl zurück und loggt nur Job-IDs.
+     *
+     * <p>Wer diese Methode je aus einem Controller oder Service des Request-Pfads aufruft, baut
+     * damit ein IDOR — dann gehört stattdessen eine Variante mit {@code AndUserId} hierher.
+     *
+     * @param status gesuchter Status — in der Bereinigung {@link ImportJobStatus#RUNNING}.
+     * @param createdBefore Schranke; nur ältere Jobs kommen zurück (echt kleiner).
+     * @return die betroffenen Jobs, in unbestimmter Reihenfolge.
+     */
+    List<ImportJob> findByStatusAndCreatedAtBefore(ImportJobStatus status, Instant createdBefore);
 
     /**
      * Löscht alle Import-Jobs eines Users (Kontolöschung, US-02, DB-07).
