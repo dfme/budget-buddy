@@ -36,6 +36,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `BE-CAT-05` | [GET /transactions/summary](BE-CAT-05-transactions-summary.md) | [#20](https://github.com/dfme/budget-buddy/issues/20) | US-05 | Sprint 3 |
 | `BE-CAT-06` | [Transaktionstext vor Claude-Call maskieren (Datenminimierung)](BE-CAT-06-prompt-sanitizer.md) | [#134](https://github.com/dfme/budget-buddy/issues/134) | US-05 | Sprint 5 |
 | `BE-CAT-07` | [AnthropicStartupHealthCheckTest ist ordnungsabhängig und macht einen echten Netzwerk-Call](BE-CAT-07-healthcheck-test-isolation.md) | [#162](https://github.com/dfme/budget-buddy/issues/162) | — | Sprint 5 |
+| `BE-CAT-09` | [Token-Verbrauch und Kosten der Claude-Kategorisierung loggen](BE-CAT-09-token-usage-logging.md) | [#243](https://github.com/dfme/budget-buddy/issues/243) | — | Sprint 6 |
 | `BE-FC-01` | [FixedCost Entity und Repository](BE-FC-01-fixedcost-entity.md) | [#10](https://github.com/dfme/budget-buddy/issues/10) | US-03 | Sprint 4 |
 | `BE-FC-02` | [FixedCostService: CRUD und Normalisierung](BE-FC-02-fixedcost-service.md) | [#11](https://github.com/dfme/budget-buddy/issues/11) | US-03 | Sprint 4 |
 | `BE-FC-03` | [REST-Endpoints für Fixkosten](BE-FC-03-fixed-costs-endpoints.md) | [#12](https://github.com/dfme/budget-buddy/issues/12) | US-03 | Sprint 4 |
