@@ -2,6 +2,7 @@ package com.budgetbuddy.transaction;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.groups.Tuple.tuple;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -349,10 +350,11 @@ class SwissBankStatementParserTest {
     List<ParsedTransaction> transactions = parser.parse(pdf);
 
     assertThat(transactions)
-        .extracting(ParsedTransaction::buchungstext, ParsedTransaction::isIncome)
-        .containsExactly(
-            org.assertj.core.groups.Tuple.tuple("GUTSCHRIFT", true),
-            org.assertj.core.groups.Tuple.tuple("PREIS FÜR", false));
+        .extracting(
+            ParsedTransaction::buchungstext,
+            ParsedTransaction::isIncome,
+            ParsedTransaction::directionUncertain)
+        .containsExactly(tuple("GUTSCHRIFT", true, false), tuple("PREIS FÜR", false, false));
   }
 
   @Test
@@ -407,9 +409,12 @@ class SwissBankStatementParserTest {
   }
 
   @Test
-  void parse_ambiguousPostFinanceBlock_defaultsAllToDebit() {
-    // Delta 0 mit zwei gleichen Beträgen: +50-50 und -50+50 sind beide gültig. Eine willkürliche
-    // Zuweisung wäre potenziell falsch — der Parser muss auf Belastung zurückfallen (und warnen).
+  void parse_ambiguousPostFinanceBlock_defaultsAllToDebitAndMarksThemUncertain() {
+    // AC4 (BE-PDF-10): gemischter Block am selben Tag, zu dessen Delta mehrere Kombinationen
+    // passen. Delta 0 mit zwei gleichen Beträgen: +50-50 und -50+50 sind beide gültig. Eine
+    // willkürliche Zuweisung wäre potenziell falsch — der Parser fällt auf Belastung zurück,
+    // warnt, UND markiert beide Buchungen zur Prüfung durch den Nutzer. Ohne die Markierung wäre
+    // eine darunter versteckte Gutschrift im Betrag doppelt falsch und Safe-to-Spend zu tief.
     byte[] pdf =
         pdfWithLines(
             List.of(
@@ -420,7 +425,200 @@ class SwissBankStatementParserTest {
 
     List<ParsedTransaction> transactions = parser.parse(pdf);
 
-    assertThat(transactions).hasSize(2).allSatisfy(t -> assertThat(t.isIncome()).isFalse());
+    assertThat(transactions)
+        .hasSize(2)
+        .allSatisfy(
+            t -> {
+              assertThat(t.isIncome()).isFalse();
+              assertThat(t.directionUncertain()).isTrue();
+            });
+  }
+
+  @Test
+  void parse_partiallyAmbiguousPostFinanceBlock_keepsTheBookingAllSolutionsAgreeOn() {
+    // BE-PDF-10: Passen mehrere Kombinationen, sind sie sich über einzelne Buchungen oft trotzdem
+    // einig. 100/50/50 bei Delta -100 lösen -100+50-50 und -100-50+50 beide auf: Die 100 ist in
+    // JEDER Lösung eine Belastung und damit eindeutig bestimmt; offen sind nur die beiden 50.
+    // Der frühere Code verwarf den ganzen Block und hätte alle drei markiert.
+    byte[] pdf =
+        pdfWithLines(
+            List.of(
+                "PostFinance AG",
+                "01.09.19 Kontostand 1'000.00",
+                "05.09.19 BUCHUNG A 100.00 05.09.19",
+                "BUCHUNG B 50.00 05.09.19",
+                "BUCHUNG C 50.00 05.09.19 900.00"));
+
+    List<ParsedTransaction> transactions = parser.parse(pdf);
+
+    assertThat(transactions)
+        .extracting(
+            ParsedTransaction::buchungstext,
+            ParsedTransaction::isIncome,
+            ParsedTransaction::directionUncertain)
+        .containsExactly(
+            tuple("BUCHUNG A", false, false),
+            tuple("BUCHUNG B", false, true),
+            tuple("BUCHUNG C", false, true));
+  }
+
+  @Test
+  void parse_unresolvablePostFinanceDelta_marksEveryBookingOfTheBlockUncertain() {
+    // Keine Kombination trifft das Delta: ±50±30 liefert 80, 20, -20 oder -80, nie 0. Der Block
+    // ist damit nicht auflösbar — anderer Weg in denselben Fallback, gleiche Markierung.
+    byte[] pdf =
+        pdfWithLines(
+            List.of(
+                "PostFinance AG",
+                "01.09.19 Kontostand 100.00",
+                "05.09.19 BUCHUNG A 50.00 05.09.19",
+                "BUCHUNG B 30.00 05.09.19 100.00"));
+
+    List<ParsedTransaction> transactions = parser.parse(pdf);
+
+    assertThat(transactions)
+        .hasSize(2)
+        .allSatisfy(t -> assertThat(t.directionUncertain()).isTrue());
+  }
+
+  @Test
+  void parse_oversizedPostFinanceBlock_marksEveryBookingUncertainInsteadOfTrying() {
+    // Über 16 Buchungen im Block wird die Kombinatorik gar nicht erst versucht (2^n). Auch dieser
+    // Weg endet bei Belastung — der Nutzer erfährt jetzt davon.
+    List<String> lines = new java.util.ArrayList<>();
+    lines.add("PostFinance AG");
+    lines.add("01.09.19 Kontostand 1'000.00");
+    lines.add("05.09.19 BUCHUNG 01 10.00 05.09.19");
+    for (int i = 2; i <= 16; i++) {
+      lines.add(String.format("BUCHUNG %02d 10.00 05.09.19", i));
+    }
+    lines.add("BUCHUNG 17 10.00 05.09.19 830.00");
+
+    List<ParsedTransaction> transactions = parser.parse(pdfWithLines(lines));
+
+    assertThat(transactions)
+        .hasSize(17)
+        .allSatisfy(t -> assertThat(t.directionUncertain()).isTrue());
+  }
+
+  @Test
+  void parse_postFinanceBookingsBeforeFirstBalance_areMarkedUncertain() {
+    // Buchungen vor der ersten Kontostand-Zeile: Der Saldo am Ende des Blocks ist bekannt, der
+    // davor nicht — ohne beide Enden gibt es kein Delta. Dieser Zweig kehrte vor BE-PDF-10 stumm
+    // zurück und war der einzige Fallback ganz ohne Spur.
+    byte[] pdf =
+        pdfWithLines(
+            List.of("PostFinance AG", "05.09.19 BUCHUNG OHNE ANKER 50.00 05.09.19 950.00"));
+
+    List<ParsedTransaction> transactions = parser.parse(pdf);
+
+    assertThat(transactions)
+        .singleElement()
+        .satisfies(
+            t -> {
+              assertThat(t.isIncome()).isFalse();
+              assertThat(t.directionUncertain()).isTrue();
+            });
+  }
+
+  @Test
+  void parse_postFinanceBookingsWithoutClosingBalance_areMarkedUncertain() {
+    // Der letzte Block bricht am Ende des Auszugs ab, bevor eine Saldo-Zeile ihn schliesst. Die
+    // Buchung davor hat ihren Saldo und bleibt eindeutig — nur die abgeschnittene wird markiert.
+    byte[] pdf =
+        pdfWithLines(
+            List.of(
+                "PostFinance AG",
+                "01.09.19 Kontostand 100.00",
+                "05.09.19 MIT SALDO 50.00 05.09.19 50.00",
+                "06.09.19 OHNE SALDO 30.00 06.09.19"));
+
+    List<ParsedTransaction> transactions = parser.parse(pdf);
+
+    assertThat(transactions)
+        .extracting(ParsedTransaction::buchungstext, ParsedTransaction::directionUncertain)
+        .containsExactly(tuple("MIT SALDO", false), tuple("OHNE SALDO", true));
+  }
+
+  @Test
+  void parse_statementWithoutSaldovortrag_marksOnlyTheFirstBookingUncertain() {
+    // Raiffeisen/generisches Layout ohne Saldovortrag-Zeile: Der ersten Buchung fehlt der
+    // Vorgänger-Saldo als Anker. Ab der zweiten ist der Saldo der Vorzeile der Anker — sie ist
+    // wieder eindeutig und darf nicht mitmarkiert werden.
+    byte[] pdf =
+        pdfWithLines(
+            List.of(
+                "01.03.2024 01.03.2024 MIGROS MMM BERN 45.60 954.40",
+                "05.03.2024 05.03.2024 SWISSCOM AG RECHNUNG 89.00 865.40"));
+
+    List<ParsedTransaction> transactions = parser.parse(pdf);
+
+    assertThat(transactions)
+        .extracting(ParsedTransaction::buchungstext, ParsedTransaction::directionUncertain)
+        .containsExactly(tuple("MIGROS MMM BERN", true), tuple("SWISSCOM AG RECHNUNG", false));
+  }
+
+  @Test
+  void parse_ubsStatementWithoutAnfangssaldo_marksOnlyTheOldestBookingUncertain() {
+    // UBS ist absteigend sortiert, gerechnet wird von unten. Ohne Anfangssaldo-Zeile fehlt der
+    // ältesten (untersten) Buchung der Vorgänger-Saldo; alle darüber haben ihn.
+    byte[] pdf =
+        pdfWithLines(
+            List.of(
+                "UBS Switzerland AG",
+                "Kontobewegungen",
+                "05.03.2024 NEUERE BUCHUNG 40.00 05.03.2024 860.00",
+                "01.03.2024 AELTESTE BUCHUNG 100.00 01.03.2024 900.00"));
+
+    List<ParsedTransaction> transactions = parser.parse(pdf);
+
+    assertThat(transactions)
+        .extracting(ParsedTransaction::buchungstext, ParsedTransaction::directionUncertain)
+        .containsExactly(tuple("NEUERE BUCHUNG", false), tuple("AELTESTE BUCHUNG", true));
+  }
+
+  @Test
+  void parse_zeroAmountBookingInAmbiguousBlock_isNeverMarkedUncertain() {
+    // Eine 0.00-Zeile hat keine bestimmbare Richtung, aber ihr Vorzeichen ist folgenlos: Sie
+    // verschiebt weder Saldo noch Safe-to-Spend. Sie zu markieren erzeugte eine Rückfrage an den
+    // Nutzer, deren Beantwortung nichts ändert — die beiden 50 daneben bleiben unsicher.
+    byte[] pdf =
+        pdfWithLines(
+            List.of(
+                "PostFinance AG",
+                "01.09.19 Kontostand 100.00",
+                "05.09.19 BUCHUNG A 50.00 05.09.19",
+                "BUCHUNG B 50.00 05.09.19",
+                "PREIS FÜR 0.00 05.09.19 100.00"));
+
+    List<ParsedTransaction> transactions = parser.parse(pdf);
+
+    assertThat(transactions)
+        .extracting(ParsedTransaction::buchungstext, ParsedTransaction::directionUncertain)
+        .containsExactly(
+            tuple("BUCHUNG A", true), tuple("BUCHUNG B", true), tuple("PREIS FÜR", false));
+  }
+
+  @Test
+  void parse_resolvedPostFinanceBlock_leavesNothingMarked() {
+    // Gegenprobe zu allen Markierungs-Tests: Ein eindeutig auflösbarer gemischter Block darf
+    // keine einzige Buchung zur Prüfung stellen, sonst wäre die Prüfliste wertlos.
+    byte[] pdf =
+        pdfWithLines(
+            List.of(
+                "PostFinance AG",
+                "01.09.19 Kontostand 100.00",
+                "05.09.19 GUTSCHRIFT 200.00 05.09.19",
+                "BELASTUNG 50.00 05.09.19 250.00"));
+
+    List<ParsedTransaction> transactions = parser.parse(pdf);
+
+    assertThat(transactions)
+        .extracting(
+            ParsedTransaction::buchungstext,
+            ParsedTransaction::isIncome,
+            ParsedTransaction::directionUncertain)
+        .containsExactly(tuple("GUTSCHRIFT", true, false), tuple("BELASTUNG", false, false));
   }
 
   @Test

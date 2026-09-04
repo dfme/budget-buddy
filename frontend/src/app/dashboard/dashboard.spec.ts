@@ -67,7 +67,35 @@ describe('Dashboard', () => {
     httpMock = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => httpMock.verify());
+  afterEach(() => {
+    // BE-PDF-10: Beim Aufbau wird zusätzlich die Zahl der ungeprüften Buchungsrichtungen geladen.
+    // Die Fälle unten befassen sich nicht damit und bekommen sie hier zentral mit einer leeren
+    // Liste beantwortet; wer den Hinweis selbst prüft, holt den Request vorher ab.
+    httpMock
+      .match((req) => req.url === '/api/transactions/uncertain')
+      .filter((req) => !req.cancelled)
+      .forEach((req) => req.flush([]));
+    httpMock.verify();
+  });
+
+  /** URL-Matcher für die Prüfliste der unsicheren Buchungsrichtungen (BE-PDF-10). */
+  function expectUncertainRequest() {
+    return httpMock.expectOne((req) => req.url === '/api/transactions/uncertain');
+  }
+
+  /** Eine unsicher markierte Buchung — nur die Felder, die der Zähler im Dashboard braucht. */
+  function uncertainTransaction(id: number) {
+    return {
+      id,
+      buchungsdatum: '2026-07-03',
+      buchungstext: 'GIRO POST',
+      buchungsdetails: null,
+      betrag: 120,
+      income: false,
+      directionUncertain: true,
+      category: 'Sonstiges',
+    };
+  }
 
   it('shows a loading state while the request is in flight', () => {
     expectSafeToSpendRequest(httpMock);
@@ -309,5 +337,60 @@ describe('Dashboard', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.safe-to-spend__last-week')).toBeNull();
+  });
+
+  it('warns about unchecked booking directions and says which way the number can be wrong', () => {
+    // BE-PDF-10, AC 2: Der Hinweis steht dort, wo der Schaden eintritt. Er nennt ausdrücklich die
+    // Richtung des Fehlers — «zu tief» —, weil erst das dem Nutzer sagt, was er damit anfangen
+    // soll.
+    expectSafeToSpendRequest(httpMock).flush(NORMAL);
+    expectUncertainRequest().flush([uncertainTransaction(1), uncertainTransaction(2)]);
+    fixture.detectChanges();
+
+    const banner = fixture.nativeElement.querySelector('.uncertain-banner');
+    expect(banner).not.toBeNull();
+    expect(banner.textContent).toContain('2 Buchungen');
+    expect(banner.textContent).toContain('zu tief');
+  });
+
+  it('uses the singular for a single unchecked booking', () => {
+    expectSafeToSpendRequest(httpMock).flush(NORMAL);
+    expectUncertainRequest().flush([uncertainTransaction(1)]);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.uncertain-banner').textContent).toContain(
+      '1 Buchung ',
+    );
+  });
+
+  it('stays quiet when every booking direction is settled', () => {
+    // Der Normalfall. Ein Banner, das immer da steht, wird nicht gelesen.
+    expectSafeToSpendRequest(httpMock).flush(NORMAL);
+    expectUncertainRequest().flush([]);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.uncertain-banner')).toBeNull();
+  });
+
+  it('shows both banners when the budget is overdrawn and directions are unchecked', () => {
+    // Gerade dann ist der Hinweis wichtig: Womöglich ist das Budget gar nicht überzogen, sondern
+    // eine Gutschrift steht auf der falschen Seite.
+    expectSafeToSpendRequest(httpMock).flush(NEGATIVE);
+    expectUncertainRequest().flush([uncertainTransaction(1)]);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.negative-banner')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.uncertain-banner')).not.toBeNull();
+  });
+
+  it('keeps the amount visible when the uncertainty count cannot be loaded', () => {
+    // Ein ausgefallener Zusatzhinweis darf die Zahl daneben nicht verdrängen — und bekommt auch
+    // keine eigene rote Meldung.
+    expectSafeToSpendRequest(httpMock).flush(NORMAL);
+    expectUncertainRequest().error(new ProgressEvent('error'));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.uncertain-banner')).toBeNull();
+    expect(fixture.nativeElement.textContent as string).toContain('500.00');
   });
 });

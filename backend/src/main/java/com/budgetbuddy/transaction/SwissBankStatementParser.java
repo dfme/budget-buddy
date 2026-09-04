@@ -47,6 +47,14 @@ import org.springframework.stereotype.Component;
  * ParsedTransaction#details()} — bei Überweisungen steht dort der Empfänger, den die
  * Kategorisierung braucht (siehe {@link #appendDetail}).
  *
+ * <p><strong>Geratene Richtungen sind gekennzeichnet (BE-PDF-10).</strong> Wo die Richtung aus dem
+ * Saldo abgeleitet wird, gelingt das nicht immer: ein Auszug ohne Anfangssaldo, ein Block ohne
+ * abschliessende Saldo-Zeile, ein Saldo-Delta, zu dem mehrere Vorzeichenkombinationen passen. In
+ * all diesen Fällen wird die Buchung konservativ als Belastung übernommen — und zusätzlich über
+ * {@link ParsedTransaction#directionUncertain()} als ungeprüft markiert, damit die Oberfläche
+ * nachfragen kann statt still eine womöglich gedrehte Zahl anzuzeigen. Viseca ist als einziges
+ * Layout nie betroffen: dort markiert ein nachgestelltes {@code -} die Gutschrift explizit.
+ *
  * <p>Alle Beträge werden als {@link BigDecimal} verarbeitet (ADR-9). Diese Klasse ist zustandslos
  * und threadsicher.
  */
@@ -54,6 +62,13 @@ import org.springframework.stereotype.Component;
 public class SwissBankStatementParser {
 
   private static final Logger log = LoggerFactory.getLogger(SwissBankStatementParser.class);
+
+  /**
+   * Grösster PostFinance-Saldo-Block, für den {@link #assignDirections} die Vorzeichenkombinationen
+   * noch durchprobiert. Darüber wächst der Aufwand mit 2^n aus dem Rahmen; die Buchungen des Blocks
+   * werden dann als Belastung übernommen und zur Prüfung markiert (BE-PDF-10).
+   */
+  private static final int MAX_COMBINATORIC_BLOCK = 16;
 
   private static final DateTimeFormatter DATE_4 = DateTimeFormatter.ofPattern("dd.MM.yyyy");
 
@@ -436,11 +451,15 @@ public class SwissBankStatementParser {
         Matcher row = GENERIC_ROW.matcher(line);
         if (row.matches()) {
           BigDecimal saldo = parseAmount(row.group(4));
-          if (previousSaldo == null && rows.isEmpty() && !warnedMissingSaldovortrag) {
+          // Ohne Vorgänger-Saldo fehlt der Anker: Die Richtung dieser Zeile ist nicht aus dem
+          // Delta ableitbar, sondern nur der Default (BE-PDF-10). Betrifft ausschliesslich die
+          // erste Buchung — ab der zweiten ist der Saldo der vorigen Zeile der Anker.
+          boolean directionUncertain = previousSaldo == null;
+          if (directionUncertain && rows.isEmpty() && !warnedMissingSaldovortrag) {
             warnedMissingSaldovortrag = true;
             log.warn(
                 "Kontoauszug ohne Saldovortrag-Zeile: Richtung der ersten Buchung kann nicht"
-                    + " verifiziert werden — als Belastung übernommen");
+                    + " verifiziert werden — als Belastung übernommen und zur Prüfung markiert");
           }
           boolean isIncome = previousSaldo != null && saldo.compareTo(previousSaldo) > 0;
           previousSaldo = saldo;
@@ -450,6 +469,9 @@ public class SwissBankStatementParser {
                   row.group(2).strip(),
                   parseAmount(row.group(3)).abs(),
                   isIncome);
+          if (directionUncertain) {
+            markDirectionUncertain(List.of(current));
+          }
           rows.add(current);
           continue;
         }
@@ -568,30 +590,61 @@ public class SwissBankStatementParser {
       }
     }
     // Buchungen ohne abschliessenden Saldo: als Belastung übernehmen (Default isIncome=false).
+    // Der Block bricht am Ende des Auszugs ab, bevor eine Saldo-Zeile ihn schliesst — es gibt also
+    // kein Delta, gegen das sich die Richtung prüfen liesse. Vor BE-PDF-10 lief das ohne jede
+    // Spur durch, obwohl es dieselbe geratene Richtung ist wie in den übrigen Fällen.
+    if (!pending.isEmpty()) {
+      int marked = markDirectionUncertain(pending);
+      if (marked > 0) {
+        log.warn(
+            "PostFinance: {} Buchung(en) ohne abschliessende Saldo-Zeile — Richtung nicht"
+                + " bestimmbar, als Belastung übernommen und zur Prüfung markiert",
+            marked);
+      }
+    }
     result.addAll(pending);
     return toResult(result);
   }
 
   /**
    * Bestimmt die Richtung eines PostFinance-Buchungsblocks aus dem Saldo-Delta. Für gemischte Blöcke
-   * (Gutschrift + Belastung am selben Tag) wird die Vorzeichenkombination gesucht, deren Summe dem
-   * Delta entspricht. Zugewiesen wird nur eine <em>eindeutige</em> Lösung: ist keine oder mehr als
-   * eine Kombination möglich, bleiben alle Buchungen Belastungen und es wird gewarnt — eine
-   * willkürlich gewählte Kombination könnte einzelne Richtungen falsch setzen, obwohl die Summe
-   * stimmt.
+   * (Gutschrift + Belastung am selben Tag) werden die Vorzeichenkombinationen gesucht, deren Summe
+   * dem Delta entspricht.
    *
-   * <p>Buchungen über {@code 0.00} nehmen an der Suche nicht teil. Sie verschieben den Saldo
-   * nicht und haben damit keine bestimmbare Richtung — {@code +0.00} und {@code -0.00} lösen
-   * beide auf, was jeden Block mit einer solchen Zeile als „mehrdeutig" abstempeln würde. Auf
-   * echten PostFinance-Auszügen ist das kein Randfall: Eine kostenlose Gebührenzeile
-   * ({@code PREIS FÜR … 0.00}) steht dort am Monatsende. Sie bleiben Belastung (Default) und
-   * die Warnung ist wieder den echten Fällen vorbehalten.
+   * <p><strong>Die Auswertung ist pro Buchung, nicht pro Block (BE-PDF-10).</strong> Bis dahin galt:
+   * genau eine passende Kombination → zuweisen, sonst den ganzen Block als Belastung übernehmen.
+   * Das verwarf mehr, als es musste. Passen mehrere Kombinationen, sind sie sich über einzelne
+   * Buchungen oft trotzdem einig: Bei {@code 100/50/50} und Delta {@code −100} lösen
+   * {@code −100+50−50} und {@code −100−50+50} beide auf — die {@code 100} ist in <em>jeder</em>
+   * Lösung eine Belastung und damit eindeutig bestimmt; offen sind nur die beiden {@code 50}.
+   *
+   * <p>Zugewiesen wird deshalb jede Buchung, deren Vorzeichen in allen Lösungen gleich ist. Nur die
+   * übrigen bleiben Belastung (konservativer Default) <em>und</em> werden über
+   * {@link MutableRow#directionUncertain} zur Prüfung markiert. Geraten wird weiterhin nichts —
+   * eine willkürlich gewählte Kombination könnte einzelne Richtungen falsch setzen, obwohl die
+   * Summe stimmt, und ein gedrehtes Vorzeichen ist doppelt falsch.
+   *
+   * <p>Die Ermittlung läuft über zwei Bitmasken statt über eine Liste von Lösungen: das OR über
+   * alle Lösungsmasken sagt, welche Buchungen in <em>mindestens einer</em> Lösung Belastung sind,
+   * das AND, welche es in <em>allen</em> sind. Wo sich beide unterscheiden, sind die Lösungen
+   * uneins. Das kostet O(1) Speicher statt bis zu 2^16 gemerkter Masken.
+   *
+   * <p>Dieselbe Markierung tragen die drei Fälle, in denen gar nicht erst gesucht werden kann:
+   * kein vorangehender Kontostand (Buchungen vor der ersten {@code Kontostand}-Zeile), mehr als 16
+   * Buchungen im Block, oder keine passende Kombination.
+   *
+   * <p>Buchungen über {@code 0.00} nehmen an der Suche nicht teil und werden auch nicht markiert.
+   * Sie verschieben den Saldo nicht und haben damit keine bestimmbare Richtung — {@code +0.00} und
+   * {@code -0.00} lösen beide auf, was jeden Block mit einer solchen Zeile als „mehrdeutig"
+   * abstempeln würde. Auf echten PostFinance-Auszügen ist das kein Randfall: Eine kostenlose
+   * Gebührenzeile ({@code PREIS FÜR … 0.00}) steht dort am Monatsende. Sie bleiben Belastung
+   * (Default), und weder Warnung noch Prüfliste füllen sich mit Zeilen, deren Vorzeichen für
+   * Safe-to-Spend folgenlos ist.
    */
   private static void assignDirections(List<MutableRow> block, BigDecimal before, BigDecimal after) {
-    if (before == null || block.isEmpty()) {
+    if (block.isEmpty()) {
       return;
     }
-    BigDecimal delta = after.subtract(before);
     List<MutableRow> resolvable = new ArrayList<>(block.size());
     for (MutableRow row : block) {
       if (row.betrag.signum() != 0) {
@@ -601,15 +654,31 @@ public class SwissBankStatementParser {
     if (resolvable.isEmpty()) {
       return;
     }
-    int k = resolvable.size();
-    if (k > 16) {
+    if (before == null) {
+      // Buchungen vor der ersten Kontostand-Zeile: Der Saldo am Ende des Blocks ist bekannt, der
+      // davor nicht — ohne beide Enden gibt es kein Delta. Vor BE-PDF-10 kehrte dieser Zweig
+      // stumm zurück und war der einzige Fallback ohne jede Spur.
       log.warn(
-          "PostFinance: {} Buchungen im Saldo-Block — Richtungen nicht auflösbar, alle als"
-              + " Belastung übernommen",
-          k);
+          "PostFinance: Buchungsblock ohne vorangehenden Kontostand — Richtung von {} Buchung(en)"
+              + " nicht bestimmbar, als Belastung übernommen und zur Prüfung markiert",
+          markDirectionUncertain(resolvable));
       return;
     }
-    int solution = -1;
+    BigDecimal delta = after.subtract(before);
+    int k = resolvable.size();
+    if (k > MAX_COMBINATORIC_BLOCK) {
+      log.warn(
+          "PostFinance: {} Buchungen im Saldo-Block — Richtungen nicht auflösbar, alle als"
+              + " Belastung übernommen und zur Prüfung markiert",
+          markDirectionUncertain(resolvable));
+      return;
+    }
+
+    // OR bzw. AND über die Masken aller passenden Kombinationen. Ein gesetztes Bit heisst
+    // Belastung; solutionCount unterscheidet „keine Lösung" von „genau eine".
+    int solutionCount = 0;
+    int debitInAnySolution = 0;
+    int debitInEverySolution = -1;
     for (int mask = 0; mask < (1 << k); mask++) {
       BigDecimal sum = BigDecimal.ZERO.setScale(2);
       for (int i = 0; i < k; i++) {
@@ -617,28 +686,67 @@ public class SwissBankStatementParser {
         sum = sum.add((mask >> i & 1) == 1 ? b.negate() : b);
       }
       if (sum.compareTo(delta) == 0) {
-        if (solution >= 0) {
-          // Kein Delta-Betrag im Log (BE-PDF-06, Datenminimierung): Beträge sind Zahlungsdaten.
-          log.warn(
-              "PostFinance: Saldo-Delta mehrdeutig für {} Buchung(en) — alle als Belastung"
-                  + " übernommen",
-              k);
-          return;
-        }
-        solution = mask;
+        solutionCount++;
+        debitInAnySolution |= mask;
+        debitInEverySolution &= mask;
       }
     }
-    if (solution < 0) {
+
+    if (solutionCount == 0) {
       // Kein Delta-Betrag im Log (BE-PDF-06, Datenminimierung): Beträge sind Zahlungsdaten.
       log.warn(
-          "PostFinance: Saldo-Delta nicht auflösbar für {} Buchung(en) — alle als Belastung"
-              + " übernommen",
-          k);
+          "PostFinance: Saldo-Delta nicht auflösbar für {} Buchung(en) — als Belastung übernommen"
+              + " und zur Prüfung markiert",
+          markDirectionUncertain(resolvable));
       return;
     }
+
+    int uncertain = 0;
     for (int i = 0; i < k; i++) {
-      resolvable.get(i).isIncome = (solution >> i & 1) == 0;
+      boolean debitAlways = (debitInEverySolution >> i & 1) == 1;
+      boolean debitSometimes = (debitInAnySolution >> i & 1) == 1;
+      MutableRow row = resolvable.get(i);
+      if (debitAlways == debitSometimes) {
+        // Alle Lösungen sind sich über diese Buchung einig — das ist ein Befund, keine Annahme.
+        row.isIncome = !debitAlways;
+      } else {
+        row.isIncome = false;
+        row.directionUncertain = true;
+        uncertain++;
+      }
     }
+    if (uncertain > 0) {
+      // Kein Delta-Betrag im Log (BE-PDF-06, Datenminimierung): Beträge sind Zahlungsdaten.
+      log.warn(
+          "PostFinance: Saldo-Delta mehrdeutig — Richtung von {} der {} Buchung(en) im Block offen,"
+              + " als Belastung übernommen und zur Prüfung markiert",
+          uncertain,
+          k);
+    }
+  }
+
+  /**
+   * Markiert Buchungen, deren Richtung nicht bestimmt werden konnte, zur Prüfung durch den Nutzer
+   * (BE-PDF-10) und liefert deren Anzahl für die Log-Zeile des Aufrufers.
+   *
+   * <p>Buchungen über {@code 0.00} bleiben aussen vor — die einzige Stelle, an der diese Regel
+   * steht. Ihr Vorzeichen ist unbestimmbar und zugleich folgenlos: Sie verschieben weder Saldo noch
+   * Safe-to-Spend. Sie zu markieren erzeugte Rückfragen an den Nutzer, deren Beantwortung nichts
+   * ändert.
+   *
+   * @return Anzahl tatsächlich markierter Buchungen; {@code 0}, wenn der Block nur Nullbeträge
+   *     enthielt.
+   */
+  private static int markDirectionUncertain(List<MutableRow> rows) {
+    int marked = 0;
+    for (MutableRow row : rows) {
+      if (row.betrag.signum() == 0) {
+        continue;
+      }
+      row.directionUncertain = true;
+      marked++;
+    }
+    return marked;
   }
 
   private static LocalDate lastDate(List<MutableRow> pending, List<MutableRow> result) {
@@ -690,7 +798,7 @@ public class SwissBankStatementParser {
     if (anfangssaldo == null && !rows.isEmpty()) {
       log.warn(
           "UBS-Auszug ohne Anfangssaldo-Zeile: Richtung der ältesten Buchung kann nicht"
-              + " verifiziert werden — als Belastung übernommen");
+              + " verifiziert werden — als Belastung übernommen und zur Prüfung markiert");
     }
     // UBS ist absteigend sortiert: von der ältesten Buchung (unten) aufwärts rechnen.
     BigDecimal previousSaldo = anfangssaldo;
@@ -698,6 +806,11 @@ public class SwissBankStatementParser {
       MutableRow r = rows.get(i);
       if (previousSaldo != null) {
         r.isIncome = r.saldo.compareTo(previousSaldo) > 0;
+      } else {
+        // Nur die älteste Buchung, und nur ohne Anfangssaldo-Zeile: Ihr fehlt der Vorgänger-Saldo,
+        // gegen den sich das Delta bilden liesse (BE-PDF-10). Ab der zweitältesten ist der Saldo
+        // der Vorgängerzeile der Anker.
+        markDirectionUncertain(List.of(r));
       }
       previousSaldo = r.saldo;
     }
@@ -767,6 +880,13 @@ public class SwissBankStatementParser {
     private final List<String> details = new ArrayList<>();
     private final BigDecimal betrag;
     private boolean isIncome;
+
+    /**
+     * {@code true}, sobald {@link #isIncome} nur noch der konservative Default ist und keine aus
+     * dem Saldo abgeleitete Aussage (BE-PDF-10). Gesetzt von {@link #markDirectionUncertain}.
+     */
+    private boolean directionUncertain;
+
     private BigDecimal saldo;
 
     MutableRow(LocalDate buchungsdatum, String buchungstext, BigDecimal betrag, boolean isIncome) {
@@ -777,7 +897,8 @@ public class SwissBankStatementParser {
     }
 
     ParsedTransaction toParsedTransaction() {
-      return new ParsedTransaction(buchungsdatum, buchungstext, details, betrag, isIncome);
+      return new ParsedTransaction(
+          buchungsdatum, buchungstext, details, betrag, isIncome, directionUncertain);
     }
   }
 }

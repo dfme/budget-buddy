@@ -12,6 +12,23 @@
       </app-notice>
     }
 
+    <!--
+      Hinweis auf ungeprüfte Buchungsrichtungen (BE-PDF-10, US-04).
+
+      Steht über der Zahl, nicht darunter: Er ist eine Einschränkung ihrer Gültigkeit, und wer
+      nur den Betrag liest, soll ihn nicht bereits übersehen haben. `warning` und nicht `error` —
+      es ist kein Fehler, sondern eine offene Frage, und `error` meldete sich als `role="alert"`
+      assertiv, was für einen bleibenden Zustand die falsche Dringlichkeit hätte.
+
+      Bewusst ausserhalb von `d.negative`: Beide Banner können zugleich zutreffen, und gerade
+      dann ist der Hinweis wichtig — womöglich ist das Budget gar nicht überzogen.
+    -->
+    @if (uncertainText(); as message) {
+      <app-notice variant="warning" class="uncertain-banner" title="Buchungsrichtung ungeprüft">
+        {{ message }}
+      </app-notice>
+    }
+
     <app-card class="safe-to-spend-card" title="Safe-to-Spend">
       <div class="safe-to-spend">
         @if (d.amount !== null) {

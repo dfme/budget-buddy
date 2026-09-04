@@ -12,6 +12,7 @@ const TRANSACTION: Transaction = {
   buchungsdetails: null,
   betrag: 34.2,
   income: false,
+  directionUncertain: false,
   category: 'Lebensmittel',
 };
 
@@ -91,5 +92,32 @@ describe('TransactionService', () => {
     req.flush({ ...TRANSACTION, category: 'Restaurant' });
 
     expect(received?.category).toBe('Restaurant');
+  });
+
+  it('asks for the bookings whose direction was guessed, scoped to a month', () => {
+    let received: Transaction[] | undefined;
+    service.uncertainDirections('2026-07').subscribe((list) => (received = list));
+
+    const req = httpMock.expectOne((r) => r.url === '/api/transactions/uncertain');
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.get('month')).toBe('2026-07');
+    req.flush([{ ...TRANSACTION, directionUncertain: true }]);
+
+    expect(received).toHaveLength(1);
+    expect(received?.[0].directionUncertain).toBe(true);
+  });
+
+  it('puts the corrected booking direction', () => {
+    let received: Transaction | undefined;
+    service.updateDirection(7, true).subscribe((tx) => (received = tx));
+
+    const req = httpMock.expectOne('/api/transactions/7/direction');
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual({ income: true });
+    req.flush({ ...TRANSACTION, income: true, directionUncertain: false });
+
+    // Die Markierung fällt mit der Korrektur — die Buchung ist ab jetzt entschieden.
+    expect(received?.income).toBe(true);
+    expect(received?.directionUncertain).toBe(false);
   });
 });
