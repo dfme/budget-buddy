@@ -52,8 +52,8 @@ class ImportJobRunnerTimingTest {
             new TransactionTemplate(mock(PlatformTransactionManager.class));
 
     private final ImportJobRunner runner = new ImportJobRunner(categorizationPort, repository,
-            importJobRepository, transactionTemplate, Clock.systemUTC(), WATCHDOG_SECONDS,
-            BATCH_SIZE);
+            importJobRepository, transactionTemplate, Clock.systemUTC(),
+            Duration.ofSeconds(WATCHDOG_SECONDS), BATCH_SIZE);
 
     private static List<ParsedTransaction> unknownTransactions(int count) {
         return IntStream.range(0, count)

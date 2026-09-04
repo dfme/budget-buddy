@@ -1,5 +1,7 @@
 package com.budgetbuddy.transaction;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -30,13 +32,39 @@ public interface ImportJobRepository extends JpaRepository<ImportJob, Long> {
      * die gesamte Dauer des Laufs blind und derselbe Auszug landete doppelt in der Datenbank
      * (siehe {@code PdfImportService.startImport}).
      *
+     * <p><strong>Liefert die Jobs und nicht bloss ein {@code boolean}</strong> (BE-PDF-11): Der
+     * Duplikatcheck muss seit dem Lazy-Cleanup unterscheiden, ob der gefundene Job wirklich noch
+     * läuft oder nur verwaist ist. Ein {@code existsBy…} beantwortete diese Frage nicht und
+     * sperrte den erneuten Upload deshalb auch dann, wenn niemand mehr an der Datei arbeitete.
+     * Der Index {@code idx_import_jobs_user_hash_status} bedient beide Formen gleich.
+     *
      * @param userId ID des besitzenden Users.
      * @param pdfSha256 SHA-256 des hochgeladenen PDFs.
      * @param status gesuchter Status — im Duplikatcheck {@link ImportJobStatus#RUNNING}.
-     * @return {@code true}, wenn ein solcher Job existiert.
+     * @return die passenden Jobs; leer, wenn es keinen gibt.
      */
-    boolean existsByUserIdAndPdfSha256AndStatus(
+    List<ImportJob> findByUserIdAndPdfSha256AndStatus(
             Long userId, String pdfSha256, ImportJobStatus status);
+
+    /**
+     * Jobs, die noch auf einem Status stehen, aber älter sind als die Schranke — die Grundlage der
+     * Bereinigung verwaister Läufe (BE-PDF-11, siehe {@link StaleImportJobCleaner}).
+     *
+     * <p><strong>Bewusst ohne User-Einschränkung</strong>, als einzige Methode dieses Repositories.
+     * Das ist keine Lücke in der Mandantentrennung, sondern deren Gegenstück: Diese Query steht auf
+     * keinem Request-Pfad. Aufgerufen wird sie ausschliesslich vom {@link StaleImportJobCleaner},
+     * der beim Start und danach periodisch läuft — dort gibt es keinen authentifizierten User, den
+     * man einsetzen könnte, und die aufzuräumenden Jobs gehören per Definition beliebigen Usern.
+     * Nach aussen dringt nichts: Der Cleaner gibt nur eine Anzahl zurück und loggt nur Job-IDs.
+     *
+     * <p>Wer diese Methode je aus einem Controller oder Service des Request-Pfads aufruft, baut
+     * damit ein IDOR — dann gehört stattdessen eine Variante mit {@code AndUserId} hierher.
+     *
+     * @param status gesuchter Status — in der Bereinigung {@link ImportJobStatus#RUNNING}.
+     * @param createdBefore Schranke; nur ältere Jobs kommen zurück (echt kleiner).
+     * @return die betroffenen Jobs, in unbestimmter Reihenfolge.
+     */
+    List<ImportJob> findByStatusAndCreatedAtBefore(ImportJobStatus status, Instant createdBefore);
 
     /**
      * Löscht alle Import-Jobs eines Users (Kontolöschung, US-02, DB-07).

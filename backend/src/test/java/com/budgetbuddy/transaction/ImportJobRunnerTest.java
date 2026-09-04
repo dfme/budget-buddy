@@ -1,6 +1,7 @@
 package com.budgetbuddy.transaction;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -14,6 +15,7 @@ import com.budgetbuddy.categorization.CategorizationResult;
 import com.budgetbuddy.categorization.Category;
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -57,7 +59,7 @@ class ImportJobRunnerTest {
             new TransactionTemplate(mock(PlatformTransactionManager.class));
 
     private final ImportJobRunner runner = new ImportJobRunner(categorizationPort, repository,
-            importJobRepository, transactionTemplate, clock, WATCHDOG_SECONDS, BATCH_SIZE);
+            importJobRepository, transactionTemplate, clock, Duration.ofSeconds(WATCHDOG_SECONDS), BATCH_SIZE);
 
     @BeforeEach
     void persistJobsAsGiven() {
@@ -319,6 +321,56 @@ class ImportJobRunnerTest {
 
         assertThat(job.getStatus()).isEqualTo(ImportJobStatus.FAILED);
         verify(repository, never()).saveAll(any());
+    }
+
+    /**
+     * Ein {@link Error} lief bis BE-PDF-11 (#197) am Catch vorbei und liess den Job auf RUNNING
+     * stehen — für immer, weil kein Mechanismus ihn danach noch bewegte.
+     *
+     * <p>Der Fall ist auf einer Render-Starter-Instanz erreichbar: Der Runner hält die geparsten
+     * Transaktionen und die aufgebauten Entities eines ganzen Auszugs im Speicher, bei zwei
+     * Pool-Threads parallel.
+     */
+    @Test
+    void error_marksTheJobFailedAndIsRethrown() {
+        clockNeverExpires();
+        OutOfMemoryError oom = new OutOfMemoryError("Java heap space");
+        when(categorizationPort.categorizeAll(any())).thenThrow(oom);
+        ImportJob job = new ImportJob(USER_ID, "sha-fixture", 1, T0);
+
+        assertThatThrownBy(() ->
+                runner.run(job, List.of(parsed("GIRO POST", List.of(), "850.00", false)), SHA,
+                        false))
+                // Weitergeworfen, nicht geschluckt: Eine beschädigte JVM als normalen Betrieb
+                // weiterlaufen zu lassen, wäre der teurere Fehler.
+                .isSameAs(oom);
+
+        assertThat(job.getStatus()).isEqualTo(ImportJobStatus.FAILED);
+        verify(importJobRepository).save(job);
+    }
+
+    /**
+     * Scheitert nach einem {@link Error} schon das Schreiben des FAILED-Status — nach einem
+     * {@link OutOfMemoryError} ein realistischer Ausgang —, darf der ursprüngliche Fehler nicht
+     * durch den Folgefehler ersetzt werden. Der Job bleibt dann auf RUNNING; für genau diesen Rest
+     * gibt es den {@link StaleImportJobCleaner}.
+     */
+    @Test
+    void errorSurvivesAFailingStatusWrite() {
+        clockNeverExpires();
+        OutOfMemoryError oom = new OutOfMemoryError("Java heap space");
+        when(categorizationPort.categorizeAll(any())).thenThrow(oom);
+        when(importJobRepository.save(any(ImportJob.class)))
+                .thenThrow(new IllegalStateException("DB nicht erreichbar"));
+        ImportJob job = new ImportJob(USER_ID, "sha-fixture", 1, T0);
+
+        assertThatThrownBy(() ->
+                runner.run(job, List.of(parsed("GIRO POST", List.of(), "850.00", false)), SHA,
+                        false))
+                .isSameAs(oom)
+                .satisfies(thrown -> assertThat(thrown.getSuppressed())
+                        .singleElement()
+                        .isInstanceOf(IllegalStateException.class));
     }
 
     /** Nichts zu tun heisst: kein Request, kein Schreibzugriff — aber ein abgeschlossener Job. */

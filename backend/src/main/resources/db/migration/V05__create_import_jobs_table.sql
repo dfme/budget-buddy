@@ -14,7 +14,7 @@ CREATE TABLE import_jobs (
     user_id       BIGINT      NOT NULL,
     -- Hash des importierten PDFs. Er liegt zwar auch an jeder Zeile in transactions, dort aber
     -- erst NACH dem Abschluss des Jobs — der Duplikatcheck beim Upload wäre sonst für die
-    -- gesamte Dauer des Hintergrundlaufs blind (bis zu categorization-timeout-seconds plus ein
+    -- gesamte Dauer des Hintergrundlaufs blind (bis zu categorization-timeout plus ein
     -- Bündel). Ein zweiter Upload derselben Datei während des Laufs käme durch, und der Auszug
     -- läge doppelt in der Datenbank, ohne dass der Nutzer je bestätigt hätte. Vor ADR-14 gab es
     -- dieses Fenster nicht: Der synchrone Flow schrieb im selben Request.
@@ -38,7 +38,7 @@ CREATE TABLE import_jobs (
 -- ImportJobRepository.findByIdAndUserId).
 CREATE INDEX idx_import_jobs_user_id ON import_jobs(user_id);
 
--- Deckt den Duplikatcheck beim Upload ab: existsByUserIdAndPdfSha256AndStatus. Der Check läuft
+-- Deckt den Duplikatcheck beim Upload ab: findByUserIdAndPdfSha256AndStatus. Der Check läuft
 -- bei jedem Upload und damit auf dem Pfad, der ohnehin schon 30s Zeitbudget hat.
 CREATE INDEX idx_import_jobs_user_hash_status ON import_jobs(user_id, pdf_sha256, status);
 
