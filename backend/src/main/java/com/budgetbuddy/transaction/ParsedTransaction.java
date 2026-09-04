@@ -23,16 +23,38 @@ import java.util.List;
  * @param betrag Betrag als positiver {@link BigDecimal} (Magnitude, Skala 2) — niemals
  *     {@code double}/{@code float} (ADR-9). Die Richtung steht in {@code isIncome}.
  * @param isIncome {@code true} für Gutschriften (Einkommen), {@code false} für Belastungen.
+ * @param directionUncertain {@code true}, wenn {@code isIncome} eine Annahme ist und kein Befund
+ *     (BE-PDF-10). Der Parser leitet die Richtung aus dem Saldo ab; gelingt das nicht, übernimmt
+ *     er die Buchung konservativ als Belastung und setzt dieses Flag. Es sagt nichts über den
+ *     Betrag aus — nur, dass sein Vorzeichen ungeprüft ist.
  */
 public record ParsedTransaction(
     LocalDate buchungsdatum,
     String buchungstext,
     List<String> details,
     BigDecimal betrag,
-    boolean isIncome) {
+    boolean isIncome,
+    boolean directionUncertain) {
 
   public ParsedTransaction {
     details = details == null ? List.of() : List.copyOf(details);
+  }
+
+  /**
+   * Eine Transaktion mit gesicherter Richtung — {@code directionUncertain = false}.
+   *
+   * <p>Der Normalfall: Layouts mit einem Saldo je Zeile (UBS, Raiffeisen) und Viseca, wo ein
+   * nachgestelltes {@code -} die Gutschrift explizit markiert, raten nie. Nur der
+   * PostFinance-Pfad und die beiden Auszüge ohne Anfangssaldo kommen überhaupt in die Lage, das
+   * Flag zu setzen.
+   */
+  public ParsedTransaction(
+      LocalDate buchungsdatum,
+      String buchungstext,
+      List<String> details,
+      BigDecimal betrag,
+      boolean isIncome) {
+    this(buchungsdatum, buchungstext, details, betrag, isIncome, false);
   }
 
   /**

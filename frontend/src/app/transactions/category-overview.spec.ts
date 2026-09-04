@@ -70,6 +70,7 @@ const TRANSACTIONS: Transaction[] = [
     buchungsdetails: 'COOP PRONTO BERN\nEINKAUF',
     betrag: 34.2,
     income: false,
+    directionUncertain: false,
     category: 'Lebensmittel',
   },
   {
@@ -81,6 +82,7 @@ const TRANSACTIONS: Transaction[] = [
     buchungsdetails: null,
     betrag: 52.1,
     income: false,
+    directionUncertain: false,
     category: 'Lebensmittel',
   },
 ];
@@ -117,6 +119,7 @@ function manyTransactions(count: number, firstId = 1): Transaction[] {
     buchungsdetails: null,
     betrag: 10,
     income: false,
+    directionUncertain: false,
     category: 'Lebensmittel',
   }));
 }
@@ -174,6 +177,18 @@ describe('CategoryOverview', () => {
   // sonst bliebe HTMLCanvasElement.prototype.getContext für die Folgetests überschrieben.
   afterEach(() => {
     try {
+      // BE-PDF-10: Jedes Laden stösst neben dem Summary auch die Prüfliste der unsicheren
+      // Buchungsrichtungen an. Die Fälle unten befassen sich nicht damit und bekommen sie hier
+      // zentral mit einer leeren Liste beantwortet — dieselbe Rolle, die das `beforeEach` für die
+      // Monatsliste übernimmt. Fälle, die die Prüfliste selbst prüfen, holen ihren Request vorher
+      // ab; dann findet diese Zeile nichts mehr.
+      // `cancelled` überspringen: Ein Monatswechsel bricht den laufenden Prüflisten-Request ab,
+      // und ein abgebrochener lässt sich nicht mehr beantworten. `match()` nimmt ihn trotzdem aus
+      // der Liste der offenen Requests — genau das, was verify() gleich prüft.
+      httpMock
+        .match((req) => req.url === '/api/transactions/uncertain')
+        .filter((req) => !req.cancelled)
+        .forEach((req) => req.flush([]));
       httpMock.verify();
     } finally {
       fixture.destroy();
@@ -1049,4 +1064,172 @@ describe('CategoryOverview', () => {
       expect(renderedTexts()).toHaveLength(2);
     });
   });
+
+  describe('Buchungsrichtung (BE-PDF-10)', () => {
+    /** Eine Buchung, deren Richtung der Parser nur angenommen hat. */
+    const UNCERTAIN: Transaction = {
+      id: 90,
+      buchungsdatum: '2026-07-12',
+      buchungstext: 'GIRO POST',
+      buchungsdetails: 'MUSTER, LEA',
+      betrag: 120,
+      income: false,
+      directionUncertain: true,
+      category: 'Sonstiges',
+    };
+
+    function expectUncertainRequest() {
+      return httpMock.expectOne((req) => req.url === '/api/transactions/uncertain');
+    }
+
+    /** Beantwortet Summary und Prüfliste des Erstladens. */
+    function load(uncertain: Transaction[]) {
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      expectUncertainRequest().flush(uncertain);
+      fixture.detectChanges();
+    }
+
+    /** Die beiden Richtungs-Buttons der ersten Zeile der Prüfliste. */
+    function directionButtons(): HTMLButtonElement[] {
+      return Array.from(
+        (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>(
+          '.direction-choice',
+        ),
+      );
+    }
+
+    function card(): HTMLElement | null {
+      return (fixture.nativeElement as HTMLElement).querySelector('.uncertain-card');
+    }
+
+    it('lists the bookings whose direction was guessed, with both answers offered', () => {
+      load([UNCERTAIN]);
+
+      expect(card()).not.toBeNull();
+      expect(card()!.textContent).toContain('GIRO POST');
+      expect(card()!.textContent).toContain('MUSTER, LEA');
+      expect(directionButtons().map((b) => b.textContent?.trim().split(' —')[0])).toEqual([
+        'Ausgabe',
+        'Gutschrift',
+      ]);
+    });
+
+    it('names the direction the number can be wrong in', () => {
+      // Der Satz muss sagen, WAS falsch sein kann — «zu tief» —, sonst ist der Hinweis eine
+      // Beunruhigung ohne Handlungsanweisung.
+      load([UNCERTAIN]);
+
+      expect(card()!.textContent).toContain('zu tief');
+    });
+
+    it('stays quiet when no direction is open', () => {
+      load([]);
+
+      expect(card()).toBeNull();
+    });
+
+    it('sends the correction and reloads the affected numbers', () => {
+      // AC 2 und 3: Eine auf Gutschrift gesetzte Buchung verlässt die Ausgabenseite — Summen und
+      // Anteile darunter stimmen sonst nicht mehr zu den Zeilen.
+      load([UNCERTAIN]);
+
+      directionButtons()[1].click();
+
+      const put = httpMock.expectOne('/api/transactions/90/direction');
+      expect(put.request.method).toBe('PUT');
+      expect(put.request.body).toEqual({ income: true });
+      put.flush({ ...UNCERTAIN, income: true, directionUncertain: false });
+      fixture.detectChanges();
+
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      expectUncertainRequest().flush([]);
+      fixture.detectChanges();
+
+      expect(card()).toBeNull();
+    });
+
+    it('treats confirming the assumed direction as an answer too', () => {
+      // Ohne diesen Weg stünde eine richtig geratene Buchung für immer in der Prüfliste.
+      load([UNCERTAIN]);
+
+      directionButtons()[0].click();
+
+      const put = httpMock.expectOne('/api/transactions/90/direction');
+      expect(put.request.body).toEqual({ income: false });
+      put.flush({ ...UNCERTAIN, directionUncertain: false });
+      fixture.detectChanges();
+
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      expectUncertainRequest().flush([]);
+      fixture.detectChanges();
+
+      expect(card()).toBeNull();
+    });
+
+    it('locks both answers while the correction is in flight', () => {
+      load([UNCERTAIN]);
+
+      directionButtons()[1].click();
+      fixture.detectChanges();
+
+      expect(directionButtons().map((b) => b.disabled)).toEqual([true, true]);
+      httpMock.expectOne('/api/transactions/90/direction').flush(UNCERTAIN);
+      fixture.detectChanges();
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      expectUncertainRequest().flush([UNCERTAIN]);
+      fixture.detectChanges();
+
+      expect(directionButtons().map((b) => b.disabled)).toEqual([false, false]);
+    });
+
+    it('keeps the booking listed and explains itself when the correction fails', () => {
+      load([UNCERTAIN]);
+
+      directionButtons()[1].click();
+      httpMock
+        .expectOne('/api/transactions/90/direction')
+        .error(new ProgressEvent('error'), { status: 500, statusText: 'Server Error' });
+      fixture.detectChanges();
+
+      expect(card()).not.toBeNull();
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector('.save-notice')?.textContent,
+      ).toContain('Buchungsrichtung');
+      // Die Buttons sind wieder bedienbar — ein zweiter Versuch muss möglich sein.
+      expect(directionButtons().every((b) => !b.disabled)).toBe(true);
+    });
+
+    it('says so when the check list itself cannot be loaded', () => {
+      // Eine still leere Liste behauptete «alles in Ordnung», obwohl niemand nachgesehen hat —
+      // genau die stumme Zusicherung, die dieses Ticket beseitigt.
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      expectUncertainRequest().error(new ProgressEvent('error'));
+      fixture.detectChanges();
+
+      expect(card()).toBeNull();
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector('.uncertain-notice')?.textContent,
+      ).toContain('unsicherer Richtung');
+    });
+
+    it('marks a guessed booking inside its category as well', () => {
+      // Der Marker beantwortet die Frage «warum steht die oben?» dort, wo die Buchung zwischen
+      // ihren Kategoriegeschwistern auftaucht.
+      expectSummaryRequest(httpMock).flush(SUMMARY);
+      expectUncertainRequest().flush([]);
+      fixture.detectChanges();
+
+      toggleFor('Lebensmittel').click();
+      fixture.detectChanges();
+      expectListRequest(httpMock).flush(
+        page([{ ...TRANSACTIONS[0], directionUncertain: true }, TRANSACTIONS[1]]),
+      );
+      fixture.detectChanges();
+
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelectorAll('.transaction__uncertain-flag'),
+      ).toHaveLength(1);
+    });
+  });
+
 });

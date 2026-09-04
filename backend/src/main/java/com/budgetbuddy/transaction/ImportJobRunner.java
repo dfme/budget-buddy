@@ -161,8 +161,12 @@ public class ImportJobRunner {
                 // detailsAsText() statt fullText(): Der Buchungstext hat seine eigene Spalte,
                 // die Detailzeilen ihre. Sie zusammenzuschreiben wäre irreversibel — genau das,
                 // was ParsedTransaction für US-08 ausschliesst (BE-PDF-07).
+                // directionUncertain wandert unverändert mit (BE-PDF-10): Wo der Parser die
+                // Richtung nur angenommen hat, soll die Oberfläche nachfragen können, statt eine
+                // womöglich gedrehte Zahl still in Safe-to-Spend einfliessen zu lassen.
                 entities.add(new Transaction(userId, tx.buchungsdatum(), tx.buchungstext(),
-                        tx.detailsAsText(), tx.betrag(), tx.isIncome(), category, pdfSha256));
+                        tx.detailsAsText(), tx.betrag(), tx.isIncome(), tx.directionUncertain(),
+                        category, pdfSha256));
             }
 
             // Sofort committen: Das ist die Zahl, die der nächste Status-Poll sehen soll.

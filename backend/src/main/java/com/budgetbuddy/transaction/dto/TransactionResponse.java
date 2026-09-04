@@ -14,6 +14,11 @@ import java.time.LocalDate;
  * {@code null}, wenn die Buchung keine Detailzeilen hatte oder vor BE-PDF-07 importiert wurde —
  * anders als bei {@code category} löst der Lesepfad das <em>nicht</em> auf einen Ersatzwert auf:
  * Es gibt keinen, der nicht etwas Falsches behaupten würde.
+ *
+ * <p>{@code directionUncertain} sagt, ob {@code income} ein Befund oder nur eine Annahme des
+ * Parsers ist (BE-PDF-10). Das Feld steht auf <em>jeder</em> Transaktion und nicht nur in der
+ * Prüfliste: Die Kategorie-Übersicht kennzeichnet die betroffenen Zeilen dort, wo der Nutzer sie
+ * ohnehin sieht.
  */
 public record TransactionResponse(
         Long id,
@@ -22,10 +27,12 @@ public record TransactionResponse(
         String buchungsdetails,
         BigDecimal betrag,
         boolean income,
+        boolean directionUncertain,
         String category) {
 
     public static TransactionResponse from(Transaction tx) {
         return new TransactionResponse(tx.getId(), tx.getBuchungsdatum(), tx.getBuchungstext(),
-                tx.getBuchungsdetails(), tx.getBetrag(), tx.isIncome(), tx.getCategory());
+                tx.getBuchungsdetails(), tx.getBetrag(), tx.isIncome(), tx.isDirectionUncertain(),
+                tx.getCategory());
     }
 }

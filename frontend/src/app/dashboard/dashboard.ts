@@ -7,8 +7,15 @@ import { Button } from '../shared/button/button';
 import { Card } from '../shared/card/card';
 import { formatSwissAmount } from '../shared/format';
 import { Notice } from '../shared/notice/notice';
+import { TransactionService } from '../transactions/transaction.service';
 import { SafeToSpendResponse } from './safe-to-spend.model';
 import { SafeToSpendService } from './safe-to-spend.service';
+
+/** Aktueller Monat als `YYYY-MM` — das Fenster, für das Safe-to-Spend gilt. */
+function currentMonth(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
 
 /**
  * Dashboard mit dem Safe-to-Spend-Widget (FE-STS-01/02/03, US-06).
@@ -40,6 +47,22 @@ import { SafeToSpendService } from './safe-to-spend.service';
 export class Dashboard {
   private readonly safeToSpendService = inject(SafeToSpendService);
   private readonly authService = inject(AuthService);
+  private readonly transactionService = inject(TransactionService);
+
+  /**
+   * Anzahl Buchungen des laufenden Monats, deren Richtung der PDF-Parser nur angenommen hat
+   * (BE-PDF-10, US-04). `0`, solange nichts geladen ist — der Normalfall.
+   *
+   * <p>Der Hinweis steht hier und nicht nur auf der Kategorie-Übersicht, weil der Schaden hier
+   * eintritt: Eine als Belastung übernommene Gutschrift drückt genau diese Zahl. Ein Nutzer, der
+   * die Übersicht nie öffnet, sähe einen Hinweis, der nur dort steht, nie — und der Bug wäre für
+   * ihn unverändert stumm.
+   *
+   * <p>Auf den laufenden Monat begrenzt, wie der Safe-to-Spend selbst: Eine unsichere Buchung aus
+   * dem März trägt zu dieser Zahl nichts bei, und ein Banner, das ihretwegen erschiene, behauptete
+   * einen Zusammenhang, den es nicht gibt.
+   */
+  readonly uncertainCount = signal(0);
 
   /** Geladene Antwort oder `null`, solange nichts geladen ist. */
   readonly data = signal<SafeToSpendResponse | null>(null);
@@ -94,8 +117,48 @@ export class Dashboard {
     return `Regelmässige Gutschrift von ${formatSwissAmount(suggestion)} CHF erkannt — als Monatseinkommen übernehmen?`;
   });
 
+  /**
+   * Der Hinweistext zur ungeprüften Buchungsrichtung, oder `null`, wenn nichts offen ist.
+   *
+   * <p>Sagt ausdrücklich, in welche Richtung die Zahl falsch sein kann («zu tief»). Ein blosses
+   * «N Buchungen prüfen» liesse offen, ob der Betrag zu hoch oder zu tief ist — und damit auch,
+   * ob der Nutzer heute vorsichtiger sein sollte oder nicht.
+   */
+  readonly uncertainText = computed(() => {
+    const count = this.uncertainCount();
+    if (count === 0) {
+      return null;
+    }
+    return count === 1
+      ? 'Bei 1 Buchung dieses Monats ist unklar, ob sie eine Ausgabe oder eine Gutschrift war. Dein Safe-to-Spend kann deshalb zu tief sein.'
+      : `Bei ${count} Buchungen dieses Monats ist unklar, ob sie Ausgaben oder Gutschriften waren. Dein Safe-to-Spend kann deshalb zu tief sein.`;
+  });
+
   constructor() {
     this.load();
+    this.loadUncertainCount();
+  }
+
+  /**
+   * Lädt die Zahl der ungeprüften Buchungsrichtungen des laufenden Monats.
+   *
+   * <p>Eigener Request neben dem Safe-to-Spend statt eines Felds in dessen Antwort: Der
+   * `SafeToSpendService` liegt im `budget`-Modul und liest ausschliesslich über schmale Ports,
+   * über die laut deren Javadoc <em>Beträge</em> gehen und keine Buchungseigenschaften. Einen
+   * Zähler dort durchzureichen hiesse, diese Kante für eine reine Anzeigefrage aufzuweiten.
+   *
+   * <p>Ein Fehler bleibt bewusst still: Der Safe-to-Spend daneben ist korrekt geladen, und eine
+   * rote Meldung für einen ausgefallenen Zusatzhinweis stünde in keinem Verhältnis — dieselbe
+   * Abwägung wie beim Monats-Dropdown der Kategorie-Übersicht. Der Hinweis erscheint dann nicht;
+   * die Prüfliste selbst bleibt über die Kategorie-Übersicht erreichbar.
+   */
+  private loadUncertainCount(): void {
+    this.transactionService.uncertainDirections(currentMonth()).subscribe({
+      next: (transactions) => this.uncertainCount.set(transactions.length),
+      error: (_err: HttpErrorResponse) => {
+        // Siehe Javadoc: bewusst ohne Meldung.
+      },
+    });
   }
 
   /**

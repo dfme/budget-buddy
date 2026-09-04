@@ -14,7 +14,8 @@ import org.springframework.test.context.DynamicPropertySource;
 
 /**
  * Verifiziert die Flyway-Migrationen der transactions-Tabelle gegen eine echte
- * PostgreSQL-Datenbank: V02 (Anlage, DB-02) und V06 (Spalte {@code buchungsdetails}, BE-PDF-07).
+ * PostgreSQL-Datenbank: V02 (Anlage, DB-02), V06 (Spalte {@code buchungsdetails}, BE-PDF-07) und
+ * V08 (Spalte {@code direction_uncertain}, BE-PDF-10).
  *
  * <p>Seit DB-05 (ADR-12) gegen Testcontainers-Postgres in derselben Major-Version wie Produktion,
  * mit einer eigenen Datenbank für diese Klasse (siehe {@link PostgresTestDatabase}).
@@ -52,7 +53,7 @@ class TransactionsMigrationTest {
 
         assertThat(typeByColumn).containsOnlyKeys(
                 "id", "user_id", "buchungsdatum", "buchungstext", "buchungsdetails", "betrag",
-                "is_income", "category", "pdf_sha256");
+                "is_income", "direction_uncertain", "category", "pdf_sha256");
 
         assertThat(typeByColumn.get("id")).isEqualTo("bigint");
         assertThat(typeByColumn.get("user_id")).isEqualTo("bigint");
@@ -60,6 +61,7 @@ class TransactionsMigrationTest {
         assertThat(typeByColumn.get("buchungstext")).isEqualTo("text");
         assertThat(typeByColumn.get("buchungsdetails")).isEqualTo("text");
         assertThat(typeByColumn.get("is_income")).isEqualTo("boolean");
+        assertThat(typeByColumn.get("direction_uncertain")).isEqualTo("boolean");
         assertThat(typeByColumn.get("category")).isEqualTo("text");
         assertThat(typeByColumn.get("pdf_sha256")).isEqualTo("text");
     }
@@ -108,6 +110,41 @@ class TransactionsMigrationTest {
         // Detailzeilen stehen nur im Quell-PDF. NOT NULL hätte die Migration auf jeder Datenbank
         // mit Bestand scheitern lassen.
         assertThat(notNullByColumn.get("buchungsdetails")).isFalse();
+
+        // BE-PDF-10: direction_uncertain ist NOT NULL. Anders als bei buchungsdetails gibt es
+        // hier keinen dritten Zustand — «unbekannt, ob die Richtung geraten war» müsste in der
+        // Oberfläche entweder als Hinweis enden (falsch-positiv für den ganzen Altbestand) oder
+        // als sicher, also wie FALSE. Die Migration trägt den Default deshalb selbst nach.
+        assertThat(notNullByColumn.get("direction_uncertain")).isTrue();
+    }
+
+    /**
+     * V08 fügt an, statt die Tabelle neu zu bauen: Der Bestand muss die Migration überleben.
+     *
+     * <p>Anders als bei {@code buchungsdetails} (V06) trägt diese Spalte ein {@code DEFAULT}, und
+     * das ist hier die richtige Wahl: Vor V08 geschriebene Zeilen sind nicht als «geraten»
+     * erkennbar, und sie rückwirkend zu markieren stellte Buchungen zur Prüfung, die der Nutzer
+     * längst gesehen und für richtig gehalten hat.
+     */
+    @Test
+    void rowsWrittenWithoutDirectionUncertainDefaultToCertain() {
+        jdbcTemplate.update(
+                "INSERT INTO users (email, password_hash, monthly_income, onboarding_completed)"
+                        + " VALUES (?, ?, ?, ?)",
+                "bestand-v08@example.com", "bcrypt-hash", new java.math.BigDecimal("4200.00"),
+                true);
+        Long userId = jdbcTemplate.queryForObject(
+                "SELECT id FROM users WHERE email = ?", Long.class, "bestand-v08@example.com");
+
+        jdbcTemplate.update(
+                "INSERT INTO transactions (user_id, buchungsdatum, buchungstext, betrag, is_income)"
+                        + " VALUES (?, DATE '2026-07-03', 'LASTSCHRIFT', 42.50, FALSE)",
+                userId);
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT direction_uncertain FROM transactions WHERE user_id = ?", Boolean.class,
+                userId))
+                .isFalse();
     }
 
     /**

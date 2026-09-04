@@ -12,6 +12,98 @@
     (select)="selectMonth($event)"
   />
 
+  <!--
+    Steht seit BE-PDF-10 ausserhalb des Summary-Zweigs: Die Meldung gehört inzwischen zu zwei
+    Korrekturen — Kategorie und Buchungsrichtung —, und die zweite ist auch dann bedienbar, wenn
+    die Übersicht darunter nicht geladen hat. Im Summary-Zweig wäre sie in genau diesem Fall
+    unsichtbar geblieben.
+  -->
+  @if (saveErrorMessage(); as message) {
+    <app-notice class="save-notice" variant="error">{{ message }}</app-notice>
+  }
+
+  <!--
+    Prüfliste der unsicheren Buchungsrichtungen (BE-PDF-10, US-04).
+
+    Steht bewusst AUSSERHALB der Lade-/Fehler-/Leer-Kette darunter: Sie ist die wichtigste
+    Auskunft der Seite — solange sie offen ist, ist der Safe-to-Spend womöglich zu tief — und darf
+    nicht mit verschwinden, wenn ausgerechnet das Summary nicht lädt.
+
+    Nur eine Auswahl «Ausgabe / Gutschrift», keine Kategorie: Die Kategorie steht in der
+    aufgeklappten Kategoriezeile und ist hier eine zweite Baustelle, die von der eigentlichen
+    Frage ablenkt.
+  -->
+  @if (uncertainErrorMessage(); as message) {
+    <app-notice class="uncertain-notice" variant="warning">{{ message }}</app-notice>
+  } @else if (uncertain().length > 0) {
+    <app-card
+      class="uncertain-card"
+      title="Buchungsrichtung prüfen"
+      [meta]="monthLabel()"
+    >
+      <p class="uncertain__lead">
+        Bei
+        {{ uncertain().length === 1 ? 'dieser Buchung' : 'diesen ' + uncertain().length + ' Buchungen' }}
+        liess sich aus dem Kontoauszug nicht ableiten, ob es eine Ausgabe oder eine Gutschrift war
+        — sie zählen vorerst als Ausgabe. Ist eine Gutschrift darunter, ist dein Safe-to-Spend zu
+        tief.
+      </p>
+
+      <ul class="uncertain__list">
+        @for (tx of uncertain(); track tx.id) {
+          <li class="transaction transaction--uncertain">
+            <span class="transaction__date">{{ tx.buchungsdatum | date: 'dd.MM.yyyy' }}</span>
+            <span class="transaction__text">
+              <span class="transaction__booking">{{ tx.buchungstext }}</span>
+              @if (tx.buchungsdetails; as details) {
+                <span class="transaction__details">{{ details }}</span>
+              }
+            </span>
+            <span class="transaction__amount numeric">{{
+              tx.betrag | currency: 'CHF' : 'symbol' : '1.2-2'
+            }}</span>
+            <!--
+              Zwei Buttons statt eines <select> wie bei der Kategorie-Korrektur nebenan. Der
+              Grund ist nicht Geschmack: Ein <select> behielte nach einem gescheiterten PUT den
+              gewählten Wert, und ein zweiter Versuch mit derselben Antwort löste kein
+              `change`-Ereignis mehr aus — die Buchung wäre in der Anzeige entschieden und in
+              der Datenbank nicht. Buttons haben keinen solchen Zustand. Bei zwei Optionen sind
+              sie ausserdem ein Klick statt zweien.
+
+              Kein optimistisches Umschalten wie beim Kategorie-Dropdown: Eine bestätigte
+              Richtung entfernt die Zeile aus dieser Liste, und eine optimistisch entfernte
+              Zeile bei einem Fehler an ihrer alten Stelle wieder einzusetzen wäre mehr Mechanik
+              als die gesparte Round-Trip-Zeit wert. Stattdessen sind beide Buttons gesperrt,
+              solange der PUT läuft.
+            -->
+            <span class="transaction__direction">
+              <button
+                appButton
+                variant="ghost"
+                type="button"
+                class="direction-choice"
+                [disabled]="isSavingDirection(tx.id)"
+                (click)="correctDirection(tx, false)"
+              >
+                Ausgabe<span class="visually-hidden"> — {{ transactionLabel(tx) }}</span>
+              </button>
+              <button
+                appButton
+                variant="ghost"
+                type="button"
+                class="direction-choice"
+                [disabled]="isSavingDirection(tx.id)"
+                (click)="correctDirection(tx, true)"
+              >
+                Gutschrift<span class="visually-hidden"> — {{ transactionLabel(tx) }}</span>
+              </button>
+            </span>
+          </li>
+        }
+      </ul>
+    </app-card>
+  }
+
   @if (loading()) {
     <p class="status">Lädt …</p>
   } @else if (errorMessage()) {
@@ -30,10 +122,6 @@
         ariaLabel="Donut-Diagramm der Ausgabenverteilung nach Kategorie. Die einzelnen Beträge stehen in der Legende und in der Tabelle darunter."
       />
     </app-card>
-
-    @if (saveErrorMessage(); as message) {
-      <app-notice class="save-notice" variant="error">{{ message }}</app-notice>
-    }
 
     <app-card>
       <table>
@@ -109,7 +197,26 @@
                               in Wahrheit auch aus einem Import vor BE-PDF-07 stammen kann.
                             -->
                             <span class="transaction__text">
-                              <span class="transaction__booking">{{ tx.buchungstext }}</span>
+                              <span class="transaction__booking">
+                                {{ tx.buchungstext }}
+                                <!--
+                                  Marker für eine geratene Buchungsrichtung (BE-PDF-10). Er
+                                  beantwortet die Frage «warum steht diese Buchung oben in der
+                                  Prüfliste?» dort, wo sie zwischen ihren Kategoriegeschwistern
+                                  auftaucht. Korrigiert wird oben, nicht hier — zwei Orte für
+                                  dieselbe Entscheidung wären zwei Orte zum Auseinanderlaufen.
+                                  Das Zeichen ist `!` wie in app-notice: `⚠` rendert auf macOS
+                                  und Android als farbiges Emoji und bräche aus der Farbgebung.
+                                -->
+                                @if (tx.directionUncertain) {
+                                  <span class="transaction__uncertain-flag" aria-hidden="true"
+                                    >!</span
+                                  >
+                                  <span class="visually-hidden"
+                                    >Buchungsrichtung unsicher — oben prüfbar</span
+                                  >
+                                }
+                              </span>
                               @if (tx.buchungsdetails; as details) {
                                 <span class="transaction__details">{{ details }}</span>
                               }
