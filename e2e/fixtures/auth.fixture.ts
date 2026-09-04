@@ -27,6 +27,24 @@ export function uniqueTestUser(): TestUser {
 }
 
 /**
+ * Legt das Testkonto über die API an und bringt dabei das JWT-Cookie in den BrowserContext.
+ *
+ * Gemeinsame Grundlage der beiden Context-Fixtures unten: Sie unterscheiden sich einzig darin, ob
+ * danach noch das Onboarding abgeschlossen wird. Als Kopie in beiden Fixturen wäre derselbe
+ * Aufruf samt Assertion zweimal vorhanden und liefe auseinander, sobald
+ * `POST /api/auth/register` einmal ein Feld mehr verlangt.
+ */
+async function registerViaApi(context: BrowserContext, testUser: TestUser): Promise<void> {
+  const response = await context.request.post('/api/auth/register', {
+    data: testUser,
+  });
+  expect(
+    response.status(),
+    `Auth-Fixture: POST /api/auth/register für ${testUser.email} fehlgeschlagen`,
+  ).toBe(201);
+}
+
+/**
  * Auth-Fixtures für die E2E-Tests (INFRA-14).
  *
  * Die spätere Abdeckung der Must-Have-Stories (US-03…US-06) setzt überall eine eingeloggte
@@ -45,11 +63,17 @@ export function uniqueTestUser(): TestUser {
  * `/dashboard`, `/categories` und `/import` auf `/onboarding` um. Ohne den Abschluss hier
  * würde die Fixture ihr eigenes Versprechen brechen — US-04…US-06 kämen nie auf ihrer
  * Zielroute an, sondern landeten jedes Mal im Wizard.
+ *
+ * Genau dieser Abschluss macht die Fixture für einen Fall aber unbrauchbar: den Abschluss selbst.
+ * Dafür gibt es seit E2E-FC-02 `freshUserPage` — registriert, aber nicht onboardet. Die beiden
+ * Einstiege schliessen sich gegenseitig aus; welcher wofür gedacht ist, steht an ihnen.
  */
 export const test = base.extend<{
   testUser: TestUser;
   authenticatedContext: BrowserContext;
   authenticatedPage: Page;
+  freshUserContext: BrowserContext;
+  freshUserPage: Page;
 }>({
   /** Frische Credentials pro Test — auch für Tests, die selbst registrieren wollen. */
   testUser: async ({}, use) => {
@@ -71,13 +95,7 @@ export const test = base.extend<{
    * Schliessen speichert das Video an den Ort, den der Report erwartet.
    */
   authenticatedContext: async ({ context, testUser }, use) => {
-    const response = await context.request.post('/api/auth/register', {
-      data: testUser,
-    });
-    expect(
-      response.status(),
-      `Auth-Fixture: POST /api/auth/register für ${testUser.email} fehlgeschlagen`,
-    ).toBe(201);
+    await registerViaApi(context, testUser);
 
     // Onboarding abschliessen, sonst würde der onboardingGuard jede spätere Navigation auf
     // /dashboard, /categories oder /import in den Wizard zurückwerfen.
@@ -93,6 +111,37 @@ export const test = base.extend<{
   /** Page im eingeloggten Context — der übliche Einstieg für geschützte Routen. */
   authenticatedPage: async ({ authenticatedContext }, use) => {
     const page = await authenticatedContext.newPage();
+    await use(page);
+    await page.close();
+  },
+
+  /**
+   * BrowserContext mit gültigem JWT-Cookie, aber **ohne** abgeschlossenes Onboarding (E2E-FC-02).
+   *
+   * Der Gegenentwurf zu `authenticatedContext`, und zwar aus einem Grund, der sich nicht umgehen
+   * lässt: Jene Fixture ruft `onboarding-complete` unbedingt, `onboardingCompleted` steht beim
+   * Teststart also immer schon auf `true`. Der Übergang `false → true` — der Moment, in dem Lara
+   * den Wizard verlässt — ist über sie damit *prinzipiell* nicht beobachtbar, nicht bloss
+   * umständlich.
+   *
+   * Wer diese Fixture nimmt, bekommt deshalb genau das, was `authenticatedContext` bewusst
+   * verhindert: Der `onboardingGuard` wirft jede Navigation auf `/dashboard`, `/categories`,
+   * `/import`, `/fixkosten` und `/einstellungen` in den Wizard zurück. Für alles andere als den
+   * Onboarding-Abschluss ist `authenticatedPage` der richtige Einstieg.
+   *
+   * **Nicht mit `authenticatedContext` im selben Test kombinieren.** Beide sitzen auf derselben
+   * eingebauten `context`-Fixture (Begründung dort), teilen sich also einen Cookie-Jar — die
+   * zweite Registrierung überschriebe das Cookie der ersten, und der Test liefe gegen ein
+   * anderes Konto als gedacht.
+   */
+  freshUserContext: async ({ context, testUser }, use) => {
+    await registerViaApi(context, testUser);
+    await use(context);
+  },
+
+  /** Page im Context ohne abgeschlossenes Onboarding — Einstieg für E2E-FC-02. */
+  freshUserPage: async ({ freshUserContext }, use) => {
+    const page = await freshUserContext.newPage();
     await use(page);
     await page.close();
   },
