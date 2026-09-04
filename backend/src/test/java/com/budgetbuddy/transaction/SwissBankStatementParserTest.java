@@ -134,6 +134,33 @@ class SwissBankStatementParserTest {
   }
 
   @Test
+  void parse_singleLineAddress_isDiscardedButLowercaseChInPurposeSurvives() {
+    // BE-PDF-13: Die kombinierte Adressform (Strasse+PLZ+Ort bzw. Firmenanschrift mit
+    // Länderkürzel CH) verschwindet aus den Detailzeilen. Das CH ist case-sensitiv (?-i:CH) —
+    // ein kleingeschriebenes "ch" mitten in einer Zweckzeile darf keine Adresse vortäuschen und
+    // die Zeile nicht mitreissen.
+    byte[] pdf =
+        pdfWithLines(
+            List.of(
+                "Saldovortrag 500.00",
+                "10.04.2024 10.04.2024 ZAHLUNG MUSTER GMBH 20.00 480.00",
+                "Bahnhofstrasse 1 CH 8000 Zürich",
+                "zahlung via ch 1234 aktion"));
+
+    List<ParsedTransaction> transactions = parser.parse(pdf);
+
+    assertThat(transactions).singleElement()
+        .satisfies(
+            t -> {
+              // Die CH-Firmenanschrift ist raus.
+              assertThat(t.details()).doesNotContain("Bahnhofstrasse 1 CH 8000 Zürich");
+              assertThat(t.fullText()).doesNotContain("Bahnhofstrasse", "8000 Zürich");
+              // Die Zweckzeile mit kleinem "ch" bleibt — sie ist keine Adresse.
+              assertThat(t.details()).contains("zahlung via ch 1234 aktion");
+            });
+  }
+
+  @Test
   void parse_pageFurniture_isNotAttachedToBooking() {
     // Summen-, Gruss- und Rechtszeilen nach der letzten Buchung dürfen weder im buchungstext
     // noch in den details landen — sie wären sonst Input für die Kategorisierung.
