@@ -49,6 +49,9 @@ class StaleImportJobCleanerIntegrationTest {
         PostgresTestDatabase.register(registry, "stale_import_jobs");
         registry.add("budgetbuddy.import.categorization-timeout-seconds", () -> TIMEOUT_SECONDS);
         registry.add("budgetbuddy.import.stale-job-reserve-seconds", () -> RESERVE_SECONDS);
+        // pom.xml schaltet den Cleaner für die gesamte Testausführung ab (Begründung dort). Diese
+        // Klasse ist die eine, die ihn als Bean braucht, und holt ihn sich deshalb zurück.
+        registry.add("budgetbuddy.import.stale-job-cleanup.enabled", () -> true);
     }
 
     @Autowired

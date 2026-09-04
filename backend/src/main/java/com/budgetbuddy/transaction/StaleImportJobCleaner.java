@@ -8,6 +8,7 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -56,8 +57,28 @@ import org.springframework.stereotype.Component;
  * die letzte Verteidigungslinie hinter dem Catch im Runner.
  *
  * <p>Beide Auslöser rufen dieselbe Methode; sie ist idempotent und tut bei nichts zu tun nichts.
+ *
+ * <h2>Abschaltbar über {@code budgetbuddy.import.stale-job-cleanup.enabled}</h2>
+ *
+ * <p>Default {@code true}; der Schalter existiert für die Testausführung, wo ihn {@code pom.xml}
+ * global auf {@code false} setzt — dieselbe Konstruktion und derselbe Grund wie beim
+ * {@code AnthropicStartupHealthCheck}. Diese Klasse ist nach ihm die zweite, die beim blossen
+ * Hochfahren eines Kontexts von sich aus etwas tut, und ein Dutzend Testkontexte registrieren ihre
+ * Datenbank bewusst über {@code PostgresTestDatabase.registerWithoutFlyway} — dort existiert
+ * {@code import_jobs} gar nicht. Der Startlauf lief dann in sein eigenes {@code try/catch} und
+ * hinterliess in jedem dieser Kontexte eine ERROR-Zeile von Hibernate. Das Verhalten war korrekt,
+ * die Meldung aber nicht: Sie beschreibt kein Problem, und Log-Rauschen auf ERROR-Niveau erzieht
+ * dazu, ERROR zu überlesen.
+ *
+ * <p>Bewusst ein Property und kein {@code @Profile}: Nur eine Handvoll Testklassen aktiviert das
+ * {@code test}-Profil, die betroffenen gehören nicht dazu. Die Abdeckung leidet nicht — beide
+ * Testebenen rufen {@link #cleanUpStaleJobs()} und {@link #onApplicationReady()} direkt auf und
+ * brauchen dafür kein Startereignis.
  */
 @Component
+@ConditionalOnProperty(
+        name = "budgetbuddy.import.stale-job-cleanup.enabled",
+        matchIfMissing = true)
 public class StaleImportJobCleaner {
 
     private static final Logger log = LoggerFactory.getLogger(StaleImportJobCleaner.class);
@@ -87,8 +108,12 @@ public class StaleImportJobCleaner {
     /**
      * Bereinigt beim Hochfahren, sobald der Kontext steht.
      *
-     * <p>Synchron — die Abfrage ist ein einzelner indizierter Scan und der Zustand soll bereinigt
-     * sein, bevor der erste Upload durch den Duplikatcheck geht. Aber in {@code try/catch}: Diese
+     * <p>Synchron — der Zustand soll bereinigt sein, bevor der erste Upload durch den Duplikatcheck
+     * geht. Die Abfrage ist dabei ein Sequential Scan und kein Indexzugriff: Die Indizes aus
+     * {@code V05} führen alle mit {@code user_id}, das hier gar nicht im Spiel ist. Vertretbar
+     * bleibt der synchrone Aufruf, weil {@code import_jobs} eine Zeile pro Upload wächst und nicht
+     * pro Transaktion; der passende Teilindex ist als DB-10 (#270) erfasst. Aber in
+     * {@code try/catch}: Diese
      * Bereinigung ist Aufräumarbeit, kein Startvorbehalt. Eine Datenbank, die im Moment des
      * Hochfahrens klemmt, darf die Anwendung nicht am Starten hindern — der periodische Lauf holt
      * die Bereinigung ohnehin nach.
