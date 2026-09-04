@@ -393,5 +393,4 @@ describe('Dashboard', () => {
     expect(fixture.nativeElement.querySelector('.uncertain-banner')).toBeNull();
     expect(fixture.nativeElement.textContent as string).toContain('500.00');
   });
-
 });

@@ -36,16 +36,16 @@
   @if (uncertainErrorMessage(); as message) {
     <app-notice class="uncertain-notice" variant="warning">{{ message }}</app-notice>
   } @else if (uncertain().length > 0) {
-    <app-card
-      class="uncertain-card"
-      title="Buchungsrichtung prüfen"
-      [meta]="monthLabel()"
-    >
+    <app-card class="uncertain-card" title="Buchungsrichtung prüfen" [meta]="monthLabel()">
       <p class="uncertain__lead">
         Bei
-        {{ uncertain().length === 1 ? 'dieser Buchung' : 'diesen ' + uncertain().length + ' Buchungen' }}
-        liess sich aus dem Kontoauszug nicht ableiten, ob es eine Ausgabe oder eine Gutschrift war
-        — sie zählen vorerst als Ausgabe. Ist eine Gutschrift darunter, ist dein Safe-to-Spend zu
+        {{
+          uncertain().length === 1
+            ? 'dieser Buchung'
+            : 'diesen ' + uncertain().length + ' Buchungen'
+        }}
+        liess sich aus dem Kontoauszug nicht ableiten, ob es eine Ausgabe oder eine Gutschrift war —
+        sie zählen vorerst als Ausgabe. Ist eine Gutschrift darunter, ist dein Safe-to-Spend zu
         tief.
       </p>
 

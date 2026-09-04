@@ -120,5 +120,4 @@ describe('TransactionService', () => {
     expect(received?.income).toBe(true);
     expect(received?.directionUncertain).toBe(false);
   });
-
 });

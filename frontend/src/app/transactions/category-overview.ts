@@ -39,7 +39,8 @@ const FAILED_TO_REFRESH = 'Die Liste konnte nicht aktualisiert werden.';
  * Liste still leer, sieht der Nutzer «alles in Ordnung», obwohl niemand nachgesehen hat — und
  * genau diese stumme Zusicherung ist der Bug, den BE-PDF-10 behebt.
  */
-const FAILED_TO_LOAD_UNCERTAIN = 'Die Buchungen mit unsicherer Richtung konnten nicht geladen werden.';
+const FAILED_TO_LOAD_UNCERTAIN =
+  'Die Buchungen mit unsicherer Richtung konnten nicht geladen werden.';
 
 /** Meldung, wenn eine Richtungskorrektur nicht gespeichert werden konnte. */
 const FAILED_TO_SAVE_DIRECTION = 'Die Buchungsrichtung konnte nicht gespeichert werden.';

@@ -1231,5 +1231,4 @@ describe('CategoryOverview', () => {
       ).toHaveLength(1);
     });
   });
-
 });
