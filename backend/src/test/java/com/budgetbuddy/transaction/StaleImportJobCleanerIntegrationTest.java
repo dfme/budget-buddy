@@ -47,8 +47,8 @@ class StaleImportJobCleanerIntegrationTest {
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
         PostgresTestDatabase.register(registry, "stale_import_jobs");
-        registry.add("budgetbuddy.import.categorization-timeout-seconds", () -> TIMEOUT_SECONDS);
-        registry.add("budgetbuddy.import.stale-job-reserve-seconds", () -> RESERVE_SECONDS);
+        registry.add("budgetbuddy.import.categorization-timeout", () -> TIMEOUT_SECONDS + "s");
+        registry.add("budgetbuddy.import.stale-job-reserve", () -> RESERVE_SECONDS + "s");
         // pom.xml schaltet den Cleaner für die gesamte Testausführung ab (Begründung dort). Diese
         // Klasse ist die eine, die ihn als Bean braucht, und holt ihn sich deshalb zurück.
         registry.add("budgetbuddy.import.stale-job-cleanup.enabled", () -> true);
@@ -127,6 +127,24 @@ class StaleImportJobCleanerIntegrationTest {
         assertThat(isBlockedAsDuplicate()).isFalse();
     }
 
+    /**
+     * Derselbe Nutzerschaden am echten Upload-Pfad, ohne auf einen periodischen Lauf zu warten.
+     *
+     * <p>Das ist der Unterschied zwischen «die Tabelle stimmt irgendwann wieder» und «der Nutzer
+     * kommt weiter»: Der Duplikatcheck räumt die verwaiste Zeile im Vorbeigehen ab, und zwar in
+     * genau der Sekunde, in der sie ihn sonst mit 409 abgewiesen hätte.
+     */
+    @Test
+    void uploadPathClearsTheOrphanItself() {
+        ImportJob orphaned =
+                runningJobCreatedAt(Instant.now().minus(STALE_AFTER).minusSeconds(60));
+
+        assertThat(cleaner.cleanUpIfStale(orphaned)).isTrue();
+
+        assertThat(statusOf(orphaned)).isEqualTo(ImportJobStatus.FAILED);
+        assertThat(isBlockedAsDuplicate()).isFalse();
+    }
+
     /** Abgeschlossene Jobs sind kein Fall für die Bereinigung, egal wie alt sie sind. */
     @Test
     void leavesFinishedJobsAlone() {
@@ -139,8 +157,9 @@ class StaleImportJobCleanerIntegrationTest {
     }
 
     private boolean isBlockedAsDuplicate() {
-        return importJobRepository.existsByUserIdAndPdfSha256AndStatus(
-                userId, SHA, ImportJobStatus.RUNNING);
+        return !importJobRepository
+                .findByUserIdAndPdfSha256AndStatus(userId, SHA, ImportJobStatus.RUNNING)
+                .isEmpty();
     }
 
     private ImportJob runningJobCreatedAt(Instant createdAt) {

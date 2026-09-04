@@ -34,7 +34,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  *
  * <p><strong>Watchdog statt Zeitbudget:</strong> Auf diesen Lauf wartet kein HTTP-Request mehr,
  * die 30 Sekunden aus {@link PdfImportService} gelten nur noch fürs Parsen. Hier bremst nur
- * {@code budgetbuddy.import.categorization-timeout-seconds} einen hängenden Lauf. Läuft er
+ * {@code budgetbuddy.import.categorization-timeout} einen hängenden Lauf. Läuft er
  * hinein, wird <strong>nicht</strong> abgebrochen: Die restlichen Transaktionen fallen ohne
  * Claude-Call auf {@link Category#SONSTIGES} und der Import wird vollständig gespeichert. Der
  * alte Zustand — 30 s warten und dann alle 108 Transaktionen verlieren (#192) — ist damit nicht
@@ -60,15 +60,15 @@ public class ImportJobRunner {
             ImportJobRepository importJobRepository,
             TransactionTemplate transactionTemplate,
             Clock clock,
-            @Value("${budgetbuddy.import.categorization-timeout-seconds:300}")
-                    long categorizationTimeoutSeconds,
+            @Value("${budgetbuddy.import.categorization-timeout:300s}")
+                    Duration categorizationTimeout,
             @Value("${budgetbuddy.import.batch-size:20}") int batchSize) {
         this.categorizationPort = categorizationPort;
         this.transactionRepository = transactionRepository;
         this.importJobRepository = importJobRepository;
         this.transactionTemplate = transactionTemplate;
         this.clock = clock;
-        this.categorizationTimeout = Duration.ofSeconds(categorizationTimeoutSeconds);
+        this.categorizationTimeout = categorizationTimeout;
         this.batchSize = batchSize;
     }
 

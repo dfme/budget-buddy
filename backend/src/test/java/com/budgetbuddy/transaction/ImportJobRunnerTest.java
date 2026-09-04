@@ -15,6 +15,7 @@ import com.budgetbuddy.categorization.CategorizationResult;
 import com.budgetbuddy.categorization.Category;
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -58,7 +59,7 @@ class ImportJobRunnerTest {
             new TransactionTemplate(mock(PlatformTransactionManager.class));
 
     private final ImportJobRunner runner = new ImportJobRunner(categorizationPort, repository,
-            importJobRepository, transactionTemplate, clock, WATCHDOG_SECONDS, BATCH_SIZE);
+            importJobRepository, transactionTemplate, clock, Duration.ofSeconds(WATCHDOG_SECONDS), BATCH_SIZE);
 
     @BeforeEach
     void persistJobsAsGiven() {

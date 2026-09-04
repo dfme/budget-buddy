@@ -161,7 +161,8 @@ angefordert hat.
   mehr fertigstellen kann. Ein Aufräum-Job beim Start ist bewusst nicht gebaut — bei einer
   Einzelinstanz mit `waitForTasksToCompleteOnShutdown` ist das Fenster klein.~~
   **Geschlossen durch BE-PDF-11 ([#197](https://github.com/dfme/budget-buddy/issues/197)):**
-  `StaleImportJobCleaner` setzt solche Jobs beim Start und danach periodisch auf `FAILED`. Die
+  `StaleImportJobCleaner` setzt solche Jobs auf `FAILED` — beim Start, alle sechs Stunden, und
+  über `cleanUpIfStale` auch beim Upload selbst, wo der Duplikatcheck die Zeile ohnehin lädt. Die
   Annahme «das Fenster ist klein» hat zweimal nicht getragen. Erstens ist Renders Grace-Period vor
   dem `SIGKILL` kürzer als die 60 s, auf die `waitForTasksToCompleteOnShutdown` wartet — und weil
   jeder Merge auf `main` deployt, trifft das jeden Import, der gerade läuft. Zweitens ist die Grösse

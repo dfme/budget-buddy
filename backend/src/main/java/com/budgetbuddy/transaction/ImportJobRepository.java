@@ -32,12 +32,18 @@ public interface ImportJobRepository extends JpaRepository<ImportJob, Long> {
      * die gesamte Dauer des Laufs blind und derselbe Auszug landete doppelt in der Datenbank
      * (siehe {@code PdfImportService.startImport}).
      *
+     * <p><strong>Liefert die Jobs und nicht bloss ein {@code boolean}</strong> (BE-PDF-11): Der
+     * Duplikatcheck muss seit dem Lazy-Cleanup unterscheiden, ob der gefundene Job wirklich noch
+     * läuft oder nur verwaist ist. Ein {@code existsBy…} beantwortete diese Frage nicht und
+     * sperrte den erneuten Upload deshalb auch dann, wenn niemand mehr an der Datei arbeitete.
+     * Der Index {@code idx_import_jobs_user_hash_status} bedient beide Formen gleich.
+     *
      * @param userId ID des besitzenden Users.
      * @param pdfSha256 SHA-256 des hochgeladenen PDFs.
      * @param status gesuchter Status — im Duplikatcheck {@link ImportJobStatus#RUNNING}.
-     * @return {@code true}, wenn ein solcher Job existiert.
+     * @return die passenden Jobs; leer, wenn es keinen gibt.
      */
-    boolean existsByUserIdAndPdfSha256AndStatus(
+    List<ImportJob> findByUserIdAndPdfSha256AndStatus(
             Long userId, String pdfSha256, ImportJobStatus status);
 
     /**

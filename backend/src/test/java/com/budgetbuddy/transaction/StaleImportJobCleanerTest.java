@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import ch.qos.logback.classic.Level;
@@ -51,8 +52,9 @@ class StaleImportJobCleanerTest {
     private final StaleImportJobCleaner cleaner = new StaleImportJobCleaner(
             repository,
             Clock.fixed(NOW, ZoneOffset.UTC),
-            CATEGORIZATION_TIMEOUT_SECONDS,
-            RESERVE_SECONDS);
+            Duration.ofSeconds(CATEGORIZATION_TIMEOUT_SECONDS),
+            Duration.ofSeconds(RESERVE_SECONDS),
+            true);
 
     private final Logger observedLogger =
             (Logger) LoggerFactory.getLogger(StaleImportJobCleaner.class);
@@ -185,6 +187,93 @@ class StaleImportJobCleanerTest {
 
         assertThatThrownBy(cleaner::cleanUpStaleJobsPeriodically)
                 .isInstanceOf(IllegalStateException.class);
+    }
+
+    // --- cleanUpIfStale: der Pfad, den der Upload nimmt (BE-PDF-11) ---
+
+    /**
+     * Der Kern des Lazy-Cleanups: Ein verwaister Job wird beim Upload abgeräumt, statt den
+     * erneuten Import derselben Datei mit 409 zu sperren.
+     */
+    @Test
+    void cleanUpIfStale_failsAnOrphanedJobAndReportsIt() {
+        ImportJob stale = runningJobCreatedAt(CUTOFF.minusSeconds(1));
+
+        assertThat(cleaner.cleanUpIfStale(stale)).isTrue();
+
+        assertThat(stale.getStatus()).isEqualTo(ImportJobStatus.FAILED);
+        assertThat(stale.getFinishedAt()).isEqualTo(NOW);
+        verify(repository).save(stale);
+    }
+
+    /** Ein Job, der noch laufen kann, sperrt den Upload zu Recht — und bleibt unberührt. */
+    @Test
+    void cleanUpIfStale_leavesARunningJobAlone() {
+        ImportJob fresh = runningJobCreatedAt(CUTOFF.plusSeconds(1));
+
+        assertThat(cleaner.cleanUpIfStale(fresh)).isFalse();
+
+        assertThat(fresh.getStatus()).isEqualTo(ImportJobStatus.RUNNING);
+        verify(repository, never()).save(any(ImportJob.class));
+    }
+
+    /**
+     * Ein bereits abgeschlossener Job ist kein Fall für die Bereinigung, egal wie alt er ist.
+     * Ohne die Statusprüfung setzte dieser Pfad ein {@code DONE} auf {@code FAILED} zurück und
+     * behauptete damit, ein erfolgreicher Import sei gescheitert.
+     */
+    @Test
+    void cleanUpIfStale_neverTouchesAFinishedJob() {
+        ImportJob done = runningJobCreatedAt(CUTOFF.minusSeconds(3600));
+        done.finishSuccessfully(false, NOW);
+
+        assertThat(cleaner.cleanUpIfStale(done)).isFalse();
+
+        assertThat(done.getStatus()).isEqualTo(ImportJobStatus.DONE);
+        verify(repository, never()).save(any(ImportJob.class));
+    }
+
+    // --- Der Schalter gatet die automatischen Läufe, nicht den Upload-Pfad ---
+
+    /**
+     * {@code stale-job-cleanup.enabled=false} stellt Start- und periodischen Lauf ruhig — das ist
+     * die Einstellung, die {@code pom.xml} für die gesamte Testausführung setzt.
+     */
+    @Test
+    void disabled_silencesBothAutomaticTriggers() {
+        StaleImportJobCleaner disabled = cleanerWithAutomaticCleanup(false);
+
+        disabled.onApplicationReady();
+        disabled.cleanUpStaleJobsPeriodically();
+
+        verifyNoInteractions(repository);
+    }
+
+    /**
+     * Derselbe Schalter darf den Upload-Pfad <strong>nicht</strong> treffen.
+     *
+     * <p>Sonst verhielte sich der Duplikatcheck im Test anders als in Produktion, und zwar genau
+     * in dem Punkt, den der Nutzer bemerkt. Der Schalter existiert, damit Testkontexte ohne
+     * Flyway-Schema keine ERROR-Zeilen produzieren — nicht, um Verhalten abzuschalten.
+     */
+    @Test
+    void disabled_stillCleansUpOnTheUploadPath() {
+        StaleImportJobCleaner disabled = cleanerWithAutomaticCleanup(false);
+        ImportJob stale = runningJobCreatedAt(CUTOFF.minusSeconds(1));
+
+        assertThat(disabled.cleanUpIfStale(stale)).isTrue();
+
+        assertThat(stale.getStatus()).isEqualTo(ImportJobStatus.FAILED);
+        verify(repository).save(stale);
+    }
+
+    private StaleImportJobCleaner cleanerWithAutomaticCleanup(boolean enabled) {
+        return new StaleImportJobCleaner(
+                repository,
+                Clock.fixed(NOW, ZoneOffset.UTC),
+                Duration.ofSeconds(CATEGORIZATION_TIMEOUT_SECONDS),
+                Duration.ofSeconds(RESERVE_SECONDS),
+                enabled);
     }
 
     private void whenRepositoryReturns(ImportJob... jobs) {

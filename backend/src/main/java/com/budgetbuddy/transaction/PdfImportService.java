@@ -53,6 +53,7 @@ public class PdfImportService {
     private final TransactionRepository transactionRepository;
     private final ImportJobRepository importJobRepository;
     private final ImportJobRunner importJobRunner;
+    private final StaleImportJobCleaner staleImportJobCleaner;
     private final Clock clock;
     private final Duration parseTimeout;
 
@@ -61,12 +62,14 @@ public class PdfImportService {
             TransactionRepository transactionRepository,
             ImportJobRepository importJobRepository,
             ImportJobRunner importJobRunner,
+            StaleImportJobCleaner staleImportJobCleaner,
             Clock clock,
             @Value("${budgetbuddy.import.timeout-seconds:30}") long timeoutSeconds) {
         this.parser = parser;
         this.transactionRepository = transactionRepository;
         this.importJobRepository = importJobRepository;
         this.importJobRunner = importJobRunner;
+        this.staleImportJobCleaner = staleImportJobCleaner;
         this.clock = clock;
         this.parseTimeout = Duration.ofSeconds(timeoutSeconds);
     }
@@ -163,7 +166,7 @@ public class PdfImportService {
      * <ul>
      *   <li>{@code transactions} trägt ihn erst, wenn der Hintergrundlauf fertig ist. Seit ADR-14
      *       liegt zwischen Upload und erstem geschriebenen Datensatz bis zu
-     *       {@code categorization-timeout-seconds} plus ein vollständiges Bündel.
+     *       {@code categorization-timeout} plus ein vollständiges Bündel.
      *   <li>{@code import_jobs} trägt ihn ab dem Anlegen und deckt damit genau dieses Fenster ab.
      * </ul>
      *
@@ -179,9 +182,24 @@ public class PdfImportService {
      * vor der Umstellung — Millisekunden statt Minuten — und ist als eigenes Follow-up vermerkt.
      */
     private boolean isDuplicate(long userId, String pdfSha256) {
-        return transactionRepository.existsByUserIdAndPdfSha256(userId, pdfSha256)
-                || importJobRepository.existsByUserIdAndPdfSha256AndStatus(
-                        userId, pdfSha256, ImportJobStatus.RUNNING);
+        if (transactionRepository.existsByUserIdAndPdfSha256(userId, pdfSha256)) {
+            return true;
+        }
+
+        // Ein laufender Job desselben PDFs sperrt den Upload — aber nur, solange er wirklich läuft.
+        // Ist er verwaist (BE-PDF-11), wird er hier abgeräumt statt als Sperre gewertet: Sonst
+        // beantwortete ausgerechnet der Selbsthilfe-Versuch nach einem abgebrochenen Import — die
+        // Datei nochmals hochladen — dauerhaft mit 409. Der Aufruf kostet keinen zusätzlichen
+        // Lesezugriff: Die Zeile kommt aus derselben Abfrage, die der Duplikatcheck ohnehin
+        // absetzt. Nur im tatsächlichen Verwaisungsfall kommt ein UPDATE dazu.
+        //
+        // Mandantentrennung: Die Query ist auf userId eingeschränkt, cleanUpIfStale bekommt also
+        // ausschliesslich Jobs des aufrufenden Users zu sehen — anders als der Systemlauf, der
+        // bewusst über alle User geht und deshalb keinen Request-Pfad hat.
+        return importJobRepository
+                .findByUserIdAndPdfSha256AndStatus(userId, pdfSha256, ImportJobStatus.RUNNING)
+                .stream()
+                .anyMatch(job -> !staleImportJobCleaner.cleanUpIfStale(job));
     }
 
     private static String sha256Hex(byte[] pdfBytes) {
