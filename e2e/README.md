@@ -84,6 +84,7 @@ die im JAR gebündelte SPA aus«) schlägt dann als Einziger fehl und nennt gena
 | `tests/auth.spec.ts` | Register → Login → Dashboard → Logout, Cookie-Flags, Fehlerpfad (ohne Cookie, falsche Credentials) |
 | `tests/spa-routing.spec.ts` | Deep-Link-Status-Codes des Artefakts (SPA offen, API geschützt) |
 | `tests/fixed-cost-wizard.spec.ts` | Fixkosten-Wizard (US-03): Happy Path bis in die Liste, Fehlerpfad mit Validierung |
+| `tests/onboarding-completion.spec.ts` | Onboarding-Abschluss (US-03): beide Wege aus dem Wizard aufs Dashboard, mit Gegenprobe über einen Reload |
 | `tests/pdf-import.spec.ts` | PDF-Upload (US-04): Happy Path mit Anzahl-Meldung, Fehlerpfad mit unlesbarem PDF |
 | `tests/categorization.spec.ts` | Kategorisierung (US-05): Happy Path mit Korrektur über einen Reload, Fehlerpfad mit 500 auf dem Korrektur-PUT |
 | `tests/safe-to-spend.spec.ts` | Safe-to-Spend (US-06): Happy Path mit Querprobe gegen `GET /budget/safe-to-spend`, Fehlerpfad ohne erfasstes Einkommen |
@@ -113,6 +114,13 @@ Verfügbare Fixtures: `authenticatedPage` (Page mit gültigem Cookie), `authenti
 zugehörige BrowserContext, z. B. für `context.cookies()`) und `testUser` (die erzeugten
 Credentials).
 
+Daneben gibt es seit E2E-FC-02 `freshUserPage` und `freshUserContext`: registriert, aber **ohne**
+abgeschlossenes Onboarding. Sie sind für genau einen Fall da — den Onboarding-Abschluss selbst.
+`authenticatedPage` ruft `onboarding-complete` unbedingt, der Übergang `false → true` ist über sie
+also prinzipiell nicht beobachtbar. Für alles andere bleibt `authenticatedPage` der Einstieg: Wer
+`freshUserPage` nimmt, wird vom `onboardingGuard` bei jeder geschützten Route in den Wizard
+zurückgeworfen. Beide dürfen nicht im selben Test stehen — sie teilen sich einen Cookie-Jar.
+
 Das httpOnly-Cookie kommt über `context.request.post('/api/auth/register', …)` in den Browser:
 `context.request` teilt den Cookie-Jar mit dem BrowserContext. `document.cookie` oder
 `addInitScript` sind kein Ersatz — das Cookie ist per Definition für JS unsichtbar (ADR-7).
@@ -137,8 +145,13 @@ klar benannter Fallback in `support/backend.ts`, damit ein Lauf ohne Env-Setup f
 ## Scope
 
 Vorgesehen sind je ein Happy Path und ein Fehlerpfad pro Must-Have-Story (US-03…US-06), dazu der
-Auth-Flow als Verifikation der Harness selbst. Abgedeckt ist davon bislang **US-03 und US-04**
-(Fixkosten-Wizard E2E-FC-01, PDF-Upload E2E-PDF-01); US-05 und US-06 sind Folgearbeit.
+Auth-Flow als Verifikation der Harness selbst. Abgedeckt sind inzwischen **alle vier**: US-03
+(`fixed-cost-wizard.spec.ts`, E2E-FC-01), US-04 (`pdf-import.spec.ts`, E2E-PDF-01), US-05
+(`categorization.spec.ts`, E2E-CAT-01) und US-06 (`safe-to-spend.spec.ts`, E2E-STS-01).
+
+Über dieses Minimum hinaus deckt `onboarding-completion.spec.ts` (E2E-FC-02) die beiden Wege ab,
+auf denen US-03 den Wizard verlassen lässt — «Keine Fixkosten» und «mindestens ein Eintrag». Ein
+Happy Path und ein Fehlerpfad sind die Untergrenze pro Story, nicht die Obergrenze.
 
 Die Fälle hängen nicht an einzelnen Feature-Issues, sondern je an einem eigenen Task pro Story:
 US-04 allein besteht aus acht Issues, die zwei Testfälle liessen sich keinem davon sinnvoll
