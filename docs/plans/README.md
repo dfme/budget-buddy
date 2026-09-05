@@ -29,6 +29,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `BE-AUTH-08` | [monthly_income auf Rappen und Kapazität prüfen](BE-AUTH-08-income-rappen-validierung.md) | [#148](https://github.com/dfme/budget-buddy/issues/148) | — | Sprint 5 |
 | `BE-AUTH-09` | [Passwort-Änderung-Endpoint](BE-AUTH-09-password-change.md) | [#176](https://github.com/dfme/budget-buddy/issues/176) | US-14 | Sprint 5 |
 | `BE-AUTH-10` | [Passwort über 72 Bytes führt zu HTTP 500 statt 400](BE-AUTH-10-password-byte-length.md) | [#200](https://github.com/dfme/budget-buddy/issues/200) | US-14 | Sprint 6 |
+| `BE-AUTH-11` | [JWT bleibt nach Passwort-Änderung gültig — Session-Invalidierung entscheiden](BE-AUTH-11-token-version-invalidation.md) | [#201](https://github.com/dfme/budget-buddy/issues/201) | US-14 | Sprint 6 |
 | `BE-CAT-01` | [CategorizationPort Interface und LookupTableService](BE-CAT-01-categorization-port.md) | [#14](https://github.com/dfme/budget-buddy/issues/14) | US-05 | Sprint 2 |
 | `BE-CAT-02` | [ClaudeCategorizationService](BE-CAT-02-claude-categorization.md) | [#15](https://github.com/dfme/budget-buddy/issues/15) | US-05 | Sprint 2 |
 | `BE-CAT-03` | [HybridCategorizationService](BE-CAT-03-hybrid-categorization.md) | [#16](https://github.com/dfme/budget-buddy/issues/16) | US-05 | Sprint 3 |
@@ -49,7 +50,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `BE-PDF-07` | [Absender/Empfänger aus den Detailzeilen wird beim Import verworfen](BE-PDF-07-detailzeilen-persistieren.md) | [#159](https://github.com/dfme/budget-buddy/issues/159) | — | Sprint 5 |
 | `BE-PDF-08` | [Import eines Kontoauszugs schlägt zuverlässig fehl](BE-PDF-08-fehlerdiagnose.md) | [#173](https://github.com/dfme/budget-buddy/issues/173) | — | Sprint 5 |
 | `BE-PDF-09` | [PDF-Import läuft in Produktion ins 30s-Zeitbudget und verwirft den gesamten Import](BE-PDF-09-async-import-job.md) | [#192](https://github.com/dfme/budget-buddy/issues/192) | US-04 | Sprint 5 |
-| `BE-PDF-13` | [Gegenpartei-Adresse als einzelne Zeile überlebt DETAIL_NOISE](BE-PDF-13-adresse-detail-noise.md) | [#241](https://github.com/dfme/budget-buddy/issues/241) | US-05 | — |
+| `BE-PDF-13` | [Gegenpartei-Adresse als einzelne Zeile überlebt DETAIL_NOISE](BE-PDF-13-adresse-detail-noise.md) | [#241](https://github.com/dfme/budget-buddy/issues/241) | US-05 | Sprint 6 |
 | `BE-STS-01` | [SafeToSpendService](BE-STS-01-safe-to-spend-service.md) | [#21](https://github.com/dfme/budget-buddy/issues/21) | US-06 | Sprint 4 |
 | `BE-STS-02` | [Einkommens-Heuristik](BE-STS-02-einkommens-heuristik.md) | [#22](https://github.com/dfme/budget-buddy/issues/22) | US-06 | Sprint 4 |
 | `BE-STS-03` | [GET /budget/safe-to-spend](BE-STS-03-safe-to-spend-endpoint.md) | [#23](https://github.com/dfme/budget-buddy/issues/23) | US-06 | Sprint 4 |

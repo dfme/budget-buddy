@@ -78,7 +78,8 @@ public class AuthController {
     }
 
     private ResponseEntity<UserProfileResponse> authenticatedResponse(User user, HttpStatus status) {
-        ResponseCookie cookie = cookieFactory.create(jwtService.generateToken(user.getId()));
+        ResponseCookie cookie =
+                cookieFactory.create(jwtService.generateToken(user.getId(), user.getTokenVersion()));
         return ResponseEntity.status(status)
                 .header(HttpHeaders.SET_COOKIE, cookie.toString())
                 .body(UserProfileResponse.from(user));

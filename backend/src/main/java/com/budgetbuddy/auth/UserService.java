@@ -136,6 +136,10 @@ public class UserService implements UserIncomePort {
     /**
      * Prüft das aktuelle Passwort und ersetzt bei Erfolg den gespeicherten Hash (BE-AUTH-09).
      *
+     * <p>Erhöht zusätzlich {@code tokenVersion} (BE-AUTH-11, #201): jedes zuvor ausgestellte JWT
+     * wird damit beim nächsten Request ungültig, inklusive des Cookies der aufrufenden Session —
+     * bewusst kein automatischer Cookie-Reissue, der Client muss sich neu einloggen.
+     *
      * @throws UserNotFoundException wenn kein User mit dieser ID existiert.
      * @throws InvalidCurrentPasswordException wenn {@code currentPassword} nicht mit dem
      *     gespeicherten Hash übereinstimmt — die Änderung findet dann nicht statt.
@@ -147,6 +151,7 @@ public class UserService implements UserIncomePort {
             throw new InvalidCurrentPasswordException();
         }
         user.changePasswordHash(passwordEncoder.encode(newPassword));
+        user.invalidateTokenVersion();
     }
 
     /**
