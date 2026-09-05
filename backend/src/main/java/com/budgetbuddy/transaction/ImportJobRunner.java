@@ -94,10 +94,10 @@ public class ImportJobRunner {
             // save) nicht — dort stünde FAILED an einem Job, dessen Zeilen geschrieben sind.
             // Eine Logzeile, die das Gegenteil behauptet, schickt die Fehlersuche in die
             // falsche Richtung.
-            log.error("Import-Job {} für User {} abgebrochen — Status FAILED. Ob Transaktionen "
+            log.error("Import-Job {} abgebrochen — Status FAILED. Ob Transaktionen "
                             + "geschrieben wurden, hängt davon ab, ob der Fehler vor oder nach "
                             + "dem Persistieren auftrat.",
-                    job.getId(), job.getUserId(), e);
+                    job.getId(), e);
             job.fail(clock.instant());
             importJobRepository.save(job);
         }
@@ -132,10 +132,10 @@ public class ImportJobRunner {
             // unterbrochen. Die reale Obergrenze ist damit Deadline + ein vollständiges Bündel.
             if (!degraded && clock.instant().isAfter(deadline)) {
                 degraded = true;
-                log.warn("Import-Job {} für User {}: Zeitbudget von {}s nach {} von {} "
-                                + "Transaktionen überschritten — der Rest wird ohne Claude-Call "
-                                + "als '{}' gespeichert (der Import geht nicht verloren).",
-                        job.getId(), userId, categorizationTimeout.toSeconds(), from, parsed.size(),
+                log.warn("Import-Job {}: Zeitbudget von {}s nach {} von {} Transaktionen "
+                                + "überschritten — der Rest wird ohne Claude-Call als '{}' "
+                                + "gespeichert (der Import geht nicht verloren).",
+                        job.getId(), categorizationTimeout.toSeconds(), from, parsed.size(),
                         Category.SONSTIGES.getLabel());
             }
 
@@ -177,8 +177,8 @@ public class ImportJobRunner {
         transactionTemplate.executeWithoutResult(status -> {
             if (force) {
                 long removed = transactionRepository.deleteByUserIdAndPdfSha256(userId, pdfSha256);
-                log.info("Force-Import für User {}: {} Transaktion(en) des vorherigen Imports "
-                        + "ersetzt.", userId, removed);
+                log.info("Force-Import: {} Transaktion(en) des vorherigen Imports ersetzt.",
+                        removed);
             }
             transactionRepository.saveAll(entities);
         });
@@ -192,9 +192,9 @@ public class ImportJobRunner {
         // nicht mehr hinter einem Pfad, der im Fehlerfall übersprungen wird: Der Watchdog-Fall
         // endet ebenfalls hier und ist an `degraded` erkennbar (#192, Nebenbefund «Instrumen-
         // tierung ist im Fehlerfall blind»).
-        log.info("Import-Job {} für User {}: {} Transaktion(en) importiert (Kategorisierung {} ms; "
+        log.info("Import-Job {}: {} Transaktion(en) importiert (Kategorisierung {} ms; "
                         + "{} via Lookup, {} via Claude, {} ohne Call{}).",
-                job.getId(), userId, entities.size(), Duration.between(start, end).toMillis(),
+                job.getId(), entities.size(), Duration.between(start, end).toMillis(),
                 viaLookup, viaClaude, ohneCall, degraded ? ", Zeitbudget überschritten" : "");
     }
 

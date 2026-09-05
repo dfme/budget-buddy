@@ -8,6 +8,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.spi.ILoggingEvent;
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.core.JsonValue;
 import com.anthropic.errors.AnthropicException;
@@ -20,20 +22,25 @@ import com.anthropic.models.messages.TextBlock;
 import com.anthropic.models.messages.Usage;
 import com.anthropic.services.blocking.MessageService;
 import com.budgetbuddy.categorization.ClaudeCategorizationService.BatchCategorization;
+import com.budgetbuddy.support.ThreadScopedLogAppender;
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 
 /**
@@ -60,7 +67,14 @@ class ClaudeCategorizationServiceTest {
     @Mock private MessageService messageService;
     @Mock private Clock clock;
 
+    /** Modell-ID, wie sie die API tatsächlich zurückgibt — der Alias löst darauf auf. */
+    private static final String DATED_MODEL_ID = "claude-haiku-4-5-20251001";
+
     private ClaudeCategorizationService service;
+    private ThreadScopedLogAppender appender;
+    private final ch.qos.logback.classic.Logger observedLogger =
+            (ch.qos.logback.classic.Logger)
+                    LoggerFactory.getLogger(ClaudeCategorizationService.class);
 
     @BeforeEach
     void setUp() {
@@ -71,11 +85,22 @@ class ClaudeCategorizationServiceTest {
         lenient().when(client.messages()).thenReturn(messageService);
         lenient().when(clock.millis()).thenReturn(0L);
 
-        service =
-                new ClaudeCategorizationService(
-                        clientProvider,
-                        new AnthropicProperties("test-key", "claude-haiku-4-5"),
-                        clock);
+        service = serviceWith(new AnthropicProperties("test-key", "claude-haiku-4-5"));
+
+        // ThreadScopedLogAppender statt ListAppender (BE-CAT-07): Der Logger ist prozessweit
+        // geteilt und dieser Service läuft produktiv in @Async-Importjobs. Ein anyMatch könnte
+        // sonst durch die Zeile eines fremden Threads fälschlich grün werden — der teurere der
+        // beiden Fehler, weil er unbemerkt bleibt.
+        appender = new ThreadScopedLogAppender();
+        appender.start();
+        observedLogger.setLevel(Level.INFO);
+        observedLogger.addAppender(appender);
+    }
+
+    @AfterEach
+    void tearDown() {
+        observedLogger.detachAppender(appender);
+        observedLogger.setLevel(null);
     }
 
     @Test
@@ -415,7 +440,178 @@ class ClaudeCategorizationServiceTest {
                 .create(any(StructuredMessageCreateParams.class));
     }
 
+    // --- Token- und Kostenlogging (BE-CAT-09) ---
+
+    /**
+     * Die AC im Wortlaut: Nach einem erfolgreichen Call stehen Input-Tokens, Output-Tokens und das
+     * verwendete Modell im Log. Gemessen am formatierten Output — genau das, was in den
+     * Render-Logs stünde.
+     */
+    @Test
+    void logsTokenUsageAfterASuccessfulCall() {
+        respondWith(Category.LEBENSMITTEL);
+
+        service.categorize("MIGROS BERN");
+
+        assertThat(usageLines()).singleElement().asString()
+                .contains("model=claude-haiku-4-5")
+                .contains("transaktionen=1")
+                .contains("input_tokens=50")
+                .contains("output_tokens=3");
+    }
+
+    /**
+     * Ohne hinterlegten Preis bleibt es bei den Tokens. Fehlen statt lügen: Eine Zeile ohne Zahl
+     * ist brauchbar, eine mit falscher Zahl ist es nicht.
+     */
+    @Test
+    void omitsCostWhenNoPriceIsConfiguredForTheModel() {
+        respondWith(Category.LEBENSMITTEL);
+
+        service.categorize("MIGROS BERN");
+
+        assertThat(usageLines()).singleElement().asString()
+                .doesNotContain("cost_usd")
+                .contains("input_tokens=50");
+    }
+
+    /** 50 Input- und 3 Output-Tokens zu 1.00/5.00 USD je MTok = 0.000065 USD. */
+    @Test
+    void logsEstimatedCostWhenAPriceIsConfigured() {
+        service = serviceWith(propertiesWithHaikuPricing("claude-haiku-4-5"));
+        respondWith(Category.LEBENSMITTEL);
+
+        service.categorize("MIGROS BERN");
+
+        assertThat(usageLines()).singleElement().asString().contains("cost_usd=0.000065");
+    }
+
+    /**
+     * Der Fall, der einen einstufigen Lookup wertlos machte: {@code claude-haiku-4-5} ist ein
+     * Alias und löst auf eine datierte ID auf, die so in der Antwort steht. Der konfigurierte
+     * Preis hängt aber am Alias — ohne den Fallback fehlten die Kosten bei <em>jedem</em> Call.
+     */
+    @Test
+    void findsThePriceViaTheConfiguredAliasWhenTheResponseReportsADatedModelId() {
+        service = serviceWith(propertiesWithHaikuPricing("claude-haiku-4-5"));
+        respondWith(messageWith(sonstigesForNumberOne(), DATED_MODEL_ID, standardUsage()));
+
+        service.categorize("MIGROS BERN");
+
+        assertThat(usageLines()).singleElement().asString()
+                .contains("model=" + DATED_MODEL_ID)
+                .contains("cost_usd=0.000065");
+    }
+
+    /**
+     * Cache-Reads kosten 10 % des Input-Preises, Cache-Writes mehr als der Grundpreis — die
+     * Formel bildet beides nicht ab. Statt zu hoch zu schätzen, entfällt der Betrag.
+     */
+    @Test
+    void omitsCostWhenTheResponseReportsCacheTokens() {
+        service = serviceWith(propertiesWithHaikuPricing("claude-haiku-4-5"));
+        respondWith(messageWith(sonstigesForNumberOne(), "claude-haiku-4-5",
+                usageBuilder().cacheReadInputTokens(Optional.of(40L)).build()));
+
+        service.categorize("MIGROS BERN");
+
+        assertThat(usageLines()).singleElement().asString()
+                .doesNotContain("cost_usd")
+                .contains("input_tokens=50");
+    }
+
+    /** Der Batch-Tarif ist 50 % günstiger, Priority teurer — beides sprengt die Formel. */
+    @Test
+    void omitsCostWhenTheResponseReportsANonStandardServiceTier() {
+        service = serviceWith(propertiesWithHaikuPricing("claude-haiku-4-5"));
+        respondWith(messageWith(sonstigesForNumberOne(), "claude-haiku-4-5",
+                usageBuilder().serviceTier(Optional.of(Usage.ServiceTier.BATCH)).build()));
+
+        service.categorize("MIGROS BERN");
+
+        assertThat(usageLines()).singleElement().asString().doesNotContain("cost_usd");
+    }
+
+    /**
+     * Eine Zeile pro Request, nicht pro Transaktion — damit belegt das Log zugleich, dass die
+     * Kategorisierung keinen zusätzlichen Call für die Zahlen braucht (AC 2): Zeilen und Requests
+     * sind dieselbe Menge.
+     */
+    @Test
+    void logsTokenUsagePerBatchNotPerTransaction() {
+        int count = ClaudeCategorizationService.MAX_BATCH_SIZE * 2 + 1;
+        respondWithSonstigesForEveryNumber();
+
+        service.categorizeAll(texts(count));
+
+        verify(messageService, times(3)).create(any(StructuredMessageCreateParams.class));
+        assertThat(usageLines()).hasSize(3);
+    }
+
+    /** Ein fehlgeschlagener Call hat keinen Verbrauch zu melden. */
+    @Test
+    void doesNotLogTokenUsageWhenTheCallFails() {
+        failWith(new AnthropicException("Timeout", null));
+
+        service.categorize(TRANSACTION);
+
+        assertThat(usageLines()).isEmpty();
+    }
+
+    /** Bei offenem Breaker geht kein Request hinaus — es entstehen also auch keine Kosten. */
+    @Test
+    void doesNotLogTokenUsageWhenTheBreakerIsOpen() {
+        failWith(new AnthropicException("API down", null));
+        for (int i = 0; i < ClaudeCategorizationService.FAILURE_THRESHOLD; i++) {
+            service.categorize(TRANSACTION);
+        }
+
+        service.categorize(TRANSACTION);
+
+        assertThat(usageLines()).isEmpty();
+    }
+
+    /** Ohne API-Key wird nichts abgesetzt und nichts abgerechnet. */
+    @Test
+    void doesNotLogTokenUsageWhenNoApiKeyIsConfigured() {
+        when(clientProvider.getIfAvailable()).thenReturn(null);
+
+        service.categorize(TRANSACTION);
+
+        assertThat(usageLines()).isEmpty();
+    }
+
     // --- Helpers ---
+
+    private ClaudeCategorizationService serviceWith(AnthropicProperties properties) {
+        return new ClaudeCategorizationService(clientProvider, properties, clock);
+    }
+
+    /** Preistabelle unter dem gegebenen Schlüssel — Haiku 4.5, Stand 02.09.2026. */
+    private static AnthropicProperties propertiesWithHaikuPricing(String pricingKey) {
+        return new AnthropicProperties(
+                "test-key",
+                "claude-haiku-4-5",
+                Map.of(pricingKey,
+                        new ModelPricing(new BigDecimal("1.00"), new BigDecimal("5.00"))));
+    }
+
+    /** Die vom Kosten-Logging geschriebenen Zeilen, in Reihenfolge. */
+    private List<String> usageLines() {
+        return appender.list.stream()
+                .map(ILoggingEvent::getFormattedMessage)
+                .filter(message -> message.startsWith("Claude-Kategorisierung:"))
+                .toList();
+    }
+
+    private static String sonstigesForNumberOne() {
+        return "{\"categories\":[{\"number\":1,\"category\":\"SONSTIGES\"}]}";
+    }
+
+    private void respondWith(Message message) {
+        when(messageService.create(any(StructuredMessageCreateParams.class)))
+                .thenReturn(new StructuredMessage<>(BatchCategorization.class, message));
+    }
 
     private static CategorizationResult claude(Category category) {
         return new CategorizationResult(category, CategorizationResult.Source.CLAUDE);
@@ -476,29 +672,17 @@ class ClaudeCategorizationServiceTest {
                 .thenThrow(exception);
     }
 
-    /**
-     * Baut eine echte {@link Message}, wie sie das SDK zurückgibt.
-     *
-     * <p>Die vielen {@code Optional.empty()} sind kein Zierrat: Der SDK-Builder verlangt auch für
-     * nullable Felder einen expliziten Wert und wirft sonst beim {@code build()}.
-     */
+    /** Baut eine echte {@link Message}, wie sie das SDK zurückgibt. */
     private static Message messageWithText(String text) {
-        Usage usage =
-                Usage.builder()
-                        .cacheCreation(Optional.empty())
-                        .cacheCreationInputTokens(Optional.empty())
-                        .cacheReadInputTokens(Optional.empty())
-                        .inferenceGeo(Optional.empty())
-                        .inputTokens(50L)
-                        .outputTokens(3L)
-                        .serverToolUse(Optional.empty())
-                        .serviceTier(Optional.empty())
-                        .build();
+        return messageWith(text, "claude-haiku-4-5", standardUsage());
+    }
 
+    /** Wie {@link #messageWithText}, aber mit frei wählbarem Modell und Verbrauch (BE-CAT-09). */
+    private static Message messageWith(String text, String model, Usage usage) {
         return Message.builder()
                 .id("msg_test")
                 .container(Optional.empty())
-                .model("claude-haiku-4-5")
+                .model(model)
                 .role(JsonValue.from("assistant"))
                 .type(JsonValue.from("message"))
                 .addContent(TextBlock.builder().text(text).citations(List.of()).build())
@@ -507,5 +691,27 @@ class ClaudeCategorizationServiceTest {
                 .stopSequence(Optional.empty())
                 .usage(usage)
                 .build();
+    }
+
+    /** 50 Input-, 3 Output-Tokens, kein Cache, Standard-Tarif. */
+    private static Usage standardUsage() {
+        return usageBuilder().build();
+    }
+
+    /**
+     * Vorbelegter {@link Usage}-Builder — die vielen {@code Optional.empty()} sind kein Zierrat:
+     * Der SDK-Builder verlangt auch für nullable Felder einen expliziten Wert und wirft sonst beim
+     * {@code build()}. Tests, die einen Anteil abweichend brauchen, überschreiben nur diesen.
+     */
+    private static Usage.Builder usageBuilder() {
+        return Usage.builder()
+                .cacheCreation(Optional.empty())
+                .cacheCreationInputTokens(Optional.empty())
+                .cacheReadInputTokens(Optional.empty())
+                .inferenceGeo(Optional.empty())
+                .inputTokens(50L)
+                .outputTokens(3L)
+                .serverToolUse(Optional.empty())
+                .serviceTier(Optional.empty());
     }
 }

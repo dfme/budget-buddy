@@ -1,7 +1,10 @@
 package com.budgetbuddy.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -110,6 +113,36 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\": \"not-an-email\", \"password\": \"geheim123\"}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void registerWithPasswordOver72BytesReturns400InsteadOf500() throws Exception {
+        // BE-AUTH-10 (#200): 73 ASCII-Bytes reissen die bcrypt-Grenze knapp — der Grenzfall.
+        String tooLongPassword = "a".repeat(73);
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\": \"lara@example.ch\", \"password\": \""
+                                + tooLongPassword + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Passwort ist zu lang (maximal 72 Bytes)."))
+                .andExpect(content().string(not(containsString(tooLongPassword))));
+    }
+
+    @Test
+    void registerWithUmlautPasswordOver72BytesReturns400() throws Exception {
+        // 40 Umlaute sind 40 char (Java zählt UTF-16-Codeeinheiten), aber 80 UTF-8-Bytes: ein
+        // zeichenbasiertes @Size(max = 72) liesse das durch, die Byte-Prüfung nicht (AC aus #200).
+        // "😀".repeat(40) hätte das nicht belegt — als Surrogatpaar sind das bereits 80 char.
+        String tooManyBytesPassword = "ä".repeat(40);
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\": \"lara@example.ch\", \"password\": \""
+                                + tooManyBytesPassword + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Passwort ist zu lang (maximal 72 Bytes)."))
+                .andExpect(content().string(not(containsString(tooManyBytesPassword))));
     }
 
     @Test

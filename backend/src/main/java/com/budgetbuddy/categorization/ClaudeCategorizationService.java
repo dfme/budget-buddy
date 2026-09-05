@@ -6,7 +6,9 @@ import com.anthropic.models.messages.MessageCreateParams;
 import com.anthropic.models.messages.StructuredMessage;
 import com.anthropic.models.messages.StructuredMessageCreateParams;
 import com.anthropic.models.messages.StructuredTextBlock;
+import com.anthropic.models.messages.Usage;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -53,6 +55,12 @@ import org.springframework.stereotype.Service;
  * Stelle ist, an der Text in einen Request gerät. Die Lookup-Stufe davor
  * ({@link HybridCategorizationService}) sieht weiterhin den unmaskierten Text: sie ist lokal,
  * und eine Maskierung senkte dort nur die Trefferquote.
+ *
+ * <p><strong>Kostenbeobachtung</strong> (BE-CAT-09): Jeder erfolgreiche Bündel-Call loggt seinen
+ * Token-Verbrauch. ADR-14 hat gebündelt, <em>weil</em> Kosten und Zeitbudget zählen — ohne diese
+ * Zeile ist die Wirkung dieser Entscheidung nicht nachprüfbar. Die Response selbst enthält keinen
+ * Geldbetrag (sie führt nur Token-Zähler), der geschätzte Preis stammt deshalb aus der
+ * Konfiguration; siehe {@link ModelPricing} und {@link #logTokenUsage}.
  *
  * <p><strong>Circuit Breaker:</strong> Ohne Schutz würde ein API-Ausfall den Import lange
  * blockieren (ein Timeout pro Bündel). Nach {@link #FAILURE_THRESHOLD} fehlgeschlagenen Calls in
@@ -227,6 +235,7 @@ public class ClaudeCategorizationService implements CategorizationPort {
         // unbrauchbar ist. Ein halluzinierendes Modell ist kein Infrastruktur-Problem und darf
         // den Breaker nicht öffnen.
         recordSuccess();
+        logTokenUsage(response, batch.size());
         applyResponse(response, batch, results);
     }
 
@@ -290,6 +299,74 @@ public class ClaudeCategorizationService implements CategorizationPort {
             log.warn("Claude beantwortete nur {} von {} Transaktionen des Bündels — der Rest "
                     + "bleibt 'Sonstiges'.", applied.size(), batch.size());
         }
+    }
+
+    /**
+     * Loggt den Verbrauch eines erfolgreichen Bündel-Calls (BE-CAT-09).
+     *
+     * <p>Aufgerufen genau dann, wenn ein Request Kosten verursacht hat — nicht bei offenem Breaker
+     * und nicht ohne API-Key, wo gar kein Call hinausgeht.
+     *
+     * <p>Die Zeile trägt Zahlen und eine Modell-ID, nie Transaktionstext: Sie geht in dieselben
+     * Render-Logs wie die Fehlerpfade, und deren Redaktionsregel (BE-PDF-06) gilt hier genauso.
+     *
+     * <p><strong>Kosten nur, wenn die Formel trägt.</strong> {@link ModelPricing} rechnet zum
+     * Standard-Tarif auf regulären Input. Cache-Reads (10 % des Input-Preises), Cache-Writes und
+     * der Batch-Rabatt (50 %) sind darin nicht abgebildet, und ein fehlender Preiseintrag ist gar
+     * keine Grundlage. In allen diesen Fällen entfällt {@code cost_usd} und es bleibt bei den
+     * Tokens — eine Zeile ohne Zahl ist brauchbar, eine mit falscher Zahl ist es nicht.
+     *
+     * <p><strong>Der ganze Block ist abgesichert:</strong> Eine Diagnosezeile darf nie ein Bündel
+     * kosten. Ohne {@code catch} flöge eine Exception aus dem SDK durch {@code categorizeAll} und
+     * nähme die bereits kategorisierten <em>und</em> alle folgenden Bündel mit.
+     */
+    private void logTokenUsage(StructuredMessage<BatchCategorization> response, int batchSize) {
+        try {
+            String model = response.model().asString();
+            Usage usage = response.usage();
+            BigDecimal cost = estimateCost(model, usage);
+
+            if (cost == null) {
+                log.info("Claude-Kategorisierung: model={} transaktionen={} input_tokens={} "
+                        + "output_tokens={}",
+                        model, batchSize, usage.inputTokens(), usage.outputTokens());
+            } else {
+                log.info("Claude-Kategorisierung: model={} transaktionen={} input_tokens={} "
+                        + "output_tokens={} cost_usd={}",
+                        model, batchSize, usage.inputTokens(), usage.outputTokens(),
+                        cost.toPlainString());
+            }
+        } catch (RuntimeException e) {
+            log.debug("Token-Verbrauch des Bündels nicht auslesbar ({}).",
+                    LogRedaction.describe(e));
+        }
+    }
+
+    /**
+     * @return geschätzte Kosten, oder {@code null}, wenn kein Preis hinterlegt ist oder die
+     *     Antwort Anteile meldet, die {@link ModelPricing} nicht abbildet.
+     */
+    private BigDecimal estimateCost(String model, Usage usage) {
+        ModelPricing pricing = properties.pricingFor(model);
+        if (pricing == null || !isPricedAtStandardRate(usage)) {
+            return null;
+        }
+        return pricing.costFor(usage.inputTokens(), usage.outputTokens());
+    }
+
+    /**
+     * @return {@code true}, wenn der Call vollständig zum Standard-Tarif auf regulärem Input lief
+     *     — die einzige Konstellation, für die {@link ModelPricing#costFor} gilt.
+     */
+    private static boolean isPricedAtStandardRate(Usage usage) {
+        boolean cached = usage.cacheReadInputTokens().orElse(0L) > 0L
+                || usage.cacheCreationInputTokens().orElse(0L) > 0L;
+        // Gegen die SDK-Konstante statt gegen ein Stringliteral: PRIORITY und BATCH sind anders
+        // bepreist, und ein Tippfehler im Literal fiele hier still auf «Standard» zurück.
+        boolean standardTier = usage.serviceTier()
+                .map(Usage.ServiceTier.STANDARD::equals)
+                .orElse(true);
+        return !cached && standardTier;
     }
 
     private static CategorizationResult claudeResult(Category category) {

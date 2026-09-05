@@ -28,6 +28,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `BE-AUTH-07` | [BE-AUTH-07 — Interceptor-Beschreibung nur in ADR-2 führen](BE-AUTH-07-interceptor-single-source.md) | [#117](https://github.com/dfme/budget-buddy/issues/117) | — | Sprint 3 |
 | `BE-AUTH-08` | [monthly_income auf Rappen und Kapazität prüfen](BE-AUTH-08-income-rappen-validierung.md) | [#148](https://github.com/dfme/budget-buddy/issues/148) | — | Sprint 5 |
 | `BE-AUTH-09` | [Passwort-Änderung-Endpoint](BE-AUTH-09-password-change.md) | [#176](https://github.com/dfme/budget-buddy/issues/176) | US-14 | Sprint 5 |
+| `BE-AUTH-10` | [Passwort über 72 Bytes führt zu HTTP 500 statt 400](BE-AUTH-10-password-byte-length.md) | [#200](https://github.com/dfme/budget-buddy/issues/200) | US-14 | Sprint 6 |
 | `BE-AUTH-11` | [JWT bleibt nach Passwort-Änderung gültig — Session-Invalidierung entscheiden](BE-AUTH-11-token-version-invalidation.md) | [#201](https://github.com/dfme/budget-buddy/issues/201) | US-14 | Sprint 6 |
 | `BE-CAT-01` | [CategorizationPort Interface und LookupTableService](BE-CAT-01-categorization-port.md) | [#14](https://github.com/dfme/budget-buddy/issues/14) | US-05 | Sprint 2 |
 | `BE-CAT-02` | [ClaudeCategorizationService](BE-CAT-02-claude-categorization.md) | [#15](https://github.com/dfme/budget-buddy/issues/15) | US-05 | Sprint 2 |
@@ -36,6 +37,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `BE-CAT-05` | [GET /transactions/summary](BE-CAT-05-transactions-summary.md) | [#20](https://github.com/dfme/budget-buddy/issues/20) | US-05 | Sprint 3 |
 | `BE-CAT-06` | [Transaktionstext vor Claude-Call maskieren (Datenminimierung)](BE-CAT-06-prompt-sanitizer.md) | [#134](https://github.com/dfme/budget-buddy/issues/134) | US-05 | Sprint 5 |
 | `BE-CAT-07` | [AnthropicStartupHealthCheckTest ist ordnungsabhängig und macht einen echten Netzwerk-Call](BE-CAT-07-healthcheck-test-isolation.md) | [#162](https://github.com/dfme/budget-buddy/issues/162) | — | Sprint 5 |
+| `BE-CAT-09` | [Token-Verbrauch und Kosten der Claude-Kategorisierung loggen](BE-CAT-09-token-usage-logging.md) | [#243](https://github.com/dfme/budget-buddy/issues/243) | — | Sprint 6 |
 | `BE-FC-01` | [FixedCost Entity und Repository](BE-FC-01-fixedcost-entity.md) | [#10](https://github.com/dfme/budget-buddy/issues/10) | US-03 | Sprint 4 |
 | `BE-FC-02` | [FixedCostService: CRUD und Normalisierung](BE-FC-02-fixedcost-service.md) | [#11](https://github.com/dfme/budget-buddy/issues/11) | US-03 | Sprint 4 |
 | `BE-FC-03` | [REST-Endpoints für Fixkosten](BE-FC-03-fixed-costs-endpoints.md) | [#12](https://github.com/dfme/budget-buddy/issues/12) | US-03 | Sprint 4 |
@@ -48,6 +50,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `BE-PDF-07` | [Absender/Empfänger aus den Detailzeilen wird beim Import verworfen](BE-PDF-07-detailzeilen-persistieren.md) | [#159](https://github.com/dfme/budget-buddy/issues/159) | — | Sprint 5 |
 | `BE-PDF-08` | [Import eines Kontoauszugs schlägt zuverlässig fehl](BE-PDF-08-fehlerdiagnose.md) | [#173](https://github.com/dfme/budget-buddy/issues/173) | — | Sprint 5 |
 | `BE-PDF-09` | [PDF-Import läuft in Produktion ins 30s-Zeitbudget und verwirft den gesamten Import](BE-PDF-09-async-import-job.md) | [#192](https://github.com/dfme/budget-buddy/issues/192) | US-04 | Sprint 5 |
+| `BE-PDF-13` | [Gegenpartei-Adresse als einzelne Zeile überlebt DETAIL_NOISE](BE-PDF-13-adresse-detail-noise.md) | [#241](https://github.com/dfme/budget-buddy/issues/241) | US-05 | Sprint 6 |
 | `BE-STS-01` | [SafeToSpendService](BE-STS-01-safe-to-spend-service.md) | [#21](https://github.com/dfme/budget-buddy/issues/21) | US-06 | Sprint 4 |
 | `BE-STS-02` | [Einkommens-Heuristik](BE-STS-02-einkommens-heuristik.md) | [#22](https://github.com/dfme/budget-buddy/issues/22) | US-06 | Sprint 4 |
 | `BE-STS-03` | [GET /budget/safe-to-spend](BE-STS-03-safe-to-spend-endpoint.md) | [#23](https://github.com/dfme/budget-buddy/issues/23) | US-06 | Sprint 4 |
@@ -61,6 +64,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `E2E-AUTH-01` | [Playwright: Register → Login → Logout (Happy + Fehlerpfad)](E2E-AUTH-01-register-login-logout.md) | [#58](https://github.com/dfme/budget-buddy/issues/58) | US-01 | Sprint 5 |
 | `E2E-CAT-01` | [Playwright: Transaktionen kategorisieren (Happy Path + Fehlerpfad)](E2E-CAT-01-playwright-kategorisierung.md) | [#124](https://github.com/dfme/budget-buddy/issues/124) | US-05 | Sprint 5 |
 | `E2E-FC-01` | [Playwright: Fixkosten-Wizard (Happy Path + Fehlerpfad)](E2E-FC-01-playwright-fixkosten-wizard.md) | [#123](https://github.com/dfme/budget-buddy/issues/123) | US-03 | Sprint 5 |
+| `E2E-FC-02` | [Playwright: Onboarding-Abschluss (Wizard → Dashboard)](E2E-FC-02-onboarding-abschluss.md) | [#190](https://github.com/dfme/budget-buddy/issues/190) | US-03 | Sprint 6 |
 | `E2E-PDF-01` | [Playwright: PDF-Upload (Happy Path + Fehlerpfad)](E2E-PDF-01-playwright-pdf-upload.md) | [#122](https://github.com/dfme/budget-buddy/issues/122) | US-04 | Sprint 5 |
 | `E2E-STS-01` | [Playwright: Safe-to-Spend (Happy Path + Fehlerpfad)](E2E-STS-01-safe-to-spend.md) | [#125](https://github.com/dfme/budget-buddy/issues/125) | US-06 | Sprint 5 |
 | `FE-AUTH-01` | [FE-AUTH-01 — AuthService (Signal-State + /auth-Calls)](FE-AUTH-01-auth-service.md) | [#53](https://github.com/dfme/budget-buddy/issues/53) | US-01 | Sprint 2 |
@@ -116,3 +120,5 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `INFRA-28` | [INFRA-28 — Neon-Compute-Verbrauch: Health-Check und Hikari-Pool halten die DB dauerhaft wach](INFRA-28-neon-compute-health-check.md) | — | — | — |
 | `INFRA-31` | [Automatisches PR-Review via GitHub Action einrichten (Claude Code)](INFRA-31-claude-pr-review-action.md) | [#215](https://github.com/dfme/budget-buddy/issues/215) | — | Sprint 5 |
 | `INFRA-35` | [Automatisches PR-Review verstummt bei Hintergrund-Verifikation im nicht-interaktiven Lauf](INFRA-35-review-pr-no-background-verify.md) | [#224](https://github.com/dfme/budget-buddy/issues/224) | — | Sprint 5 |
+| `INFRA-37` | [MDC einführen: User-ID in Logs für bessere Analysierbarkeit](INFRA-37-mdc-logging.md) | [#257](https://github.com/dfme/budget-buddy/issues/257) | — | Sprint 6 |
+| — | [Zuschnitt: US-08, US-12](us-08-09-12-breakdown.md) | — | — | — |

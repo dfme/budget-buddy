@@ -1,5 +1,6 @@
 package com.budgetbuddy.auth;
 
+import com.budgetbuddy.config.LogContext;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -63,6 +64,9 @@ public class JwtCookieAuthenticationFilter extends OncePerRequestFilter {
                 SecurityContextHolder.clearContext();
                 return;
             }
+            // Ab hier trägt jede Log-Zeile dieses Threads die User-ID (INFRA-37). Aufgeräumt
+            // wird sie im LoggingContextFilter, der diesen Filter umschliesst.
+            LogContext.putUserId(claims.userId());
             var authentication =
                     new UsernamePasswordAuthenticationToken(claims.userId(), null, List.of());
             authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));

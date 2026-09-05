@@ -393,6 +393,43 @@ class UserControllerTest {
     }
 
     @Test
+    void changePasswordWithNewPasswordOver72BytesReturns400InsteadOf500() throws Exception {
+        // BE-AUTH-10 (#200): 73 ASCII-Bytes reissen die bcrypt-Grenze knapp — der Grenzfall.
+        setPasswordHash("altesPasswort1");
+        String hashBefore = currentPasswordHash();
+        String tooLongPassword = "a".repeat(73);
+
+        mockMvc.perform(put("/api/users/me/password")
+                        .cookie(jwtCookie())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"aktuellesPasswort\": \"altesPasswort1\", "
+                                + "\"neuesPasswort\": \"" + tooLongPassword + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Passwort ist zu lang (maximal 72 Bytes)."))
+                .andExpect(content().string(not(containsString(tooLongPassword))));
+
+        org.assertj.core.api.Assertions.assertThat(currentPasswordHash()).isEqualTo(hashBefore);
+    }
+
+    @Test
+    void changePasswordWithUmlautPasswordOver72BytesReturns400() throws Exception {
+        // 40 Umlaute sind 40 char (Java zählt UTF-16-Codeeinheiten), aber 80 UTF-8-Bytes: ein
+        // zeichenbasiertes @Size(max = 72) liesse das durch, die Byte-Prüfung nicht (AC aus #200).
+        // "😀".repeat(40) hätte das nicht belegt — als Surrogatpaar sind das bereits 80 char.
+        setPasswordHash("altesPasswort1");
+        String tooManyBytesPassword = "ä".repeat(40);
+
+        mockMvc.perform(put("/api/users/me/password")
+                        .cookie(jwtCookie())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"aktuellesPasswort\": \"altesPasswort1\", "
+                                + "\"neuesPasswort\": \"" + tooManyBytesPassword + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Passwort ist zu lang (maximal 72 Bytes)."))
+                .andExpect(content().string(not(containsString(tooManyBytesPassword))));
+    }
+
+    @Test
     void changePasswordWithBlankCurrentPasswordReturns400WithGermanMessage() throws Exception {
         setPasswordHash("altesPasswort1");
 

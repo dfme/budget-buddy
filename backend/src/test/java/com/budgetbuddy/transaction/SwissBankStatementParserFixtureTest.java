@@ -692,11 +692,16 @@ class SwissBankStatementParserFixtureTest {
             "Zahlung TWINT MUSTER, LENA",
             "Übertrag auf Mitglieder Sparkonto CH66 0076 2011 6238 5295 8");
 
-    /** Jede Detailzeile, die der Parser aus der Fixture übernehmen darf. */
+    /**
+     * Jede Detailzeile, die der Parser aus der Fixture übernehmen darf.
+     *
+     * <p>Seit BE-PDF-13 stehen hier keine Gegenpartei-Postanschriften mehr: Die neun Adresszeilen
+     * (Strasse+PLZ+Ort auf einer Zeile, plus die kommalose Firmenanschrift
+     * {@code BAHNHOFSTRASSE 1 CH 8000 ZUERICH}) verwirft {@code NOISE_ADDRESS} jetzt. Was bleibt,
+     * sind Empfänger, Referenz und Verwendungszweck — die Zeilen mit Kategorie-Signal.
+     */
     private static final List<String> ERLAUBTE_DETAILZEILEN =
         List.of(
-            "BAHNHOFSTRASSE 1 CH 8000 ZUERICH",
-            "Beispielweg 7, 4500 Solothurn",
             "Bezahlt für: Anna Maria Muster",
             "Bezahlt für: Anna Muster",
             "Bezahlt für: Lena Muster",
@@ -705,16 +710,8 @@ class SwissBankStatementParserFixtureTest {
             "Bezahlt für: Peter Muster",
             "Endbegünstigter: Lena",
             "Gutschein für Lena",
-            "Jurastrasse 2, 4554 Etziken",
-            "KOS Archiv, 4503 Solothurn",
-            "Musterweg 14, 8000 Zürich",
             "Reg. Nr 10000001",
-            "Rötistrasse 17, 4502 Solothurn",
-            "Salarzahlung",
-            "Schulhausstrasse 2,, 8000 Zürich",
-            "Seilerstrasse 7, 3011 Bern",
-            "Wynigenstrasse 20, 3400 Burgdorf",
-            "Zürichstrasse 130, 8600 Dübendorf");
+            "Salarzahlung");
 
     @Test
     void extractsAllRows_andSumsMatchUmsatzLine() {
@@ -812,6 +809,35 @@ class SwissBankStatementParserFixtureTest {
           .isSubsetOf(ERLAUBTE_BUCHUNGSTEXTE);
       assertThat(txns.stream().flatMap(t -> t.details().stream()).toList())
           .isSubsetOf(ERLAUBTE_DETAILZEILEN);
+    }
+
+    /**
+     * BE-PDF-13: Keine Transaktion trägt eine Gegenpartei-Postanschrift in ihrem
+     * Kategorisierungs-Input. Analog zum {@code doesNotContain}-Test der PostFinance-Juli-Fixture,
+     * hier auf die kombinierte Einzeilerform gemünzt, die Raiffeisen druckt.
+     *
+     * <p>Geprüft wird über das Adress-Signal selbst — Ortsnamen und PLZ der neun Adresszeilen der
+     * Fixture. Vor der Regex-Erweiterung standen alle in {@code fullText()}; ohne
+     * {@code isNotEmpty()} wäre der Test auf leerer Liste grün.
+     */
+    @Test
+    void keineGegenparteiAdresse_imFullText() {
+      List<ParsedTransaction> txns = parser.parse(bytes(RAIFFEISEN_ECHT));
+
+      assertThat(txns)
+          .isNotEmpty()
+          .allSatisfy(
+              t ->
+                  assertThat(t.fullText())
+                      .doesNotContain(
+                          // PLZ + Ort (das eigentliche Adress-Signal)
+                          "8600 Dübendorf", "4500 Solothurn", "4554 Etziken", "4502 Solothurn",
+                          "3011 Bern", "3400 Burgdorf", "8000 Zürich", "4503 Solothurn",
+                          "8000 ZUERICH",
+                          // Strassen- und Ortszeilen-Fragmente
+                          "Zürichstrasse", "Beispielweg", "Jurastrasse", "Rötistrasse",
+                          "Seilerstrasse", "Wynigenstrasse", "Schulhausstrasse", "Musterweg",
+                          "KOS Archiv", "BAHNHOFSTRASSE"));
     }
 
     /**
