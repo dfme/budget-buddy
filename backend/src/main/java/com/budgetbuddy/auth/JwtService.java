@@ -72,8 +72,12 @@ public class JwtService {
             // Nicht payload.get(claim, Long.class): jjwt/Jackson deserialisiert kleine Zahlen als
             // Integer, ein direkter Cast auf Long würfe eine ClassCastException. Number.longValue()
             // funktioniert unabhängig vom konkreten deserialisierten Zahlentyp.
-            long tokenVersion = ((Number) payload.get(TOKEN_VERSION_CLAIM)).longValue();
-            return new TokenClaims(userId, tokenVersion);
+            Object rawTokenVersion = payload.get(TOKEN_VERSION_CLAIM);
+            if (!(rawTokenVersion instanceof Number number)) {
+                // Tokens, die vor BE-AUTH-11 ausgestellt wurden, tragen diesen Claim nicht.
+                throw new JwtException("JWT ohne gültigen tokenVersion-Claim");
+            }
+            return new TokenClaims(userId, number.longValue());
         } catch (NumberFormatException e) {
             throw new JwtException("JWT-Subject ist keine gültige User-ID: " + subject, e);
         }

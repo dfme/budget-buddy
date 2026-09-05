@@ -5,8 +5,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.budgetbuddy.support.PostgresTestDatabase;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.http.Cookie;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.Date;
+import javax.crypto.SecretKey;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -116,6 +122,24 @@ class JwtCookieAuthenticationFilterTest {
         String token = jwtService.generateToken(userId + 1_000_000);
 
         mockMvc.perform(get("/api/test/me").cookie(new Cookie("jwt", token)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void tokenWithoutTokenVersionClaimReturns401() throws Exception {
+        // Simuliert ein vor BE-AUTH-11 ausgestelltes JWT ohne tokenVersion-Claim — muss sauber
+        // als 401 abgelehnt werden statt als 500 durchzuschlagen (siehe JwtServiceTest).
+        SecretKey key = Keys.hmacShaKeyFor(jwtProperties.secret().getBytes(StandardCharsets.UTF_8));
+        Instant now = Instant.now();
+        String tokenWithoutClaim =
+                Jwts.builder()
+                        .subject(Long.toString(userId))
+                        .issuedAt(Date.from(now))
+                        .expiration(Date.from(now.plus(Duration.ofHours(1))))
+                        .signWith(key, Jwts.SIG.HS256)
+                        .compact();
+
+        mockMvc.perform(get("/api/test/me").cookie(new Cookie("jwt", tokenWithoutClaim)))
                 .andExpect(status().isUnauthorized());
     }
 

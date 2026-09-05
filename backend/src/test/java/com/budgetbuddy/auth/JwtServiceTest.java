@@ -5,8 +5,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SignatureException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.Date;
+import javax.crypto.SecretKey;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -76,5 +82,21 @@ class JwtServiceTest {
 
         assertThatThrownBy(() -> jwtService.validate(foreignToken))
                 .isInstanceOf(SignatureException.class);
+    }
+
+    @Test
+    void rejectsTokenWithoutTokenVersionClaim() {
+        // Simuliert ein vor BE-AUTH-11 ausgestelltes JWT, das den tokenVersion-Claim noch nicht kennt.
+        SecretKey key = Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
+        Instant now = Instant.now();
+        String tokenWithoutClaim =
+                Jwts.builder()
+                        .subject("42")
+                        .issuedAt(Date.from(now))
+                        .expiration(Date.from(now.plus(Duration.ofHours(1))))
+                        .signWith(key, Jwts.SIG.HS256)
+                        .compact();
+
+        assertThatThrownBy(() -> jwtService.validate(tokenWithoutClaim)).isInstanceOf(JwtException.class);
     }
 }
