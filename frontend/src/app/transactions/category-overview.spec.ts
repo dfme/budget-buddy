@@ -200,6 +200,15 @@ describe('CategoryOverview', () => {
     expect(component.isEmpty()).toBe(false);
   });
 
+  it('rendert die Tabelle innerhalb eines horizontal scrollbaren Containers', () => {
+    expectSummaryRequest(httpMock).flush(SUMMARY);
+    fixture.detectChanges();
+
+    const wrapper = fixture.nativeElement.querySelector('.table-scroll');
+    expect(wrapper?.querySelector('table')).not.toBeNull();
+    expect(getComputedStyle(wrapper as HTMLElement).overflowX).toBe('auto');
+  });
+
   it('communicates the empty state when the month has no expenses', () => {
     expectSummaryRequest(httpMock).flush(EMPTY_SUMMARY);
     fixture.detectChanges();
