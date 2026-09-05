@@ -2,7 +2,7 @@ import { CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, ParamMap, Router } from '@angular/router';
+import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
 
 import { Badge } from '../shared/badge/badge';
@@ -96,6 +96,7 @@ interface Drilldown {
     DonutChart,
     Input,
     Notice,
+    RouterLink,
   ],
   templateUrl: './category-overview.html',
   styleUrl: './category-overview.scss',
