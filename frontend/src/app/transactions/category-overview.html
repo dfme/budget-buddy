@@ -17,7 +17,9 @@
   } @else if (errorMessage()) {
     <app-notice variant="error">{{ errorMessage() }}</app-notice>
   } @else if (isEmpty()) {
-    <p class="status empty">Keine Ausgaben in diesem Monat.</p>
+    <p class="status empty">
+      Keine Daten für {{ monthLabel() }} — <a routerLink="/import">PDF hochladen?</a>
+    </p>
   } @else if (summary(); as data) {
     <app-card class="chart-card" title="Ausgaben nach Kategorie" [meta]="monthLabel()">
       <!--

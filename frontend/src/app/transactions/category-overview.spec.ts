@@ -209,6 +209,25 @@ describe('CategoryOverview', () => {
     expect(fixture.nativeElement.querySelector('table')).toBeNull();
   });
 
+  describe('Keine-Daten-Hinweis (FE-CAT-08)', () => {
+    it('shows the month label in the no-data hint', () => {
+      expectSummaryRequest(httpMock).flush(EMPTY_SUMMARY);
+      fixture.detectChanges();
+
+      const hint = fixture.nativeElement.querySelector('.status.empty');
+      expect(hint.textContent).toContain(`Keine Daten für ${component.monthLabel()}`);
+    });
+
+    it('links the no-data hint to the PDF upload', () => {
+      expectSummaryRequest(httpMock).flush(EMPTY_SUMMARY);
+      fixture.detectChanges();
+
+      const link = fixture.nativeElement.querySelector('.status.empty a');
+      expect(link).not.toBeNull();
+      expect(link.getAttribute('href')).toBe('/import');
+    });
+  });
+
   it('navigates to the previous month and reloads', () => {
     expectSummaryRequest(httpMock).flush(SUMMARY);
     const initialMonth = component.month();
