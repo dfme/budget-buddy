@@ -76,6 +76,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `FE-CAT-03` | [Manuelles Korrigieren von Kategorien](FE-CAT-03-kategorie-korrektur.md) | [#32](https://github.com/dfme/budget-buddy/issues/32) | US-05 | Sprint 4 |
 | `FE-CAT-04` | [Direktsprung zu einem Monat in der Kategorie-Übersicht](FE-CAT-04-monat-direktsprung.md) | [#144](https://github.com/dfme/budget-buddy/issues/144) | US-12 | Sprint 4 |
 | `FE-CAT-05` | [Pagination der Transaktionsliste (20 + «Weitere laden»)](FE-CAT-05-transaktions-pagination.md) | [#153](https://github.com/dfme/budget-buddy/issues/153) | US-13 | Sprint 4 |
+| `FE-CAT-06` | [Overflow-Verhalten der Kategorie-Tabelle auf schmalen Viewports prüfen](FE-CAT-06-kategorie-tabelle-overflow.md) | [#186](https://github.com/dfme/budget-buddy/issues/186) | US-05 | Sprint 6 |
 | `FE-FC-01` | [Fixkosten-Wizard Component](FE-FC-01-fixkosten-wizard.md) | [#24](https://github.com/dfme/budget-buddy/issues/24) | US-03 | Sprint 4 |
 | `FE-FC-02` | [Route Guard für Onboarding](FE-FC-02-onboarding-guard.md) | [#25](https://github.com/dfme/budget-buddy/issues/25) | US-03 | Sprint 4 |
 | `FE-FC-03` | [Fixkosten-Liste](FE-FC-03-fixkosten-liste.md) | [#26](https://github.com/dfme/budget-buddy/issues/26) | US-03 | Sprint 4 |
