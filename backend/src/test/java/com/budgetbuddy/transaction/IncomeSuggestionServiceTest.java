@@ -6,6 +6,9 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -24,9 +27,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * der Pfad über echtes PostgreSQL inklusive Mandantentrennungs-Gegenprobe liegt im
  * {@link IncomeSuggestionServiceIntegrationTest}.
  *
- * <p>Die Buchungstexte stammen aus den echten PDF-Fixtures ({@code Post_kontoauszug.pdf},
- * {@code UBS_Konto_Bewegungen_2021_Juli.pdf}) — erfundene Texte würden die Normalisierung an einem
- * Problem messen, das es so nicht gibt.
+ * <p>Buchungstexte und Detailzeilen stammen aus den echten PDF-Fixtures
+ * ({@code Post_kontoauszug.pdf}, {@code Post_Kontoauszug_2025_240_Buchungen.pdf},
+ * {@code Post_Kontoauszug_2026_Juli_20_Buchungen.pdf}, {@code UBS_Konto_Bewegungen_2021_Juli.pdf})
+ * — erfundene Texte würden die Normalisierung an einem Problem messen, das es so nicht gibt.
+ * {@link #theRealPostFinanceYearStatementYieldsTheSalary()} geht einen Schritt weiter und parst
+ * die Fixture im Test selbst, statt ihre Zeilen abzuschreiben.
  */
 @ExtendWith(MockitoExtension.class)
 class IncomeSuggestionServiceTest {
@@ -239,6 +245,118 @@ class IncomeSuggestionServiceTest {
                 USER_ID, LocalDate.parse("2026-01-01"), LocalDate.parse("2027-01-01"));
     }
 
+    // --- BE-STS-05: Gruppierung über den Absender aus der ersten Detailzeile ---
+
+    @Test
+    void differentSendersUnderTheSameBookingTextFormSeparateGroups() {
+        // Der Kern von BE-STS-05, mit den Werten aus Post_Kontoauszug_2025_240_Buchungen.pdf: Bei
+        // PostFinance heisst jede Gutschrift «GUTSCHRIFT», der Absender steht ausschliesslich in
+        // der ersten Detailzeile. Über den Buchungstext gruppiert wäre das EINE Gruppe aus 4250.00
+        // und 340.00; ihr Median 4250.00 hat ein Band von ±212.50, die 340er liegen ausserhalb und
+        // kippen sie ganz — der Auszug ergäbe gar keinen Vorschlag. Über den Absender sind es zwei
+        // Gruppen, und die höhere gewinnt.
+        givenToday("2026-01-05");
+        givenCredits(
+                creditWithDetails("2025-10-31", "GUTSCHRIFT",
+                        "MUSTER CONSULTING GMBH\nLOHN OKTOBER 2025", "4250.00"),
+                creditWithDetails("2025-11-30", "GUTSCHRIFT",
+                        "MUSTER CONSULTING GMBH\nLOHN NOVEMBER 2025", "4250.00"),
+                creditWithDetails("2025-12-31", "GUTSCHRIFT",
+                        "MUSTER CONSULTING GMBH\nLOHN DEZEMBER 2025", "4250.00"),
+                creditWithDetails("2025-08-21", "GUTSCHRIFT",
+                        "STEUERVERWALTUNG KT. BERN\nRUECKERSTATTUNG AUGUST 2025", "340.00"),
+                creditWithDetails("2025-12-21", "GUTSCHRIFT",
+                        "STEUERVERWALTUNG KT. BERN\nRUECKERSTATTUNG DEZEMBER 2025", "340.00"));
+
+        assertThat(service.suggestMonthlyIncome(USER_ID)).hasValue(new BigDecimal("4250.00"));
+    }
+
+    @Test
+    void theRealPostFinanceYearStatementYieldsTheSalary() {
+        // Gegenprobe am echten Auszug statt an nachgebauten Zeilen: Der Jahresauszug wird geparst
+        // und seine Gutschriften gehen unverändert in die Heuristik. Die erste Zusicherung belegt
+        // die Ausgangslage — alle 15 Gutschriften teilen sich einen einzigen Buchungstext, über ihn
+        // gruppiert wären sie unweigerlich eine Gruppe. Dass trotzdem 4250.00 herauskommt, kann
+        // deshalb nur am Absender liegen.
+        List<Transaction> credits = creditsFromFixture("/pdf/Post_Kontoauszug_2025_240_Buchungen.pdf");
+
+        assertThat(credits).hasSize(15)
+                .extracting(Transaction::getBuchungstext).containsOnly("GUTSCHRIFT");
+
+        givenToday("2026-01-05");
+        givenCredits(credits.toArray(new Transaction[0]));
+
+        assertThat(service.suggestMonthlyIncome(USER_ID)).hasValue(new BigDecimal("4250.00"));
+    }
+
+    @Test
+    void onlyTheFirstDetailLineDecidesTheGroup() {
+        // Derselbe Absender, unterschiedliche Folgezeilen: PostFinance bricht das Mitteilungsfeld
+        // mitten im Wort um (Post_Kontoauszug_2026_Juli: «LOHN JULI 2026 SOWIE SPE» /
+        // «SENVERGUETUNG»), und der Zweck wechselt ohnehin monatlich. Über alle Zeilen gruppiert
+        // zerfiele die Gruppe in Einzelvorkommen und es gäbe keinen Vorschlag.
+        givenToday("2026-09-01");
+        givenCredits(
+                creditWithDetails("2026-06-30", "GUTSCHRIFT",
+                        "MUSTER CONSULTING GMBH\nLOHN JUNI 2026", "4250.00"),
+                creditWithDetails("2026-07-28", "GUTSCHRIFT",
+                        "MUSTER CONSULTING GMBH\nLOHN JULI 2026 SOWIE SPE\nSENVERGUETUNG",
+                        "4250.00"),
+                creditWithDetails("2026-08-31", "GUTSCHRIFT",
+                        "MUSTER CONSULTING GMBH\nGRATIFIKATION UND LOHN", "4250.00"));
+
+        assertThat(service.suggestMonthlyIncome(USER_ID)).hasValue(new BigDecimal("4250.00"));
+    }
+
+    @Test
+    void theDetailKeyIsNormalisedLikeTheBookingText() {
+        // AC4: Kleinschreibung, Monatsnamen und ziffernhaltige Tokens fallen auch aus dem neuen
+        // Schlüssel heraus. Hier steht ausnahmsweise der Zweck in der ersten Zeile — ohne
+        // Normalisierung hätte jeder Monat einen eigenen Schlüssel.
+        givenToday("2026-06-01");
+        givenCredits(
+                creditWithDetails("2026-03-25", "GUTSCHRIFT", "Lohn Maerz 2026", "5000.00"),
+                creditWithDetails("2026-04-25", "GUTSCHRIFT", "LOHN APRIL 2026", "5000.00"),
+                creditWithDetails("2026-05-25", "GUTSCHRIFT", "lohn mai 2026", "5000.00"));
+
+        assertThat(service.suggestMonthlyIncome(USER_ID)).hasValue(new BigDecimal("5000.00"));
+    }
+
+    @Test
+    void transactionsWithoutDetailsFallBackToTheBookingTextIndividually() {
+        // AC2: Der Rückfall gilt je Transaktion, nicht für den ganzen Datenbestand. Ein Nutzer, der
+        // vor V06 importiert und danach erneut, hat beides nebeneinander. Die drei UBS-Zeilen ohne
+        // Detailzeilen gruppieren über «Saläreingang» und gewinnen mit dem höheren Median; die
+        // PostFinance-Zeilen daneben gruppieren über ihren Absender. Ohne den Rückfall hätten die
+        // UBS-Zeilen einen leeren Schlüssel und lägen mit allem anderen ohne Details in einem Topf.
+        givenToday("2026-09-01");
+        givenCredits(
+                credit("2026-06-25", "Saläreingang", "6800.00"),
+                credit("2026-07-25", "Saläreingang", "6800.00"),
+                credit("2026-08-25", "Saläreingang", "6800.00"),
+                creditWithDetails("2026-07-18", "GUTSCHRIFT",
+                        "MUSTER, ANNA\nRUECKZAHLUNG FERIENKASSE", "180.00"),
+                creditWithDetails("2026-08-18", "GUTSCHRIFT",
+                        "MUSTER, ANNA\nRUECKZAHLUNG FERIENKASSE", "180.00"));
+
+        assertThat(service.suggestMonthlyIncome(USER_ID)).hasValue(new BigDecimal("6800.00"));
+    }
+
+    @Test
+    void aBlankFirstDetailLineFallsBackToTheBookingText() {
+        // Der Parser erzeugt das nicht — detailsAsText() verbindet nur nichtleere Zeilen. Ein
+        // leerer Schlüssel würde aber sämtliche betroffenen Buchungen in einen Topf werfen, und
+        // genau das ist der teuerste denkbare Fehler dieser Methode. Hier trägt nur eine der beiden
+        // Gutschriften eine leere erste Zeile: Ohne den Rückfall bekäme sie einen anderen Schlüssel
+        // als ihr Gegenstück und keine der beiden Gruppen käme auf zwei Monate.
+        givenToday("2026-04-01");
+        givenCredits(
+                creditWithDetails("2026-02-25", "Saläreingang", "\nVERWENDUNGSZWECK", "6800.00"),
+                credit("2026-03-25", "Saläreingang", "6800.00"));
+
+        assertThat(service.suggestMonthlyIncome(USER_ID)).hasValue(new BigDecimal("6800.00"));
+    }
+
     // --- Helfer ---
 
     /** Stellt die Clock auf 12:00 Ortszeit des angegebenen Tages — mitten im Tag, zonen-neutral. */
@@ -253,8 +371,40 @@ class IncomeSuggestionServiceTest {
                 .thenReturn(Arrays.asList(credits));
     }
 
+    /**
+     * Eine Gutschrift ohne Detailzeilen — der Zustand vor {@code V06}. Alle Tests oberhalb der
+     * Absender-Sektion verwenden ihn und belegen damit den Rückfall auf den Buchungstext.
+     */
     private static Transaction credit(String isoDate, String buchungstext, String betrag) {
-        return new Transaction(USER_ID, LocalDate.parse(isoDate), buchungstext, null,
+        return creditWithDetails(isoDate, buchungstext, null, betrag);
+    }
+
+    /** Wie {@link #credit}, zusätzlich mit den Detailzeilen aus {@code buchungsdetails}. */
+    private static Transaction creditWithDetails(
+            String isoDate, String buchungstext, String buchungsdetails, String betrag) {
+        return new Transaction(USER_ID, LocalDate.parse(isoDate), buchungstext, buchungsdetails,
                 new BigDecimal(betrag), true, null, null);
+    }
+
+    /**
+     * Die Gutschriften einer PDF-Fixture, so abgebildet, wie {@code PdfImportService} sie
+     * persistiert — {@code detailsAsText()} landet in {@code buchungsdetails}. Damit misst der Test
+     * die Heuristik an echten Parser-Ausgaben statt an nachgebauten Zeilen.
+     */
+    private static List<Transaction> creditsFromFixture(String classpathResource) {
+        byte[] pdf;
+        try (InputStream in = IncomeSuggestionServiceTest.class.getResourceAsStream(classpathResource)) {
+            if (in == null) {
+                throw new IllegalStateException("Fixture nicht im Classpath: " + classpathResource);
+            }
+            pdf = in.readAllBytes();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return new SwissBankStatementParser().parse(pdf).stream()
+                .filter(ParsedTransaction::isIncome)
+                .map(t -> new Transaction(USER_ID, t.buchungsdatum(), t.buchungstext(),
+                        t.detailsAsText(), t.betrag(), true, null, null))
+                .toList();
     }
 }

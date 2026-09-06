@@ -14,8 +14,8 @@ import java.util.Optional;
  * im <em>liefernden</em> Modul, nicht im aufrufenden.
  *
  * <p>Bewusst schmal: über die Kante geht ein Betrag, nicht die erkannte Gutschriften-Gruppe. Der
- * Buchungstext, über den die Heuristik gruppiert, bleibt damit im transaction-Modul — das
- * budget-Modul hat mit Buchungstexten nichts zu tun (dieselbe Begründung wie bei
+ * Absender, über den die Heuristik gruppiert, bleibt damit im transaction-Modul — das
+ * budget-Modul hat mit Buchungstexten und Detailzeilen nichts zu tun (dieselbe Begründung wie bei
  * {@link MonthlyExpensePort}). Der Hinweistext aus US-06 («Regelmässige Gutschrift von X CHF
  * erkannt») braucht nur X.
  */
