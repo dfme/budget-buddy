@@ -34,7 +34,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  *
  * <p><strong>Watchdog statt Zeitbudget:</strong> Auf diesen Lauf wartet kein HTTP-Request mehr,
  * die 30 Sekunden aus {@link PdfImportService} gelten nur noch fürs Parsen. Hier bremst nur
- * {@code budgetbuddy.import.categorization-timeout-seconds} einen hängenden Lauf. Läuft er
+ * {@code budgetbuddy.import.categorization-timeout} einen hängenden Lauf. Läuft er
  * hinein, wird <strong>nicht</strong> abgebrochen: Die restlichen Transaktionen fallen ohne
  * Claude-Call auf {@link Category#SONSTIGES} und der Import wird vollständig gespeichert. Der
  * alte Zustand — 30 s warten und dann alle 108 Transaktionen verlieren (#192) — ist damit nicht
@@ -60,15 +60,15 @@ public class ImportJobRunner {
             ImportJobRepository importJobRepository,
             TransactionTemplate transactionTemplate,
             Clock clock,
-            @Value("${budgetbuddy.import.categorization-timeout-seconds:300}")
-                    long categorizationTimeoutSeconds,
+            @Value("${budgetbuddy.import.categorization-timeout:300s}")
+                    Duration categorizationTimeout,
             @Value("${budgetbuddy.import.batch-size:20}") int batchSize) {
         this.categorizationPort = categorizationPort;
         this.transactionRepository = transactionRepository;
         this.importJobRepository = importJobRepository;
         this.transactionTemplate = transactionTemplate;
         this.clock = clock;
-        this.categorizationTimeout = Duration.ofSeconds(categorizationTimeoutSeconds);
+        this.categorizationTimeout = categorizationTimeout;
         this.batchSize = batchSize;
     }
 
@@ -88,19 +88,44 @@ public class ImportJobRunner {
         } catch (RuntimeException e) {
             // Letzte Instanz: Ohne diesen Catch stürbe der Task still im Executor und der Job
             // stünde für immer auf RUNNING — das Frontend pollte dann endlos.
+            markFailed(job, e);
+        } catch (Error e) {
+            // Ein Error lief bis BE-PDF-11 (#197) an diesem Catch vorbei und liess den Job genau
+            // so stehen. Das ist hier kein exotischer Fall: Der Runner hält die geparsten
+            // Transaktionen UND die aufgebauten Entities eines ganzen Auszugs im Speicher, bei
+            // zwei Pool-Threads parallel — ein OutOfMemoryError ist auf einer Render-Starter-
+            // Instanz erreichbar.
             //
-            // Bewusst offen formuliert statt "nichts persistiert": Für jeden Pfad bis zum
-            // Persist-Block stimmt das, für eine Exception danach (etwa im abschliessenden
-            // save) nicht — dort stünde FAILED an einem Job, dessen Zeilen geschrieben sind.
-            // Eine Logzeile, die das Gegenteil behauptet, schickt die Fehlersuche in die
-            // falsche Richtung.
-            log.error("Import-Job {} abgebrochen — Status FAILED. Ob Transaktionen "
-                            + "geschrieben wurden, hängt davon ab, ob der Fehler vor oder nach "
-                            + "dem Persistieren auftrat.",
-                    job.getId(), e);
-            job.fail(clock.instant());
-            importJobRepository.save(job);
+            // Nach dem Markieren wird der Error weitergeworfen. Ihn zu schlucken hiesse, eine
+            // beschädigte JVM als normalen Betrieb weiterlaufen zu lassen; wer den Job aufräumt,
+            // erwirbt damit nicht das Recht, den Grund zu verschweigen.
+            try {
+                markFailed(job, e);
+            } catch (RuntimeException whileFailing) {
+                // Nach einem OutOfMemoryError kann schon dieser Schreibvorgang scheitern. Dann
+                // bleibt der Job auf RUNNING und der StaleImportJobCleaner räumt ihn später ab —
+                // aber der ursprüngliche Error darf dabei nicht verloren gehen.
+                e.addSuppressed(whileFailing);
+            }
+            throw e;
         }
+    }
+
+    /**
+     * Markiert einen abgebrochenen Job als {@link ImportJobStatus#FAILED}.
+     *
+     * <p>Die Logzeile ist bewusst offen formuliert statt "nichts persistiert": Für jeden Pfad bis
+     * zum Persist-Block stimmt das, für einen Fehler danach (etwa im abschliessenden save) nicht —
+     * dort stünde FAILED an einem Job, dessen Zeilen geschrieben sind. Eine Logzeile, die das
+     * Gegenteil behauptet, schickt die Fehlersuche in die falsche Richtung.
+     */
+    private void markFailed(ImportJob job, Throwable cause) {
+        log.error("Import-Job {} abgebrochen — Status FAILED. Ob Transaktionen "
+                        + "geschrieben wurden, hängt davon ab, ob der Fehler vor oder nach "
+                        + "dem Persistieren auftrat.",
+                job.getId(), cause);
+        job.fail(clock.instant());
+        importJobRepository.save(job);
     }
 
     private void categorizeAndPersist(
