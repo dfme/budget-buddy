@@ -165,3 +165,56 @@ tfoot td {
 .status.empty {
   color: $c-ink-2;
 }
+
+// --- Prüfliste unsicherer Buchungsrichtungen (BE-PDF-10) --------------------------------------
+
+.uncertain-card,
+.uncertain-notice {
+  display: block;
+  margin-bottom: $sp-4;
+}
+
+.uncertain__lead {
+  margin: 0 0 $sp-3;
+  color: $c-ink-2;
+  font-size: $fs-sm;
+}
+
+.uncertain__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+// Die Zeilen erben .transaction aus dem Drilldown — dieselben vier Spalten, dieselbe Ausrichtung.
+// Nur die letzte trägt hier zwei Buttons statt eines Dropdowns.
+.transaction__direction {
+  display: flex;
+  gap: $sp-2;
+}
+
+.direction-choice {
+  font-size: $fs-xs;
+  white-space: nowrap;
+}
+
+// Marker an einer Buchung, deren Richtung geraten wurde. Rund und in der Warnfarbe wie das Icon
+// von app-notice, damit beide erkennbar dasselbe meinen. Zeichen ist `!` und nicht `⚠` — die
+// Begründung steht in notice.ts: `⚠` rendert auf macOS und Android als farbiges Emoji.
+.transaction__uncertain-flag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  margin-left: $sp-1;
+  border-radius: 50%;
+  background: $c-warning-soft;
+  color: $c-warning;
+  font-size: $fs-xs;
+  font-weight: 700;
+  line-height: 1;
+  // vertical-align, weil der Marker inline neben dem Buchungstext steht: ohne ihn zöge das
+  // inline-flex die Grundlinie der ganzen Zeile nach unten.
+  vertical-align: text-bottom;
+}
