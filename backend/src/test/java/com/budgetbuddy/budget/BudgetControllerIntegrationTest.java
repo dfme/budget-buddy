@@ -1,5 +1,6 @@
 package com.budgetbuddy.budget;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.Mockito.when;
@@ -94,7 +95,7 @@ class BudgetControllerIntegrationTest {
     // --- AC1/AC2/AC3: die Antwort selbst ---
 
     @Test
-    void returnsAllFiveFieldsWithTheCalculatedAmount() throws Exception {
+    void returnsAllFieldsWithTheCalculatedAmount() throws Exception {
         long lara = insertUser("lara@example.ch", new BigDecimal("3000.00"));
         fixedCostService.create(lara,
                 new FixedCostRequest("Miete", new BigDecimal("1200.00"), "monatlich"));
@@ -111,6 +112,8 @@ class BudgetControllerIntegrationTest {
                 .andExpect(jsonPath("$.weeksLeft").value(3))
                 .andExpect(jsonPath("$.negative").value(false))
                 .andExpect(jsonPath("$.noIncome").value(false))
+                // Ohne month-Parameter gilt der laufende Monat, und der ist offen (BE-STS-06).
+                .andExpect(jsonPath("$.status").value("OPEN"))
                 // Bei erfasstem Einkommen bleibt der Vorschlag leer — aber als null im Body, nicht
                 // als fehlender Schlüssel (Begründung bei amountIsPresentAsNullWhenNoIncomeIsSet).
                 .andExpect(content().string(containsString("\"incomeSuggestion\":null")));
@@ -248,6 +251,134 @@ class BudgetControllerIntegrationTest {
                 .andExpect(jsonPath("$.amount").value(700.00));
     }
 
+    // --- BE-STS-06 / US-12: month-Parameter ---
+
+    @Test
+    void anExplicitCurrentMonthReturnsTheSameBodyAsNoMonthAtAll() throws Exception {
+        long lara = insertUser("lara-expliziter-monat@example.ch", new BigDecimal("900.00"));
+
+        String ohneParameter = mockMvc.perform(get(PFAD).cookie(jwtCookie(lara)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String mitParameter = mockMvc.perform(
+                        get(PFAD).param("month", "2026-08").cookie(jwtCookie(lara)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(mitParameter).isEqualTo(ohneParameter);
+    }
+
+    /**
+     * AC3: für einen vergangenen Monat steht «Abgeschlossen» statt einer Berechnung. Der Nutzer hat
+     * hier ein Einkommen und Ausgaben im Juli — es liesse sich also durchaus etwas ausrechnen. Dass
+     * trotzdem nichts kommt, ist die Aussage von US-12.
+     */
+    @Test
+    void aPastMonthIsReportedAsClosedWithoutAnyNumbers() throws Exception {
+        long lara = insertUser("lara-juli@example.ch", new BigDecimal("3000.00"));
+        insertExpense(lara, LocalDate.of(2026, 7, 4), "COOP BERN", new BigDecimal("120.00"));
+
+        mockMvc.perform(get(PFAD).param("month", "2026-07").cookie(jwtCookie(lara)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CLOSED"))
+                .andExpect(jsonPath("$.weeksLeft").value(0))
+                .andExpect(jsonPath("$.negative").value(false))
+                .andExpect(jsonPath("$.noIncome").value(false))
+                // amount muss als null im Body stehen, nicht fehlen — dieselbe Contract-Zusage wie
+                // im noIncome-Fall, sonst wäre das Feld im Client undefined statt null.
+                .andExpect(content().string(containsString("\"amount\":null")))
+                .andExpect(content().string(containsString("\"incomeSuggestion\":null")));
+    }
+
+    @Test
+    void aMonthLongPastIsClosedToo() throws Exception {
+        long lara = insertUser("lara-2020@example.ch", new BigDecimal("3000.00"));
+
+        mockMvc.perform(get(PFAD).param("month", "2020-01").cookie(jwtCookie(lara)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CLOSED"));
+    }
+
+    // --- AC4: ungültiger Monat → 400 ---
+
+    @Test
+    void anUnparseableMonthReturns400() throws Exception {
+        long lara = insertUser("lara-kaputt@example.ch", new BigDecimal("3000.00"));
+
+        mockMvc.perform(get(PFAD).param("month", "kaputt").cookie(jwtCookie(lara)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void aMonthOutsideTheCalendarReturns400() throws Exception {
+        long lara = insertUser("lara-monat-13@example.ch", new BigDecimal("3000.00"));
+
+        mockMvc.perform(get(PFAD).param("month", "2026-13").cookie(jwtCookie(lara)))
+                .andExpect(status().isBadRequest());
+    }
+
+    /**
+     * {@code ?month=} ist eine Angabe, nur keine brauchbare — anders als ein fehlender Parameter,
+     * der den laufenden Monat meint. Der {@code MonthParser} lehnt Leerstrings ausdrücklich ab, und
+     * der Controller unterscheidet deshalb auf {@code null} und nicht auf «leer».
+     */
+    @Test
+    void anEmptyMonthParameterReturns400() throws Exception {
+        long lara = insertUser("lara-leer@example.ch", new BigDecimal("3000.00"));
+
+        mockMvc.perform(get(PFAD).param("month", "").cookie(jwtCookie(lara)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void aFutureMonthReturns400() throws Exception {
+        long lara = insertUser("lara-zukunft@example.ch", new BigDecimal("3000.00"));
+
+        mockMvc.perform(get(PFAD).param("month", "2026-09").cookie(jwtCookie(lara)))
+                .andExpect(status().isBadRequest());
+    }
+
+    /**
+     * Der 400er darf kein Stacktrace und keine Exception-Meldung sein: die Antwort ist body-los,
+     * wie bei den Transaktions-Endpoints mit demselben Parameter.
+     */
+    @Test
+    void theBadRequestCarriesNoBody() throws Exception {
+        long lara = insertUser("lara-kein-body@example.ch", new BigDecimal("3000.00"));
+
+        mockMvc.perform(get(PFAD).param("month", "kaputt").cookie(jwtCookie(lara)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(""));
+    }
+
+    // --- Mandantentrennung auf dem neuen Pfad ---
+
+    /**
+     * Der {@code month}-Parameter ist eine neue Eingabe des Clients und darf die Trennung nicht
+     * aufweichen: Marc bekommt für denselben Monat seine eigenen Zahlen, nicht Laras.
+     */
+    @Test
+    void theMonthParameterDoesNotLeakAnotherUsersNumbers() throws Exception {
+        long lara = insertUser("lara-trennung-monat@example.ch", new BigDecimal("9000.00"));
+        long marc = insertUser("marc-trennung-monat@example.ch", new BigDecimal("900.00"));
+        insertExpense(lara, LocalDate.of(2026, 8, 3), "COOP BERN", new BigDecimal("3000.00"));
+
+        // Lara: (9000 − 0 − 3000) ÷ 3 = 2000.00
+        mockMvc.perform(get(PFAD).param("month", "2026-08").cookie(jwtCookie(lara)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.amount").value(2000.00));
+        // Marc: (900 − 0 − 0) ÷ 3 = 300.00 — Laras Ausgabe fliesst nicht ein.
+        mockMvc.perform(get(PFAD).param("month", "2026-08").cookie(jwtCookie(marc)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.amount").value(300.00));
+    }
+
+    @Test
+    void aMonthParameterDoesNotBypassAuthentication() throws Exception {
+        mockMvc.perform(get(PFAD).param("month", "2026-07"))
+                .andExpect(status().isUnauthorized());
+    }
+
     // --- Authentifizierung ---
 
     @Test
@@ -281,9 +412,9 @@ class BudgetControllerIntegrationTest {
                         .value("#/components/schemas/SafeToSpendResponse"));
     }
 
-    /** Alle fünf Felder aus AC1 müssen auch im dokumentierten Schema stehen, nicht nur im Body. */
+    /** Alle Felder aus AC1 müssen auch im dokumentierten Schema stehen, nicht nur im Body. */
     @Test
-    void theResponseSchemaDescribesAllFiveFields() throws Exception {
+    void theResponseSchemaDescribesAllFields() throws Exception {
         String schema = "$.components.schemas.SafeToSpendResponse.properties.";
 
         mockMvc.perform(get("/v3/api-docs"))
@@ -292,7 +423,28 @@ class BudgetControllerIntegrationTest {
                 .andExpect(jsonPath(schema + "weeksLeft.type").value("integer"))
                 .andExpect(jsonPath(schema + "negative.type").value("boolean"))
                 .andExpect(jsonPath(schema + "noIncome.type").value("boolean"))
-                .andExpect(jsonPath(schema + "incomeSuggestion.type").value("number"));
+                .andExpect(jsonPath(schema + "incomeSuggestion.type").value("number"))
+                .andExpect(jsonPath(schema + "status.type").value("string"));
+    }
+
+    /**
+     * BE-STS-06: {@code month} und die beiden {@code status}-Ausprägungen stehen im Contract, nicht
+     * nur in der Beschreibung. Das {@code enum} im Schema kommt daher, dass {@code status} ein
+     * Java-Enum ist — der Client bekommt die zulässigen Werte damit aus dem Dokument statt aus der
+     * Prosa.
+     */
+    @Test
+    void theMonthParameterAndTheStatusValuesAppearInTheOpenApiDocument() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.paths['" + PFAD + "'].get.parameters[?(@.name=='month')]")
+                        .exists())
+                .andExpect(jsonPath("$.paths['" + PFAD + "'].get.parameters"
+                        + "[?(@.name=='month')].required").value(false))
+                .andExpect(jsonPath("$.paths['" + PFAD + "'].get.responses['400']").exists())
+                .andExpect(jsonPath("$.components.schemas.SafeToSpendResponse.properties"
+                        + ".status.enum").value(org.hamcrest.Matchers.containsInAnyOrder(
+                                "OPEN", "CLOSED")));
     }
 
     // --- Helfer ---
