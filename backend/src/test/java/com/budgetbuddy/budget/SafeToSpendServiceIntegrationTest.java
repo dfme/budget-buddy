@@ -6,6 +6,7 @@ import static org.mockito.Mockito.when;
 import com.budgetbuddy.budget.dto.FixedCostRequest;
 import com.budgetbuddy.budget.dto.SafeToSpendResponse;
 import com.budgetbuddy.support.PostgresTestDatabase;
+import com.budgetbuddy.transaction.TransactionDirectionService;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -61,6 +62,14 @@ class SafeToSpendServiceIntegrationTest {
     @Autowired private SafeToSpendService service;
     @Autowired private FixedCostService fixedCostService;
     @Autowired private JdbcTemplate jdbcTemplate;
+
+    /**
+     * Für BE-PDF-10 (AC 3). Der Aufruf über die Modulgrenze steht hier bewusst: Er ist der
+     * <em>Gegenstand</em> des Tests, nicht eine Abkürzung beim Seeden. Genau diese Kante — eine
+     * Korrektur im {@code transaction}-Modul verändert eine Zahl im {@code budget}-Modul — lässt
+     * sich nur belegen, indem beide Seiten in einem Lauf stehen.
+     */
+    @Autowired private TransactionDirectionService directionService;
 
     @MockitoBean private Clock clock;
 
@@ -232,6 +241,27 @@ class SafeToSpendServiceIntegrationTest {
 
     // --- Helfer ---
 
+    @Test
+    void correctingAnUncertainDebitToIncomeRaisesSafeToSpend() {
+        // BE-PDF-10, AC 3: «Eine Richtungskorrektur schlägt auf Safe-to-Spend durch.»
+        //
+        // Genau hier liegt der Schaden des Bugs. Eine als Belastung übernommene Gutschrift wirkt
+        // doppelt falsch: Sie fehlt auf der Einnahmenseite UND steht auf der Ausgabenseite. Der
+        // Nutzer sieht eine zu tiefe Zahl, ohne dass irgendetwas darauf hinweist.
+        long lara = insertUser("lara-richtung@example.com", new BigDecimal("3000.00"));
+        long geratene = insertUncertainExpense(
+                lara, LocalDate.of(2026, 8, 5), "GIRO POST", new BigDecimal("300.00"));
+
+        // Vorher zählt die geratene Buchung als Ausgabe: (3000.00 − 300.00) ÷ 3 = 900.00
+        assertThat(service.calculate(lara).amount()).isEqualByComparingTo("900.00");
+
+        directionService.updateDirection(lara, geratene, true);
+
+        // Nachher fällt sie aus dem Ausgaben-Summanden: 3000.00 ÷ 3 = 1000.00. Die Wirkung
+        // braucht keinen eigenen Code — MonthlyExpensePort wählt über is_income = false.
+        assertThat(service.calculate(lara).amount()).isEqualByComparingTo("1000.00");
+    }
+
     private long insertUser(String email, BigDecimal monthlyIncome) {
         jdbcTemplate.update(
                 "INSERT INTO users (email, password_hash, monthly_income) VALUES (?, ?, ?)",
@@ -241,6 +271,21 @@ class SafeToSpendServiceIntegrationTest {
 
     private void insertExpense(long userId, LocalDate datum, String text, BigDecimal betrag) {
         insertTransaction(userId, datum, text, betrag, false);
+    }
+
+    /**
+     * Eine Belastung, deren Richtung der Parser nur angenommen hat (BE-PDF-10). Liefert die ID,
+     * weil der Test sie zum Korrigieren braucht.
+     */
+    private long insertUncertainExpense(
+            long userId, LocalDate datum, String text, BigDecimal betrag) {
+        jdbcTemplate.update(
+                "INSERT INTO transactions (user_id, buchungsdatum, buchungstext, betrag, is_income,"
+                        + " direction_uncertain) VALUES (?, ?, ?, ?, FALSE, TRUE)",
+                userId, datum, text, betrag);
+        return jdbcTemplate.queryForObject(
+                "SELECT id FROM transactions WHERE user_id = ? AND buchungstext = ?", Long.class,
+                userId, text);
     }
 
     private void insertIncome(long userId, LocalDate datum, String text, BigDecimal betrag) {

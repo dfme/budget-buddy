@@ -73,4 +73,33 @@ export class TransactionService {
   updateCategory(id: number, category: string): Observable<Transaction> {
     return this.http.put<Transaction>(`/api/transactions/${id}/category`, { category });
   }
+
+  /**
+   * Lädt die Buchungen des Monats, deren Richtung der PDF-Parser nur angenommen hat (BE-PDF-10,
+   * US-04) — neueste zuerst.
+   *
+   * <p>Nicht paginiert, anders als {@link list}: Das ist eine Aufgabenliste, die beim Abarbeiten
+   * schrumpft, keine Historie zum Blättern. Der Normalfall ist eine leere Liste.
+   *
+   * @param month Monat im Format `YYYY-MM` (z. B. `2026-07`).
+   */
+  uncertainDirections(month: string): Observable<Transaction[]> {
+    return this.http.get<Transaction[]>('/api/transactions/uncertain', {
+      params: new HttpParams().set('month', month),
+    });
+  }
+
+  /**
+   * Setzt die Buchungsrichtung einer Transaktion und markiert sie damit als geprüft (BE-PDF-10).
+   *
+   * <p>Das Flag `directionUncertain` fällt in beiden Richtungen — auch beim Bestätigen der
+   * angenommenen Belastung. Sonst gäbe es keinen Weg, eine korrekt geratene Buchung aus der
+   * Prüfliste zu bekommen.
+   *
+   * @param id ID der Transaktion.
+   * @param income `true` für Gutschrift, `false` für Belastung.
+   */
+  updateDirection(id: number, income: boolean): Observable<Transaction> {
+    return this.http.put<Transaction>(`/api/transactions/${id}/direction`, { income });
+  }
 }

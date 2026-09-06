@@ -1,6 +1,7 @@
 package com.budgetbuddy.transaction;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.groups.Tuple.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -116,6 +117,31 @@ class ImportJobRunnerTest {
         // Getrennt, nicht angehängt: Der Buchungstext bleibt für sich, sonst wäre die Trennung
         // beim Persistieren verloren, die ParsedTransaction für US-08 ausdrücklich hält.
         assertThat(persisted.getBuchungstext()).isEqualTo("LASTSCHRIFT");
+    }
+
+    /**
+     * BE-PDF-10, AC 1: Die Markierung des Parsers muss den Import überleben. Sie entsteht in
+     * {@code SwissBankStatementParser} und wird erst in der Datenbank nützlich — dazwischen liegt
+     * genau diese Zuweisung, und ein vergessenes Feld fiele sonst nirgends auf: Der Import liefe
+     * grün durch, die Prüfliste bliebe dauerhaft leer, und der Bug wäre unverändert da.
+     */
+    @Test
+    void persistsTheParsersDirectionUncertaintyAlongsideTheTransaction() {
+        clockNeverExpires();
+        categorizeAllAs(Category.SONSTIGES, CategorizationResult.Source.LOOKUP);
+        ImportJob job = new ImportJob(USER_ID, SHA, 2, T0);
+
+        runner.run(job, List.of(
+                new ParsedTransaction(LocalDate.of(2026, 7, 1), "GIRO POST", List.of(),
+                        new BigDecimal("120.00"), false, true),
+                parsed("MIGROS MMM BERN", List.of(), "45.60", false)),
+                SHA, false);
+
+        assertThat(capturePersisted())
+                .extracting(Transaction::getBuchungstext, Transaction::isDirectionUncertain)
+                .containsExactly(
+                        tuple("GIRO POST", true),
+                        tuple("MIGROS MMM BERN", false));
     }
 
     /**

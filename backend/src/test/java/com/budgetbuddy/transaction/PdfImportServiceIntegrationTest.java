@@ -270,13 +270,19 @@ class PdfImportServiceIntegrationTest {
         // Parser auf 3 Zeilen à 40 Zeichen (SwissBankStatementParser). In dieser UBS-Fixture ist
         // die Spalte durchgängig NULL — UBS schreibt den Händler in die Buchungszeile selbst und
         // hat gar keine Detailzeilen (SwissBankStatementParserFixtureTest#pageBreak_...).
+        //
+        // direction_uncertain (V08, BE-PDF-10) ist die zweite: ein BOOLEAN, das festhält, ob der
+        // Parser die Richtung dieser Buchung aus dem Saldo ableiten konnte oder nur angenommen
+        // hat. Es trägt nichts aus dem Auszug — kein Text, keine Zahl, keine Datei —, sondern
+        // eine Aussage über die Verlässlichkeit von is_income daneben. Damit ist es die
+        // schmalste Spalte auf diesem Tisch und in Sachen PDF-Inhalt die harmloseste.
         List<String> columns = jdbcTemplate.queryForList("""
                 SELECT column_name FROM information_schema.columns
                 WHERE table_schema = current_schema() AND table_name = 'transactions'
                 """, String.class);
         assertThat(columns).containsExactlyInAnyOrder(
                 "id", "user_id", "buchungsdatum", "buchungstext", "buchungsdetails", "betrag",
-                "is_income", "category", "pdf_sha256");
+                "is_income", "direction_uncertain", "category", "pdf_sha256");
         Integer maxLen = jdbcTemplate.queryForObject(
                 "SELECT MAX(LENGTH(pdf_sha256)) FROM transactions", Integer.class);
         assertThat(maxLen).isEqualTo(64);

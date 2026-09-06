@@ -585,6 +585,9 @@ describe('Route /einstellungen', () => {
       noIncome: false,
       incomeSuggestion: null,
     });
+    // BE-PDF-10: Das Dashboard lädt daneben die Zahl der ungeprüften Buchungsrichtungen. Für
+    // diesen Fall ohne Belang, aber `verify()` im afterEach stolperte sonst darüber.
+    httpMock.expectOne((r) => r.url === '/api/transactions/uncertain').flush([]);
     root.detectChanges();
 
     const dashboard = root.debugElement.query(By.directive(Dashboard))

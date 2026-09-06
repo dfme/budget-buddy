@@ -32,6 +32,20 @@ const FAILED_TO_LOAD_MORE = 'Weitere Buchungen konnten nicht geladen werden.';
 const FAILED_TO_REFRESH = 'Die Liste konnte nicht aktualisiert werden.';
 
 /**
+ * Meldung, wenn die Prüfliste der unsicheren Buchungsrichtungen nicht geladen werden konnte
+ * (BE-PDF-10).
+ *
+ * <p>Anders als bei den Monaten des Dropdowns wird der Ausfall hier sichtbar gemeldet: Bleibt die
+ * Liste still leer, sieht der Nutzer «alles in Ordnung», obwohl niemand nachgesehen hat — und
+ * genau diese stumme Zusicherung ist der Bug, den BE-PDF-10 behebt.
+ */
+const FAILED_TO_LOAD_UNCERTAIN =
+  'Die Buchungen mit unsicherer Richtung konnten nicht geladen werden.';
+
+/** Meldung, wenn eine Richtungskorrektur nicht gespeichert werden konnte. */
+const FAILED_TO_SAVE_DIRECTION = 'Die Buchungsrichtung konnte nicht gespeichert werden.';
+
+/**
  * Wie viele Seiten am Stück nachgeladen werden können, bevor das Backend das `size`-Limit
  * ablehnt. Grenze des Fensters, das nach einer Kategorie-Korrektur neu geladen wird.
  */
@@ -189,6 +203,32 @@ export class CategoryOverview {
   readonly drilldown = signal<Drilldown | null>(null);
 
   /**
+   * Die Buchungen des Monats, deren Richtung der PDF-Parser nur angenommen hat (BE-PDF-10, US-04).
+   *
+   * <p>Steht als eigene Karte über der Übersicht, nicht bloss als Marker in den Kategoriezeilen:
+   * Die betroffenen Buchungen verteilen sich über beliebige Kategorien, und wer sie nur dort
+   * markiert, verlangt vom Nutzer, jede Kategorie aufzuklappen, um sie zu finden. Der Marker in
+   * der Zeile kommt zusätzlich — er beantwortet die Frage «warum steht diese Buchung oben?» dort,
+   * wo sie auftaucht.
+   */
+  readonly uncertain = signal<readonly Transaction[]>([]);
+
+  /** Fehlermeldung der Prüfliste, oder `null`. */
+  readonly uncertainErrorMessage = signal<string | null>(null);
+
+  /**
+   * IDs der Buchungen, deren Richtungskorrektur gerade läuft — sperrt deren Auswahl.
+   *
+   * <p>Bewusst <em>nicht</em> optimistisch wie die Kategorie-Korrektur nebenan. Der Unterschied
+   * liegt in der Wirkung: Eine Kategorie ändert einen Wert in einer Zeile, die stehen bleibt; eine
+   * bestätigte Richtung <em>entfernt</em> die Zeile aus dieser Liste. Eine optimistisch entfernte
+   * Zeile bei einem Fehler wieder an ihrer alten Stelle einzusetzen ist mehr Mechanik, als die
+   * gesparte Round-Trip-Zeit auf einer Liste wert ist, die im Normalfall leer und im schlechten
+   * Fall eine Handvoll Einträge lang ist.
+   */
+  readonly savingDirections = signal<ReadonlySet<number>>(new Set());
+
+  /**
    * Fehlermeldung einer fehlgeschlagenen Kategorie-Korrektur oder `null`.
    *
    * <p>Bewusst getrennt von {@link errorMessage}: die Tabelle steht ja korrekt da, nur das
@@ -203,12 +243,15 @@ export class CategoryOverview {
   /** Subscription der zuletzt geladenen Transaktionsliste. */
   private pendingDrilldownRequest: Subscription | undefined;
 
+  /** Subscription der zuletzt geladenen Prüfliste (BE-PDF-10). */
+  private pendingUncertainRequest: Subscription | undefined;
+
   /**
    * Noch laufende Kategorie-Korrekturen (PUT).
    *
    * <p>Als Menge und nicht als einzelnes Feld, weil mehrere Korrekturen gleichzeitig offen sein
    * können — für zwei Klicks innerhalb einer Round-Trip-Zeit braucht es nicht viel. Sie steuert
-   * zwei Dinge: das Nachladen wartet, bis die letzte fertig ist ({@link refreshAfterCategoryChange}),
+   * zwei Dinge: das Nachladen wartet, bis die letzte fertig ist ({@link refreshAfterCorrection}),
    * und beim Monatswechsel werden sie abgebrochen, damit keine späte Antwort mehr in eine Anzeige
    * schreibt, zu der sie nicht mehr gehört.
    */
@@ -397,7 +440,7 @@ export class CategoryOverview {
       this.transactionService.updateCategory(transaction.id, category).subscribe({
         next: () => {
           this.pendingSaves.delete(save);
-          this.refreshAfterCategoryChange();
+          this.refreshAfterCorrection();
         },
         error: (_err: HttpErrorResponse) => {
           this.pendingSaves.delete(save);
@@ -406,6 +449,65 @@ export class CategoryOverview {
         },
       }),
     );
+  }
+
+  /** `true`, solange die Richtungskorrektur dieser Buchung noch läuft — sperrt ihre Auswahl. */
+  isSavingDirection(transactionId: number): boolean {
+    return this.savingDirections().has(transactionId);
+  }
+
+  /**
+   * Setzt die Buchungsrichtung einer unsicher markierten Buchung (BE-PDF-10, AC 2 und 3).
+   *
+   * <p>Beide Antworten sind eine Entscheidung und räumen die Markierung ab: «Gutschrift» dreht das
+   * Vorzeichen, «Ausgabe» bestätigt die Annahme des Parsers. Ohne die zweite Möglichkeit stünde
+   * eine richtig geratene Buchung für immer in der Prüfliste.
+   *
+   * <p>Danach wird nachgeladen, weil eine auf Gutschrift gesetzte Buchung die Ausgabenseite
+   * verlässt: Summen, Anteile und Donut stimmen sonst nicht mehr zu den Zeilen darunter — und der
+   * Safe-to-Spend auf dem Dashboard hat sich mit derselben Korrektur ebenfalls verändert.
+   */
+  correctDirection(transaction: Transaction, income: boolean): void {
+    if (this.isSavingDirection(transaction.id)) {
+      return;
+    }
+
+    this.saveErrorMessage.set(null);
+    this.markSavingDirection(transaction.id, true);
+
+    // In dieselbe Menge wie die Kategorie-Korrekturen: Der Nachlade-Schritt wartet damit auch auf
+    // eine parallel laufende Richtungskorrektur, statt eine Liste zu ziehen, die deren Ergebnis
+    // noch nicht enthält.
+    const save = new Subscription();
+    this.pendingSaves.add(save);
+
+    save.add(
+      this.transactionService.updateDirection(transaction.id, income).subscribe({
+        next: () => {
+          this.pendingSaves.delete(save);
+          this.markSavingDirection(transaction.id, false);
+          this.refreshAfterCorrection();
+        },
+        error: (_err: HttpErrorResponse) => {
+          this.pendingSaves.delete(save);
+          this.markSavingDirection(transaction.id, false);
+          this.saveErrorMessage.set(FAILED_TO_SAVE_DIRECTION);
+        },
+      }),
+    );
+  }
+
+  /** Setzt oder entfernt die Sperre einer laufenden Richtungskorrektur (neue Menge wegen OnPush). */
+  private markSavingDirection(transactionId: number, saving: boolean): void {
+    this.savingDirections.update((current) => {
+      const next = new Set(current);
+      if (saving) {
+        next.add(transactionId);
+      } else {
+        next.delete(transactionId);
+      }
+      return next;
+    });
   }
 
   /** Bricht alle noch offenen Kategorie-Korrekturen ab und leert die Menge. */
@@ -431,14 +533,18 @@ export class CategoryOverview {
   }
 
   /**
-   * Lädt Summary und offene Liste nach einer erfolgreichen Korrektur neu.
+   * Lädt Summary, Prüfliste und offene Kategorie nach einer erfolgreichen Korrektur neu.
    *
-   * <p>Nötig, weil die Korrektur die Aggregate verändert: der Betrag wandert in eine andere
-   * Kategorie, Summen, Anteile und Donut stimmen sonst nicht mehr zu den Zeilen darunter. Beide
-   * Requests laufen bewusst ohne Ladezustand — die korrigierte Zeile steht bereits richtig da,
-   * ein Zurückfallen auf «Lädt …» wäre nur Unruhe.
+   * <p>Nötig, weil jede Korrektur die Aggregate verändert: Bei der Kategorie wandert der Betrag in
+   * eine andere Zeile, bei der Richtung verlässt er womöglich die Ausgabenseite ganz. Summen,
+   * Anteile und Donut stimmen sonst nicht mehr zu den Zeilen darunter. Die Requests laufen bewusst
+   * ohne Ladezustand — die korrigierte Zeile steht bereits richtig da, ein Zurückfallen auf
+   * «Lädt …» wäre nur Unruhe.
+   *
+   * <p>Gemeinsam für beide Korrekturarten (BE-PDF-10): Sie unterscheiden sich darin, <em>was</em>
+   * sie ändern, nicht darin, was danach nicht mehr stimmt.
    */
-  private refreshAfterCategoryChange(): void {
+  private refreshAfterCorrection(): void {
     if (this.pendingSaves.size > 0) {
       // Eine zweite Korrektur läuft noch. Ihre Zeile steht optimistisch schon auf dem neuen Wert,
       // der Server kennt ihn aber noch nicht — die nachgeladene Liste trüge dort den alten Wert
@@ -461,6 +567,10 @@ export class CategoryOverview {
         );
       },
     });
+
+    // Die Prüfliste kann durch eine Richtungskorrektur geschrumpft sein — und durch eine
+    // Kategorie-Korrektur ändert sich das Kategorie-Label der dort gezeigten Buchungen.
+    this.loadUncertain();
 
     const open = this.drilldown();
     if (open !== null) {
@@ -609,6 +719,10 @@ export class CategoryOverview {
     this.cancelPendingSaves();
     this.drilldown.set(null);
     this.saveErrorMessage.set(null);
+    // Die Prüfliste gehört zum alten Monat und wird geleert, nicht bloss überschrieben: Sie steht
+    // ausserhalb des Ladezustands der Tabelle und bliebe sonst sichtbar, bis die neue Antwort da
+    // ist — mit Buchungen aus einem Monat, den die Seite nicht mehr zeigt.
+    this.uncertain.set([]);
     this.loading.set(true);
     this.errorMessage.set(null);
 
@@ -623,6 +737,33 @@ export class CategoryOverview {
         this.loading.set(false);
       },
     });
+
+    this.loadUncertain();
+  }
+
+  /**
+   * Lädt die Prüfliste der unsicheren Buchungsrichtungen für den angezeigten Monat (BE-PDF-10).
+   *
+   * <p>Eigener Request neben dem Summary statt eines Felds darin: Das Summary aggregiert Ausgaben
+   * pro Kategorie, die Prüfliste ist eine Auswahl einzelner Buchungen quer über alle Kategorien.
+   * Sie in dieselbe Antwort zu packen hiesse, zwei verschiedene Fragen an eine Zahl zu hängen —
+   * und die Prüfliste müsste mitwachsen, wenn das Summary später einmal etwas anderes wird.
+   */
+  private loadUncertain(): void {
+    this.pendingUncertainRequest?.unsubscribe();
+    this.uncertainErrorMessage.set(null);
+
+    this.pendingUncertainRequest = this.transactionService
+      .uncertainDirections(this.month())
+      .subscribe({
+        next: (transactions) => this.uncertain.set(transactions),
+        error: (_err: HttpErrorResponse) => {
+          // Die Liste wird geleert, nicht stehen gelassen: Einträge aus dem vorigen Monat neben
+          // einer Fehlermeldung wären schlimmer als gar keine.
+          this.uncertain.set([]);
+          this.uncertainErrorMessage.set(FAILED_TO_LOAD_UNCERTAIN);
+        },
+      });
   }
 
   /** Aktueller Monat als `YYYY-MM`. */
