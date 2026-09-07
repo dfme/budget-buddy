@@ -1,6 +1,7 @@
 package com.budgetbuddy.budget;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.Mockito.when;
@@ -443,8 +444,7 @@ class BudgetControllerIntegrationTest {
                         + "[?(@.name=='month')].required").value(false))
                 .andExpect(jsonPath("$.paths['" + PFAD + "'].get.responses['400']").exists())
                 .andExpect(jsonPath("$.components.schemas.SafeToSpendResponse.properties"
-                        + ".status.enum").value(org.hamcrest.Matchers.containsInAnyOrder(
-                                "OPEN", "CLOSED")));
+                        + ".status.enum").value(containsInAnyOrder("OPEN", "CLOSED")));
     }
 
     // --- Helfer ---

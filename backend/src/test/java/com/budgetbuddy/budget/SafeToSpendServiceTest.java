@@ -399,8 +399,12 @@ class SafeToSpendServiceTest {
         assertThat(service.calculate(USER_ID).status()).isEqualTo(SafeToSpendStatus.OPEN);
     }
 
+    // Belegt die Weitergabe des Monats an den Port, nicht mehr: Der angefragte Monat ist hier
+    // zwangsläufig der laufende, weil ein vergangener über CLOSED und ein künftiger über die
+    // Exception abgeht — den offenen Zweig erreicht nie ein anderer Monat als YearMonth.from(heute).
+    // Ein Regressionsschutz gegen eine wieder fest verdrahtete Uhr ist er deshalb nicht.
     @Test
-    void expensesAreReadForTheRequestedMonth() {
+    void theRequestedMonthIsPassedThroughToTheExpensePort() {
         givenToday("2026-08-11");
         givenIncome("2000.00");
         givenFixedCosts("0.00");
