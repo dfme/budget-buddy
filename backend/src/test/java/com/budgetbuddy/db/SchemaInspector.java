@@ -107,6 +107,25 @@ final class SchemaInspector {
     }
 
     /**
+     * Indexdefinition ({@code indexdef} aus {@code pg_indexes}, z. B. {@code "CREATE INDEX ...
+     * USING btree (user_id, read_at)"}) für den Index mit diesem Namen auf der Tabelle, oder
+     * {@code null}, wenn er nicht existiert.
+     *
+     * <p>Prüft absichtlich die volle Definition statt nur den Namen: Ein Index gleichen Namens,
+     * aber auf weniger oder anderen Spalten, würde einen reinen Namensabgleich unbemerkt bestehen
+     * lassen, obwohl die Abdeckung für die geplante Abfrage fehlt.
+     */
+    String indexDefinition(String table, String indexName) {
+        return jdbcTemplate.query("""
+                SELECT indexdef
+                FROM pg_indexes
+                WHERE schemaname = current_schema()
+                  AND tablename = ?
+                  AND indexname = ?
+                """, rs -> rs.next() ? rs.getString("indexdef") : null, table, indexName);
+    }
+
+    /**
      * Fremdschlüssel der Tabelle als Zeilen mit den Schlüsseln {@code column},
      * {@code referenced_table} und {@code referenced_column}.
      */
