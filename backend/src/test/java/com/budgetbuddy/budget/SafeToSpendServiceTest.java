@@ -1,6 +1,7 @@
 package com.budgetbuddy.budget;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -12,6 +13,7 @@ import com.budgetbuddy.auth.UserIncomePort;
 import com.budgetbuddy.budget.dto.FixedCostResponse;
 import com.budgetbuddy.budget.dto.FixedCostSummaryResponse;
 import com.budgetbuddy.budget.dto.SafeToSpendResponse;
+import com.budgetbuddy.budget.dto.SafeToSpendStatus;
 import com.budgetbuddy.transaction.IncomeSuggestionPort;
 import com.budgetbuddy.transaction.MonthlyExpensePort;
 import java.math.BigDecimal;
@@ -368,6 +370,139 @@ class SafeToSpendServiceTest {
         verify(userIncomePort).findMonthlyIncome(USER_ID);
         verify(fixedCostService).list(USER_ID);
         verify(monthlyExpensePort).expenseAmounts(USER_ID, YearMonth.of(2026, 8));
+    }
+
+    // --- BE-STS-06 / US-12: Monat als Parameter ---
+
+    @Test
+    void explicitCurrentMonthEqualsTheDefaultCall() {
+        // AC1: calculate(userId, YearMonth) ersetzt die feste Verdrahtung — für den laufenden
+        // Monat muss dabei exakt dasselbe herauskommen wie vorher, sonst wäre es keine Ersetzung.
+        givenToday("2026-08-11");
+        givenIncome("2000.00");
+        givenFixedCosts("800.00");
+        givenExpenses("400.00");
+
+        SafeToSpendResponse default_ = service.calculate(USER_ID);
+        SafeToSpendResponse explizit = service.calculate(USER_ID, YearMonth.of(2026, 8));
+
+        assertThat(explizit).isEqualTo(default_);
+    }
+
+    @Test
+    void currentMonthIsReportedAsOpen() {
+        givenToday("2026-08-11");
+        givenIncome("2000.00");
+        givenFixedCosts("0.00");
+        givenExpenses("0.00");
+
+        assertThat(service.calculate(USER_ID).status()).isEqualTo(SafeToSpendStatus.OPEN);
+    }
+
+    // Belegt die Weitergabe des Monats an den Port, nicht mehr: Der angefragte Monat ist hier
+    // zwangsläufig der laufende, weil ein vergangener über CLOSED und ein künftiger über die
+    // Exception abgeht — den offenen Zweig erreicht nie ein anderer Monat als YearMonth.from(heute).
+    // Ein Regressionsschutz gegen eine wieder fest verdrahtete Uhr ist er deshalb nicht.
+    @Test
+    void theRequestedMonthIsPassedThroughToTheExpensePort() {
+        givenToday("2026-08-11");
+        givenIncome("2000.00");
+        givenFixedCosts("0.00");
+        givenExpenses("0.00");
+
+        service.calculate(USER_ID, YearMonth.of(2026, 8));
+
+        verify(monthlyExpensePort).expenseAmounts(USER_ID, YearMonth.of(2026, 8));
+    }
+
+    // --- AC3: vergangener Monat liefert CLOSED statt einer Berechnung ---
+
+    @Test
+    void pastMonthReturnsTheClosedMarker() {
+        givenToday("2026-08-11");
+
+        SafeToSpendResponse result = service.calculate(USER_ID, YearMonth.of(2026, 7));
+
+        assertThat(result.status()).isEqualTo(SafeToSpendStatus.CLOSED);
+        assertThat(result.amount()).isNull();
+        assertThat(result.incomeSuggestion()).isNull();
+        assertThat(result.weeksLeft()).isZero();
+        assertThat(result.negative()).isFalse();
+        assertThat(result.noIncome()).isFalse();
+    }
+
+    @Test
+    void pastMonthReadsNothingAtAll() {
+        // US-12 verlangt, dass für vergangene Monate nicht gerechnet wird. Der Nachweis dafür ist
+        // nicht das leere Ergebnis — das liesse sich auch nach einer Berechnung herstellen —,
+        // sondern dass keine Eingabe geladen wird. Mit Strict Stubs wäre ein hier gesetzter Stub
+        // ausserdem selbst schon rot.
+        givenToday("2026-08-11");
+
+        service.calculate(USER_ID, YearMonth.of(2026, 7));
+
+        verify(userIncomePort, never()).findMonthlyIncome(anyLong());
+        verify(fixedCostService, never()).list(anyLong());
+        verify(monthlyExpensePort, never()).expenseAmounts(anyLong(), any());
+        verify(incomeSuggestionPort, never()).suggestMonthlyIncome(anyLong());
+    }
+
+    @Test
+    void aMonthLongPastIsClosedToo() {
+        givenToday("2026-08-11");
+
+        assertThat(service.calculate(USER_ID, YearMonth.of(2020, 1)).status())
+                .isEqualTo(SafeToSpendStatus.CLOSED);
+    }
+
+    // --- Monat in der Zukunft: abgelehnt, nicht beantwortet ---
+
+    @Test
+    void futureMonthIsRejected() {
+        givenToday("2026-08-11");
+
+        assertThatThrownBy(() -> service.calculate(USER_ID, YearMonth.of(2026, 9)))
+                .isInstanceOf(FutureMonthException.class)
+                .hasMessageContaining("2026-09");
+    }
+
+    @Test
+    void futureMonthReadsNothingAtAll() {
+        givenToday("2026-08-11");
+
+        assertThatThrownBy(() -> service.calculate(USER_ID, YearMonth.of(2027, 3)))
+                .isInstanceOf(FutureMonthException.class);
+
+        verify(userIncomePort, never()).findMonthlyIncome(anyLong());
+        verify(fixedCostService, never()).list(anyLong());
+        verify(monthlyExpensePort, never()).expenseAmounts(anyLong(), any());
+    }
+
+    // --- Zonengrenze: welcher Monat der laufende ist, entscheidet Europe/Zurich ---
+
+    @Test
+    void theCurrentMonthIsDeterminedInZurichNotInUtc() {
+        // 1. August, 00:30 Ortszeit — in UTC ist es da noch der 31. Juli, 22:30. Würde der Monat
+        // aus der UTC-Zone abgeleitet, wäre August ein Monat in der Zukunft und der Aufruf flöge
+        // mit 400 heraus, während der Nutzer in der Schweiz längst im neuen Monat ist. Dieselbe
+        // Begründung wie für den Stichtag im Klassen-Javadoc des Service.
+        when(clock.instant())
+                .thenReturn(LocalDate.parse("2026-08-01").atTime(0, 30).atZone(ZURICH).toInstant());
+        givenIncome("2000.00");
+        givenFixedCosts("0.00");
+        givenExpenses("0.00");
+
+        assertThat(service.calculate(USER_ID, YearMonth.of(2026, 8)).status())
+                .isEqualTo(SafeToSpendStatus.OPEN);
+    }
+
+    @Test
+    void julyIsAlreadyClosedInTheFirstMinutesOfAugustZurichTime() {
+        when(clock.instant())
+                .thenReturn(LocalDate.parse("2026-08-01").atTime(0, 30).atZone(ZURICH).toInstant());
+
+        assertThat(service.calculate(USER_ID, YearMonth.of(2026, 7)).status())
+                .isEqualTo(SafeToSpendStatus.CLOSED);
     }
 
     // --- Helfer ---

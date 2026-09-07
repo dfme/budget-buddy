@@ -12,6 +12,7 @@ const NORMAL: SafeToSpendResponse = {
   negative: false,
   noIncome: false,
   incomeSuggestion: null,
+  status: 'OPEN',
 };
 
 const SINGLE_WEEK: SafeToSpendResponse = {
@@ -20,6 +21,7 @@ const SINGLE_WEEK: SafeToSpendResponse = {
   negative: false,
   noIncome: false,
   incomeSuggestion: null,
+  status: 'OPEN',
 };
 
 /** Budget überzogen — `negative` ist gesetzt, `amount` entsprechend kleiner 0 (BE-STS-03). */
@@ -29,6 +31,7 @@ const NEGATIVE: SafeToSpendResponse = {
   negative: true,
   noIncome: false,
   incomeSuggestion: null,
+  status: 'OPEN',
 };
 
 const NO_INCOME: SafeToSpendResponse = {
@@ -37,6 +40,7 @@ const NO_INCOME: SafeToSpendResponse = {
   negative: false,
   noIncome: true,
   incomeSuggestion: 3800,
+  status: 'OPEN',
 };
 
 /** Kein Einkommen und keine wiederkehrende Gutschrift gefunden (BE-STS-02 liefert dann null). */
@@ -46,6 +50,7 @@ const NO_INCOME_WITHOUT_SUGGESTION: SafeToSpendResponse = {
   negative: false,
   noIncome: true,
   incomeSuggestion: null,
+  status: 'OPEN',
 };
 
 /** URL-Matcher, unabhängig von etwaigen zukünftigen Query-Parametern. */

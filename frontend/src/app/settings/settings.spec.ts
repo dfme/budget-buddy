@@ -37,6 +37,7 @@ const NO_INCOME_WITH_SUGGESTION: SafeToSpendResponse = {
   negative: false,
   noIncome: true,
   incomeSuggestion: 3800,
+  status: 'OPEN',
 };
 
 const NO_INCOME_WITHOUT_SUGGESTION: SafeToSpendResponse = {
@@ -45,6 +46,7 @@ const NO_INCOME_WITHOUT_SUGGESTION: SafeToSpendResponse = {
   negative: false,
   noIncome: true,
   incomeSuggestion: null,
+  status: 'OPEN',
 };
 
 /** Loggt via `AuthService.login()` ein, damit `currentUser()` synchron befüllt ist. */
@@ -584,6 +586,7 @@ describe('Route /einstellungen', () => {
       negative: false,
       noIncome: false,
       incomeSuggestion: null,
+      status: 'OPEN',
     });
     // BE-PDF-10: Das Dashboard lädt daneben die Zahl der ungeprüften Buchungsrichtungen. Für
     // diesen Fall ohne Belang, aber `verify()` im afterEach stolperte sonst darüber.
