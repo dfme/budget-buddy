@@ -103,9 +103,13 @@ class NotificationsMigrationTest {
     }
 
     @Test
-    void indexOnUserIdAndReadAtExists() {
+    void indexCoversUserIdAndReadAt() {
         // Deckt den geplanten GET /api/notifications (ungelesen zuerst, pro Nutzer) aus
-        // BE-NOTIF-01 ab.
-        assertThat(schema().hasIndexNamed(TABLE, "idx_notifications_user_read")).isTrue();
+        // BE-NOTIF-01 ab. Geprüft wird die volle Indexdefinition, nicht nur der Name: ein Index
+        // gleichen Namens auf z. B. nur (user_id) liesse den Query ohne Sortierhilfe für read_at
+        // zurück, bliebe mit einem reinen Namensabgleich aber unbemerkt.
+        assertThat(schema().indexDefinition(TABLE, "idx_notifications_user_read"))
+                .isNotNull()
+                .contains("(user_id, read_at)");
     }
 }

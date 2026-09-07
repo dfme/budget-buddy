@@ -18,7 +18,17 @@
   analog zu V01, V03, V07") war falsch — V01 und V03 haben dedizierte Migrationstests
   (`UsersMigrationTest`, `FixedCostsMigrationTest`); nur reine Spaltenzusätze (V06/V07) verzichten
   darauf. `NotificationsMigrationTest` deckt die neue Tabelle jetzt nach demselben Muster ab
-  (Spalten/Typen, PK-Identity, FK auf `users`, Index-Vorhandensein).
+  (Spalten/Typen, PK-Identity, FK auf `users`, Nullable-Flags, Indexdefinition).
+- **Kontolöschung (US-02) noch nicht verdrahtet:** Die Entscheidung "`user_id`-FK ohne CASCADE"
+  unten beschreibt zutreffend, dass die Löschung eine bewusste Code-Operation bleiben soll — sie
+  ist nur noch nirgends implementiert. `UserService.deleteUser` kennt `notifications` nicht, ein
+  Nutzer mit mindestens einer Notification-Zeile kann sein Konto damit ab dem ersten
+  `NotificationService.create`-Aufruf (`BE-NOTIF-01`) nicht mehr löschen
+  (`DataIntegrityViolationException` auf `notifications_user_id_fkey`). Menschliches Review auf
+  PR #272 hat das nachgestellt statt vermutet. Da es in `DB-08` (reiner Schema-Vorlauf, noch keine
+  Entity) keinen sinnvollen Anknüpfungspunkt für einen `NotificationCleanupPort` gibt, ist die
+  Verpflichtung stattdessen als AC in `BE-NOTIF-01` (#246) verankert — dort entsteht die Entity,
+  die den Cleanup-Port erst möglich macht.
 
 ## Kontext
 
@@ -67,9 +77,9 @@ Testcontainers-Postgres-Instanz. Zusätzlich Nachweis für AC5: manueller Lauf v
 
 ## Acceptance Criteria (aus Issue #245)
 
-- [ ] Migration `V09__create_notifications_table.sql` liegt unter
+- [x] Migration `V09__create_notifications_table.sql` liegt unter
       `backend/src/main/resources/db/migration/`
-- [ ] Tabelle `notifications` mit Spalten `id, user_id, type, reference_id, message, read_at, created_at`
-- [ ] `user_id` als Foreign Key auf `users(id)`
-- [ ] `type` ist ein String-Feld (kein DB-Enum), das künftige Quellen abgrenzt (z. B. `RECURRING_EXPENSE_DETECTED`)
-- [ ] Migration läuft lokal via `docker compose up -d` + Anwendungsstart fehlerfrei durch
+- [x] Tabelle `notifications` mit Spalten `id, user_id, type, reference_id, message, read_at, created_at`
+- [x] `user_id` als Foreign Key auf `users(id)`
+- [x] `type` ist ein String-Feld (kein DB-Enum), das künftige Quellen abgrenzt (z. B. `RECURRING_EXPENSE_DETECTED`)
+- [x] Migration läuft lokal via `docker compose up -d` + Anwendungsstart fehlerfrei durch
