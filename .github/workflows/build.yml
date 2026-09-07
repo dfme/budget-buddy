@@ -9,6 +9,39 @@ on:
   workflow_call:
 
 jobs:
+  migrations:
+    name: Flyway-Migrationen unverändert
+    # Nur auf Pull Requests: Der Guard vergleicht gegen den Base-Branch, und auf einem Push nach
+    # main vergliche er main mit sich selbst — immer leer, also ein Haken ohne Aussage. Der Job
+    # sitzt trotzdem hier statt in ci.yml, weil build.yml die gemeinsame Quelle beider Einstiege
+    # ist: ein künftiger dritter Aufrufer bekommt den Guard damit automatisch mit.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Pflicht. Der Default 1 holt keine Historie; origin/main existiert dann lokal gar nicht
+          # und der Vergleich liefe ins Leere, statt zu scheitern.
+          fetch-depth: 0
+
+      # Prüft die Logik des Guards selbst (15 Szenarien gegen Wegwerf-Repos). Bewusst NICHT vom
+      # Notfall-Label abhängig: dass der Guard funktioniert, soll auch dann belegt sein, wenn er
+      # für diesen einen PR ausgesetzt ist.
+      - name: Guard-Selbsttest
+        run: scripts/check-migrations.test.sh
+
+      - name: Bereits angewendete Migrationen unverändert
+        if: ${{ !contains(github.event.pull_request.labels.*.name, 'migration-rewrite-ok') }}
+        run: scripts/check-migrations.sh "origin/${{ github.base_ref }}"
+
+      # Die Umgehung soll im Log stehen, nicht bloss als übersprungener Schritt erscheinen.
+      - name: Hinweis auf ausgesetzten Guard
+        if: ${{ contains(github.event.pull_request.labels.*.name, 'migration-rewrite-ok') }}
+        run: >-
+          echo "::warning title=Migrations-Guard ausgesetzt::Label 'migration-rewrite-ok' ist
+          gesetzt. Die Pruefung auf bereits angewendete Migrationen wurde uebersprungen. Das ist
+          nur richtig, wenn die geaenderte Migration nachweislich noch nirgends angewendet wurde."
+
   backend:
     name: Backend (mvn verify)
     runs-on: ubuntu-latest

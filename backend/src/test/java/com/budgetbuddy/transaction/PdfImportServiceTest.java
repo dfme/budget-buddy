@@ -51,8 +51,16 @@ class PdfImportServiceTest {
     private final ImportJobRunner importJobRunner = mock(ImportJobRunner.class);
     private final Clock clock = mock(Clock.class);
 
-    private final PdfImportService service = new PdfImportService(
-            parser, repository, importJobRepository, importJobRunner, clock, TIMEOUT_SECONDS);
+    /**
+     * Gemockt statt echt: Dieser Test prüft den Duplikatcheck, nicht die Bereinigung. Ein echter
+     * Cleaner brächte hier nur eine zweite Zeitrechnung mit — {@code StaleImportJobCleanerTest}
+     * deckt sein Verhalten für sich ab. Default ist {@code false}: kein gefundener Job gilt als
+     * verwaist, der Check verhält sich also wie vor BE-PDF-11.
+     */
+    private final StaleImportJobCleaner staleImportJobCleaner = mock(StaleImportJobCleaner.class);
+
+    private final PdfImportService service = new PdfImportService(parser, repository,
+            importJobRepository, importJobRunner, staleImportJobCleaner, clock, TIMEOUT_SECONDS);
 
     @BeforeEach
     void persistJobsAsGiven() {
@@ -137,14 +145,45 @@ class PdfImportServiceTest {
         // meldeten DONE, und Safe-to-Spend wäre still um den Faktor zwei falsch.
         clockNeverExpires();
         when(repository.existsByUserIdAndPdfSha256(USER_ID, expectedSha256())).thenReturn(false);
-        when(importJobRepository.existsByUserIdAndPdfSha256AndStatus(
-                USER_ID, expectedSha256(), ImportJobStatus.RUNNING)).thenReturn(true);
+        ImportJob running = new ImportJob(USER_ID, expectedSha256(), 20, T0);
+        when(importJobRepository.findByUserIdAndPdfSha256AndStatus(
+                USER_ID, expectedSha256(), ImportJobStatus.RUNNING)).thenReturn(List.of(running));
+        // Der Job läuft wirklich noch — der Cleaner rührt ihn nicht an und er sperrt zu Recht.
+        when(staleImportJobCleaner.cleanUpIfStale(running)).thenReturn(false);
 
         assertThatThrownBy(() -> service.startImport(USER_ID, PDF_BYTES, false))
                 .isInstanceOf(DuplicatePdfImportException.class);
 
         verifyNoInteractions(parser, importJobRunner);
         verify(importJobRepository, never()).save(any());
+    }
+
+    /**
+     * Der Kern von BE-PDF-11 am Upload-Pfad: Ein <em>verwaister</em> Job derselben Datei sperrt
+     * nicht mehr.
+     *
+     * <p>Vorher beantwortete ausgerechnet der naheliegende Selbsthilfe-Versuch nach einem
+     * abgebrochenen Import — dieselbe Datei nochmals hochladen — dauerhaft mit 409, weil die
+     * {@code RUNNING}-Zeile stehen blieb und niemand sie bewegte. Jetzt räumt der Duplikatcheck
+     * sie im Vorbeigehen ab und lässt den Import durch.
+     */
+    @Test
+    void staleRunningJobOfTheSameFile_isClearedInsteadOfBlocking() throws Exception {
+        clockNeverExpires();
+        when(repository.existsByUserIdAndPdfSha256(USER_ID, expectedSha256())).thenReturn(false);
+        ImportJob orphaned = new ImportJob(USER_ID, expectedSha256(), 20, T0);
+        when(importJobRepository.findByUserIdAndPdfSha256AndStatus(
+                USER_ID, expectedSha256(), ImportJobStatus.RUNNING)).thenReturn(List.of(orphaned));
+        when(staleImportJobCleaner.cleanUpIfStale(orphaned)).thenReturn(true);
+        when(parser.parse(PDF_BYTES))
+                .thenReturn(List.of(parsed("GIRO POST", List.of(), "850.00", false)));
+        when(importJobRepository.save(any(ImportJob.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ImportJob job = service.startImport(USER_ID, PDF_BYTES, false);
+
+        assertThat(job.getStatus()).isEqualTo(ImportJobStatus.RUNNING);
+        verify(staleImportJobCleaner).cleanUpIfStale(orphaned);
+        verify(importJobRunner).run(any(), any(), eq(expectedSha256()), eq(false));
     }
 
     @Test
@@ -154,8 +193,8 @@ class PdfImportServiceTest {
         // muss weiterhin gehen.
         clockNeverExpires();
         when(repository.existsByUserIdAndPdfSha256(USER_ID, expectedSha256())).thenReturn(false);
-        when(importJobRepository.existsByUserIdAndPdfSha256AndStatus(
-                USER_ID, expectedSha256(), ImportJobStatus.RUNNING)).thenReturn(false);
+        when(importJobRepository.findByUserIdAndPdfSha256AndStatus(
+                USER_ID, expectedSha256(), ImportJobStatus.RUNNING)).thenReturn(List.of());
         when(parser.parse(PDF_BYTES)).thenReturn(List.of(parsed("GIRO POST", List.of(), "850.00", false)));
         when(importJobRepository.save(any(ImportJob.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -179,7 +218,7 @@ class PdfImportServiceTest {
 
         verify(repository, never()).existsByUserIdAndPdfSha256(anyLong(), anyString());
         verify(importJobRepository, never())
-                .existsByUserIdAndPdfSha256AndStatus(anyLong(), anyString(), any());
+                .findByUserIdAndPdfSha256AndStatus(anyLong(), anyString(), any());
     }
 
     @Test
@@ -275,8 +314,9 @@ class PdfImportServiceTest {
     @Test
     void usesFixedClockZone_isIrrelevantForBudget() {
         Clock fixed = Clock.fixed(T0, ZoneOffset.ofHours(12));
-        PdfImportService fixedClockService = new PdfImportService(
-                parser, repository, importJobRepository, importJobRunner, fixed, TIMEOUT_SECONDS);
+        PdfImportService fixedClockService = new PdfImportService(parser, repository,
+                importJobRepository, importJobRunner, staleImportJobCleaner, fixed,
+                TIMEOUT_SECONDS);
         when(repository.existsByUserIdAndPdfSha256(any(), anyString())).thenReturn(false);
         when(parser.parse(PDF_BYTES)).thenReturn(List.of(
                 parsed("GIRO POST", List.of(), "850.00", false)));

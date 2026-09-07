@@ -40,8 +40,14 @@ public class AsyncConfig {
         // Ohne den Decorator liefe der Import ohne User-ID im Log — der Pool-Thread kennt den
         // MDC des Upload-Requests nicht (INFRA-37).
         executor.setTaskDecorator(new MdcTaskDecorator());
-        // Ein laufender Import soll beim Shutdown noch fertig werden — sonst stünde ein Job für
-        // immer auf RUNNING und das Frontend pollte ins Leere.
+        // Ein laufender Import soll beim Shutdown noch fertig werden — sonst stünde ein Job auf
+        // RUNNING und das Frontend pollte ins Leere.
+        //
+        // Diese Wartezeit ist aber keine Garantie, und bis BE-PDF-11 (#197) las sich der Kommentar
+        // hier so, als wäre sie eine: Renders Grace-Period vor dem SIGKILL ist kürzer als diese
+        // 60 Sekunden, ein Import kann also mitten im Lauf sterben. Aufgefangen wird das nicht
+        // hier, sondern vom StaleImportJobCleaner, der solche Zeilen beim nächsten Start und
+        // danach periodisch auf FAILED setzt.
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(60);
         return executor;

@@ -10,6 +10,7 @@
 // läuft, unter der die Card dann eingerückt wirkte. Der No-Income-Zustand (FE-STS-03)
 // braucht hier nichts: er liegt *in* der Card, nicht darüber.
 .negative-banner,
+.uncertain-banner,
 .safe-to-spend-card {
   max-width: 28rem;
   margin: $sp-6 auto 0;

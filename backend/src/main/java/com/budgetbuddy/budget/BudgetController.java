@@ -1,13 +1,16 @@
 package com.budgetbuddy.budget;
 
 import com.budgetbuddy.budget.dto.SafeToSpendResponse;
+import com.budgetbuddy.transaction.MonthParser;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -24,6 +27,13 @@ import org.springframework.web.bind.annotation.RestController;
  * Dieser Controller reicht die authentifizierte User-ID durch und trifft keine eigene Entscheidung
  * darüber, wer was sehen darf; die Mandantentrennung liegt im Service, der ausschliesslich
  * user-gebundene Ports liest.
+ *
+ * <p>Der {@code month}-Parameter (BE-STS-06) wird über den {@link MonthParser} des
+ * transaction-Moduls gelesen — denselben, den {@code GET /api/transactions} und
+ * {@code GET /api/transactions/summary} verwenden. Ein zweiter Parser hiesse, dass zwei Endpoints
+ * desselben Frontends dieselbe Zeichenkette unterschiedlich auslegen könnten. Die daraus
+ * entstehende {@code InvalidMonthException} bildet der {@link BudgetExceptionHandler} auf 400 ab;
+ * dass dafür ein eigenes Advice nötig ist, ist dort begründet.
  */
 @RestController
 @RequestMapping("/api/budget")
@@ -57,12 +67,31 @@ public class BudgetController {
                     + "unterscheidbar. Liess sich aus den wiederkehrenden Gutschriften ein "
                     + "Einkommen ableiten, steht der Vorschlag in incomeSuggestion; sonst ist "
                     + "auch der null. Bei erfasstem Einkommen ist incomeSuggestion immer null.\n\n"
-                    + "Alle Beträge sind CHF mit zwei Nachkommastellen.")
+                    + "Alle Beträge sind CHF mit zwei Nachkommastellen.\n\n"
+                    + "**Monat (US-12).** Ohne month-Parameter gilt der laufende Monat. Für einen "
+                    + "vergangenen Monat wird nicht gerechnet: die Antwort trägt dann "
+                    + "status=CLOSED, amount und incomeSuggestion sind null, weeksLeft ist 0 und "
+                    + "beide Flags sind false — der Client zeigt 'Abgeschlossen'. Im laufenden "
+                    + "Monat ist status=OPEN. Ein Monat in der Zukunft wird mit 400 abgelehnt, "
+                    + "weil ein Wochenbudget für einen noch nicht begonnenen Monat nicht "
+                    + "definiert ist.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Safe-to-Spend zurückgegeben"),
+        @ApiResponse(responseCode = "400",
+                description = "month ist kein YYYY-MM oder liegt nach dem laufenden Monat",
+                content = {}),
         @ApiResponse(responseCode = "401", description = "Nicht authentifiziert", content = {})
     })
-    public SafeToSpendResponse safeToSpend(@AuthenticationPrincipal Long userId) {
-        return safeToSpendService.calculate(userId);
+    public SafeToSpendResponse safeToSpend(
+            @AuthenticationPrincipal Long userId,
+            @Parameter(description = "Monat im Format YYYY-MM, z. B. 2026-07. Weggelassen = "
+                    + "laufender Monat.", example = "2026-07")
+            @RequestParam(required = false) String month) {
+        // month == null ist der Default-Fall und nicht dasselbe wie ein leerer Parameter:
+        // MonthParser lehnt "" bewusst ab (?month= ist eine Angabe, nur keine brauchbare),
+        // während ein fehlender Parameter den laufenden Monat meint.
+        return month == null
+                ? safeToSpendService.calculate(userId)
+                : safeToSpendService.calculate(userId, MonthParser.parse(month));
     }
 }

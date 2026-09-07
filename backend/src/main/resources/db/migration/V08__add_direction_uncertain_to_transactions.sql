@@ -1,0 +1,24 @@
+-- BE-PDF-10: Buchungen mit nicht eindeutig bestimmbarer Richtung markieren (#193).
+--
+-- Der Parser rekonstruiert die Richtung einer Buchung aus dem Saldo. Wo das nicht gelingt —
+-- mehrdeutiges Saldo-Delta, fehlender Anfangssaldo, zu grosser Buchungsblock — übernimmt er sie
+-- konservativ als Belastung. Das ist als Fallback richtig, war aber gegenüber dem Nutzer stumm:
+-- Die Warnung ging ins Log, die Oberfläche zeigte die Buchung wie jede andere. Ist eine Gutschrift
+-- darunter, ist der Betrag doppelt falsch (Vorzeichen gedreht) und Safe-to-Spend fällt zu tief aus.
+--
+-- BOOLEAN und kein Grund-Enum: Welcher der sieben Fallback-Pfade gegriffen hat, bleibt im Log
+-- unterscheidbar. Die Oberfläche braucht nur «unsicher ja/nein», und ein Grund, den niemand liest,
+-- wäre eine zweite Wahrheit neben dem Log.
+--
+-- NOT NULL DEFAULT FALSE: Es gibt keinen dritten Zustand. Vor diesem Zeitpunkt importierte Zeilen
+-- sind nicht als unsicher erkennbar — ihre Richtung stammt aus demselben Parser, aber ob sie
+-- geraten war, steht nur im Log des damaligen Imports. FALSE ist hier die ehrlichere Vorgabe als
+-- NULL: NULL hiesse «unbekannt, ob unsicher» und müsste in der Oberfläche entweder als Hinweis
+-- enden (falsch-positiv für den ganzen Bestand) oder als sicher (dieselbe Wirkung wie FALSE, aber
+-- mit einem dritten Zustand im Modell). Wer den Bestand geprüft haben will, importiert den Auszug
+-- erneut — der Force-Import ersetzt die Zeilen (BE-PDF-02).
+--
+-- Anders als bei buchungsdetails (V06) wäre ein Backfill hier ausserdem nicht einmal wünschenswert:
+-- Er markierte rückwirkend Buchungen als prüfbedürftig, die der Nutzer längst gesehen und für
+-- richtig gehalten hat.
+ALTER TABLE transactions ADD COLUMN direction_uncertain BOOLEAN NOT NULL DEFAULT FALSE;

@@ -49,11 +49,14 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `BE-PDF-07` | [Absender/Empfänger aus den Detailzeilen wird beim Import verworfen](BE-PDF-07-detailzeilen-persistieren.md) | [#159](https://github.com/dfme/budget-buddy/issues/159) | — | Sprint 5 |
 | `BE-PDF-08` | [Import eines Kontoauszugs schlägt zuverlässig fehl](BE-PDF-08-fehlerdiagnose.md) | [#173](https://github.com/dfme/budget-buddy/issues/173) | — | Sprint 5 |
 | `BE-PDF-09` | [PDF-Import läuft in Produktion ins 30s-Zeitbudget und verwirft den gesamten Import](BE-PDF-09-async-import-job.md) | [#192](https://github.com/dfme/budget-buddy/issues/192) | US-04 | Sprint 5 |
+| `BE-PDF-10` | [Geratene Buchungsrichtung sichtbar machen und korrigierbar](BE-PDF-10-unsichere-buchungsrichtung.md) | [#193](https://github.com/dfme/budget-buddy/issues/193) | US-04 | Sprint 6 |
+| `BE-PDF-11` | [Verwaiste Import-Jobs bleiben nach einem Neustart für immer auf RUNNING](BE-PDF-11-verwaiste-import-jobs.md) | [#197](https://github.com/dfme/budget-buddy/issues/197) | US-04 | Sprint 6 |
 | `BE-PDF-13` | [Gegenpartei-Adresse als einzelne Zeile überlebt DETAIL_NOISE](BE-PDF-13-adresse-detail-noise.md) | [#241](https://github.com/dfme/budget-buddy/issues/241) | US-05 | — |
 | `BE-STS-01` | [SafeToSpendService](BE-STS-01-safe-to-spend-service.md) | [#21](https://github.com/dfme/budget-buddy/issues/21) | US-06 | Sprint 4 |
 | `BE-STS-02` | [Einkommens-Heuristik](BE-STS-02-einkommens-heuristik.md) | [#22](https://github.com/dfme/budget-buddy/issues/22) | US-06 | Sprint 4 |
 | `BE-STS-03` | [GET /budget/safe-to-spend](BE-STS-03-safe-to-spend-endpoint.md) | [#23](https://github.com/dfme/budget-buddy/issues/23) | US-06 | Sprint 4 |
 | `BE-STS-04` | [Fixkosten werden im Safe-to-Spend doppelt abgezogen](BE-STS-04-fixkosten-doppelabzug.md) | [#154](https://github.com/dfme/budget-buddy/issues/154) | US-06 | Sprint 5 |
+| `BE-STS-06` | [Safe-to-Spend: Monat-Parameter + Abgeschlossen-Status](BE-STS-06-safe-to-spend-monat.md) | [#248](https://github.com/dfme/budget-buddy/issues/248) | US-12 | Sprint 6 |
 | `DB-01` | [DB-01 — Flyway V1: users-Tabelle](DB-01-flyway-users-table.md) | [#4](https://github.com/dfme/budget-buddy/issues/4) | — | Sprint 1 |
 | `DB-02` | [DB-02 — Flyway V2: transactions-Tabelle](DB-02-transactions-table.md) | [#5](https://github.com/dfme/budget-buddy/issues/5) | US-04, US-05, US-06 | Sprint 1 |
 | `DB-03` | [DB-03 — Flyway V3: fixed_costs-Tabelle](DB-03-fixed-costs-table.md) | [#6](https://github.com/dfme/budget-buddy/issues/6) | US-03 | Sprint 1 |
@@ -77,6 +80,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `FE-CAT-04` | [Direktsprung zu einem Monat in der Kategorie-Übersicht](FE-CAT-04-monat-direktsprung.md) | [#144](https://github.com/dfme/budget-buddy/issues/144) | US-12 | Sprint 4 |
 | `FE-CAT-05` | [Pagination der Transaktionsliste (20 + «Weitere laden»)](FE-CAT-05-transaktions-pagination.md) | [#153](https://github.com/dfme/budget-buddy/issues/153) | US-13 | Sprint 4 |
 | `FE-CAT-06` | [Overflow-Verhalten der Kategorie-Tabelle auf schmalen Viewports prüfen](FE-CAT-06-kategorie-tabelle-overflow.md) | [#186](https://github.com/dfme/budget-buddy/issues/186) | US-05 | Sprint 6 |
+| `FE-CAT-08` | [Kategorie-Übersicht: Keine-Daten-Hinweis](FE-CAT-08-keine-daten-hinweis.md) | [#249](https://github.com/dfme/budget-buddy/issues/249) | US-12 | Sprint 6 |
 | `FE-FC-01` | [Fixkosten-Wizard Component](FE-FC-01-fixkosten-wizard.md) | [#24](https://github.com/dfme/budget-buddy/issues/24) | US-03 | Sprint 4 |
 | `FE-FC-02` | [Route Guard für Onboarding](FE-FC-02-onboarding-guard.md) | [#25](https://github.com/dfme/budget-buddy/issues/25) | US-03 | Sprint 4 |
 | `FE-FC-03` | [Fixkosten-Liste](FE-FC-03-fixkosten-liste.md) | [#26](https://github.com/dfme/budget-buddy/issues/26) | US-03 | Sprint 4 |
@@ -118,6 +122,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `INFRA-19` | [Projekt-Skills sprachlich auf Deutsch vereinheitlichen](INFRA-19-skills-deutsch.md) | [#129](https://github.com/dfme/budget-buddy/issues/129) | — | Sprint 5 |
 | `INFRA-25` | [Fail-fast im prod-Profil bei fehlender oder ungültiger Datasource-URL](INFRA-25-prod-datasource-failfast.md) | [#150](https://github.com/dfme/budget-buddy/issues/150) | — | Sprint 5 |
 | `INFRA-28` | [INFRA-28 — Neon-Compute-Verbrauch: Health-Check und Hikari-Pool halten die DB dauerhaft wach](INFRA-28-neon-compute-health-check.md) | — | — | — |
+| `INFRA-29` | [CI erkennt nachträglich geänderte Flyway-Migrationen nicht](INFRA-29-migration-guard.md) | [#207](https://github.com/dfme/budget-buddy/issues/207) | — | Sprint 6 |
 | `INFRA-31` | [Automatisches PR-Review via GitHub Action einrichten (Claude Code)](INFRA-31-claude-pr-review-action.md) | [#215](https://github.com/dfme/budget-buddy/issues/215) | — | Sprint 5 |
 | `INFRA-35` | [Automatisches PR-Review verstummt bei Hintergrund-Verifikation im nicht-interaktiven Lauf](INFRA-35-review-pr-no-background-verify.md) | [#224](https://github.com/dfme/budget-buddy/issues/224) | — | Sprint 5 |
 | `INFRA-37` | [MDC einführen: User-ID in Logs für bessere Analysierbarkeit](INFRA-37-mdc-logging.md) | [#257](https://github.com/dfme/budget-buddy/issues/257) | — | Sprint 6 |

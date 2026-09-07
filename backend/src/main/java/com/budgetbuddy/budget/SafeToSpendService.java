@@ -3,6 +3,7 @@ package com.budgetbuddy.budget;
 import com.budgetbuddy.auth.UserIncomePort;
 import com.budgetbuddy.budget.dto.FixedCostSummaryResponse;
 import com.budgetbuddy.budget.dto.SafeToSpendResponse;
+import com.budgetbuddy.budget.dto.SafeToSpendStatus;
 import com.budgetbuddy.transaction.IncomeSuggestionPort;
 import com.budgetbuddy.transaction.MonthlyExpensePort;
 import java.math.BigDecimal;
@@ -47,6 +48,14 @@ import org.springframework.transaction.annotation.Transactional;
  * nicht. Für den Monat als Ganzes ist die Monatssumme zudem die richtigere Definition: sie ist
  * unabhängig vom Abrufzeitpunkt und damit über {@link MonthlyExpensePort} wiederverwendbar. Sollte
  * je vordatiert importiert werden, wäre das Fenster auf {@code [Monatserster, heute]} zu verengen.
+ *
+ * <p><strong>Monat als Parameter (BE-STS-06, US-12).</strong> Bis US-12 war der Monat keine Eingabe,
+ * sondern eine Eigenschaft des Abrufzeitpunkts. Seither nimmt
+ * {@link #calculate(long, YearMonth)} ihn entgegen; {@link #calculate(long)} bleibt als
+ * Default-Einstieg und löst «laufender Monat» selbst auf. Gerechnet wird
+ * weiterhin nur für den laufenden Monat — ein vergangener liefert den {@code CLOSED}-Marker, ein
+ * künftiger eine {@link FutureMonthException}. Die Begründung für beides steht an
+ * {@link #calculate(long, YearMonth)}.
  *
  * <p><strong>Einkommens-Heuristik (BE-STS-02).</strong> Ist kein Einkommen erfasst, wird über
  * {@link IncomeSuggestionPort} ein Vorschlag aus den wiederkehrenden Gutschriften abgeleitet. Der
@@ -105,6 +114,17 @@ public class SafeToSpendService {
      */
     private static final ZoneId ZURICH = ZoneId.of("Europe/Zurich");
 
+    /**
+     * Antwort für einen vergangenen Monat: kein Betrag, kein Divisor, keine Flags. Konstant, weil
+     * sie weder vom User noch vom Monat abhängt — für einen abgeschlossenen Monat wird nichts
+     * geladen und nichts gerechnet, es gibt also auch nichts zu unterscheiden. {@code weeksLeft = 0}
+     * statt der sonst zugesagten {@code >= 1}: in einem abgelaufenen Monat ist keine Woche mehr
+     * übrig, und eine Zahl daneben sähe nach einer Berechnung aus, die es nicht gab
+     * (siehe {@link SafeToSpendResponse}).
+     */
+    private static final SafeToSpendResponse CLOSED_MONTH =
+            new SafeToSpendResponse(null, 0, false, false, null, SafeToSpendStatus.CLOSED);
+
     private final UserIncomePort userIncomePort;
     private final FixedCostService fixedCostService;
     private final MonthlyExpensePort monthlyExpensePort;
@@ -127,15 +147,77 @@ public class SafeToSpendService {
     /**
      * Berechnet den wöchentlichen Safe-to-Spend-Betrag des Users für den laufenden Monat.
      *
+     * <p>Der Default-Einstieg. Er löst «laufender Monat» selbst auf und geht direkt in die
+     * Berechnung — der Controller muss dafür weder {@link #ZURICH} noch die {@link Clock} kennen,
+     * und die Prüfung auf Vergangenheit oder Zukunft entfällt, weil der laufende Monat per
+     * Konstruktion keins von beidem ist.
+     *
      * @param userId ID des eingeloggten Users (aus dem JWT).
-     * @return Betrag samt Divisor und den beiden Zustands-Flags aus US-06. Ohne erfasstes Einkommen
-     *     ein Ergebnis mit {@code noIncome = true} und {@code amount = null} — es findet dann keine
-     *     Division statt und es werden auch keine Ausgaben geladen; stattdessen läuft die
-     *     Einkommens-Heuristik und füllt {@code incomeSuggestion}.
+     * @return das Ergebnis für den laufenden Monat, immer mit
+     *     {@link SafeToSpendStatus#OPEN} — siehe {@link #calculate(long, YearMonth)}.
      */
     @Transactional(readOnly = true)
     public SafeToSpendResponse calculate(long userId) {
-        LocalDate heute = LocalDate.ofInstant(clock.instant(), ZURICH);
+        return calculateOpenMonth(userId, today());
+    }
+
+    /**
+     * Berechnet den wöchentlichen Safe-to-Spend-Betrag des Users für einen bestimmten Monat
+     * (BE-STS-06, US-12).
+     *
+     * <p><strong>Nur der laufende Monat wird gerechnet.</strong> US-12 formuliert das ausdrücklich:
+     * «Safe-to-Spend wird nur für den laufenden Monat berechnet, für vergangene Monate wird
+     * stattdessen ‹Abgeschlossen› angezeigt.» Ein vergangener Monat liefert deshalb einen reinen
+     * Marker mit {@link SafeToSpendStatus#CLOSED} und keine Zahlen — nicht, weil sie sich nicht
+     * berechnen liessen, sondern weil ein Wochenbudget für einen abgelaufenen Monat keine Aussage
+     * trägt: es gibt keine verbleibende Woche mehr, in der man es ausgeben könnte.
+     *
+     * <p><strong>Ein künftiger Monat ist ein Fehler, kein Zustand.</strong> {@link #weeksLeft} wird
+     * aus «heute» hergeleitet und ergäbe für einen späteren Monat einen Wert ohne Bedeutung;
+     * Ausgaben gibt es dort noch keine, und ein Einkommen liegt in der Zukunft. Statt eine Zahl zu
+     * liefern, der niemand trauen kann, lehnt der Aufruf ab — der Core Value dieser App ist ein
+     * Betrag, dem der Nutzer vertraut. Über den {@code BudgetExceptionHandler} wird daraus HTTP 400.
+     *
+     * @param userId ID des eingeloggten Users (aus dem JWT).
+     * @param month der Monat, für den gerechnet werden soll.
+     * @return Betrag samt Divisor und den beiden Zustands-Flags aus US-06. Ohne erfasstes Einkommen
+     *     ein Ergebnis mit {@code noIncome = true} und {@code amount = null} — es findet dann keine
+     *     Division statt und es werden auch keine Ausgaben geladen; stattdessen läuft die
+     *     Einkommens-Heuristik und füllt {@code incomeSuggestion}. Für einen vergangenen Monat der
+     *     {@code CLOSED}-Marker.
+     * @throws FutureMonthException wenn {@code month} nach dem laufenden Monat liegt.
+     */
+    @Transactional(readOnly = true)
+    public SafeToSpendResponse calculate(long userId, YearMonth month) {
+        // Ein einziger Blick auf die Uhr für die ganze Antwort. Zwei Lesungen — eine für den
+        // Vergleich, eine für den Stichtag — könnten um Mitternacht des Monatsersten
+        // auseinanderfallen: der Vergleich sähe dann noch den Vormonat, der Stichtag bereits den
+        // neuen, und der laufende Monat käme als «abgeschlossen» zurück.
+        LocalDate heute = today();
+        YearMonth currentMonth = YearMonth.from(heute);
+
+        if (month.isAfter(currentMonth)) {
+            throw new FutureMonthException(month, currentMonth);
+        }
+        if (month.isBefore(currentMonth)) {
+            // Kein Port wird angefasst: für einen abgeschlossenen Monat wird nichts geladen, was
+            // ohnehin nicht in die Antwort ginge.
+            return CLOSED_MONTH;
+        }
+        return calculateOpenMonth(userId, heute);
+    }
+
+    /**
+     * Die eigentliche Berechnung — erreicht nur für den laufenden Monat, den {@code heute}
+     * bestimmt.
+     *
+     * <p>Der Monat steckt hier in {@code heute} statt daneben als eigener Parameter: im offenen
+     * Zweig sind der angefragte und der laufende Monat nachweislich derselbe, und zwei Werte für
+     * eine Tatsache könnten nur noch auseinanderlaufen. {@code weeksLeft} und das Ausgabenfenster
+     * stammen damit garantiert aus demselben Zeitpunkt.
+     */
+    private SafeToSpendResponse calculateOpenMonth(long userId, LocalDate heute) {
+        YearMonth month = YearMonth.from(heute);
         int weeksLeft = weeksLeft(heute);
 
         Optional<BigDecimal> monthlyIncome = userIncomePort.findMonthlyIncome(userId);
@@ -144,7 +226,8 @@ public class SafeToSpendService {
             // ein Client anzeigen dürfte — 0.00 wäre die Falschaussage «du hast nichts mehr».
             // Genau hier greift die Einkommens-Heuristik (BE-STS-02) — siehe Klassen-Javadoc.
             return new SafeToSpendResponse(null, weeksLeft, false, true,
-                    incomeSuggestionPort.suggestMonthlyIncome(userId).orElse(null));
+                    incomeSuggestionPort.suggestMonthlyIncome(userId).orElse(null),
+                    SafeToSpendStatus.OPEN);
         }
 
         FixedCostSummaryResponse fixedCostSummary = fixedCostService.list(userId);
@@ -153,7 +236,7 @@ public class SafeToSpendService {
         // Die per Dauerauftrag bezahlten Fixkosten fallen aus dem Ausgaben-Summanden — sonst
         // stünden sie in beiden und minderten den Betrag zweimal (BE-STS-04, ADR-13).
         BigDecimal expenses = FixedCostDebitMatcher.variableExpenses(
-                monthlyExpensePort.expenseAmounts(userId, YearMonth.from(heute)),
+                monthlyExpensePort.expenseAmounts(userId, month),
                 fixedCostSummary.fixedCosts());
 
         BigDecimal verfuegbar = monthlyIncome.get().subtract(fixedCosts).subtract(expenses);
@@ -164,7 +247,17 @@ public class SafeToSpendService {
 
         // incomeSuggestion bleibt null: US-06 lässt die manuelle Eingabe die Schätzung
         // überschreiben, ein Vorschlag neben einem erfassten Einkommen wäre nur verwirrend.
-        return new SafeToSpendResponse(amount, weeksLeft, amount.signum() < 0, false, null);
+        return new SafeToSpendResponse(
+                amount, weeksLeft, amount.signum() < 0, false, null, SafeToSpendStatus.OPEN);
+    }
+
+    /**
+     * «Heute» in {@link #ZURICH} — nicht in der Zone der {@link Clock}-Bean (Begründung im
+     * Klassen-Javadoc). Einziger Zugriff auf die Uhr in diesem Service, damit jede Antwort aus
+     * genau einem Zeitpunkt entsteht.
+     */
+    private LocalDate today() {
+        return LocalDate.ofInstant(clock.instant(), ZURICH);
     }
 
     /**

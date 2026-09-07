@@ -73,6 +73,29 @@ Der Sprint wird **ausschliesslich** über das Iteration-Feld `Sprint` im Project
 - Dateiname: `V<NN>__<snake_case_beschreibung>.sql` (z. B. `V01__create_users_table.sql`).
 - Geldbeträge als `DECIMAL(10,2)`, nie `FLOAT`/`REAL` (siehe ADR-9).
 
+### Migrationen sind unveränderlich, sobald sie auf `main` liegen
+
+> Keine Migrationsdatei, die auf `main` existiert, darf geändert, gelöscht oder umbenannt werden — und jede hinzugefügte muss eine Version tragen, die echt grösser ist als die höchste auf `main`.
+
+Der Grund ist, dass Flyway jede angewandte Migration in `flyway_schema_history` mit Prüfsumme und Beschreibung festhält. Wird eine gemergte Migration nachträglich angefasst, bricht jede Datenbank, die sie im alten Stand angewendet hat, beim nächsten Start ab — mit `Migration checksum mismatch`. Eine neu hinzugefügte Datei mit bereits vergebener Version bricht den Start ebenso (`Found more than one migration with version NN`), eine mit zu niedriger Version wird von einer Datenbank abgelehnt, die schon weiter ist (`spring.flyway.out-of-order` ist nicht gesetzt, Default `false`).
+
+**CI kann das von sich aus nicht bemerken** (INFRA-29, [#207](https://github.com/dfme/budget-buddy/issues/207)): Der Workflow startet pro Lauf einen frischen Postgres, die Integrationstests laufen gegen Testcontainers. Eine leere Datenbank hat keine `flyway_schema_history`, an der etwas scheitern könnte. Der Fehler tritt deshalb nur in einer langlebigen lokalen Dev-DB und in Produktion auf.
+
+Durchgesetzt wird die Regel vom Job **Flyway-Migrationen unverändert** in `.github/workflows/build.yml`, der `scripts/check-migrations.sh` gegen den Base-Branch des PR laufen lässt. Das Skript ist auch lokal aufrufbar:
+
+```bash
+scripts/check-migrations.sh            # gegen origin/main
+scripts/check-migrations.sh origin/xy  # gegen einen anderen Base-Branch
+```
+
+Das Arbeitsverzeichnis spielt dabei keine Rolle — das Skript wechselt selbst an den Repo-Root, bevor es einen Pathspec auswertet.
+
+**Notfall-Ausweg.** Muss eine Migration wirklich einmal korrigiert werden, *bevor* sie irgendwo angewendet wurde, setzt ein Mensch am PR das Label **`migration-rewrite-ok`**. Der Guard wird dann übersprungen und schreibt stattdessen eine Warnung ins Job-Log. Das Label ist bewusst der Ausweg und kein Commit-Marker: Es ist auf dem PR sichtbar, die Timeline hält fest, wer es wann gesetzt hat, und es lässt sich wieder entfernen.
+
+**Nach dem Setzen des Labels braucht es einen neuen Commit.** `ci.yml` triggert auf die Default-Events von `pull_request` (`opened`, `synchronize`, `reopened`) — `labeled` ist nicht dabei, ein nachträglich gesetztes Label startet also von sich aus keinen Lauf, und der rote Check bleibt rot. «Re-run failed jobs» hilft dabei nicht: Ein Re-run spielt die ursprüngliche Event-Payload erneut ab, in der das Label noch fehlt. Wer nicht committen will, kann den PR stattdessen schliessen und wieder öffnen.
+
+Die Frage, die vor dem Setzen zu beantworten ist, lautet nicht «ist die Änderung klein?», sondern **«hat diese Migration schon irgendwo laufen können?»** — Produktion, ein Kollegen-Laptop, die eigene Dev-DB. Ein Ja bedeutet: neue Migration schreiben.
+
 ## Backend: Package-Struktur (Modular Monolith)
 
 Packages nach Domäne, nicht nach Schicht, unterhalb von `backend/src/main/java/com/budgetbuddy/`:

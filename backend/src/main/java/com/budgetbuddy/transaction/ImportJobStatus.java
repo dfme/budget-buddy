@@ -21,6 +21,13 @@ public enum ImportJobStatus {
     /**
      * Unerwarteter Fehler; nichts persistiert. Kein regulärer Ausgang: Claude-Ausfälle fallen auf
      * {@code Sonstiges} zurück und führen zu {@link #DONE}.
+     *
+     * <p>Seit BE-PDF-11 endet hier auch der Job, dessen Prozess gestorben ist, bevor er selbst
+     * etwas melden konnte — gesetzt nachträglich durch den {@link StaleImportJobCleaner}. Für den
+     * Nutzer ist das derselbe Ausgang und dieselbe Wahrheit: Der {@link ImportJobRunner} schreibt
+     * die Transaktionen erst in seinem Abschlussblock, ein vorher abgebrochener Lauf hat nichts
+     * hinterlassen. Woran der Job gescheitert ist, unterscheidet nur das Log — dafür gibt es
+     * bewusst keine eigene Spalte (#197).
      */
     FAILED
 }

@@ -111,6 +111,24 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
             Long userId, LocalDate von, LocalDate bis);
 
     /**
+     * Die Buchungen eines Monats, deren Richtung der Parser nur angenommen hat (BE-PDF-10, US-04) —
+     * absteigend nach Buchungsdatum, bei Gleichstand nach ID, wie die Transaktionsliste.
+     *
+     * <p>Ohne Einschränkung auf {@code is_income}: Ein unsicher markierter Eintrag ist zwar immer
+     * als Belastung importiert worden (das ist der konservative Default), aber diese Auswahl darf
+     * nicht davon abhängen. Sonst verschwände eine Buchung aus der Prüfliste, sobald sie jemand auf
+     * Gutschrift setzt — und genau dann fällt auch das Flag, das sie hier überhaupt erst
+     * hereinbringt. Zwei Bedingungen für dieselbe Aussage laufen irgendwann auseinander.
+     *
+     * <p>Ungepaginiert, anders als die Ausgabenliste (FE-CAT-05): Das hier ist eine Aufgabenliste,
+     * die der Nutzer abarbeitet und die dabei schrumpft, keine Historie zum Blättern. Die
+     * Obergrenze ist die Zahl der Buchungen eines Monats — dieselbe Menge, die
+     * {@code TransactionSummaryService} für dieselbe Seite ohnehin lädt.
+     */
+    List<Transaction> findByUserIdAndDirectionUncertainTrueAndBuchungsdatumBetweenOrderByBuchungsdatumDescIdDesc(
+            Long userId, LocalDate von, LocalDate bis);
+
+    /**
      * Duplikatcheck des PDF-Imports (BE-PDF-02): {@code true}, wenn dieser User bereits
      * Transaktionen aus dem PDF mit diesem SHA-256 importiert hat. Pro User — dasselbe PDF darf
      * von einem anderen User (z. B. Gemeinschaftskonto) erneut importiert werden.
