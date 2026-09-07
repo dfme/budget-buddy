@@ -11,6 +11,7 @@ const RESPONSE: SafeToSpendResponse = {
   negative: false,
   noIncome: false,
   incomeSuggestion: null,
+  status: 'OPEN',
 };
 
 describe('SafeToSpendService', () => {
