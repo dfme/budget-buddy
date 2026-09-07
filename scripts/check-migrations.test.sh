@@ -49,12 +49,15 @@ new_repo() {
     echo "${dir}"
 }
 
-# assert_exit <erwarteter-code> <beschreibung> <repo-verzeichnis> [<erwarteter-textbaustein>]
+# assert_exit <erwarteter-code> <beschreibung> <repo-verzeichnis> [<erwarteter-textbaustein>] [<arbeitsverzeichnis>]
+#
+# Das Arbeitsverzeichnis ist relativ zum Repo-Root und dient dem Unterverzeichnis-Szenario: der
+# Guard muss von überall dasselbe Urteil fällen.
 assert_exit() {
-    local expected="$1" description="$2" dir="$3" expected_text="${4:-}"
+    local expected="$1" description="$2" dir="$3" expected_text="${4:-}" workdir="${5:-.}"
     local actual=0 output
 
-    output="$(cd "${dir}" && "${GUARD}" origin/main 2>&1)" || actual=$?
+    output="$(cd "${dir}/${workdir}" && "${GUARD}" origin/main 2>&1)" || actual=$?
 
     if [[ "${actual}" != "${expected}" ]]; then
         printf 'FAIL  %s\n      Exit %s erwartet, %s bekommen. Ausgabe:\n%s\n' \
@@ -122,7 +125,7 @@ assert_exit 1 "neue Migration mit bereits vergebener Version" "${r}" "liegt nich
 r="$(new_repo)"
 (cd "${r}" && echo "-- zu niedrig" > "${MIGRATION_DIR}/V07__too_low.sql" \
     && git add -A && git commit -qm "Out-of-Order")
-assert_exit 1 "neue Migration mit niedrigerer Version" "${r}" "V07__too_low.sql: Version 7"
+assert_exit 1 "neue Migration mit niedrigerer Version" "${r}" "V07__too_low.sql: Version V07"
 
 r="$(new_repo)"
 (cd "${r}" && echo "-- a" > "${MIGRATION_DIR}/V09__a.sql" && echo "-- b" > "${MIGRATION_DIR}/V09__b.sql" \
@@ -133,6 +136,30 @@ r="$(new_repo)"
 (cd "${r}" && echo "-- ohne Versionspräfix" > "${MIGRATION_DIR}/create_something.sql" \
     && git add -A && git commit -qm "kein Präfix")
 assert_exit 1 "neue Datei ohne Versionspräfix" "${r}" "kein erkennbares Versionspräfix"
+
+# Typwechsel: weder M/D/R noch A — ohne eigenen Zweig käme er ungeprüft durch.
+r="$(new_repo)"
+(cd "${r}" && rm "${MIGRATION_DIR}/V01__create_users_table.sql" \
+    && ln -s V08__add_x.sql "${MIGRATION_DIR}/V01__create_users_table.sql" \
+    && git add -A && git commit -qm "Migration durch Symlink ersetzt")
+assert_exit 1 "bestehende Migration durch Symlink ersetzt (Typwechsel)" "${r}" "Typ geändert"
+
+# --- der Guard urteilt unabhängig vom Arbeitsverzeichnis ---------------------------------------
+#
+# git löst Pathspecs gegen das aktuelle Verzeichnis auf. Ohne den Wechsel an den Repo-Root prüfte
+# der Guard aus backend/ heraus backend/backend/... — leerer Diff, Exit 0, Meldung «sauber». Eine
+# falsche Entwarnung wiegt schwerer als ein Fehlschlag, deshalb steht sie als eigenes Szenario da.
+
+r="$(new_repo)"
+(cd "${r}" && echo "CREATE TABLE users (id BIGINT, email TEXT);" > "${MIGRATION_DIR}/V01__create_users_table.sql" \
+    && git add -A && git commit -qm "bestehende Migration geändert")
+assert_exit 1 "aus backend/ aufgerufen: geänderte Migration wird trotzdem gefunden" "${r}" \
+    "V01__create_users_table.sql: geändert" "backend"
+
+r="$(new_repo)"
+(cd "${r}" && echo "ALTER TABLE users ADD COLUMN y TEXT;" > "${MIGRATION_DIR}/V09__add_y.sql" \
+    && git add -A && git commit -qm "neue Migration")
+assert_exit 0 "aus backend/ aufgerufen: sauberer PR bleibt sauber" "${r}" "" "backend"
 
 # --- Aufruffehler ------------------------------------------------------------------------------
 

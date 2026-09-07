@@ -88,7 +88,11 @@ scripts/check-migrations.sh            # gegen origin/main
 scripts/check-migrations.sh origin/xy  # gegen einen anderen Base-Branch
 ```
 
+Das Arbeitsverzeichnis spielt dabei keine Rolle — das Skript wechselt selbst an den Repo-Root, bevor es einen Pathspec auswertet.
+
 **Notfall-Ausweg.** Muss eine Migration wirklich einmal korrigiert werden, *bevor* sie irgendwo angewendet wurde, setzt ein Mensch am PR das Label **`migration-rewrite-ok`**. Der Guard wird dann übersprungen und schreibt stattdessen eine Warnung ins Job-Log. Das Label ist bewusst der Ausweg und kein Commit-Marker: Es ist auf dem PR sichtbar, die Timeline hält fest, wer es wann gesetzt hat, und es lässt sich wieder entfernen.
+
+**Nach dem Setzen des Labels braucht es einen neuen Commit.** `ci.yml` triggert auf die Default-Events von `pull_request` (`opened`, `synchronize`, `reopened`) — `labeled` ist nicht dabei, ein nachträglich gesetztes Label startet also von sich aus keinen Lauf, und der rote Check bleibt rot. «Re-run failed jobs» hilft dabei nicht: Ein Re-run spielt die ursprüngliche Event-Payload erneut ab, in der das Label noch fehlt. Wer nicht committen will, kann den PR stattdessen schliessen und wieder öffnen.
 
 Die Frage, die vor dem Setzen zu beantworten ist, lautet nicht «ist die Änderung klein?», sondern **«hat diese Migration schon irgendwo laufen können?»** — Produktion, ein Kollegen-Laptop, die eigene Dev-DB. Ein Ja bedeutet: neue Migration schreiben.
 

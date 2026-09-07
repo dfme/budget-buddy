@@ -24,7 +24,7 @@ jobs:
           # und der Vergleich liefe ins Leere, statt zu scheitern.
           fetch-depth: 0
 
-      # Prüft die Logik des Guards selbst (12 Szenarien gegen Wegwerf-Repos). Bewusst NICHT vom
+      # Prüft die Logik des Guards selbst (15 Szenarien gegen Wegwerf-Repos). Bewusst NICHT vom
       # Notfall-Label abhängig: dass der Guard funktioniert, soll auch dann belegt sein, wenn er
       # für diesen einen PR ausgesetzt ist.
       - name: Guard-Selbsttest

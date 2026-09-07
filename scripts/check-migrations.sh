@@ -38,10 +38,27 @@
 # den Aufruf dann und schreibt eine Warnung ins Log. Dieses Skript kennt das Label nicht — es
 # urteilt nur über den Diff; wer es aussetzt, entscheidet der Workflow.
 #
+# Das Label wirkt erst beim nächsten Lauf: ci.yml triggert auf den Default-Events von
+# `pull_request` (opened, synchronize, reopened), `labeled` ist nicht dabei. Ein nachträglich
+# gesetztes Label startet deshalb nichts neu, und «Re-run failed jobs» hilft nicht — ein Re-run
+# spielt die ursprüngliche Event-Payload ab, in der das Label noch fehlt. Nach dem Setzen braucht
+# es einen neuen Commit (oder PR schliessen und wieder öffnen).
+#
 # Aufruf: scripts/check-migrations.sh [<base-ref>]        (Default: origin/main)
 # Exit:   0 = sauber, 1 = Regelverstoss, 2 = Aufruffehler
 
 set -euo pipefail
+
+# Pathspecs löst git gegen das aktuelle Verzeichnis auf, nicht gegen den Repo-Root. Aus backend/
+# aufgerufen prüfte das Skript also backend/backend/src/... — leerer Diff, leeres ls-tree,
+# max_version 0, und die Meldung lautete «sauber», ohne dass irgendetwas geprüft worden wäre. Für
+# einen Guard ist die falsche Entwarnung der gefährlichste Ausgang: sie ist positiv formuliert,
+# also schaut danach niemand mehr hin. Deshalb einmal an die Wurzel, bevor ein Pathspec fällt.
+if ! repo_root="$(git rev-parse --show-toplevel 2>/dev/null)"; then
+    echo "check-migrations: kein Git-Repository — das Skript vergleicht Refs und braucht eines." >&2
+    exit 2
+fi
+cd "${repo_root}"
 
 BASE_REF="${1:-origin/main}"
 MIGRATION_DIR="backend/src/main/resources/db/migration"
@@ -77,6 +94,12 @@ while IFS=$'\t' read -r status path newpath; do
         R*)
             violations+=("${path}: umbenannt nach ${newpath} — die Beschreibung steht in flyway_schema_history und stimmt danach nicht mehr überein")
             ;;
+        T*)
+            # Konstruiert, aber sonst die einzige Lücke in der Statusabdeckung: ein Typwechsel
+            # (Datei → Symlink) ist weder M/D/R noch A und käme ungeprüft durch, obwohl Flyway
+            # danach einen anderen Inhalt liest als den, dessen Prüfsumme hinterlegt ist.
+            violations+=("${path}: Typ geändert (z. B. Datei → Symlink) — Flyway liest danach einen anderen Inhalt als den, dessen Prüfsumme in flyway_schema_history steht")
+            ;;
     esac
 done < <(git diff --name-status --find-renames "${BASE_REF}...HEAD" -- "${MIGRATION_DIR}")
 
@@ -97,6 +120,12 @@ version_of() {
         return
     fi
     echo $((10#${digits}))
+}
+
+# Gerechnet wird dezimal (siehe 10# oben), geschrieben wird wie im Dateinamen: 7 → V07. Eine
+# Meldung über «Version 7» zwingt den Leser zur Rückübersetzung auf die Datei, die er sucht.
+version_label() {
+    printf 'V%02d' "$1"
 }
 
 max_version=0
@@ -126,12 +155,13 @@ while IFS=$'\t' read -r status path _; do
     fi
 
     if (( v <= max_version )); then
-        violations+=("${path}: Version ${v} liegt nicht über der höchsten auf ${BASE_REF} (${max_version}) — eine Datenbank, die ${max_version} bereits angewendet hat, nimmt sie nicht mehr an")
+        violations+=("${path}: Version $(version_label "${v}") liegt nicht über der höchsten auf ${BASE_REF} ($(version_label "${max_version}")) — eine Datenbank, die $(version_label "${max_version}") bereits angewendet hat, nimmt sie nicht mehr an")
     fi
 
     previous="$(printf '%s' "${seen_versions}" | awk -F'\t' -v want="${v}" '$1 == want { print $2; exit }')"
     if [[ -n "${previous}" ]]; then
-        violations+=("${path}: Version ${v} wird in diesem PR bereits von ${previous} belegt — Flyway bricht mit «Found more than one migration with version ${v}» beim Start ab")
+        # Im Flyway-Zitat steht die Version so, wie Flyway sie ausgibt: zweistellig, ohne V.
+        violations+=("${path}: Version $(version_label "${v}") wird in diesem PR bereits von ${previous} belegt — Flyway bricht mit «Found more than one migration with version $(printf '%02d' "${v}")» beim Start ab")
     else
         seen_versions="${seen_versions}${v}"$'\t'"${path}"$'\n'
     fi
@@ -140,7 +170,7 @@ done < <(git diff --name-status --find-renames "${BASE_REF}...HEAD" -- "${MIGRAT
 # --- Ergebnis ----------------------------------------------------------------------------------
 
 if (( ${#violations[@]} == 0 )); then
-    echo "check-migrations: keine bestehende Migration angetastet, neue Versionen liegen über ${max_version} (Basis: ${BASE_REF})."
+    echo "check-migrations: keine bestehende Migration angetastet, neue Versionen liegen über $(version_label "${max_version}") (Basis: ${BASE_REF})."
     exit 0
 fi
 
@@ -155,4 +185,6 @@ echo "Statt sie zu ändern: eine neue Migration mit der nächsthöheren Version 
 echo >&2
 echo "Wurde die Migration nachweislich noch nirgends angewendet, setzt ein Mensch das PR-Label" >&2
 echo "'${ESCAPE_LABEL}' — der Workflow überspringt diese Prüfung dann und protokolliert das." >&2
+echo "Danach braucht es einen neuen Commit: das Setzen des Labels startet selbst keinen Lauf, und" >&2
+echo "ein 'Re-run' wiederholt die alte Event-Payload, in der das Label noch fehlt." >&2
 exit 1

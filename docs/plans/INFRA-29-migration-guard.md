@@ -83,6 +83,13 @@ nachträglich weder entziehen noch einer Person zuordnen.
 Bei gesetztem Label wird der Check übersprungen und gibt ein `::warning::` aus, damit die Umgehung
 im Log steht statt lautlos zu passieren.
 
+Der Preis dieser Wahl: Das Label greift erst beim nächsten Lauf. `ci.yml` triggert auf die
+Default-Events von `pull_request` (`opened`, `synchronize`, `reopened`), `labeled` gehört nicht
+dazu, und ein «Re-run» spielt die alte Event-Payload ohne das Label ab — es braucht also einen
+neuen Commit. `types: [..., labeled]` wäre die Alternative, würde aber jede Label-Änderung an jedem
+PR zum vollen Build inklusive E2E machen. Bewusst nicht genommen; stattdessen steht der Vorbehalt
+in `docs/CONVENTIONS.md`, im Kopf des Skripts und in dessen Fehlerausgabe.
+
 ## Betroffene / neue Files
 
 **Neu:**
