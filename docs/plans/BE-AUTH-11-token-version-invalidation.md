@@ -36,7 +36,9 @@ ADR-7 nachgetragen.
 ## Betroffene Dateien
 
 **Migration**
-- neu: `backend/src/main/resources/db/migration/V08__add_token_version_to_users.sql`
+- neu: `backend/src/main/resources/db/migration/V09__add_token_version_to_users.sql` (ursprünglich
+  als `V08` geplant; auf `V09` verschoben, weil `main` inzwischen `V08` für
+  `add_direction_uncertain_to_transactions` vergeben hat, siehe INFRA-29)
 
 **Backend-Code**
 - `backend/src/main/java/com/budgetbuddy/auth/User.java` — Feld `tokenVersion`, Getter,
@@ -63,7 +65,7 @@ ADR-7 nachgetragen.
 
 ## Implementierungsschritte
 
-1. Flyway-Migration `V08__add_token_version_to_users.sql` anlegen (`BIGINT NOT NULL DEFAULT 0`).
+1. Flyway-Migration `V09__add_token_version_to_users.sql` anlegen (`BIGINT NOT NULL DEFAULT 0`).
 2. `User`: Feld, Getter, `invalidateTokenVersion()`.
 3. `JwtService`: `TokenClaims`-Record, `generateToken(userId, tokenVersion)` +
    Convenience-Overload, `validate(token)` statt `validateAndGetUserId(token)`.

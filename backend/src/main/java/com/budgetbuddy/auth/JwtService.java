@@ -36,7 +36,7 @@ public class JwtService {
      * Erzeugt ein signiertes JWT mit der User-ID als {@code subject} und {@code tokenVersion=0}.
      *
      * <p>Convenience-Overload für Aufrufer, die keine Versionierung brauchen (Tests) — passt zum
-     * Spalten-Default von {@code users.token_version} (Flyway V08) für frisch angelegte User.
+     * Spalten-Default von {@code users.token_version} (Flyway V09) für frisch angelegte User.
      */
     public String generateToken(long userId) {
         return generateToken(userId, 0);

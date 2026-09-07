@@ -55,7 +55,7 @@ Wir nutzen **JWT (JSON Web Token) mit HS256 Signing, bcrypt Password Hashing und
 
 Ohne serverseitige Session gab es ursprünglich keinen Weg, ein einzelnes JWT vor Ablauf gezielt
 zu invalidieren — auch nicht, wenn ein Nutzer sein Passwort ändert, weil er einen Missbrauch
-vermutet. Die Users-Tabelle trägt seit Flyway `V08` eine `token_version`-Spalte
+vermutet. Die Users-Tabelle trägt seit Flyway `V09` eine `token_version`-Spalte
 (`BIGINT NOT NULL DEFAULT 0`), die als eigener Claim ins JWT geschrieben wird; eine
 Passwort-Änderung erhöht sie um 1. Der `JwtCookieAuthenticationFilter` lädt den User und vergleicht
 die `token_version` bei **jedem** authentifizierten Request gegen den Claim — bei Abweichung wird

@@ -52,6 +52,17 @@ public class Transaction {
     @Column(name = "is_income", nullable = false)
     private boolean income;
 
+    /**
+     * {@code true}, wenn der Parser die Richtung dieser Buchung nicht eindeutig bestimmen konnte
+     * und sie konservativ als Belastung übernommen hat (BE-PDF-10, V08).
+     *
+     * <p>Der Wert ist ein Hinweis an die Oberfläche, nicht an die Berechnung: {@link #income} ist
+     * in diesem Fall eine Annahme, kein Befund. Sobald der Nutzer entschieden hat, fällt das Flag
+     * — siehe {@link #correctDirection(boolean)}.
+     */
+    @Column(name = "direction_uncertain", nullable = false)
+    private boolean directionUncertain;
+
     @Column
     private String category;
 
@@ -81,12 +92,31 @@ public class Transaction {
     public Transaction(Long userId, LocalDate buchungsdatum, String buchungstext,
             String buchungsdetails, BigDecimal betrag, boolean income, String category,
             String pdfSha256) {
+        this(userId, buchungsdatum, buchungstext, buchungsdetails, betrag, income, false, category,
+                pdfSha256);
+    }
+
+    /**
+     * Wie oben, zusätzlich mit dem Richtungs-Flag aus dem Parser (BE-PDF-10).
+     *
+     * <p>Getrennt gehalten statt als einziger Konstruktor: {@code directionUncertain} kommt
+     * ausschliesslich aus {@code SwissBankStatementParser} über {@code ParsedTransaction}. Jeder
+     * andere Erzeuger einer Transaktion hat keine Meinung dazu und soll sie auch nicht ausdrücken
+     * müssen — für ihn ist die Richtung schlicht bekannt.
+     *
+     * @param directionUncertain {@code true}, wenn die Richtung geraten ist — siehe
+     *     {@link #isDirectionUncertain()}.
+     */
+    public Transaction(Long userId, LocalDate buchungsdatum, String buchungstext,
+            String buchungsdetails, BigDecimal betrag, boolean income, boolean directionUncertain,
+            String category, String pdfSha256) {
         this.userId = userId;
         this.buchungsdatum = buchungsdatum;
         this.buchungstext = buchungstext;
         this.buchungsdetails = buchungsdetails;
         this.betrag = betrag;
         this.income = income;
+        this.directionUncertain = directionUncertain;
         this.category = category;
         this.pdfSha256 = pdfSha256;
     }
@@ -129,6 +159,43 @@ public class Transaction {
     /** {@code true} für Gutschriften (Einkommen), {@code false} für Belastungen (Ausgaben). */
     public boolean isIncome() {
         return income;
+    }
+
+    /**
+     * {@code true}, solange {@link #isIncome()} eine Annahme des Parsers ist und kein Befund
+     * (BE-PDF-10, US-04).
+     *
+     * <p>Der Parser leitet die Richtung aus dem Saldo ab. Gelingt das nicht — mehrdeutiges
+     * Saldo-Delta, fehlender Anfangssaldo, zu grosser Buchungsblock —, übernimmt er die Buchung
+     * konservativ als Belastung und setzt dieses Flag. Es ist damit kein Fehlerzustand, sondern
+     * eine offene Frage an den Nutzer: Ist eine Gutschrift darunter, ist ihr Vorzeichen gedreht
+     * und Safe-to-Spend fällt zu tief aus.
+     *
+     * <p>Für Zeilen, die vor V08 importiert wurden, ist der Wert {@code false} — nicht, weil ihre
+     * Richtung geprüft wäre, sondern weil es die Spalte damals nicht gab. Die Begründung, warum
+     * kein Backfill stattfindet, steht in der Migration.
+     */
+    public boolean isDirectionUncertain() {
+        return directionUncertain;
+    }
+
+    /**
+     * Übernimmt die vom Nutzer entschiedene Buchungsrichtung (BE-PDF-10, US-04).
+     *
+     * <p>Setzt die Richtung <em>und</em> räumt {@link #isDirectionUncertain()} ab — auch dann,
+     * wenn der Nutzer die angenommene Richtung bloss bestätigt. Bestätigen ist eine Entscheidung:
+     * Die Buchung bleibt eine Belastung, aber sie ist es ab jetzt nachweislich und nicht mehr
+     * mangels Alternative.
+     *
+     * <p>Bewusst eine Methode statt zweier Setter. Die beiden Felder gehören zusammen — ein
+     * {@code setIncome()} ohne das Abräumen des Flags liesse eine korrigierte Buchung für immer
+     * in der Prüfliste stehen, und ein Aufrufer, der es vergisst, fiele nirgends auf.
+     *
+     * @param income {@code true} für Gutschrift, {@code false} für Belastung.
+     */
+    public void correctDirection(boolean income) {
+        this.income = income;
+        this.directionUncertain = false;
     }
 
     /** Kategorie-Label wie in {@link com.budgetbuddy.categorization.Category}, oder {@code null}. */
