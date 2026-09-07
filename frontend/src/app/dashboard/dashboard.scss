@@ -11,9 +11,29 @@
 // braucht hier nichts: er liegt *in* der Card, nicht darüber.
 .negative-banner,
 .uncertain-banner,
+.closed-banner,
 .safe-to-spend-card {
   max-width: 28rem;
   margin: $sp-6 auto 0;
+}
+
+// Monatswechsel (FE-STS-04) — bündig zur Spalte darunter, damit Stepper und Card nicht
+// gegeneinander versetzt stehen. Abstände wie in der Kategorie-Übersicht.
+.month-selector {
+  display: block;
+  max-width: 28rem;
+  margin: $sp-4 auto $sp-5;
+}
+
+// Lade- und Leerzustand, im Aufbau wie in der Kategorie-Übersicht: zentriert, und der
+// Keine-Daten-Fall gedämpft — er ist eine Auskunft, keine Warnung.
+.status {
+  text-align: center;
+  padding: $sp-5 0;
+}
+
+.status.empty {
+  color: $c-ink-2;
 }
 
 .safe-to-spend {

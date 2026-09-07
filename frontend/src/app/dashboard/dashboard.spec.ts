@@ -1,10 +1,45 @@
+import { Location } from '@angular/common';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideLocationMocks } from '@angular/common/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
+import { Router, provideRouter } from '@angular/router';
 
 import { Dashboard } from './dashboard';
 import { SafeToSpendResponse } from './safe-to-spend.model';
+
+/** Laufender Monat als `YYYY-MM` — dieselbe Ableitung wie in der Komponente (Ortszeit). */
+function monthString(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/** `delta` Monate vom laufenden Monat aus. */
+function relativeMonth(delta: number): string {
+  const now = new Date();
+  return monthString(new Date(now.getFullYear(), now.getMonth() + delta, 1));
+}
+
+const CURRENT_MONTH = relativeMonth(0);
+const PREVIOUS_MONTH = relativeMonth(-1);
+const OLDER_MONTH = relativeMonth(-2);
+
+/**
+ * Antwort von `GET /api/transactions/months` im Normalfall: der laufende Monat hat Daten.
+ * Damit bleibt der Default der laufende Monat, und die Fälle, die sich nicht um den
+ * Monatswechsel drehen, verhalten sich wie vor FE-STS-04.
+ */
+const AVAILABLE_MONTHS = [CURRENT_MONTH, PREVIOUS_MONTH, OLDER_MONTH];
+
+/** Vergangener Monat: das Backend rechnet nicht, es meldet «abgeschlossen» (BE-STS-06). */
+const CLOSED: SafeToSpendResponse = {
+  amount: null,
+  weeksLeft: 0,
+  negative: false,
+  noIncome: false,
+  incomeSuggestion: null,
+  status: 'CLOSED',
+};
 
 const NORMAL: SafeToSpendResponse = {
   amount: 500,
@@ -65,11 +100,28 @@ describe('Dashboard', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [Dashboard],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        // Catch-all ohne Component: Die Komponente wird hier von Hand erzeugt, nicht vom Router
+        // gerendert. Gebraucht wird er trotzdem, weil goTo() relativ zur aktuellen Route
+        // navigiert — ohne passende Route bräche die Navigation ab und der Monat käme nie in die
+        // URL. provideLocationMocks() hält das im Speicher statt in der echten History.
+        provideRouter([{ path: '**', children: [] }]),
+        provideLocationMocks(),
+      ],
     }).compileComponents();
+
+    // Ohne initialNavigation() setzt der Router seinen Location-Listener nie auf — er wird hier
+    // ja nicht über ein Bootstrap gestartet.
+    TestBed.inject(Router).initialNavigation();
 
     fixture = TestBed.createComponent(Dashboard);
     httpMock = TestBed.inject(HttpTestingController);
+    // FE-STS-04: Beim Aufbau wird die Monatsliste geladen; ohne brauchbaren Query-Parameter hängt
+    // der Default-Monat an ihr. Einmal zentral beantwortet, damit die Fälle darunter sich nicht
+    // damit befassen müssen — wer den Aufbau selbst prüft, baut über `recreate()` neu auf.
+    httpMock.expectOne('/api/transactions/months').flush(AVAILABLE_MONTHS);
   });
 
   afterEach(() => {
@@ -397,5 +449,190 @@ describe('Dashboard', () => {
 
     expect(fixture.nativeElement.querySelector('.uncertain-banner')).toBeNull();
     expect(fixture.nativeElement.textContent as string).toContain('500.00');
+  });
+  describe('Monatswechsel (FE-STS-04, US-12)', () => {
+    /** Die Pfeil-Buttons der MonthNav: [0] zurück, [1] vor. */
+    function arrows(): HTMLButtonElement[] {
+      return Array.from(fixture.nativeElement.querySelectorAll('.month-nav__btn'));
+    }
+
+    /** Das Direktsprung-Dropdown. */
+    function jump(): HTMLSelectElement {
+      return fixture.nativeElement.querySelector('.month-nav__jump select');
+    }
+
+    /**
+     * Räumt die Instanz aus dem `beforeEach` ab und baut eine neue auf — für die Fälle, die den
+     * Zustand *vor* dem Aufbau brauchen (Deep-Link, kaputter Parameter, fehlgeschlagene Liste).
+     *
+     * <p>Die Reihenfolge ist wesentlich: erst die offenen Requests der alten Instanz beantworten,
+     * dann zerstören, dann navigieren. Wer vor dem Zerstören navigiert, weckt die alte
+     * Subscription und bekommt zwei Safe-to-Spend-Requests.
+     *
+     * @returns den offenen Monatslisten-Request der neuen Instanz — die Fälle unten bestimmen
+     *     selbst, wann und womit er beantwortet wird.
+     */
+    async function recreate(queryParams: Record<string, string> = {}) {
+      expectSafeToSpendRequest(httpMock).flush(NORMAL);
+      httpMock
+        .match((req) => req.url === '/api/transactions/uncertain')
+        .filter((req) => !req.cancelled)
+        .forEach((req) => req.flush([]));
+      fixture.destroy();
+      await TestBed.inject(Router).navigate([], { queryParams });
+      fixture = TestBed.createComponent(Dashboard);
+      return httpMock.expectOne('/api/transactions/months');
+    }
+
+    it('sends the displayed month with the request', () => {
+      const req = expectSafeToSpendRequest(httpMock);
+
+      expect(req.request.params.get('month')).toBe(CURRENT_MONTH);
+    });
+
+    // AC 1, in der Lesart von US-12: der aktuellste Monat *mit Daten*, nicht der Kalendermonat.
+    it('starts in the newest month with data when the URL carries none', async () => {
+      const months = await recreate();
+      months.flush([PREVIOUS_MONTH, OLDER_MONTH]);
+
+      const req = expectSafeToSpendRequest(httpMock);
+      expect(req.request.params.get('month')).toBe(PREVIOUS_MONTH);
+      req.flush(CLOSED);
+    });
+
+    // Der Deep-Link ist die einzige Auskunft, die der Server nicht liefern muss — er darf deshalb
+    // nicht auf die Monatsliste warten.
+    it('starts in the month from the URL without waiting for the month list', async () => {
+      const months = await recreate({ month: OLDER_MONTH });
+
+      const req = expectSafeToSpendRequest(httpMock);
+      expect(req.request.params.get('month')).toBe(OLDER_MONTH);
+      req.flush(CLOSED);
+
+      // Die Liste trifft erst danach ein und löst keinen zweiten Request aus — httpMock.verify()
+      // im afterEach fängt ihn, falls doch.
+      months.flush(AVAILABLE_MONTHS);
+      fixture.detectChanges();
+    });
+
+    it('falls back to the newest month with data when the URL carries nonsense, and rewrites it', async () => {
+      const months = await recreate({ month: '2026-13' });
+      months.flush([PREVIOUS_MONTH, OLDER_MONTH]);
+
+      const req = expectSafeToSpendRequest(httpMock);
+      expect(req.request.params.get('month')).toBe(PREVIOUS_MONTH);
+      req.flush(CLOSED);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      // Eine URL, die etwas anderes behauptet als die Seite, bleibt nicht stehen.
+      expect(TestBed.inject(Location).path()).toContain(`month=${PREVIOUS_MONTH}`);
+    });
+
+    it('steps to the previous month with a single request and writes it into the URL', async () => {
+      expectSafeToSpendRequest(httpMock).flush(NORMAL);
+      expectUncertainRequest().flush([]);
+      fixture.detectChanges();
+
+      arrows()[0].click();
+      fixture.detectChanges();
+
+      // expectOne wirft, sobald mehr als ein Request offen ist.
+      const req = expectSafeToSpendRequest(httpMock);
+      expect(req.request.params.get('month')).toBe(PREVIOUS_MONTH);
+      req.flush(CLOSED);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(TestBed.inject(Location).path()).toContain(`month=${PREVIOUS_MONTH}`);
+    });
+
+    it('jumps two months back from the dropdown with a single request', () => {
+      expectSafeToSpendRequest(httpMock).flush(NORMAL);
+      expectUncertainRequest().flush([]);
+      fixture.detectChanges();
+
+      const select = jump();
+      select.value = OLDER_MONTH;
+      select.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+
+      const req = expectSafeToSpendRequest(httpMock);
+      expect(req.request.params.get('month')).toBe(OLDER_MONTH);
+      req.flush(CLOSED);
+    });
+
+    // Das Backend beantwortet einen Zukunftsmonat mit 400; die Oberfläche bietet ihn deshalb gar
+    // nicht erst an — in keinem der beiden Bedienelemente.
+    it('offers no future month, in neither control', () => {
+      expectSafeToSpendRequest(httpMock).flush(NORMAL);
+      expectUncertainRequest().flush([]);
+      fixture.detectChanges();
+
+      expect(arrows()[1].disabled).toBe(true);
+      const values = Array.from(jump().options).map((option) => option.value);
+      expect(values.every((value) => value <= CURRENT_MONTH)).toBe(true);
+    });
+
+    // AC 3: für vergangene Monate steht «Abgeschlossen» statt einer Berechnung.
+    it('shows the closed banner instead of a calculation for a past month', async () => {
+      const months = await recreate({ month: PREVIOUS_MONTH });
+      months.flush(AVAILABLE_MONTHS);
+      expectSafeToSpendRequest(httpMock).flush(CLOSED);
+      fixture.detectChanges();
+
+      const banner = fixture.nativeElement.querySelector('.closed-banner');
+      expect(banner.querySelector('.notice__title').textContent.trim()).toBe('Abgeschlossen');
+      expect(fixture.debugElement.query(By.css('app-amount'))).toBeNull();
+      expect(fixture.nativeElement.querySelector('app-card')).toBeNull();
+      // Und es wird auch nichts nachgeladen, was ohne Berechnung nichts aussagt: Der Hinweis zur
+      // Buchungsrichtung begründet sich allein über den Betrag daneben.
+      expect(httpMock.match((req) => req.url === '/api/transactions/uncertain')).toHaveLength(0);
+    });
+
+    // AC 4, laufender Monat: Der Hinweis tritt neben den Betrag, er verdrängt ihn nicht — ohne
+    // Buchungen ist er aus Einkommen minus Fixkosten weiterhin gültig.
+    it('adds the no-data hint above the card without hiding a valid amount', async () => {
+      const months = await recreate({ month: CURRENT_MONTH });
+      months.flush([PREVIOUS_MONTH]);
+      expectSafeToSpendRequest(httpMock).flush(NORMAL);
+      expectUncertainRequest().flush([]);
+      fixture.detectChanges();
+
+      const hint = fixture.nativeElement.querySelector('.status.empty');
+      expect(hint.textContent).toContain('Keine Daten für');
+      expect(hint.querySelector('a').getAttribute('href')).toBe('/import');
+
+      const card = fixture.nativeElement.querySelector('app-card');
+      expect(card).not.toBeNull();
+      expect(hint.compareDocumentPosition(card)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    });
+
+    // AC 4, vergangener Monat: «Abgeschlossen» sagt dort nichts, woran der Nutzer etwas ändern
+    // könnte — der Hinweis mit dem Weg zum Import schon.
+    it('replaces the closed banner with the no-data hint for a past month without data', async () => {
+      const months = await recreate({ month: OLDER_MONTH });
+      months.flush([CURRENT_MONTH]);
+      expectSafeToSpendRequest(httpMock).flush(CLOSED);
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.status.empty')).not.toBeNull();
+      expect(fixture.nativeElement.querySelector('.closed-banner')).toBeNull();
+    });
+
+    it('claims nothing about missing data when the month list cannot be loaded', async () => {
+      const months = await recreate();
+      months.error(new ProgressEvent('error'));
+
+      const req = expectSafeToSpendRequest(httpMock);
+      expect(req.request.params.get('month')).toBe(CURRENT_MONTH);
+      req.flush(NORMAL);
+      expectUncertainRequest().flush([]);
+      fixture.detectChanges();
+
+      // Kein Hinweis: Die Seite weiss nicht, ob es Daten gibt — und behauptet deshalb nichts.
+      expect(fixture.nativeElement.querySelector('.status.empty')).toBeNull();
+      expect(fixture.nativeElement.textContent as string).toContain('500.00');
+    });
   });
 });

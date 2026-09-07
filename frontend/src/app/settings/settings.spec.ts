@@ -559,6 +559,18 @@ describe('Route /einstellungen', () => {
 
   // --- AC5: Dashboard zeigt den neuen Betrag ohne Reload der App ---
 
+  /**
+   * FE-STS-04: Das Dashboard lädt beim Aufbau die Monatsliste — ohne brauchbaren
+   * `month`-Query-Parameter hängt sein Default-Monat an ihr, und der Safe-to-Spend-Request geht
+   * erst danach hinaus. Der laufende Monat trägt hier Daten, damit das Dashboard in seinem
+   * Normalzustand steht.
+   */
+  function flushDashboardMonths() {
+    const now = new Date();
+    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    httpMock.expectOne('/api/transactions/months').flush([month]);
+  }
+
   it('zeigt auf dem Dashboard den neuen Safe-to-Spend-Betrag, nachdem das Einkommen in den Einstellungen gespeichert wurde — ohne Reload', async () => {
     const root = TestBed.createComponent(App);
     root.detectChanges();
@@ -566,6 +578,8 @@ describe('Route /einstellungen', () => {
     const firstNavigation = router.navigateByUrl('/einstellungen');
     await answerProfile(LARA_NO_INCOME);
     await firstNavigation;
+    // Dieser Request gehört Settings selbst, nicht dem Dashboard — hier ist noch keine
+    // Monatsliste im Spiel.
     httpMock.expectOne('/api/budget/safe-to-spend').flush(NO_INCOME_WITHOUT_SUGGESTION);
     root.detectChanges();
 
@@ -579,7 +593,10 @@ describe('Route /einstellungen', () => {
     // Instanz von AuthService/HttpClient wie beim Speichern eben.
     const secondNavigation = router.navigateByUrl('/dashboard');
     await secondNavigation;
-    const req = httpMock.expectOne('/api/budget/safe-to-spend');
+    flushDashboardMonths();
+    // Prädikat statt Zeichenkette: Das Dashboard hängt seit FE-STS-04 `?month=` an, und der
+    // String-Matcher von expectOne vergleicht die URL samt Query-String.
+    const req = httpMock.expectOne((r) => r.url === '/api/budget/safe-to-spend');
     req.flush({
       amount: 650,
       weeksLeft: 2,
