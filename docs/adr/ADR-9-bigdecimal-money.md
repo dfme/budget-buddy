@@ -119,9 +119,24 @@ weiteren Geld-Stelle neu diskutiert wird. Falls sie je kommt, ist `ChfAmounts` d
 die Regel schon versammelt ist.
 
 **Verworfen: eine Bean-Validation-Constraint `@ChfAmount`.** Sie griffe erst, wenn ein Controller
-`@Valid` setzt — der Service bliebe ungeschützt, sobald ihn jemand anders aufruft, und
-`UserService.updateIncome` ist über `UserIncomePort` schon heute aus dem `budget`-Modul
-erreichbar. Das eingebaute `@Digits(fraction = 2)` scheitert zusätzlich an `100.000`: es zählt
+`@Valid` setzt — der Service bliebe ungeschützt, sobald ihn jemand anders aufruft.
+
+Diese Lücke ist heute **nicht** offen, und das ist eine Korrektur an der Begründung, mit der
+BE-FC-04 gestartet ist: Der Issue-Text von [#205](https://github.com/dfme/budget-buddy/issues/205)
+behauptete, `UserService.updateIncome` sei über `UserIncomePort` bereits aus dem `budget`-Modul
+erreichbar. Das stimmt nicht. `UserIncomePort` deklariert ausschliesslich
+`findMonthlyIncome(long)` — einen reinen Lese-Port —, und `updateIncome` wird im ganzen Backend
+nur von `UserController` aufgerufen (`grep -rn updateIncome backend/src/main/java`, Stand
+07.09.2026). Aufgefallen ist das im Review von PR #279.
+
+Der Entscheid steht trotzdem, aus zwei Gründen, die keine Tatsachenbehauptung über den heutigen
+Code brauchen: Erstens hinge die Lücke an einer einzigen künftigen Zeile — einem Schreib-Port für
+US-07/US-14 oder einem zweiten Aufrufer im selben Modul —, und eine Invariante, die nur gilt,
+solange niemand einen zweiten Aufrufer schreibt, ist keine Invariante. Zweitens ist die
+Validierung dort am richtigen Platz, wo geschrieben wird, nicht dort, wo deserialisiert wird;
+das gilt unabhängig davon, wer heute aufruft.
+
+Das eingebaute `@Digits(fraction = 2)` scheitert zusätzlich an `100.000`: es zählt
 `BigDecimal.scale()` ohne `stripTrailingZeros()` und lehnt damit einen Wert ab, der `100.00`
 gleich ist. Die Request-DTOs tragen deshalb weiterhin keine Bean-Validation-Annotationen.
 

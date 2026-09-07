@@ -16,10 +16,14 @@ import java.util.Optional;
  *
  * <p><strong>Warum keine Bean-Validation-Constraint.</strong> Eine Custom-Constraint
  * {@code @ChfAmount} griffe erst, wenn ein Controller {@code @Valid} setzt — der Service bliebe
- * ungeschützt, sobald ihn jemand anders aufruft, und {@code UserService.updateIncome} ist über
- * {@code UserIncomePort} schon heute aus einem anderen Modul erreichbar. Das eingebaute
- * {@code @Digits(fraction = 2)} scheiterte zusätzlich an {@code 100.000}: es zählt
- * {@code BigDecimal.scale()} ohne {@code stripTrailingZeros()}.
+ * ungeschützt, sobald ihn jemand anders aufruft. Heute ruft nur {@code UserController} das
+ * {@code updateIncome} des {@code UserService} auf, und {@code UserIncomePort} gibt als reiner
+ * Lese-Port nichts Schreibendes über die Modulgrenze; die Lücke ist also nicht offen, sondern
+ * hinge an einer einzigen künftigen Zeile — einem Schreib-Port für US-07/US-14 oder einem
+ * zweiten Aufrufer im selben Modul. Eine Regel, die trägt, solange niemand einen zweiten
+ * Aufrufer schreibt, ist keine. Das eingebaute {@code @Digits(fraction = 2)} scheiterte
+ * zusätzlich an {@code 100.000}: es zählt {@code BigDecimal.scale()} ohne
+ * {@code stripTrailingZeros()}.
  *
  * <p><strong>Was hier nicht steht: Meldung und Exception.</strong> {@link #check(BigDecimal)}
  * wirft nichts, sondern meldet, <em>welche</em> Regel verletzt ist. Den Text und den

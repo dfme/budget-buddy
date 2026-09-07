@@ -25,7 +25,7 @@ Beide leiten dieselbe Grenze aus derselben Ursache ab: `DECIMAL(10,2)` in den Mi
 | --- | --- | --- |
 | Wo liegt der Helper? | neues Top-Level-Package `com.budgetbuddy.money`, Klasse `ChfAmounts` | ADR-9 nennt unter *Consequences → Negative → Verbosity* selbst „Utility-Methoden schreiben" als Mitigation — der Helper ist die Einlösung eines alten Entscheids, kein neuer. Das Package hält kein Repository, keine Entity und keinen Service; die CLAUDE.md-Modulregel („kein direkter Zugriff auf Repositories/Services eines anderen Moduls") wird nicht berührt, weil es nichts davon gibt. Festgehalten als `## Nachtrag` in ADR-9, Formatvorbild ist der Nachtrag in ADR-10. |
 | Werttyp `ChfAmount` statt `BigDecimal`? | **ausdrücklich abgelehnt**, schriftlich im Nachtrag | Er berührte Entities, DTOs, Jackson-Serialisierung und jede Rechenstelle. Das Issue verlangt genau diese ausgesprochene Ablehnung statt Schweigen. |
-| Bean-Validation-Constraint `@ChfAmount`? | nein | Sie erbt die Aktivierungsschwäche jeder Annotation: `UserService.updateIncome` ist über `UserIncomePort` schon heute ohne `@Valid`-Controller erreichbar. Beide DTO-Javadocs, die das begründen, bleiben unverändert gültig. |
+| Bean-Validation-Constraint `@ChfAmount`? | nein | Sie erbt die Aktivierungsschwäche jeder Annotation: Sie griffe erst, wenn ein Controller `@Valid` setzt, und die Validierung gehört dorthin, wo geschrieben wird. Beide DTO-Javadocs, die das begründen, bleiben unverändert gültig. (Siehe Korrektur unten — die ursprüngliche Begründung stützte sich auf eine falsche Tatsachenbehauptung.) |
 | Was wird geteilt? | die *Prüfung* — nicht der Meldungstext, nicht der Exception-Typ | US-03 und #148 verlangen feldspezifische Texte. Ein gemeinsamer Exception-Typ wäre der modulübergreifende Zugriff, den CLAUDE.md untersagt. |
 | `transactions.betrag`? | ausserhalb des Scopes | Der Wert kommt aus dem PDF-Parser, nicht von einem Client — dort ist die Frage Rundung beim Parsen, nicht Eingabevalidierung. |
 
@@ -135,3 +135,17 @@ verletzten Eingaben die Meldung und damit sichtbares Verhalten.
       begründen, bleiben gültig
 - [ ] Die bestehenden Tests beider Module laufen unverändert grün — kein nach aussen sichtbares
       Verhalten ändert sich
+
+## Korrektur nach dem Review von PR #279
+
+Die Begründung für die Ablehnung von `@ChfAmount` stützte sich in der ursprünglichen Fassung
+dieses Plans — und im Issue-Text von #205, aus dem sie stammt — auf die Behauptung,
+`UserService.updateIncome` sei über `UserIncomePort` schon heute aus dem `budget`-Modul
+erreichbar. **Das stimmt nicht:** `UserIncomePort` deklariert ausschliesslich
+`findMonthlyIncome(long)`, und `updateIncome` wird im ganzen Backend nur von `UserController`
+aufgerufen.
+
+Der Entscheid bleibt unverändert, die Begründung ist korrigiert: Die Lücke hinge an einer
+einzigen künftigen Zeile (Schreib-Port für US-07/US-14 oder zweiter Aufrufer im selben Modul),
+und die Validierung gehört ohnehin dorthin, wo geschrieben wird, statt dorthin, wo
+deserialisiert wird. Der ausführliche Wortlaut steht im ADR-9-Nachtrag.
