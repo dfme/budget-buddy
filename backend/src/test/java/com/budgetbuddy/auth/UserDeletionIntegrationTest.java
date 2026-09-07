@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import com.budgetbuddy.budget.FixedCost;
 import com.budgetbuddy.budget.FixedCostRepository;
 import com.budgetbuddy.budget.Intervall;
+import com.budgetbuddy.notification.Notification;
+import com.budgetbuddy.notification.NotificationRepository;
 import com.budgetbuddy.support.PostgresTestDatabase;
 import com.budgetbuddy.transaction.ImportJob;
 import com.budgetbuddy.transaction.ImportJobRepository;
@@ -24,12 +26,15 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 /**
- * Integrationstest der Kontolöschung (US-02, DB-07) gegen echtes PostgreSQL: belegt, dass
- * {@code transactions}, {@code import_jobs} und {@code fixed_costs} vor dem User selbst gelöscht
- * werden. Ohne diese Reihenfolge schlägt die letzte Löschung an der Fremdschlüssel-Constraint
- * fehl (siehe {@code V02}/{@code V03}/{@code V05}) — ein Mock-Repository wie in
- * {@code UserServiceTest} könnte das nicht belegen, da die Constraint nur in einer echten
- * Datenbank existiert.
+ * Integrationstest der Kontolöschung (US-02, DB-07/nDSG) gegen echtes PostgreSQL: belegt, dass
+ * {@code transactions}, {@code import_jobs}, {@code fixed_costs} und {@code notifications} vor
+ * dem User selbst gelöscht werden. Ohne diese Reihenfolge schlägt die letzte Löschung an der
+ * Fremdschlüssel-Constraint fehl (siehe {@code V02}/{@code V03}/{@code V05}/{@code V10}) — ein
+ * Mock-Repository wie in {@code UserServiceTest} könnte das nicht belegen, da die Constraint nur
+ * in einer echten Datenbank existiert. Die {@code notifications}-Zeile deckt AC6 von #246
+ * (BE-NOTIF-01) ab — der Review-Befund aus PR #272, der ohne sie eine
+ * {@code DataIntegrityViolationException} verursacht hätte, sobald diese Tabelle die erste Zeile
+ * enthält.
  */
 @SpringBootTest
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
@@ -56,6 +61,9 @@ class UserDeletionIntegrationTest {
     private FixedCostRepository fixedCostRepository;
 
     @Autowired
+    private NotificationRepository notificationRepository;
+
+    @Autowired
     private JdbcTemplate jdbcTemplate;
 
     private long userId;
@@ -66,6 +74,7 @@ class UserDeletionIntegrationTest {
         // Vor den Usern: import_jobs.user_id ist ein Fremdschlüssel auf users (Flyway V05).
         importJobRepository.deleteAll();
         fixedCostRepository.deleteAll();
+        notificationRepository.deleteAll();
         jdbcTemplate.update("DELETE FROM users");
 
         User user = userRepository.save(new User("lara@example.ch", "bcrypt-hash"));
@@ -77,6 +86,9 @@ class UserDeletionIntegrationTest {
         importJobRepository.save(new ImportJob(userId, "abc123", 1, Instant.now()));
         fixedCostRepository.save(new FixedCost(
                 userId, "Miete", new BigDecimal("1200.00"), Intervall.MONATLICH));
+        notificationRepository.save(new Notification(
+                userId, "RECURRING_EXPENSE_DETECTED", null, "Netflix wurde als Abo erkannt",
+                Instant.now()));
     }
 
     @Test
@@ -87,6 +99,7 @@ class UserDeletionIntegrationTest {
         assertThat(countRows("SELECT COUNT(*) FROM transactions WHERE user_id = ?")).isZero();
         assertThat(countRows("SELECT COUNT(*) FROM import_jobs WHERE user_id = ?")).isZero();
         assertThat(countRows("SELECT COUNT(*) FROM fixed_costs WHERE user_id = ?")).isZero();
+        assertThat(countRows("SELECT COUNT(*) FROM notifications WHERE user_id = ?")).isZero();
     }
 
     private int countRows(String sql) {
