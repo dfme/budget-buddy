@@ -1,5 +1,6 @@
 package com.budgetbuddy.transaction;
 
+import com.budgetbuddy.money.ChfAmounts;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
@@ -69,8 +70,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class IncomeSuggestionService implements IncomeSuggestionPort {
 
-    /** Rappen — Zielskala des vorgeschlagenen Betrags. */
-    private static final int RAPPEN_SCALE = 2;
+    /** Rappen — Zielskala des vorgeschlagenen Betrags (ADR-9). */
+    private static final int RAPPEN_SCALE = ChfAmounts.RAPPEN_SCALE;
 
     /**
      * Länge des Rückblicks. Ohne Grenze zählte ein Jobwechsel vor Jahren noch mit; zwölf Monate

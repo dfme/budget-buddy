@@ -1,6 +1,7 @@
 package com.budgetbuddy.budget;
 
 import com.budgetbuddy.budget.dto.FixedCostResponse;
+import com.budgetbuddy.money.ChfAmounts;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.HashMap;
@@ -47,8 +48,8 @@ import java.util.Map;
  */
 final class FixedCostDebitMatcher {
 
-    /** Rappen — Zielskala aller Beträge nach aussen. */
-    private static final int RAPPEN_SCALE = 2;
+    /** Rappen — Zielskala aller Beträge nach aussen (ADR-9). */
+    private static final int RAPPEN_SCALE = ChfAmounts.RAPPEN_SCALE;
 
     private FixedCostDebitMatcher() {
         // Utility

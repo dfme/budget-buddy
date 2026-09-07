@@ -4,6 +4,7 @@ import com.budgetbuddy.auth.UserIncomePort;
 import com.budgetbuddy.budget.dto.FixedCostRequest;
 import com.budgetbuddy.budget.dto.FixedCostResponse;
 import com.budgetbuddy.budget.dto.FixedCostSummaryResponse;
+import com.budgetbuddy.money.ChfAmounts;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
@@ -28,9 +29,11 @@ import org.springframework.transaction.annotation.Transactional;
  * {@link FixedCostRepository}. Die geerbten {@code findById}/{@code deleteById} werden bewusst
  * nirgends verwendet: sie wären auf dieser Entity ein IDOR.
  *
- * <p><strong>Validierung:</strong> die Regeln aus US-03 stehen hier und nur hier — {@code FixedCost}
- * delegiert sie ausdrücklich an diesen Service, und {@link FixedCostRequest} trägt deshalb keine
- * Bean-Validation-Annotationen.
+ * <p><strong>Validierung:</strong> die Regeln aus US-03 stehen im Service, nicht am DTO —
+ * {@code FixedCost} delegiert sie ausdrücklich an diesen Service, und {@link FixedCostRequest}
+ * trägt deshalb keine Bean-Validation-Annotationen. Die CHF-Betragsregel selbst liegt seit
+ * BE-FC-04 in {@link ChfAmounts}, weil {@code auth/UserService} dieselbe braucht; modul-lokal
+ * bleiben {@link InvalidFixedCostException} und die feldspezifischen Meldungstexte.
  *
  * <p>Das Einkommen für die Warnung kommt über den {@link UserIncomePort} aus dem {@code auth}-Modul
  * — kein direkter Zugriff auf dessen Repository (Modulgrenze, CLAUDE.md).
@@ -38,13 +41,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class FixedCostService {
 
-    /** Rappen — Zielskala aller Beträge nach aussen. */
-    private static final int RAPPEN_SCALE = 2;
+    /** Rappen — Zielskala aller Beträge nach aussen (ADR-9). */
+    private static final int RAPPEN_SCALE = ChfAmounts.RAPPEN_SCALE;
 
     private static final int MAX_BEZEICHNUNG_LENGTH = 100;
-
-    /** Kapazität der Spalte {@code fixed_costs.betrag DECIMAL(10,2)} aus Migration V03. */
-    private static final BigDecimal MAX_BETRAG = new BigDecimal("99999999.99");
 
     private static final BigDecimal MONATE_PRO_QUARTAL = new BigDecimal("3");
     private static final BigDecimal MONATE_PRO_JAHR = new BigDecimal("12");
@@ -220,24 +220,39 @@ public class FixedCostService {
         return trimmed;
     }
 
+    /**
+     * Prüft den Betrag und liefert ihn auf Rappen normalisiert.
+     *
+     * <p>Die Regel liefert {@link ChfAmounts} — dieselbe, die {@code auth/UserService} für
+     * {@code users.monthly_income} anwendet, inklusive der {@code stripTrailingZeros()}-Feinheit
+     * ({@code 100.000} ist derselbe Wert wie {@code 100.00}) und der Kapazitätsgrenze der
+     * {@code DECIMAL(10,2)}-Spalte. Hier bleibt nur, was das budget-Modul ausmacht:
+     * {@link InvalidFixedCostException} und der Text, der «Betrag» sagt statt «Einkommen».
+     */
     private static BigDecimal validateBetrag(BigDecimal betrag) {
-        if (betrag == null) {
-            throw new InvalidFixedCostException("betrag", "Betrag ist erforderlich.");
-        }
-        if (betrag.signum() <= 0) {
-            throw new InvalidFixedCostException("betrag", "Betrag muss grösser als 0 sein.");
-        }
-        // stripTrailingZeros(), damit "100.00" (Skala 2) und "100.000" (Skala 3) gleich behandelt
-        // werden: entscheidend ist der Wert, nicht wie viele Nullen der Client angehängt hat.
-        if (betrag.stripTrailingZeros().scale() > RAPPEN_SCALE) {
-            throw new InvalidFixedCostException(
-                    "betrag", "Betrag darf höchstens zwei Nachkommastellen haben.");
-        }
-        if (betrag.compareTo(MAX_BETRAG) > 0) {
-            throw new InvalidFixedCostException(
-                    "betrag", "Betrag darf 99'999'999.99 nicht überschreiten.");
-        }
-        return betrag.setScale(RAPPEN_SCALE, RoundingMode.UNNECESSARY);
+        ChfAmounts.check(betrag)
+                .ifPresent(
+                        violation -> {
+                            throw new InvalidFixedCostException("betrag", meldung(violation));
+                        });
+        return ChfAmounts.toRappen(betrag);
+    }
+
+    /**
+     * Der feldspezifische Text zu einer verletzten Regel.
+     *
+     * <p>Bewusst nicht in {@link ChfAmounts}: {@code auth/UserService} formuliert dieselben vier
+     * Fälle mit «Einkommen» statt «Betrag». US-03 und #148 verlangen feldspezifische Meldungen —
+     * geteilt wird die Prüfung, nicht der Text.
+     */
+    private static String meldung(ChfAmounts.Violation violation) {
+        return switch (violation) {
+            case FEHLT -> "Betrag ist erforderlich.";
+            case NICHT_POSITIV -> "Betrag muss grösser als 0 sein.";
+            case ZU_VIELE_NACHKOMMASTELLEN -> "Betrag darf höchstens zwei Nachkommastellen haben.";
+            case UEBER_MAXIMUM ->
+                    "Betrag darf " + ChfAmounts.MAX_FORMATTED + " nicht überschreiten.";
+        };
     }
 
     private static Intervall validateIntervall(String intervall) {
