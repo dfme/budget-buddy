@@ -22,10 +22,12 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 /**
  * Integrationstest der Einkommens-Heuristik gegen echtes PostgreSQL + Flyway (BE-STS-02).
  *
- * <p>Belegt drei Dinge, die der Unit-Test mit gemocktem Repository nicht belegen kann: dass die
+ * <p>Belegt vier Dinge, die der Unit-Test mit gemocktem Repository nicht belegen kann: dass die
  * Ableitung des Gutschriften-Filters (<code>is_income = true</code>) im echten Schema greift, dass
- * das 12-Monats-Fenster tatsächlich in der Query wirkt, und die <strong>Mandantentrennung</strong>
- * aus Sicht eines fremden Users mit eigenen wiederkehrenden Gutschriften.
+ * das 12-Monats-Fenster tatsächlich in der Query wirkt, dass die Absender-Gruppierung (BE-STS-05)
+ * auf der Spalte {@code buchungsdetails} aufsetzt und ihren {@code \n}-getrennten Wert unverändert
+ * aus PostgreSQL zurückbekommt, und die <strong>Mandantentrennung</strong> aus Sicht eines fremden
+ * Users mit eigenen wiederkehrenden Gutschriften.
  *
  * <p>Die {@link Clock} ist als {@link MockitoBean} auf einen festen Zeitpunkt gestellt — sonst
  * verschöbe sich das Fenster mit jedem CI-Lauf und der Test würde irgendwann von selbst rot.
@@ -114,6 +116,52 @@ class IncomeSuggestionServiceIntegrationTest {
         assertThat(service.suggestMonthlyIncome(marc)).isEmpty();
     }
 
+    // --- BE-STS-05: Gruppierung über den Absender aus buchungsdetails ---
+
+    @Test
+    void differentSendersUnderTheSameBookingTextAreNotOneGroup() {
+        // Der Fall aus Post_Kontoauszug_2025_240_Buchungen.pdf im echten Schema: ein einziger
+        // buchungstext, zwei Absender in der ersten Detailzeile. Über den Buchungstext gruppiert
+        // wären 4250.00 und 340.00 eine Gruppe, deren Band von ±212.50 die 340er ausschliesst — der
+        // Auszug ergäbe keinen Vorschlag. Belegt zugleich, dass der \n-getrennte Spaltenwert die
+        // Runde durch PostgreSQL unverändert übersteht.
+        long lara = insertUser("lara-inc-sender@example.com");
+        insertIncome(lara, LocalDate.of(2026, 5, 31), "GUTSCHRIFT",
+                "MUSTER CONSULTING GMBH\nLOHN MAI 2026", new BigDecimal("4250.00"));
+        insertIncome(lara, LocalDate.of(2026, 6, 30), "GUTSCHRIFT",
+                "MUSTER CONSULTING GMBH\nLOHN JUNI 2026", new BigDecimal("4250.00"));
+        insertIncome(lara, LocalDate.of(2026, 7, 31), "GUTSCHRIFT",
+                "MUSTER CONSULTING GMBH\nLOHN JULI 2026", new BigDecimal("4250.00"));
+        insertIncome(lara, LocalDate.of(2026, 6, 20), "GUTSCHRIFT",
+                "STEUERVERWALTUNG KT. BERN\nRUECKERSTATTUNG JUNI 2026", new BigDecimal("340.00"));
+        insertIncome(lara, LocalDate.of(2026, 7, 20), "GUTSCHRIFT",
+                "STEUERVERWALTUNG KT. BERN\nRUECKERSTATTUNG JULI 2026", new BigDecimal("340.00"));
+
+        assertThat(service.suggestMonthlyIncome(lara)).hasValue(new BigDecimal("4250.00"));
+    }
+
+    @Test
+    void transactionsImportedBeforeV06StillGroupByTheBookingText() {
+        // Gemischter Datenbestand, wie ihn ein Nutzer hat, der vor und nach BE-PDF-07 importiert
+        // hat: buchungsdetails ist für die älteren Zeilen NULL, ein Backfill ist ausgeschlossen.
+        // Der Rückfall muss deshalb je Zeile greifen. Die alten UBS-Zeilen tragen den höheren
+        // Median und gewinnen — nur, wenn sie überhaupt zueinanderfinden.
+        long marc = insertUser("marc-inc-prev06@example.com");
+        insertIncome(marc, LocalDate.of(2026, 6, 25), "Saläreingang", null,
+                new BigDecimal("6800.00"));
+        insertIncome(marc, LocalDate.of(2026, 7, 25), "Saläreingang", null,
+                new BigDecimal("6800.00"));
+        insertIncome(marc, LocalDate.of(2026, 6, 18), "GUTSCHRIFT",
+                "MUSTER, ANNA\nRUECKZAHLUNG FERIENKASSE", new BigDecimal("180.00"));
+        insertIncome(marc, LocalDate.of(2026, 7, 18), "GUTSCHRIFT",
+                "MUSTER, ANNA\nRUECKZAHLUNG FERIENKASSE", new BigDecimal("180.00"));
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM transactions WHERE user_id = ? AND buchungsdetails IS NULL",
+                Integer.class, marc)).isEqualTo(2);
+        assertThat(service.suggestMonthlyIncome(marc)).hasValue(new BigDecimal("6800.00"));
+    }
+
     // --- Mandantentrennung: Gegenprobe mit einem zweiten User im selben Zeitraum ---
 
     @Test
@@ -147,19 +195,31 @@ class IncomeSuggestionServiceIntegrationTest {
         return jdbcTemplate.queryForObject("SELECT id FROM users WHERE email = ?", Long.class, email);
     }
 
+    /**
+     * Eine Gutschrift ohne Detailzeilen — {@code buchungsdetails} bleibt {@code NULL}, der Zustand
+     * vor {@code V06}. Die Tests oberhalb der Absender-Sektion verwenden ausschliesslich diese
+     * Variante und belegen damit den Rückfall auf den Buchungstext im echten Schema.
+     */
     private void insertIncome(long userId, LocalDate datum, String text, BigDecimal betrag) {
-        insertTransaction(userId, datum, text, betrag, true);
+        insertIncome(userId, datum, text, null, betrag);
+    }
+
+    /** Wie oben, zusätzlich mit den {@code \n}-getrennten Detailzeilen (BE-PDF-07, V06). */
+    private void insertIncome(
+            long userId, LocalDate datum, String text, String details, BigDecimal betrag) {
+        insertTransaction(userId, datum, text, details, betrag, true);
     }
 
     private void insertExpense(long userId, LocalDate datum, String text, BigDecimal betrag) {
-        insertTransaction(userId, datum, text, betrag, false);
+        insertTransaction(userId, datum, text, null, betrag, false);
     }
 
-    private void insertTransaction(
-            long userId, LocalDate datum, String text, BigDecimal betrag, boolean income) {
+    private void insertTransaction(long userId, LocalDate datum, String text, String details,
+            BigDecimal betrag, boolean income) {
         jdbcTemplate.update(
-                "INSERT INTO transactions (user_id, buchungsdatum, buchungstext, betrag, is_income) "
-                        + "VALUES (?, ?, ?, ?, ?)",
-                userId, datum, text, betrag, income);
+                "INSERT INTO transactions "
+                        + "(user_id, buchungsdatum, buchungstext, buchungsdetails, betrag, is_income) "
+                        + "VALUES (?, ?, ?, ?, ?, ?)",
+                userId, datum, text, details, betrag, income);
     }
 }

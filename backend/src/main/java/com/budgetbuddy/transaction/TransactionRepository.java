@@ -105,7 +105,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
      * <p>Spiegelbild zu {@link #findByUserIdAndIncomeFalseAndBuchungsdatumBetween}: die Auswertung
      * läuft in Java mit {@link java.math.BigDecimal}, nicht per Aggregat in SQL. Dieselbe Begründung
      * wie dort — ADR-9 wird an einer Stelle durchgesetzt statt an zweien; hier kommt hinzu, dass die
-     * Gruppierung über den normalisierten Buchungstext ohnehin nicht in eine Query passt.
+     * Gruppierung über den normalisierten Absender ohnehin nicht in eine Query passt: sie liest die
+     * erste Zeile aus {@code buchungsdetails} und normalisiert sie per Regex (BE-STS-05).
      */
     List<Transaction> findByUserIdAndIncomeTrueAndBuchungsdatumBetween(
             Long userId, LocalDate von, LocalDate bis);
