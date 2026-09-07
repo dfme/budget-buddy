@@ -106,6 +106,19 @@ final class SchemaInspector {
         return matches != null && matches > 0;
     }
 
+    /** {@code true}, wenn ein Index mit genau diesem Namen auf der Tabelle existiert. */
+    boolean hasIndexNamed(String table, String indexName) {
+        Integer matches = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM pg_indexes
+                WHERE schemaname = current_schema()
+                  AND tablename = ?
+                  AND indexname = ?
+                """, Integer.class, table, indexName);
+
+        return matches != null && matches > 0;
+    }
+
     /**
      * Fremdschlüssel der Tabelle als Zeilen mit den Schlüsseln {@code column},
      * {@code referenced_table} und {@code referenced_column}.
