@@ -1,4 +1,4 @@
-# [DB-08] Flyway V09: notifications-Tabelle
+# [DB-08] Flyway V10: notifications-Tabelle
 
 - **Issue:** [#245](https://github.com/dfme/budget-buddy/issues/245)
 - **Task-ID:** `DB-08`
@@ -9,11 +9,11 @@
 
 ## Nachtrag (nach automatischem PR-Review, #272)
 
-- **V08 → V09:** Während dieser Branch offen war, wurde `V08__add_direction_uncertain_to_transactions.sql`
-  (BE-PDF-10, #193) auf `main` gemergt und belegte damit die Version V08 zuerst. Der
-  Migrations-Guard (INFRA-29) verhindert genau diese Kollision; die Migration dieses Plans läuft
-  deshalb als `V09__create_notifications_table.sql`. Der Task-ID `DB-08` bleibt unverändert — er
-  bezeichnet das Issue, nicht die Flyway-Version.
+- **V08 → V09 → V10:** Während dieser Branch offen war, wurde main zweimal überholt — zuerst durch
+  `V08__add_direction_uncertain_to_transactions.sql` (BE-PDF-10, #193), dann durch
+  `V09__add_token_version_to_users.sql`. Der Migrations-Guard (INFRA-29) verhindert genau diese
+  Kollision; die Migration dieses Plans läuft deshalb als `V10__create_notifications_table.sql`.
+  Der Task-ID `DB-08` bleibt unverändert — er bezeichnet das Issue, nicht die Flyway-Version.
 - **Testabdeckung nachgezogen:** Die ursprüngliche Annahme unten ("kein automatisierter Test,
   analog zu V01, V03, V07") war falsch — V01 und V03 haben dedizierte Migrationstests
   (`UsersMigrationTest`, `FixedCostsMigrationTest`); nur reine Spaltenzusätze (V06/V07) verzichten
@@ -58,26 +58,26 @@ Datengrundlage; `NotificationService` + REST-Endpoints folgen in `BE-NOTIF-01`.
 
 ## Betroffene Dateien
 
-- Neu: `backend/src/main/resources/db/migration/V09__create_notifications_table.sql`
+- Neu: `backend/src/main/resources/db/migration/V10__create_notifications_table.sql`
 
 ## Implementierungsschritte
 
-1. Migration `V09__create_notifications_table.sql` anlegen mit Spalten
+1. Migration `V10__create_notifications_table.sql` anlegen mit Spalten
    `id, user_id, type, reference_id, message, read_at, created_at`.
 2. FK `user_id → users(id)`, kein CASCADE.
 3. Index auf `user_id` (bzw. `(user_id, read_at)`) für die künftige Ungelesen-Abfrage.
-4. Lokal verifizieren: `docker compose up -d` + Anwendungsstart, Flyway wendet V09 fehlerfrei an.
+4. Lokal verifizieren: `docker compose up -d` + Anwendungsstart, Flyway wendet V10 fehlerfrei an.
 
 ## Test-Strategie
 
 `NotificationsMigrationTest` (siehe Nachtrag oben) nach dem Muster von `FixedCostsMigrationTest`:
 Spalten/Typen, PK-Identity, FK auf `users`, Nullable-Flags, Index-Vorhandensein — gegen eine echte
 Testcontainers-Postgres-Instanz. Zusätzlich Nachweis für AC5: manueller Lauf von
-`docker compose up -d` + Backend-Start, Flyway-Log zeigt V09 als erfolgreich angewendet.
+`docker compose up -d` + Backend-Start, Flyway-Log zeigt V10 als erfolgreich angewendet.
 
 ## Acceptance Criteria (aus Issue #245)
 
-- [x] Migration `V09__create_notifications_table.sql` liegt unter
+- [x] Migration `V10__create_notifications_table.sql` liegt unter
       `backend/src/main/resources/db/migration/`
 - [x] Tabelle `notifications` mit Spalten `id, user_id, type, reference_id, message, read_at, created_at`
 - [x] `user_id` als Foreign Key auf `users(id)`
