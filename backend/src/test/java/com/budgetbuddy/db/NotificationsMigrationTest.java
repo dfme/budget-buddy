@@ -13,8 +13,13 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 /**
- * Verifiziert die Flyway-Migration V08 (notifications-Tabelle) gegen eine echte
+ * Verifiziert die Flyway-Migration V09 (notifications-Tabelle, DB-08) gegen eine echte
  * PostgreSQL-Datenbank.
+ *
+ * <p>V09 statt V08: Die Version V08 war zum Zeitpunkt der Implementierung bereits durch
+ * {@code V08__add_direction_uncertain_to_transactions.sql} (BE-PDF-10, #193) belegt, gemergt
+ * während dieser Branch offen war. Der Migrations-Guard (INFRA-29) verhindert genau diese
+ * Kollision.
  *
  * <p>Seit DB-05 (ADR-12) gegen Testcontainers-Postgres in derselben Major-Version wie Produktion,
  * mit einer eigenen Datenbank für diese Klasse (siehe {@link PostgresTestDatabase}).
@@ -38,12 +43,12 @@ class NotificationsMigrationTest {
     }
 
     @Test
-    void migrationsRunSuccessfullyThroughV08() {
-        // V01 (users) ... V08 (notifications) müssen alle erfolgreich gelaufen sein.
+    void migrationsRunSuccessfullyThroughV09() {
+        // V01 (users) ... V09 (notifications) müssen alle erfolgreich gelaufen sein.
         Integer successfulMigrations = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM flyway_schema_history WHERE success = true", Integer.class);
 
-        assertThat(successfulMigrations).isGreaterThanOrEqualTo(8);
+        assertThat(successfulMigrations).isGreaterThanOrEqualTo(9);
     }
 
     @Test
