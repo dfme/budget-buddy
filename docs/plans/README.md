@@ -120,6 +120,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `INFRA-19` | [Projekt-Skills sprachlich auf Deutsch vereinheitlichen](INFRA-19-skills-deutsch.md) | [#129](https://github.com/dfme/budget-buddy/issues/129) | — | Sprint 5 |
 | `INFRA-25` | [Fail-fast im prod-Profil bei fehlender oder ungültiger Datasource-URL](INFRA-25-prod-datasource-failfast.md) | [#150](https://github.com/dfme/budget-buddy/issues/150) | — | Sprint 5 |
 | `INFRA-28` | [INFRA-28 — Neon-Compute-Verbrauch: Health-Check und Hikari-Pool halten die DB dauerhaft wach](INFRA-28-neon-compute-health-check.md) | — | — | — |
+| `INFRA-29` | [CI erkennt nachträglich geänderte Flyway-Migrationen nicht](INFRA-29-migration-guard.md) | [#207](https://github.com/dfme/budget-buddy/issues/207) | — | Sprint 6 |
 | `INFRA-31` | [Automatisches PR-Review via GitHub Action einrichten (Claude Code)](INFRA-31-claude-pr-review-action.md) | [#215](https://github.com/dfme/budget-buddy/issues/215) | — | Sprint 5 |
 | `INFRA-35` | [Automatisches PR-Review verstummt bei Hintergrund-Verifikation im nicht-interaktiven Lauf](INFRA-35-review-pr-no-background-verify.md) | [#224](https://github.com/dfme/budget-buddy/issues/224) | — | Sprint 5 |
 | `INFRA-37` | [MDC einführen: User-ID in Logs für bessere Analysierbarkeit](INFRA-37-mdc-logging.md) | [#257](https://github.com/dfme/budget-buddy/issues/257) | — | Sprint 6 |
