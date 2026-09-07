@@ -23,8 +23,16 @@
   margin-bottom: $sp-5;
 }
 
+// Card gibt auf schmalen Viewports weniger Breite her, als die Tabelle mit allen vier Spalten
+// braucht — statt die Spalten unleserlich zu quetschen, scrollt die Tabelle innerhalb der Card
+// (analog zur Fixkosten-Tabelle, FE-FC-04/#185).
+.table-scroll {
+  overflow-x: auto;
+}
+
 table {
   width: 100%;
+  min-width: 28rem;
   border-collapse: collapse;
 }
 
