@@ -2,6 +2,7 @@ package com.budgetbuddy.config;
 
 import com.budgetbuddy.auth.JwtCookieAuthenticationFilter;
 import com.budgetbuddy.auth.JwtService;
+import com.budgetbuddy.auth.UserRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -80,7 +81,8 @@ public class SecurityConfig {
     };
 
     @Bean
-    SecurityFilterChain filterChain(HttpSecurity http, JwtService jwtService) throws Exception {
+    SecurityFilterChain filterChain(HttpSecurity http, JwtService jwtService, UserRepository userRepository)
+            throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(session ->
@@ -95,7 +97,7 @@ public class SecurityConfig {
             .formLogin(AbstractHttpConfigurer::disable)
             .exceptionHandling(ex ->
                 ex.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
-            .addFilterBefore(new JwtCookieAuthenticationFilter(jwtService),
+            .addFilterBefore(new JwtCookieAuthenticationFilter(jwtService, userRepository),
                 UsernamePasswordAuthenticationFilter.class)
             // Vor dem JWT-Filter, damit sein finally auch dessen Log-Zeilen umschliesst und den
             // MDC in jedem Fall wieder leert (INFRA-37).

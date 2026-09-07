@@ -17,6 +17,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -47,6 +48,18 @@ class PdfImportOversizeIntegrationTest {
 
     @Autowired private TestRestTemplate restTemplate;
     @Autowired private JwtService jwtService;
+    @Autowired private JdbcTemplate jdbcTemplate;
+
+    private long insertUser() {
+        // BE-AUTH-11 (#201): der JwtCookieAuthenticationFilter lädt den User aus der DB und
+        // vergleicht token_version — ein Token für eine nicht existierende ID wird seither
+        // abgelehnt, bevor der eigentliche Size-Limit-Pfad überhaupt erreicht wird.
+        jdbcTemplate.update(
+                "INSERT INTO users (email, password_hash, onboarding_completed) VALUES (?, ?, ?)",
+                "pdf-oversize@example.ch", "irrelevant-for-test", false);
+        return jdbcTemplate.queryForObject(
+                "SELECT id FROM users WHERE email = 'pdf-oversize@example.ch'", Long.class);
+    }
 
     private static byte[] fixture() {
         try (InputStream in = PdfImportOversizeIntegrationTest.class
@@ -73,7 +86,7 @@ class PdfImportOversizeIntegrationTest {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.MULTIPART_FORM_DATA);
-        headers.add(HttpHeaders.COOKIE, "jwt=" + jwtService.generateToken(1L));
+        headers.add(HttpHeaders.COOKIE, "jwt=" + jwtService.generateToken(insertUser()));
 
         ResponseEntity<String> response = restTemplate.postForEntity(
                 "/api/import/pdf", new HttpEntity<>(body, headers), String.class);

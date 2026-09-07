@@ -449,4 +449,22 @@ class UserControllerTest {
                                 + "\"neuesPasswort\": \"neuesPasswort2\"}"))
                 .andExpect(status().isUnauthorized());
     }
+
+    @Test
+    void changePasswordInvalidatesOldJwt() throws Exception {
+        // BE-AUTH-11 (#201): das vor der Änderung ausgestellte Cookie darf danach nicht mehr
+        // funktionieren, auch nicht für die aufrufende Session selbst.
+        setPasswordHash("altesPasswort1");
+        Cookie oldCookie = jwtCookie();
+
+        mockMvc.perform(put("/api/users/me/password")
+                        .cookie(oldCookie)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"aktuellesPasswort\": \"altesPasswort1\", "
+                                + "\"neuesPasswort\": \"neuesPasswort2\"}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/users/me").cookie(oldCookie))
+                .andExpect(status().isUnauthorized());
+    }
 }

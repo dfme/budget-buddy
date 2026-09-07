@@ -103,6 +103,20 @@ class UserServiceTest {
     }
 
     @Test
+    void changePasswordWithCorrectCurrentPasswordInvalidatesTokenVersion() {
+        // BE-AUTH-11 (#201): der JwtCookieAuthenticationFilter vergleicht diesen Wert gegen den
+        // Claim im JWT — ein Hochzählen macht damit alle zuvor ausgestellten Tokens ungültig.
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("altesPasswort1", "irrelevant-for-test")).thenReturn(true);
+        when(passwordEncoder.encode("neuesPasswort2")).thenReturn("neuer-bcrypt-hash");
+        long versionBefore = user.getTokenVersion();
+
+        userService.changePassword(1L, "altesPasswort1", "neuesPasswort2");
+
+        assertThat(user.getTokenVersion()).isEqualTo(versionBefore + 1);
+    }
+
+    @Test
     void changePasswordWithWrongCurrentPasswordThrowsAndLeavesHashUnchanged() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("falsch", "irrelevant-for-test")).thenReturn(false);

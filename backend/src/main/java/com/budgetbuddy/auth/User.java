@@ -40,6 +40,9 @@ public class User {
     @Column(name = "last_name")
     private String lastName;
 
+    @Column(name = "token_version", nullable = false)
+    private long tokenVersion;
+
     protected User() {
         // JPA
     }
@@ -102,6 +105,10 @@ public class User {
         return lastName;
     }
 
+    public long getTokenVersion() {
+        return tokenVersion;
+    }
+
     /**
      * Markiert das Onboarding als abgeschlossen (US-03, BE-FC-03).
      *
@@ -127,5 +134,15 @@ public class User {
      */
     public void changePasswordHash(String passwordHash) {
         this.passwordHash = passwordHash;
+    }
+
+    /**
+     * Erhöht {@code tokenVersion} um 1 und macht damit jedes zuvor ausgestellte JWT ungültig
+     * (BE-AUTH-11, #201): der {@code JwtCookieAuthenticationFilter} verwirft ein Token, dessen
+     * {@code tokenVersion}-Claim nicht mehr mit diesem Feld übereinstimmt. Aufgerufen bei jeder
+     * Passwort-Änderung ({@link com.budgetbuddy.auth.UserService#changePassword}).
+     */
+    public void invalidateTokenVersion() {
+        this.tokenVersion++;
     }
 }

@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -45,6 +46,18 @@ class PdfImportTimeoutIntegrationTest {
 
     @Autowired private MockMvc mockMvc;
     @Autowired private JwtService jwtService;
+    @Autowired private JdbcTemplate jdbcTemplate;
+
+    private long insertUser() {
+        // BE-AUTH-11 (#201): der JwtCookieAuthenticationFilter lädt den User aus der DB und
+        // vergleicht token_version — ein Token für eine nicht existierende ID wird seither
+        // abgelehnt, bevor der eigentliche Timeout-Pfad überhaupt erreicht wird.
+        jdbcTemplate.update(
+                "INSERT INTO users (email, password_hash, onboarding_completed) VALUES (?, ?, ?)",
+                "pdf-timeout@example.ch", "irrelevant-for-test", false);
+        return jdbcTemplate.queryForObject(
+                "SELECT id FROM users WHERE email = 'pdf-timeout@example.ch'", Long.class);
+    }
 
     /** Kette gemockt; im Timeout-Fall wird sie ohnehin nie erreicht (Abbruch nach dem Parsen). */
     @MockitoBean(name = "hybridCategorizationService")
@@ -66,7 +79,7 @@ class PdfImportTimeoutIntegrationTest {
     void importExceedingTimeBudgetReturns408() throws Exception {
         MockMultipartFile file =
                 new MockMultipartFile("file", "kontoauszug.pdf", "application/pdf", fixture());
-        Cookie jwt = new Cookie("jwt", jwtService.generateToken(1L));
+        Cookie jwt = new Cookie("jwt", jwtService.generateToken(insertUser()));
 
         mockMvc.perform(multipart("/api/import/pdf").file(file).cookie(jwt))
                 .andExpect(status().isRequestTimeout());
