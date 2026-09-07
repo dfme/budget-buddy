@@ -17,9 +17,8 @@ import java.time.format.DateTimeParseException;
  * nur eine Paketgrenze weiter. Die Sichtbarkeit ist damit kein Bruch der Modulregel aus
  * CLAUDE.md: die verbietet den direkten Zugriff auf <em>Repositories und Services</em> eines
  * anderen Moduls, und diese Klasse ist weder das eine noch das andere — keine Spring-Bean, kein
- * Zustand, kein Datenzugriff. Die von ihr geworfene {@link InvalidMonthException} ist ohnehin
- * bereits {@code public} und wird bereits ausserhalb dieses Pakets behandelt; die Modulkante
- * überschreitet also schon vorher ein Typ dieses Paars.
+ * Zustand, kein Datenzugriff. Die von ihr geworfene {@link InvalidMonthException} ist bereits
+ * {@code public}; mit BE-STS-06 wird sie erstmals ausserhalb dieses Pakets behandelt.
  */
 public final class MonthParser {
 
