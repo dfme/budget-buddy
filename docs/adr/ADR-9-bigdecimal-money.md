@@ -78,6 +78,70 @@ Wir nutzen **BigDecimal für alle Geldbeträge**:
 - Nicht nötig (BigDecimal ist ausreichend)
 - Später hinzufügbar wenn needed
 
+## Nachtrag 07.09.2026: Das `money`-Package
+
+Die oben unter *Consequences → Negative → Verbosity* angekündigte Mitigation — «Utility-Methoden
+schreiben» — ist seit [BE-FC-04](https://github.com/dfme/budget-buddy/issues/205) eingelöst:
+`com.budgetbuddy.money.ChfAmounts` hält die Regel für einen client-gelieferten CHF-Betrag
+(`> 0`, höchstens zwei Nachkommastellen, höchstens `99'999'999.99`) und die Normalisierung auf
+Rappen. Der Entscheid dieses ADR — `BigDecimal`, `DECIMAL(10,2)`, `HALF_UP` bei Division — bleibt
+unverändert.
+
+**Warum ein neues Top-Level-Package.** Die Regel stand nach BE-AUTH-08 zweimal im Backend, in
+`auth/UserService` und `budget/FixedCostService`, mit derselben Obergrenze aus derselben Ursache
+(`DECIMAL(10,2)` in `V01`, `V02` und `V03`). US-07 (Sparziel) und US-14 (Einkommen in den
+Einstellungen) bringen die nächsten client-gelieferten Beträge; die dritte Kopie war absehbar.
+Ein gemeinsamer Ort war nötig, und keines der bestehenden Packages war einer:
+
+- Sie in `auth` oder `budget` zu legen und vom jeweils anderen Modul aufzurufen, wäre der
+  modulübergreifende Zugriff, den CLAUDE.md untersagt.
+- `config` enthält ausschliesslich Spring-Verdrahtung (`SecurityConfig`, `ClockConfig`,
+  `OpenApiConfig`); eine fachliche CHF-Regel dort sucht niemand.
+- Ein `common` wäre über die Zeit der Magnet für alles Heimatlose. `money` ist durch seinen Namen
+  auf Geldbeträge begrenzt und wehrt genau das ab.
+
+`money` ist damit die begründete Ausnahme von «Packages nach Domäne» (`docs/CONVENTIONS.md`). Es
+bleibt eng: zustandslose Regeln über CHF-Beträge, keine Repositories, keine Entities, keine
+Spring-Beans. Was hinein darf und was nicht, steht in `money/package-info.java`.
+
+**Was bewusst modul-lokal bleibt: Meldung und Exception.** `ChfAmounts.check(...)` wirft nichts,
+sondern meldet als `Violation`, *welche* Regel verletzt ist. Text und Exception-Typ liefert der
+aufrufende Service: US-03 und [#148](https://github.com/dfme/budget-buddy/issues/148) verlangen
+feldspezifische Meldungen («Betrag darf …» vs. «Einkommen darf …»), und ein geteilter
+Exception-Typ wäre wieder der modulübergreifende Zugriff. Geteilt wird die Prüfung, nicht der
+Text.
+
+**Verworfen: ein Werttyp `ChfAmount` statt `BigDecimal`.** Die konsequentere Variante — Beträge
+tragen ihre Regeln im Typ, ein ungültiger Betrag ist nicht konstruierbar. Abgelehnt, weil sie
+Entities, DTOs, die Jackson-Serialisierung und jede Rechenstelle berührte; das ist kein
+Aufräum-Task, sondern ein Umbau. Die Ablehnung steht hier ausdrücklich, damit sie nicht bei jeder
+weiteren Geld-Stelle neu diskutiert wird. Falls sie je kommt, ist `ChfAmounts` der Ort, an dem
+die Regel schon versammelt ist.
+
+**Verworfen: eine Bean-Validation-Constraint `@ChfAmount`.** Sie griffe erst, wenn ein Controller
+`@Valid` setzt — der Service bliebe ungeschützt, sobald ihn jemand anders aufruft.
+
+Diese Lücke ist heute **nicht** offen, und das ist eine Korrektur an der Begründung, mit der
+BE-FC-04 gestartet ist: Der Issue-Text von [#205](https://github.com/dfme/budget-buddy/issues/205)
+behauptete, `UserService.updateIncome` sei über `UserIncomePort` bereits aus dem `budget`-Modul
+erreichbar. Das stimmt nicht. `UserIncomePort` deklariert ausschliesslich
+`findMonthlyIncome(long)` — einen reinen Lese-Port —, und `updateIncome` wird im ganzen Backend
+nur von `UserController` aufgerufen (`grep -rn updateIncome backend/src/main/java`, Stand
+07.09.2026). Aufgefallen ist das im Review von PR #279.
+
+Der Entscheid steht trotzdem, aus zwei Gründen, die keine Tatsachenbehauptung über den heutigen
+Code brauchen: Erstens hinge die Lücke an einer einzigen künftigen Zeile — einem Schreib-Port für
+US-07/US-14 oder einem zweiten Aufrufer im selben Modul —, und eine Invariante, die nur gilt,
+solange niemand einen zweiten Aufrufer schreibt, ist keine Invariante. Zweitens ist die
+Validierung dort am richtigen Platz, wo geschrieben wird, nicht dort, wo deserialisiert wird;
+das gilt unabhängig davon, wer heute aufruft.
+
+Das eingebaute `@Digits(fraction = 2)` scheitert zusätzlich an `100.000`: es zählt
+`BigDecimal.scale()` ohne `stripTrailingZeros()` und lehnt damit einen Wert ab, der `100.00`
+gleich ist. Die Request-DTOs tragen deshalb weiterhin keine Bean-Validation-Annotationen.
+
+---
+
 ## Related Decisions
 
 - **ADR-12:** PostgreSQL bei Neon — löst `DECIMAL(10,2)` erstmals als echte Dezimalarithmetik ein

@@ -321,6 +321,22 @@ class FixedCostServiceTest {
     }
 
     @Test
+    void betragMessagesNameTheFieldAndNotTheSharedRule() {
+        // BE-FC-04 hat die Prüfung nach ChfAmounts gezogen, den Text aber ausdrücklich nicht:
+        // US-03 verlangt eine feldspezifische Meldung, und auth/UserService formuliert dieselben
+        // vier Fälle mit «Einkommen». Ohne diese Assertions liefe eine versehentlich geteilte
+        // Meldung durch — die Tests darüber prüfen nur das Feld, nicht den Wortlaut.
+        assertThatMessageIs(new FixedCostRequest("Miete", null, "monatlich"),
+                "Betrag ist erforderlich.");
+        assertThatMessageIs(request("Miete", "0.00", "monatlich"),
+                "Betrag muss grösser als 0 sein.");
+        assertThatMessageIs(request("Miete", "12.345", "monatlich"),
+                "Betrag darf höchstens zwei Nachkommastellen haben.");
+        assertThatMessageIs(request("Miete", "100000000.00", "monatlich"),
+                "Betrag darf 99'999'999.99 nicht überschreiten.");
+    }
+
+    @Test
     void rejectsNullIntervall() {
         assertThatInvalid(request("Miete", "100.00", null), "intervall");
     }
@@ -353,6 +369,12 @@ class FixedCostServiceTest {
                 .isInstanceOf(InvalidFixedCostException.class)
                 .extracting(e -> ((InvalidFixedCostException) e).getField())
                 .isEqualTo(expectedField);
+    }
+
+    private void assertThatMessageIs(FixedCostRequest request, String expectedMessage) {
+        assertThatThrownBy(() -> service.create(USER_ID, request))
+                .isInstanceOf(InvalidFixedCostException.class)
+                .hasMessage(expectedMessage);
     }
 
     private static FixedCostRequest request(String bezeichnung, String betrag, String intervall) {

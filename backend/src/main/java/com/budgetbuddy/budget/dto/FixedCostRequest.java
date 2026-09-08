@@ -7,11 +7,16 @@ import java.math.BigDecimal;
  *
  * <p><strong>Ohne Bean-Validation-Annotationen — bewusst.</strong> Die Regeln aus US-03
  * («Bezeichnung nicht leer», «Betrag > 0», «Intervall ∈ {monatlich, quartalsweise, jährlich}»)
- * stehen vollständig im {@code FixedCostService} und nur dort. Das hat zwei Gründe:
- * {@code FixedCost} delegiert die fachliche Validierung ausdrücklich an den Service, und
- * Annotationen greifen erst, wenn ein Controller {@code @Valid} setzt — der Service ist damit
+ * werden vollständig im {@code FixedCostService} durchgesetzt, nicht beim Deserialisieren. Das hat
+ * zwei Gründe: {@code FixedCost} delegiert die fachliche Validierung ausdrücklich an den Service,
+ * und Annotationen greifen erst, wenn ein Controller {@code @Valid} setzt — der Service ist damit
  * ungeschützt, sobald er von anderswo aufgerufen wird. Dieselbe Regel an zwei Stellen würde
  * ausserdem irgendwann auseinanderlaufen.
+ *
+ * <p>Die CHF-Betragsregel selbst liegt seit BE-FC-04 in {@code money.ChfAmounts} — sie stand
+ * zuvor gleichlautend auch im {@code auth}-Modul. Der Service ruft sie auf und behält seine
+ * eigene {@code InvalidFixedCostException} mit ihrem feldspezifischen Text; geteilt wird die
+ * Prüfung, nicht die Meldung (ADR-9-Nachtrag).
  *
  * <p>{@code UpdateIncomeRequest} folgt seit BE-AUTH-08 derselben Aufteilung: Es trug vorher
  * {@code @NotNull}/{@code @Positive}, was für {@code users.monthly_income} zu wenig war — die

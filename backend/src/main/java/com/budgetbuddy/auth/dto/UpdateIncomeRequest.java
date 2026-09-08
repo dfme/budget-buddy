@@ -6,12 +6,14 @@ import java.math.BigDecimal;
  * Request-Body für {@code PUT /api/users/me/income}.
  *
  * <p><strong>Ohne Bean-Validation-Annotationen — bewusst</strong> (BE-AUTH-08). Die Regeln für das
- * Einkommen («&gt; 0», höchstens zwei Nachkommastellen, maximal {@code 99999999.99}) stehen
- * vollständig im {@code UserService} und nur dort. Dieselbe Aufteilung wie bei
+ * Einkommen («&gt; 0», höchstens zwei Nachkommastellen, Obergrenze der {@code DECIMAL(10,2)}-
+ * Spalte) werden vollständig beim Schreiben geprüft, nicht beim Deserialisieren: Der
+ * {@code UserService} ruft dafür {@code money.ChfAmounts} auf — seit BE-FC-04 die eine Stelle im
+ * Backend, an der diese Regel steht (ADR-9-Nachtrag). Dieselbe Aufteilung wie bei
  * {@code FixedCostRequest}/{@code FixedCostService}, und aus denselben zwei Gründen: Annotationen
  * greifen erst, wenn ein Controller {@code @Valid} setzt — der Service wäre also ungeschützt,
  * sobald ihn jemand anders aufruft —, und dieselbe Regel an zwei Stellen läuft irgendwann
- * auseinander.
+ * auseinander. Genau das war vor BE-FC-04 der Fall und der Grund für jenen Task.
  *
  * <p>Vorher trug dieses Record {@code @NotNull @Positive}. Das deckte die beiden Regeln ab, die es
  * benannte, und liess die dritte offen: {@code 4200.004} kam durch, wurde mit {@code 200 OK}
