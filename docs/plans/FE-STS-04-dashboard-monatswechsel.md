@@ -49,27 +49,38 @@ vollständig. Dieser Plan überträgt das Muster, statt ein zweites zu erfinden.
 2. Monat-Zustand nach dem Muster `category-overview.ts:269-356`: `month`-Signal, `MONTH_PATTERN`,
    `shiftMonth`/`formatMonth`/`currentMonth`, Gleichheits-Wache gegen den doppelten Request,
    `replaceUrl` bei kaputtem Parameter.
-3. Default-Auflösung: gültiger Query-Param gewinnt sofort; sonst wird der Sync zurückgestellt,
-   bis die Monatsliste geantwortet hat (Erfolg **oder** Fehler), und dann nachgeholt.
-4. `MonthNav` mit Stepper und Dropdown einbinden; `monthOptions` filtert Zukunftsmonate und nimmt
+3. Default-Auflösung: gültiger Query-Param gewinnt, sonst der laufende Monat — genau wie in
+   `category-overview.ts:330`. Die Monatsliste speist ausschliesslich Dropdown und
+   Keine-Daten-Hinweis, nie den Default: Ein Default aus der Liste stellte die beiden
+   Schwesteransichten am selben Tag auf verschiedene Monate, und weil Kontoauszüge erst nach
+   Monatsende kommen, wäre das der Regelfall — die Startseite zeigte statt der Kernzahl das
+   «Abgeschlossen»-Banner des Vormonats (Review-Befund zu PR #280).
+4. Laufende Requests beim Monatswechsel canceln (`pendingRequest`, `pendingUncertainRequest` wie
+   in `category-overview.ts:713/754`) — sonst überschreibt eine spät eintreffende Antwort des
+   verlassenen Monats die des neuen. Beim Prüflisten-Request **vor** dem frühen `return` für
+   vergangene Monate, weil dort kein Folge-Request nachkommt (Review-Befund zu PR #280).
+5. `MonthNav` mit Stepper und Dropdown einbinden; `monthOptions` filtert Zukunftsmonate und nimmt
    den angezeigten Monat immer auf.
-5. `status === 'CLOSED'` ersetzt Betrag, Wochen-Label und No-Income-Block durch ein `app-notice`.
-6. Keine-Daten-Hinweis mit dem Wortlaut aus FE-CAT-08, nur bei erfolgreich geladener Monatsliste.
-7. Hinweis zur Buchungsrichtung folgt dem Monat, verschwindet bei `CLOSED`.
-8. `applySuggestion()` lädt den angezeigten Monat neu, nicht den laufenden.
+6. `status === 'CLOSED'` ersetzt Betrag, Wochen-Label und No-Income-Block durch ein `app-notice`.
+7. Keine-Daten-Hinweis mit dem Wortlaut aus FE-CAT-08, nur bei erfolgreich geladener Monatsliste.
+8. Hinweis zur Buchungsrichtung folgt dem Monat, verschwindet bei `CLOSED`.
+9. `applySuggestion()` lädt den angezeigten Monat neu, nicht den laufenden.
 
 ## Test-Strategie
 
 Vitest + TestBed mit `provideRouter([])` und `provideLocationMocks()` wie in
 `category-overview.spec.ts`:
 
-- Default aus der Monatsliste; Deep-Link gewinnt ohne Wartezeit; kaputter Parameter fällt zurück
-  und rückt die URL zurecht
+- Default ist der laufende Monat, auch ohne Buchungen darin — geprüft am Ergebnis, nicht nur am
+  Request-Parameter; Deep-Link gewinnt gegen den Default; kaputter Parameter fällt zurück und rückt
+  die URL zurecht
 - Stepper und Dropdown: je genau ein Request, URL nachgezogen
 - `CLOSED` → Banner statt Betrag; laufender Monat ohne Daten → Hinweis **und** Betrag;
   vergangener Monat ohne Daten → Hinweis **statt** Banner
 - Fehlgeschlagene Monatsliste → kein Hinweis, Dashboard funktioniert
 - Richtungs-Hinweis folgt dem Monat und verschwindet bei `CLOSED`
+- Veraltete Antworten werden verworfen: Safe-to-Spend und Prüfliste je einmal — der Request des
+  verlassenen Monats ist `cancelled`, und die Anzeige bleibt beim neuen Monat
 - `safe-to-spend.service.spec.ts`: Request mit und ohne `month`
 
 Kein E2E-Test: Die DoD verlangt Vitest/TestBed, und `e2e/tests/safe-to-spend.spec.ts` arbeitet auf

@@ -2,6 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
+import { Subscription } from 'rxjs';
 
 import { AuthService } from '../auth/auth.service';
 import { Amount } from '../shared/amount/amount';
@@ -68,7 +69,9 @@ function formatMonth(month: string): string {
  * schreibt. Damit funktionieren Deep-Link, Browser-Zurück und eine von Hand editierte
  * Adresse ohne Sonderfall. Ein vergangener Monat liefert `status: 'CLOSED'` und wird
  * als «Abgeschlossen» angezeigt statt gerechnet (US-12); Zukunftsmonate bietet die
- * Oberfläche gar nicht erst an, weil das Backend sie mit HTTP 400 ablehnt.
+ * Oberfläche gar nicht erst an, weil das Backend sie mit HTTP 400 ablehnt. Ohne Parameter
+ * steht die Seite auf dem laufenden Monat — die Monatsliste speist nur Dropdown und
+ * Keine-Daten-Hinweis.
  *
  * <p>OnPush + Signals wie im übrigen Frontend; der lesende HTTP-Zugriff liegt im
  * zustandslosen {@link SafeToSpendService}, der schreibende im {@link AuthService},
@@ -111,15 +114,8 @@ export class Dashboard {
   /** Geladene Antwort oder `null`, solange nichts geladen ist. */
   readonly data = signal<SafeToSpendResponse | null>(null);
 
-  /**
-   * `true`, solange ein Request läuft — beim Aufbau der Seite von Anfang an.
-   *
-   * <p>Der Anfangswert ist `true` und nicht `false`, weil ohne brauchbaren `month`-Parameter
-   * zuerst die Monatsliste beantwortet werden muss (siehe {@link defaultMonth}). In diesem
-   * Fenster läuft bereits ein Request, nur eben noch nicht der auf Safe-to-Spend; ein `false`
-   * zeigte dem Nutzer für diese Zeitspanne eine leere Seite ohne Erklärung.
-   */
-  readonly loading = signal(true);
+  /** `true`, solange ein Request läuft. */
+  readonly loading = signal(false);
 
   /** Fehlermeldung oder `null`, wenn kein Fehler vorliegt. */
   readonly errorMessage = signal<string | null>(null);
@@ -246,18 +242,28 @@ export class Dashboard {
   /**
    * `false`, bis die erste URL-Auswertung gelaufen ist. Ohne diese Unterscheidung würde die
    * Gleichheits-Wache in {@link syncFromUrl} das Erstladen verschlucken, sobald die URL keinen
-   * Parameter trägt — der ausgelesene Monat wäre dann von Anfang an derselbe wie der angezeigte.
+   * Parameter trägt — der ausgelesene Monat ist dann von Anfang an derselbe wie der angezeigte.
    */
   private initialLoadDone = false;
 
-  /** `true`, sobald die Monatsliste geantwortet hat — mit Erfolg **oder** mit Fehler. */
-  private monthsSettled = false;
+  /**
+   * Subscription des zuletzt gestarteten Safe-to-Spend-Requests, um ihn beim Monatswechsel zu
+   * canceln.
+   *
+   * <p>Ohne das Canceln überschreibt eine spät eintreffende Antwort des alten Monats die des
+   * neuen — und weil die Card ihr Monatslabel als `meta` trägt, stünde der Betrag dann unter der
+   * Überschrift eines anderen Monats. Dieselbe Absicherung wie in `category-overview.ts`.
+   */
+  private pendingRequest: Subscription | undefined;
 
   /**
-   * Die zurückgestellte URL-Auswertung, solange der Default-Monat noch nicht feststeht.
-   * `null`, wenn nichts wartet.
+   * Subscription des zuletzt gestarteten Prüflisten-Requests (BE-PDF-10).
+   *
+   * <p>Eigenes Feld und nicht dasselbe wie {@link pendingRequest}: Für einen vergangenen Monat
+   * unterbleibt der Folge-Request ganz, es gibt also keine neue Antwort, die eine veraltete später
+   * überschriebe. Abgeräumt wird deshalb vor dem frühen `return`.
    */
-  private pendingParams: ParamMap | null = null;
+  private pendingUncertainRequest: Subscription | undefined;
 
   constructor() {
     // `queryParamMap` liefert den aktuellen Stand sofort und danach jede Änderung. Beides läuft
@@ -335,24 +341,21 @@ export class Dashboard {
   /**
    * Übernimmt den Monat aus der URL — beim Erstladen und bei jeder äusseren Änderung.
    *
-   * <p>Ein gültiger Parameter gewinnt sofort und ohne Umweg. Fehlt er oder ist er unbrauchbar,
-   * steht der anzuzeigende Monat noch nicht fest: Der Default ist der neueste Monat *mit Daten*
-   * und damit eine Auskunft des Servers. Die Auswertung wird deshalb zurückgestellt und aus
-   * {@link settleMonths} nachgeholt.
+   * <p>Ohne brauchbaren Parameter gilt der laufende Monat, genau wie in der Kategorie-Übersicht.
+   * Die Monatsliste speist deshalb allein Dropdown und Keine-Daten-Hinweis, nie den Default: Ein
+   * Default aus der Liste stellte die beiden Schwesteransichten am selben Tag auf verschiedene
+   * Monate, und weil Kontoauszüge erst nach Monatsende kommen, wäre das der Regelfall — die
+   * Startseite zeigte dann statt der Kernzahl das «Abgeschlossen»-Banner des Vormonats.
+   *
+   * <p>Die Gleichheits-Wache unten ist der Grund, warum Stepper und Sprung synchron laden dürfen,
+   * ohne dass ein zweiter Request folgt.
    */
   private syncFromUrl(params: ParamMap): void {
     const raw = params.get('month');
     // Ein Zukunftsmonat ist hier genauso unbrauchbar wie ein kaputtes Format: Das Backend
     // beantwortet ihn mit 400, und der Stepper führt ohnehin nicht dorthin.
     const valid = raw !== null && MONTH_PATTERN.test(raw) && raw <= currentMonth();
-
-    if (!valid && !this.monthsSettled) {
-      this.pendingParams = params;
-      return;
-    }
-    this.pendingParams = null;
-
-    const month = valid ? raw : this.defaultMonth();
+    const month = valid ? raw : currentMonth();
 
     if (raw !== null && !valid) {
       // Unbrauchbarer Parameter: die Adresse auf den tatsächlich angezeigten Monat zurechtrücken,
@@ -375,18 +378,6 @@ export class Dashboard {
   }
 
   /**
-   * Der Monat, der ohne brauchbaren Query-Parameter angezeigt wird: der neueste mit Ausgaben.
-   *
-   * <p>Die Liste kommt neuester zuerst; der Filter gegen {@link currentMonth} ist die Absicherung
-   * dagegen, dass eine künftig datierte Buchung den Default auf einen Monat schöbe, den das
-   * Backend mit 400 beantwortet. Leere Liste oder fehlgeschlagener Request → laufender Monat.
-   */
-  private defaultMonth(): string {
-    const current = currentMonth();
-    return this.loadedMonths().find((month) => month <= current) ?? current;
-  }
-
-  /**
    * Lädt die Monate für Dropdown und Keine-Daten-Hinweis.
    *
    * <p>Einmal beim Aufbau der Seite: die Liste ändert sich nur durch einen Import, und der führt
@@ -397,34 +388,26 @@ export class Dashboard {
       next: (months) => {
         this.loadedMonths.set(months);
         this.monthsLoaded.set(true);
-        this.settleMonths();
       },
       error: (_err: HttpErrorResponse) => {
-        // Bewusst ohne Meldung: Der Default fällt auf den laufenden Monat, das Dropdown auf den
-        // angezeigten Monat, und der Keine-Daten-Hinweis bleibt weg, statt etwas zu behaupten.
-        // Safe-to-Spend selbst funktioniert unverändert — eine rote Meldung stünde in keinem
-        // Verhältnis zur Einschränkung.
-        this.settleMonths();
+        // Bewusst ohne Meldung: Das Dropdown fällt auf den angezeigten Monat zurück und der
+        // Keine-Daten-Hinweis bleibt weg, statt etwas zu behaupten. Safe-to-Spend selbst
+        // funktioniert unverändert — er hängt nicht an dieser Liste — und eine rote Meldung
+        // stünde in keinem Verhältnis zur Einschränkung.
       },
     });
   }
 
-  /** Gibt die zurückgestellte URL-Auswertung frei, sobald der Default-Monat feststeht. */
-  private settleMonths(): void {
-    this.monthsSettled = true;
-    const pending = this.pendingParams;
-    if (pending !== null) {
-      this.pendingParams = null;
-      this.syncFromUrl(pending);
-    }
-  }
-
   private load(): void {
+    // Einen noch laufenden Request canceln, bevor ein neuer startet — sonst kann bei schneller
+    // Monat-Navigation die spätere Antwort von der früheren überschrieben werden (Race Condition).
+    // Dasselbe Muster wie in `category-overview.ts`.
+    this.pendingRequest?.unsubscribe();
     this.loading.set(true);
     this.errorMessage.set(null);
 
     const month = this.month();
-    this.safeToSpendService.getSafeToSpend(month).subscribe({
+    this.pendingRequest = this.safeToSpendService.getSafeToSpend(month).subscribe({
       next: (response) => {
         this.data.set(response);
         this.loading.set(false);
@@ -457,12 +440,17 @@ export class Dashboard {
    * die Prüfliste selbst bleibt über die Kategorie-Übersicht erreichbar.
    */
   private loadUncertainCount(month: string): void {
+    // Vor dem frühen `return` und nicht danach: Ein noch offener Request des laufenden Monats
+    // würde sonst beim Wechsel in einen vergangenen Monat weiterlaufen und den Hinweis über
+    // dessen «Abgeschlossen»-Banner setzen — für Buchungen, die zu einem anderen Monat gehören.
+    // `uncertainCount.set(0)` räumt nur den Zustand ab, nicht die Subscription.
+    this.pendingUncertainRequest?.unsubscribe();
     this.uncertainCount.set(0);
     if (month !== currentMonth()) {
       return;
     }
 
-    this.transactionService.uncertainDirections(month).subscribe({
+    this.pendingUncertainRequest = this.transactionService.uncertainDirections(month).subscribe({
       next: (transactions) => this.uncertainCount.set(transactions.length),
       error: (_err: HttpErrorResponse) => {
         // Siehe Javadoc: bewusst ohne Meldung.

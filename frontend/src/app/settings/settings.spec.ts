@@ -560,10 +560,9 @@ describe('Route /einstellungen', () => {
   // --- AC5: Dashboard zeigt den neuen Betrag ohne Reload der App ---
 
   /**
-   * FE-STS-04: Das Dashboard lädt beim Aufbau die Monatsliste — ohne brauchbaren
-   * `month`-Query-Parameter hängt sein Default-Monat an ihr, und der Safe-to-Spend-Request geht
-   * erst danach hinaus. Der laufende Monat trägt hier Daten, damit das Dashboard in seinem
-   * Normalzustand steht.
+   * FE-STS-04: Das Dashboard lädt beim Aufbau daneben die Monatsliste — sie speist Dropdown und
+   * Keine-Daten-Hinweis. Der laufende Monat trägt hier Daten, damit das Dashboard in seinem
+   * Normalzustand steht und der Hinweis wegbleibt.
    */
   function flushDashboardMonths() {
     const now = new Date();

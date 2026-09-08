@@ -26,8 +26,8 @@ const OLDER_MONTH = relativeMonth(-2);
 
 /**
  * Antwort von `GET /api/transactions/months` im Normalfall: der laufende Monat hat Daten.
- * Damit bleibt der Default der laufende Monat, und die Fälle, die sich nicht um den
- * Monatswechsel drehen, verhalten sich wie vor FE-STS-04.
+ * Damit bleibt der Keine-Daten-Hinweis weg, und die Fälle, die sich nicht um den Monatswechsel
+ * drehen, verhalten sich wie vor FE-STS-04.
  */
 const AVAILABLE_MONTHS = [CURRENT_MONTH, PREVIOUS_MONTH, OLDER_MONTH];
 
@@ -118,9 +118,9 @@ describe('Dashboard', () => {
 
     fixture = TestBed.createComponent(Dashboard);
     httpMock = TestBed.inject(HttpTestingController);
-    // FE-STS-04: Beim Aufbau wird die Monatsliste geladen; ohne brauchbaren Query-Parameter hängt
-    // der Default-Monat an ihr. Einmal zentral beantwortet, damit die Fälle darunter sich nicht
-    // damit befassen müssen — wer den Aufbau selbst prüft, baut über `recreate()` neu auf.
+    // FE-STS-04: Beim Aufbau wird daneben die Monatsliste geladen — sie speist Dropdown und
+    // Keine-Daten-Hinweis. Einmal zentral beantwortet, damit die Fälle darunter sich nicht damit
+    // befassen müssen; wer den Aufbau selbst prüft, baut über `recreate()` neu auf.
     httpMock.expectOne('/api/transactions/months').flush(AVAILABLE_MONTHS);
   });
 
@@ -490,19 +490,32 @@ describe('Dashboard', () => {
       expect(req.request.params.get('month')).toBe(CURRENT_MONTH);
     });
 
-    // AC 1, in der Lesart von US-12: der aktuellste Monat *mit Daten*, nicht der Kalendermonat.
-    it('starts in the newest month with data when the URL carries none', async () => {
+    // AC 1: der laufende Monat, wie in der Kategorie-Übersicht — und zwar auch dann, wenn er
+    // noch keine Buchungen trägt. Der Default aus der Monatsliste stellte die beiden
+    // Schwesteransichten am selben Tag auf verschiedene Monate, und weil Kontoauszüge erst nach
+    // Monatsende kommen, wäre das der Regelfall: Die Startseite zeigte statt der Kernzahl das
+    // «Abgeschlossen»-Banner des Vormonats.
+    it('starts in the current month when the URL carries none, even without data for it', async () => {
       const months = await recreate();
-      months.flush([PREVIOUS_MONTH, OLDER_MONTH]);
 
+      // Ohne auf die Liste zu warten — der Default hängt nicht an ihr.
       const req = expectSafeToSpendRequest(httpMock);
-      expect(req.request.params.get('month')).toBe(PREVIOUS_MONTH);
-      req.flush(CLOSED);
+      expect(req.request.params.get('month')).toBe(CURRENT_MONTH);
+      req.flush(NORMAL);
+      months.flush([PREVIOUS_MONTH, OLDER_MONTH]);
+      fixture.detectChanges();
+
+      // Geprüft wird das Ergebnis, nicht bloss der Request-Parameter: Der Nutzer bekommt die
+      // Zahl zu sehen, für die er die App geöffnet hat, und keine Sackgasse.
+      expect(fixture.nativeElement.querySelector('.closed-banner')).toBeNull();
+      expect(fixture.nativeElement.querySelector('app-card')).not.toBeNull();
+      expect(fixture.nativeElement.textContent as string).toContain('500.00');
+      // Der laufende Monat fehlt in der Liste — der Hinweis steht, ohne die Karte zu verdrängen.
+      expect(fixture.nativeElement.querySelector('.status.empty')).not.toBeNull();
     });
 
-    // Der Deep-Link ist die einzige Auskunft, die der Server nicht liefern muss — er darf deshalb
-    // nicht auf die Monatsliste warten.
-    it('starts in the month from the URL without waiting for the month list', async () => {
+    // Der Deep-Link gewinnt gegen den Default und wartet auf nichts.
+    it('starts in the month from the URL instead of the current month', async () => {
       const months = await recreate({ month: OLDER_MONTH });
 
       const req = expectSafeToSpendRequest(httpMock);
@@ -515,18 +528,18 @@ describe('Dashboard', () => {
       fixture.detectChanges();
     });
 
-    it('falls back to the newest month with data when the URL carries nonsense, and rewrites it', async () => {
+    it('falls back to the current month when the URL carries nonsense, and rewrites it', async () => {
       const months = await recreate({ month: '2026-13' });
-      months.flush([PREVIOUS_MONTH, OLDER_MONTH]);
+      months.flush(AVAILABLE_MONTHS);
 
       const req = expectSafeToSpendRequest(httpMock);
-      expect(req.request.params.get('month')).toBe(PREVIOUS_MONTH);
-      req.flush(CLOSED);
+      expect(req.request.params.get('month')).toBe(CURRENT_MONTH);
+      req.flush(NORMAL);
       fixture.detectChanges();
       await fixture.whenStable();
 
       // Eine URL, die etwas anderes behauptet als die Seite, bleibt nicht stehen.
-      expect(TestBed.inject(Location).path()).toContain(`month=${PREVIOUS_MONTH}`);
+      expect(TestBed.inject(Location).path()).toContain(`month=${CURRENT_MONTH}`);
     });
 
     it('steps to the previous month with a single request and writes it into the URL', async () => {
@@ -618,6 +631,48 @@ describe('Dashboard', () => {
 
       expect(fixture.nativeElement.querySelector('.status.empty')).not.toBeNull();
       expect(fixture.nativeElement.querySelector('.closed-banner')).toBeNull();
+    });
+
+    // Die Antwort des verlassenen Monats darf die des neuen nicht überschreiben. Sichtbar wäre
+    // das nicht bloss als falsche Zahl: Die Card trägt ihr Monatslabel als `meta`, der Betrag
+    // stünde also unter der Überschrift eines anderen Monats.
+    it('discards a stale safe-to-spend response when the month changed meanwhile', async () => {
+      const stale = expectSafeToSpendRequest(httpMock);
+      expectUncertainRequest().flush([]);
+      fixture.detectChanges();
+
+      arrows()[0].click();
+      fixture.detectChanges();
+
+      expect(stale.cancelled).toBe(true);
+      expectSafeToSpendRequest(httpMock).flush(CLOSED);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      // Das Banner des Vormonats bleibt stehen, und es erscheint kein Betrag daneben.
+      expect(fixture.nativeElement.querySelector('.closed-banner')).not.toBeNull();
+      expect(fixture.debugElement.query(By.css('app-amount'))).toBeNull();
+    });
+
+    // Dieselbe Ursache, eigene Fixstelle: Für einen vergangenen Monat unterbleibt der
+    // Prüflisten-Request ganz, es folgt also keine Antwort, die eine veraltete überschriebe.
+    it('discards a stale uncertainty count when stepping into a past month', async () => {
+      expectSafeToSpendRequest(httpMock).flush(NORMAL);
+      const stale = expectUncertainRequest();
+      fixture.detectChanges();
+
+      arrows()[0].click();
+      fixture.detectChanges();
+
+      expect(stale.cancelled).toBe(true);
+      expectSafeToSpendRequest(httpMock).flush(CLOSED);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      // Der Hinweis spräche von «diesem Monat» und schränkte einen Safe-to-Spend ein, den diese
+      // Ansicht gar nicht zeigt.
+      expect(fixture.nativeElement.querySelector('.uncertain-banner')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.closed-banner')).not.toBeNull();
     });
 
     it('claims nothing about missing data when the month list cannot be loaded', async () => {
