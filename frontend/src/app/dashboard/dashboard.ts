@@ -303,9 +303,15 @@ export class Dashboard {
   /**
    * Subscription des zuletzt gestarteten Prüflisten-Requests (BE-PDF-10).
    *
-   * <p>Eigenes Feld und nicht dasselbe wie {@link pendingRequest}: Für einen vergangenen Monat
-   * unterbleibt der Folge-Request ganz, es gibt also keine neue Antwort, die eine veraltete später
-   * überschriebe. Abgeräumt wird deshalb vor dem frühen `return`.
+   * <p>Eigenes Feld neben {@link pendingRequest} und {@link pendingTotalsRequest}: Die drei
+   * Requests laufen unabhängig, und jeder braucht seine eigene Stornierung. Ein gemeinsames Feld
+   * räumte beim Monatswechsel jeweils nur den letzten davon ab — die beiden anderen liefen weiter
+   * und schrieben ihre Antwort in eine Anzeige, zu der sie nicht mehr gehört.
+   *
+   * <p>Dieser Request läuft für <em>jeden</em> Monatszustand, auch für einen abgeschlossenen: Der
+   * Hinweis gilt dem gewählten Monat, weil eine falsch übernommene Buchungsrichtung auch die
+   * Einnahmen und Ausgaben der Übersicht verzerrt (Begründung in {@link #loadUncertainCount}).
+   * Es gibt hier also wirklich zwei Antworten, die sich überschreiben könnten.
    */
   private pendingUncertainRequest: Subscription | undefined;
 
