@@ -18,8 +18,11 @@ Alternative Authentifizierungs-Methoden: Server-Side Session, OAuth 2.0, API Key
 
 Wir nutzen **JWT (JSON Web Token) mit HS256 Signing, bcrypt Password Hashing und httpOnly Cookie als Token-Storage**:
 
-- **JWT Creation:** User login → Backend erstellt signiertes Token (24 Stunden Expiry,
-  `app.jwt.expiration`)
+- **JWT Creation:** User login → Backend erstellt signiertes Token (4 Stunden Expiry,
+  `app.jwt.expiration`). Ursprünglich 24 Stunden, in BE-AUTH-13 (#289) verkürzt: Der Token wird
+  nach dem Login von nichts mehr erneuert, seine Laufzeit ist damit exakt das Fenster, in dem ein
+  abhandengekommenes Cookie nutzbar bleibt. Ablauf nach Inaktivität (Sliding Expiration) wurde
+  dort geprüft und verworfen — er steht in US-01 unter Post-MVP.
 - **Token Storage:** `httpOnly; Secure; SameSite=Strict` Cookie — kein JavaScript-Zugriff möglich
 - **JWT Transport:** Browser sendet Cookie automatisch mit; kein `Authorization`-Header, kein localStorage
 - **Backend Validation:** Spring Security validiert Signature + Expiry automatisch
