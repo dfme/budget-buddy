@@ -2,7 +2,7 @@
 
 **Kurs:** CAS Application Development with AI (ADAI) 2026 · BFH Biel · Ilja Rasin
 
-[![Build](https://github.com/dfme/budget-buddy/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/dfme/budget-buddy/actions/workflows/build.yml)
+[![CD](https://github.com/dfme/budget-buddy/actions/workflows/cd.yml/badge.svg?branch=main)](https://github.com/dfme/budget-buddy/actions/workflows/cd.yml)
 
 **BudgetBuddy** ist eine Web-App für in der Schweiz wohnhafte Studenten und Berufseinsteiger, die ihnen durch das einfache Einlesen von Kontoauszügen einen klaren Überblick über ihre monatlichen Ausgaben gibt. Die App kategorisiert Transaktionen automatisch und zeigt einen wöchentlichen "Safe-to-Spend"-Betrag an — damit Nutzer jederzeit wissen, wie viel sie noch ausgeben können. Durch gezielte, lebensnahe Sparvorschläge hilft BudgetBuddy jungen Menschen, finanzielle Kontrolle zu gewinnen und erste Rücklagen aufzubauen.
 
