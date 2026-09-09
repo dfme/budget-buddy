@@ -1,10 +1,47 @@
+import { Location } from '@angular/common';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideLocationMocks } from '@angular/common/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
+import { Router, provideRouter } from '@angular/router';
+
+import { formatMonth } from '../shared/month';
 
 import { Dashboard } from './dashboard';
 import { SafeToSpendResponse } from './safe-to-spend.model';
+
+/** Laufender Monat als `YYYY-MM` — dieselbe Ableitung wie in der Komponente (Ortszeit). */
+function monthString(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/** `delta` Monate vom laufenden Monat aus. */
+function relativeMonth(delta: number): string {
+  const now = new Date();
+  return monthString(new Date(now.getFullYear(), now.getMonth() + delta, 1));
+}
+
+const CURRENT_MONTH = relativeMonth(0);
+const PREVIOUS_MONTH = relativeMonth(-1);
+const OLDER_MONTH = relativeMonth(-2);
+
+/**
+ * Antwort von `GET /api/transactions/months` im Normalfall: der laufende Monat hat Daten.
+ * Damit bleibt der Keine-Daten-Hinweis weg, und die Fälle, die sich nicht um den Monatswechsel
+ * drehen, verhalten sich wie vor FE-STS-04.
+ */
+const AVAILABLE_MONTHS = [CURRENT_MONTH, PREVIOUS_MONTH, OLDER_MONTH];
+
+/** Vergangener Monat: das Backend rechnet nicht, es meldet «abgeschlossen» (BE-STS-06). */
+const CLOSED: SafeToSpendResponse = {
+  amount: null,
+  weeksLeft: 0,
+  negative: false,
+  noIncome: false,
+  incomeSuggestion: null,
+  status: 'CLOSED',
+};
 
 const NORMAL: SafeToSpendResponse = {
   amount: 500,
@@ -65,11 +102,28 @@ describe('Dashboard', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [Dashboard],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        // Catch-all ohne Component: Die Komponente wird hier von Hand erzeugt, nicht vom Router
+        // gerendert. Gebraucht wird er trotzdem, weil goTo() relativ zur aktuellen Route
+        // navigiert — ohne passende Route bräche die Navigation ab und der Monat käme nie in die
+        // URL. provideLocationMocks() hält das im Speicher statt in der echten History.
+        provideRouter([{ path: '**', children: [] }]),
+        provideLocationMocks(),
+      ],
     }).compileComponents();
+
+    // Ohne initialNavigation() setzt der Router seinen Location-Listener nie auf — er wird hier
+    // ja nicht über ein Bootstrap gestartet.
+    TestBed.inject(Router).initialNavigation();
 
     fixture = TestBed.createComponent(Dashboard);
     httpMock = TestBed.inject(HttpTestingController);
+    // FE-STS-04: Beim Aufbau wird daneben die Monatsliste geladen — sie speist Dropdown und
+    // Keine-Daten-Hinweis. Einmal zentral beantwortet, damit die Fälle darunter sich nicht damit
+    // befassen müssen; wer den Aufbau selbst prüft, baut über `recreate()` neu auf.
+    httpMock.expectOne('/api/transactions/months').flush(AVAILABLE_MONTHS);
   });
 
   afterEach(() => {
@@ -80,8 +134,32 @@ describe('Dashboard', () => {
       .match((req) => req.url === '/api/transactions/uncertain')
       .filter((req) => !req.cancelled)
       .forEach((req) => req.flush([]));
+    // FE-STS-04: Dasselbe für die Drei-Monats-Übersicht — sie lädt bei jedem Monatswechsel mit.
+    // `!req.cancelled`, weil ein Monatswechsel den vorherigen Request abbricht und ein
+    // abgebrochener sich nicht mehr beantworten lässt.
+    httpMock
+      .match((req) => req.url === '/api/transactions/monthly-totals')
+      .filter((req) => !req.cancelled)
+      .forEach((req) => req.flush([]));
     httpMock.verify();
   });
+
+  /** URL-Matcher für die Drei-Monats-Übersicht (BE-STS-07). */
+  function expectTotalsRequest() {
+    return httpMock.expectOne((req) => req.url === '/api/transactions/monthly-totals');
+  }
+
+  /**
+   * Ein Übersichts-Fenster: gewählter Monat und die zwei davor, neuester zuerst — so, wie der
+   * Endpoint es liefert. Der älteste Monat trägt bewusst `null`s (Monat ohne jede Buchung).
+   */
+  function totalsWindow(newest: string, older: string, oldest: string) {
+    return [
+      { month: newest, income: 5000, expenses: 100, difference: 4900 },
+      { month: older, income: 800, expenses: 1250.5, difference: -450.5 },
+      { month: oldest, income: null, expenses: null, difference: null },
+    ];
+  }
 
   /** URL-Matcher für die Prüfliste der unsicheren Buchungsrichtungen (BE-PDF-10). */
   function expectUncertainRequest() {
@@ -356,6 +434,9 @@ describe('Dashboard', () => {
     expect(banner).not.toBeNull();
     expect(banner.textContent).toContain('2 Buchungen');
     expect(banner.textContent).toContain('zu tief');
+    // FE-STS-04: Der Text nennt den Monat, statt «dieses Monats» zu sagen — sonst wäre beim
+    // Blättern nicht erkennbar, welchem Monat der Hinweis gilt.
+    expect(banner.textContent).toContain(`im ${formatMonth(CURRENT_MONTH)}`);
   });
 
   it('uses the singular for a single unchecked booking', () => {
@@ -397,5 +478,490 @@ describe('Dashboard', () => {
 
     expect(fixture.nativeElement.querySelector('.uncertain-banner')).toBeNull();
     expect(fixture.nativeElement.textContent as string).toContain('500.00');
+  });
+  describe('Monatswechsel (FE-STS-04, US-12)', () => {
+    /** Die Pfeil-Buttons der MonthNav: [0] zurück, [1] vor. */
+    function arrows(): HTMLButtonElement[] {
+      return Array.from(fixture.nativeElement.querySelectorAll('.month-nav__btn'));
+    }
+
+    /** Das Direktsprung-Dropdown. */
+    function jump(): HTMLSelectElement {
+      return fixture.nativeElement.querySelector('.month-nav__jump select');
+    }
+
+    /**
+     * Räumt die Instanz aus dem `beforeEach` ab und baut eine neue auf — für die Fälle, die den
+     * Zustand *vor* dem Aufbau brauchen (Deep-Link, kaputter Parameter, fehlgeschlagene Liste).
+     *
+     * <p>Die Reihenfolge ist wesentlich: erst die offenen Requests der alten Instanz beantworten,
+     * dann zerstören, dann navigieren. Wer vor dem Zerstören navigiert, weckt die alte
+     * Subscription und bekommt zwei Safe-to-Spend-Requests.
+     *
+     * @returns den offenen Monatslisten-Request der neuen Instanz — die Fälle unten bestimmen
+     *     selbst, wann und womit er beantwortet wird.
+     */
+    async function recreate(queryParams: Record<string, string> = {}) {
+      expectSafeToSpendRequest(httpMock).flush(NORMAL);
+      httpMock
+        .match((req) => req.url === '/api/transactions/uncertain')
+        .filter((req) => !req.cancelled)
+        .forEach((req) => req.flush([]));
+      // Wie die Prüfliste: die Requests der noch stehenden Instanz abräumen, damit die Fälle
+      // unten nur die des neu aufgebauten Dashboards vor sich haben.
+      httpMock
+        .match((req) => req.url === '/api/transactions/monthly-totals')
+        .filter((req) => !req.cancelled)
+        .forEach((req) => req.flush([]));
+      fixture.destroy();
+      await TestBed.inject(Router).navigate([], { queryParams });
+      fixture = TestBed.createComponent(Dashboard);
+      return httpMock.expectOne('/api/transactions/months');
+    }
+
+    it('sends the displayed month with the request', () => {
+      const req = expectSafeToSpendRequest(httpMock);
+
+      expect(req.request.params.get('month')).toBe(CURRENT_MONTH);
+    });
+
+    // AC 1: der laufende Monat, wie in der Kategorie-Übersicht — und zwar auch dann, wenn er
+    // noch keine Buchungen trägt. Der Default aus der Monatsliste stellte die beiden
+    // Schwesteransichten am selben Tag auf verschiedene Monate, und weil Kontoauszüge erst nach
+    // Monatsende kommen, wäre das der Regelfall: Die Startseite zeigte statt der Kernzahl das
+    // «Abgeschlossen»-Banner des Vormonats.
+    it('starts in the current month when the URL carries none, even without data for it', async () => {
+      const months = await recreate();
+
+      // Ohne auf die Liste zu warten — der Default hängt nicht an ihr.
+      const req = expectSafeToSpendRequest(httpMock);
+      expect(req.request.params.get('month')).toBe(CURRENT_MONTH);
+      req.flush(NORMAL);
+      months.flush([PREVIOUS_MONTH, OLDER_MONTH]);
+      fixture.detectChanges();
+
+      // Geprüft wird das Ergebnis, nicht bloss der Request-Parameter: Der Nutzer bekommt die
+      // Zahl zu sehen, für die er die App geöffnet hat, und keine Sackgasse.
+      expect(fixture.nativeElement.querySelector('.closed-banner')).toBeNull();
+      expect(fixture.nativeElement.querySelector('app-card')).not.toBeNull();
+      expect(fixture.nativeElement.textContent as string).toContain('500.00');
+      // Der laufende Monat fehlt in der Liste — der Hinweis steht, ohne die Karte zu verdrängen.
+      expect(fixture.nativeElement.querySelector('.status.empty')).not.toBeNull();
+    });
+
+    // Der Deep-Link gewinnt gegen den Default und wartet auf nichts.
+    it('starts in the month from the URL instead of the current month', async () => {
+      const months = await recreate({ month: OLDER_MONTH });
+
+      const req = expectSafeToSpendRequest(httpMock);
+      expect(req.request.params.get('month')).toBe(OLDER_MONTH);
+      req.flush(CLOSED);
+
+      // Die Liste trifft erst danach ein und löst keinen zweiten Request aus — httpMock.verify()
+      // im afterEach fängt ihn, falls doch.
+      months.flush(AVAILABLE_MONTHS);
+      fixture.detectChanges();
+    });
+
+    it('falls back to the current month when the URL carries nonsense, and rewrites it', async () => {
+      const months = await recreate({ month: '2026-13' });
+      months.flush(AVAILABLE_MONTHS);
+
+      const req = expectSafeToSpendRequest(httpMock);
+      expect(req.request.params.get('month')).toBe(CURRENT_MONTH);
+      req.flush(NORMAL);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      // Eine URL, die etwas anderes behauptet als die Seite, bleibt nicht stehen.
+      expect(TestBed.inject(Location).path()).toContain(`month=${CURRENT_MONTH}`);
+    });
+
+    it('steps to the previous month with a single request and writes it into the URL', async () => {
+      expectSafeToSpendRequest(httpMock).flush(NORMAL);
+      expectUncertainRequest().flush([]);
+      fixture.detectChanges();
+
+      arrows()[0].click();
+      fixture.detectChanges();
+
+      // expectOne wirft, sobald mehr als ein Request offen ist.
+      const req = expectSafeToSpendRequest(httpMock);
+      expect(req.request.params.get('month')).toBe(PREVIOUS_MONTH);
+      req.flush(CLOSED);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(TestBed.inject(Location).path()).toContain(`month=${PREVIOUS_MONTH}`);
+    });
+
+    it('jumps two months back from the dropdown with a single request', () => {
+      expectSafeToSpendRequest(httpMock).flush(NORMAL);
+      expectUncertainRequest().flush([]);
+      fixture.detectChanges();
+
+      const select = jump();
+      select.value = OLDER_MONTH;
+      select.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+
+      const req = expectSafeToSpendRequest(httpMock);
+      expect(req.request.params.get('month')).toBe(OLDER_MONTH);
+      req.flush(CLOSED);
+    });
+
+    // Das Backend beantwortet einen Zukunftsmonat mit 400; die Oberfläche bietet ihn deshalb gar
+    // nicht erst an — in keinem der beiden Bedienelemente.
+    it('offers no future month, in neither control', () => {
+      expectSafeToSpendRequest(httpMock).flush(NORMAL);
+      expectUncertainRequest().flush([]);
+      fixture.detectChanges();
+
+      expect(arrows()[1].disabled).toBe(true);
+      const values = Array.from(jump().options).map((option) => option.value);
+      expect(values.every((value) => value <= CURRENT_MONTH)).toBe(true);
+    });
+
+    // AC 3: für vergangene Monate steht «Abgeschlossen» statt einer Berechnung.
+    it('shows the closed banner instead of a calculation for a past month', async () => {
+      const months = await recreate({ month: PREVIOUS_MONTH });
+      months.flush(AVAILABLE_MONTHS);
+      expectSafeToSpendRequest(httpMock).flush(CLOSED);
+      fixture.detectChanges();
+
+      const banner = fixture.nativeElement.querySelector('.closed-banner');
+      expect(banner.querySelector('.notice__title').textContent.trim()).toBe('Abgeschlossen');
+      // Kein Betrag und keine Safe-to-Spend-Card. Auf `.safe-to-spend-card` statt auf `app-card`
+      // geprüft: die Übersicht darunter ist seit der Drei-Monats-Übersicht ebenfalls eine Card
+      // und steht hier zu Recht — sie gilt nicht dem Betrag, sondern den Monaten.
+      expect(fixture.debugElement.query(By.css('.safe-to-spend__amount'))).toBeNull();
+      expect(fixture.nativeElement.querySelector('.safe-to-spend-card')).toBeNull();
+      // Die Übersicht wird auch für einen abgeschlossenen Monat geladen — sie ist genau der
+      // Grund, warum man in einen vergangenen Monat blättert.
+      expect(httpMock.match((req) => req.url === '/api/transactions/monthly-totals')).toHaveLength(
+        1,
+      );
+    });
+
+    /**
+     * Gegenstück zum vorherigen Fall und eine bewusste Abweichung vom ersten Anlauf (PR #280):
+     * dort unterblieb der Prüflisten-Request für einen vergangenen Monat, weil es dort keine
+     * Zahl gab, die eine falsch übernommene Richtung verzerrt hätte. Mit der Drei-Monats-
+     * Übersicht gibt es sie — eine als Belastung importierte Gutschrift drückt dort `income` und
+     * hebt `expenses` (BE-STS-07). Der AC verlangt entsprechend, dass der Hinweis dem
+     * **gewählten** Monat gilt.
+     */
+    it('loads the uncertain-direction count for a past month too, and says what it affects there', async () => {
+      const months = await recreate({ month: PREVIOUS_MONTH });
+      months.flush(AVAILABLE_MONTHS);
+      expectSafeToSpendRequest(httpMock).flush(CLOSED);
+      expectUncertainRequest().flush([uncertainTransaction(1), uncertainTransaction(2)]);
+      fixture.detectChanges();
+
+      const message = fixture.nativeElement.querySelector('.uncertain-banner').textContent;
+      // Nennt den Monat statt «dieses Monats» …
+      expect(message).toContain(`Bei 2 Buchungen im ${formatMonth(PREVIOUS_MONTH)}`);
+      // … und die Folge, die für einen abgeschlossenen Monat zutrifft: dort gibt es keinen
+      // Safe-to-Spend, der zu tief sein könnte.
+      expect(message).toContain('Die Einnahmen und Ausgaben in der Übersicht');
+      expect(message).not.toContain('Safe-to-Spend kann deshalb zu tief sein');
+    });
+
+    // AC 4, laufender Monat: Der Hinweis tritt neben den Betrag, er verdrängt ihn nicht — ohne
+    // Buchungen ist er aus Einkommen minus Fixkosten weiterhin gültig.
+    it('adds the no-data hint above the card without hiding a valid amount', async () => {
+      const months = await recreate({ month: CURRENT_MONTH });
+      months.flush([PREVIOUS_MONTH]);
+      expectSafeToSpendRequest(httpMock).flush(NORMAL);
+      expectUncertainRequest().flush([]);
+      fixture.detectChanges();
+
+      const hint = fixture.nativeElement.querySelector('.status.empty');
+      expect(hint.textContent).toContain('Keine Daten für');
+      expect(hint.querySelector('a').getAttribute('href')).toBe('/import');
+
+      const card = fixture.nativeElement.querySelector('app-card');
+      expect(card).not.toBeNull();
+      expect(hint.compareDocumentPosition(card)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    });
+
+    // AC 4, vergangener Monat: «Abgeschlossen» sagt dort nichts, woran der Nutzer etwas ändern
+    // könnte — der Hinweis mit dem Weg zum Import schon.
+    it('replaces the closed banner with the no-data hint for a past month without data', async () => {
+      const months = await recreate({ month: OLDER_MONTH });
+      months.flush([CURRENT_MONTH]);
+      expectSafeToSpendRequest(httpMock).flush(CLOSED);
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.status.empty')).not.toBeNull();
+      expect(fixture.nativeElement.querySelector('.closed-banner')).toBeNull();
+    });
+
+    // Die Antwort des verlassenen Monats darf die des neuen nicht überschreiben. Sichtbar wäre
+    // das nicht bloss als falsche Zahl: Die Card trägt ihr Monatslabel als `meta`, der Betrag
+    // stünde also unter der Überschrift eines anderen Monats.
+    it('discards a stale safe-to-spend response when the month changed meanwhile', async () => {
+      const stale = expectSafeToSpendRequest(httpMock);
+      expectUncertainRequest().flush([]);
+      fixture.detectChanges();
+
+      arrows()[0].click();
+      fixture.detectChanges();
+
+      expect(stale.cancelled).toBe(true);
+      expectSafeToSpendRequest(httpMock).flush(CLOSED);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      // Das Banner des Vormonats bleibt stehen, und es erscheint kein Betrag daneben.
+      expect(fixture.nativeElement.querySelector('.closed-banner')).not.toBeNull();
+      expect(fixture.debugElement.query(By.css('app-amount'))).toBeNull();
+    });
+
+    // Dieselbe Ursache, eigene Fixstelle: Der Prüflisten-Request läuft seit der Drei-Monats-
+    // Übersicht auch für einen vergangenen Monat (der Hinweis gilt dem gewählten Monat), also
+    // gibt es hier zwei Antworten, die sich überschreiben könnten. Die alte wird gecancelt,
+    // damit nicht der Zähler des laufenden Monats über der Anzeige des vorherigen steht.
+    it('discards a stale uncertainty count when stepping into a past month', async () => {
+      expectSafeToSpendRequest(httpMock).flush(NORMAL);
+      const stale = expectUncertainRequest();
+      fixture.detectChanges();
+
+      arrows()[0].click();
+      fixture.detectChanges();
+
+      expect(stale.cancelled).toBe(true);
+      expectSafeToSpendRequest(httpMock).flush(CLOSED);
+      // Die späte Antwort des laufenden Monats trägt drei unsichere Buchungen. Sie darf den
+      // Hinweis des jetzt angezeigten Vormonats nicht setzen — der Request ist gecancelt, sein
+      // `flush` läuft ins Leere.
+      expect(() =>
+        stale.flush([uncertainTransaction(1), uncertainTransaction(2), uncertainTransaction(3)]),
+      ).toThrow();
+      // Der neue Request gilt dem Vormonat und ist noch offen; ohne Antwort steht kein Hinweis.
+      const fresh = expectUncertainRequest();
+      expect(fresh.request.params.get('month')).toBe(PREVIOUS_MONTH);
+      fresh.flush([]);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(fixture.nativeElement.querySelector('.uncertain-banner')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.closed-banner')).not.toBeNull();
+    });
+
+    it('claims nothing about missing data when the month list cannot be loaded', async () => {
+      const months = await recreate();
+      months.error(new ProgressEvent('error'));
+
+      const req = expectSafeToSpendRequest(httpMock);
+      expect(req.request.params.get('month')).toBe(CURRENT_MONTH);
+      req.flush(NORMAL);
+      expectUncertainRequest().flush([]);
+      fixture.detectChanges();
+
+      // Kein Hinweis: Die Seite weiss nicht, ob es Daten gibt — und behauptet deshalb nichts.
+      expect(fixture.nativeElement.querySelector('.status.empty')).toBeNull();
+      expect(fixture.nativeElement.textContent as string).toContain('500.00');
+    });
+  });
+
+  describe('Drei-Monats-Übersicht (FE-STS-04, US-12)', () => {
+    /** Bringt die Seite in den Normalzustand und beantwortet die Übersicht mit `rows`. */
+    function loadWith(rows: unknown[]) {
+      expectSafeToSpendRequest(httpMock).flush(NORMAL);
+      expectUncertainRequest().flush([]);
+      expectTotalsRequest().flush(rows);
+      fixture.detectChanges();
+    }
+
+    /** Die Datenzeilen der Übersicht. */
+    function rows(): HTMLTableRowElement[] {
+      return Array.from(fixture.nativeElement.querySelectorAll('.totals tbody tr'));
+    }
+
+    /** Die vier Zellen einer Zeile: Monat, Einnahmen, Ausgaben, Differenz. */
+    function cells(row: HTMLTableRowElement): HTMLElement[] {
+      return Array.from(row.querySelectorAll('th, td'));
+    }
+
+    it('requests the window ending at the displayed month', () => {
+      expectSafeToSpendRequest(httpMock).flush(NORMAL);
+      expectUncertainRequest().flush([]);
+
+      const req = expectTotalsRequest();
+      // Der gewählte Monat ist der jüngste des Fensters; die drei Monate enden bei ihm und
+      // wandern beim Blättern mit — nicht fix «die letzten drei ab heute».
+      expect(req.request.params.get('month')).toBe(CURRENT_MONTH);
+      expect(req.request.params.get('months')).toBe('3');
+      req.flush([]);
+    });
+
+    it('moves the window along when the month changes', () => {
+      expectSafeToSpendRequest(httpMock).flush(NORMAL);
+      expectUncertainRequest().flush([]);
+      expectTotalsRequest().flush(totalsWindow(CURRENT_MONTH, PREVIOUS_MONTH, OLDER_MONTH));
+      fixture.detectChanges();
+
+      const back: HTMLButtonElement[] = Array.from(
+        fixture.nativeElement.querySelectorAll('.month-nav__btn'),
+      );
+      back[0].click();
+      fixture.detectChanges();
+
+      expectSafeToSpendRequest(httpMock).flush(CLOSED);
+      expect(expectTotalsRequest().request.params.get('month')).toBe(PREVIOUS_MONTH);
+    });
+
+    it('renders one row per month, newest first, as delivered', () => {
+      loadWith(totalsWindow(CURRENT_MONTH, PREVIOUS_MONTH, OLDER_MONTH));
+
+      expect(rows()).toHaveLength(3);
+      // Reihenfolge unverändert vom Backend — hier wird nicht sortiert.
+      expect(cells(rows()[0])[0].textContent).toContain(formatMonth(CURRENT_MONTH));
+      expect(cells(rows()[1])[0].textContent).toContain(formatMonth(PREVIOUS_MONTH));
+      expect(cells(rows()[2])[0].textContent).toContain(formatMonth(OLDER_MONTH));
+    });
+
+    it('shows income and expenses through app-amount, without a "+"', () => {
+      loadWith(totalsWindow(CURRENT_MONTH, PREVIOUS_MONTH, OLDER_MONTH));
+
+      const first = fixture.debugElement
+        .queryAll(By.css('.totals tbody tr'))[0]
+        .queryAll(By.css('app-amount'));
+      // Einnahmen und Ausgaben sind Beträge, keine Veränderungen — ein «+» wäre Rauschen.
+      expect(first[0].componentInstance.value()).toBe(5000);
+      expect(first[0].componentInstance.hidePositiveSign()).toBe(true);
+      expect(first[1].componentInstance.value()).toBe(100);
+      expect(first[1].componentInstance.hidePositiveSign()).toBe(true);
+      // Kein eigenes Format, keine Zahl aus dem Template: die Beträge gehen durch app-amount.
+      expect(fixture.nativeElement.querySelector('.totals').textContent).toContain("5'000.00");
+    });
+
+    it('marks a negative difference by sign and colour, not by colour alone', () => {
+      loadWith(totalsWindow(CURRENT_MONTH, PREVIOUS_MONTH, OLDER_MONTH));
+
+      const difference = fixture.debugElement
+        .queryAll(By.css('.totals tbody tr'))[1]
+        .queryAll(By.css('app-amount'))[2];
+
+      expect(difference.componentInstance.value()).toBe(-450.5);
+      // Ohne hidePositiveSign: das Vorzeichen steht sichtbar da …
+      expect(difference.componentInstance.hidePositiveSign()).toBe(false);
+      expect(difference.componentInstance.sign()).toBe('−');
+      // … die Farbe kommt zusätzlich, und das aria-label nennt die Richtung ebenfalls.
+      expect(difference.nativeElement.classList).toContain('amount--negative');
+      expect(difference.nativeElement.getAttribute('aria-label')).toContain('minus');
+    });
+
+    it('shows a positive difference with a "+"', () => {
+      loadWith(totalsWindow(CURRENT_MONTH, PREVIOUS_MONTH, OLDER_MONTH));
+
+      const difference = fixture.debugElement
+        .queryAll(By.css('.totals tbody tr'))[0]
+        .queryAll(By.css('app-amount'))[2];
+
+      expect(difference.componentInstance.value()).toBe(4900);
+      expect(difference.componentInstance.sign()).toBe('+');
+    });
+
+    it('shows a dash instead of 0.00 for a month without any bookings', () => {
+      loadWith(totalsWindow(CURRENT_MONTH, PREVIOUS_MONTH, OLDER_MONTH));
+
+      const empty = rows()[2];
+      // Eine Null behauptete erfasste Nullbeträge. Genau dafür kann das Backend null liefern.
+      expect(cells(empty)[1].textContent).toContain('–');
+      expect(cells(empty)[1].textContent).not.toContain('0.00');
+      expect(cells(empty)[2].textContent).toContain('–');
+      expect(cells(empty)[3].textContent).toContain('–');
+      // Kein app-amount in dieser Zeile — dessen `value` ist `number`, nicht `number | null`.
+      expect(
+        fixture.debugElement.queryAll(By.css('.totals tbody tr'))[2].queryAll(By.css('app-amount')),
+      ).toHaveLength(0);
+      // Und für Screenreader steht es nicht nur als Strich da.
+      expect(cells(empty)[1].querySelector('.visually-hidden')?.textContent).toBe('Keine Daten');
+    });
+
+    it('keeps zero expenses as 0.00 when the month does have bookings', () => {
+      // Die Gegenprobe zum Strich: hier GIBT es Buchungen, die Summe der Belastungen ist wirklich
+      // null — das ist von «keine Daten» unterscheidbar und muss es bleiben.
+      loadWith([{ month: CURRENT_MONTH, income: 5000, expenses: 0, difference: 5000 }]);
+
+      const cell = cells(rows()[0])[2];
+      expect(cell.textContent).toContain('0.00');
+      expect(cell.textContent).not.toContain('–');
+    });
+
+    it('highlights the selected month', () => {
+      loadWith(totalsWindow(CURRENT_MONTH, PREVIOUS_MONTH, OLDER_MONTH));
+
+      expect(rows()[0].classList).toContain('totals__row--selected');
+      expect(rows()[1].classList).not.toContain('totals__row--selected');
+      // Die Hervorhebung ist nicht rein visuell — Farbe allein sagt einem Screenreader nichts.
+      expect(cells(rows()[0])[0].querySelector('.visually-hidden')?.textContent).toContain(
+        'gewählter Monat',
+      );
+    });
+
+    it('keeps the safe-to-spend block loaded and usable when the overview fails', () => {
+      expectSafeToSpendRequest(httpMock).flush(NORMAL);
+      expectUncertainRequest().flush([]);
+      expectTotalsRequest().error(new ProgressEvent('error'));
+      fixture.detectChanges();
+
+      // Ausdrücklicher AC: die Übersicht reisst nicht die ganze Seite in den Fehlerzustand.
+      expect(fixture.nativeElement.querySelector('.safe-to-spend-card')).not.toBeNull();
+      expect(fixture.nativeElement.textContent as string).toContain('500.00');
+      // Der Monatswechsel bleibt bedienbar — er ist der Weg aus dem Fehler heraus.
+      expect(fixture.nativeElement.querySelectorAll('.month-nav__btn')).toHaveLength(2);
+      // Die Übersicht trägt ihre eigene Meldung, statt einfach leer zu bleiben: leer wäre von
+      // «keine Daten» nicht zu unterscheiden.
+      expect(fixture.nativeElement.querySelector('.totals-card').textContent).toContain(
+        'Die Monatsübersicht konnte nicht geladen werden.',
+      );
+      expect(fixture.nativeElement.querySelector('.totals')).toBeNull();
+    });
+
+    it('keeps the overview when the safe-to-spend request fails', () => {
+      // Die Gegenrichtung: die beiden Blöcke laden unabhängig, und die Übersicht trägt eine
+      // Aussage, die ohne die Kernzahl weiterhin gilt.
+      expectSafeToSpendRequest(httpMock).error(new ProgressEvent('error'));
+      expectUncertainRequest().flush([]);
+      expectTotalsRequest().flush(totalsWindow(CURRENT_MONTH, PREVIOUS_MONTH, OLDER_MONTH));
+      fixture.detectChanges();
+
+      expect(rows()).toHaveLength(3);
+      expect(fixture.nativeElement.querySelector('.safe-to-spend-card')).toBeNull();
+    });
+
+    it('renders the table inside its own horizontal scroll container', () => {
+      // FE-CAT-06: auf schmalen Schirmen scrollt die Tabelle in der Card, statt die Seite
+      // seitlich rauslaufen zu lassen.
+      loadWith(totalsWindow(CURRENT_MONTH, PREVIOUS_MONTH, OLDER_MONTH));
+
+      const scroll = fixture.nativeElement.querySelector('.totals-card .table-scroll');
+      expect(scroll).not.toBeNull();
+      expect(scroll.querySelector('table.totals')).not.toBeNull();
+    });
+
+    it('discards a stale overview response when the month changed meanwhile', () => {
+      expectSafeToSpendRequest(httpMock).flush(NORMAL);
+      expectUncertainRequest().flush([]);
+      const stale = expectTotalsRequest();
+      fixture.detectChanges();
+
+      const back: HTMLButtonElement[] = Array.from(
+        fixture.nativeElement.querySelectorAll('.month-nav__btn'),
+      );
+      back[0].click();
+      fixture.detectChanges();
+
+      // Sonst stünde das Fenster des laufenden Monats unter der Navigation des vorherigen.
+      expect(stale.cancelled).toBe(true);
+      expectSafeToSpendRequest(httpMock).flush(CLOSED);
+      expectTotalsRequest().flush(totalsWindow(PREVIOUS_MONTH, OLDER_MONTH, relativeMonth(-3)));
+      fixture.detectChanges();
+
+      expect(cells(rows()[0])[0].textContent).toContain(formatMonth(PREVIOUS_MONTH));
+    });
   });
 });

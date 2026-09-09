@@ -1,6 +1,22 @@
 <section class="dashboard">
   <h1>Dashboard</h1>
 
+  <!--
+    Monatswechsel (FE-STS-04, US-12). Steht über der Lade-/Fehler-Kette, nicht darin: Er ist der
+    Weg *aus* einem leeren oder fehlgeschlagenen Monat heraus und darf nicht mit dessen Inhalt
+    verschwinden. Dieselbe Anordnung wie in der Kategorie-Übersicht.
+  -->
+  <app-month-nav
+    class="month-selector"
+    [label]="monthLabel()"
+    [disableNext]="isCurrentMonth()"
+    [months]="monthOptions()"
+    [selected]="month()"
+    (prev)="previousMonth()"
+    (next)="nextMonth()"
+    (select)="selectMonth($event)"
+  />
+
   @if (loading()) {
     <p class="status">Lädt …</p>
   } @else if (errorMessage()) {
@@ -29,69 +45,192 @@
       </app-notice>
     }
 
-    <app-card class="safe-to-spend-card" title="Safe-to-Spend">
-      <div class="safe-to-spend">
-        @if (d.amount !== null) {
-          <app-amount
-            class="safe-to-spend__amount"
-            [value]="d.amount"
-            [showCurrency]="true"
-            [hidePositiveSign]="true"
-          />
-        } @else {
-          <span class="safe-to-spend__amount safe-to-spend__amount--placeholder">
-            <span class="safe-to-spend__amount-currency">CHF</span>
-            <span aria-hidden="true">—</span>
-            <span class="visually-hidden">Kein Betrag verfügbar</span>
-          </span>
-        }
-        <p class="safe-to-spend__week-label">{{ weekLabel() }}</p>
-        @if (lastWeek()) {
-          <p class="safe-to-spend__last-week">Letzte Woche des Monats</p>
-        }
+    <!--
+      Keine-Daten-Hinweis (US-12), im Wortlaut von FE-CAT-08 — dieselbe Frage bekommt auf beiden
+      Seiten dieselbe Antwort.
 
-        <!--
-          No-Income-Zustand (FE-STS-03) — Aufbau nach der Design-Baseline
-          `design/variant-a/index.html` (Abschnitt `hero hero--muted`): der Zustand steht
-          *in* der Safe-to-Spend-Card, der Hinweis als app-notice, der Button darunter
-          *ausserhalb* des Notice. Der Button gehört nicht in die Live-Region — sonst
-          liest der Screenreader bei jeder Änderung des Hinweises auch die
-          Button-Beschriftung mit vor.
+      Im laufenden Monat steht er ÜBER der Karte und ersetzt sie nicht: Der Betrag ist ohne
+      Buchungen weiterhin gültig, er ergibt sich aus Einkommen minus Fixkosten. Ihn zu verbergen,
+      weil noch nichts ausgegeben wurde, nähme dem Nutzer genau die Zahl, für die er die App
+      geöffnet hat.
 
-          Das Notice hängt bewusst NICHT am Vorschlag: der AC verlangt das Banner, sobald
-          `noIncome` gilt. Hing es am Vorschlag, blieb im häufigsten Fall — kein erkanntes
-          Gutschriftsmuster — nur stiller Fliesstext übrig und der Hinweis war praktisch
-          unsichtbar.
+      Im vergangenen Monat tritt er dagegen an die Stelle des «Abgeschlossen»-Banners — siehe
+      `Dashboard.closed`.
+    -->
+    @if (noData()) {
+      <p class="status empty">
+        Keine Daten für {{ monthLabel() }} — <a routerLink="/import">PDF hochladen?</a>
+      </p>
+    }
 
-          Icon und Titel liefert app-notice seit FE-UI-07 selbst; hier steht nur noch der
-          erläuternde Satz.
-        -->
-        @if (d.noIncome) {
-          <div class="no-income">
-            <app-notice variant="warning" class="no-income__notice" title="Kein Einkommen erfasst">
-              Bitte erfasse dein Monatseinkommen in den Einstellungen
-            </app-notice>
+    @if (closed()) {
+      <app-notice variant="info" class="closed-banner" title="Abgeschlossen">
+        Für vergangene Monate wird kein Safe-to-Spend berechnet — der Monat ist bereits vorbei.
+      </app-notice>
+    } @else if (d.status === 'OPEN') {
+      <app-card class="safe-to-spend-card" title="Safe-to-Spend" [meta]="monthLabel()">
+        <div class="safe-to-spend">
+          @if (d.amount !== null) {
+            <app-amount
+              class="safe-to-spend__amount"
+              [value]="d.amount"
+              [showCurrency]="true"
+              [hidePositiveSign]="true"
+            />
+          } @else {
+            <span class="safe-to-spend__amount safe-to-spend__amount--placeholder">
+              <span class="safe-to-spend__amount-currency">CHF</span>
+              <span aria-hidden="true">—</span>
+              <span class="visually-hidden">Kein Betrag verfügbar</span>
+            </span>
+          }
+          <p class="safe-to-spend__week-label">{{ weekLabel() }}</p>
+          @if (lastWeek()) {
+            <p class="safe-to-spend__last-week">Letzte Woche des Monats</p>
+          }
 
-            @if (suggestionText(); as suggestion) {
-              <p class="no-income__suggestion">{{ suggestion }}</p>
-              <button
-                appButton
-                block
-                type="button"
-                class="no-income__apply"
-                [disabled]="saving()"
-                (click)="applySuggestion()"
+          <!--
+            No-Income-Zustand (FE-STS-03) — Aufbau nach der Design-Baseline
+            `design/variant-a/index.html` (Abschnitt `hero hero--muted`): der Zustand steht
+            *in* der Safe-to-Spend-Card, der Hinweis als app-notice, der Button darunter
+            *ausserhalb* des Notice. Der Button gehört nicht in die Live-Region — sonst
+            liest der Screenreader bei jeder Änderung des Hinweises auch die
+            Button-Beschriftung mit vor.
+
+            Das Notice hängt bewusst NICHT am Vorschlag: der AC verlangt das Banner, sobald
+            `noIncome` gilt. Hing es am Vorschlag, blieb im häufigsten Fall — kein erkanntes
+            Gutschriftsmuster — nur stiller Fliesstext übrig und der Hinweis war praktisch
+            unsichtbar.
+
+            Icon und Titel liefert app-notice seit FE-UI-07 selbst; hier steht nur noch der
+            erläuternde Satz.
+          -->
+          @if (d.noIncome) {
+            <div class="no-income">
+              <app-notice
+                variant="warning"
+                class="no-income__notice"
+                title="Kein Einkommen erfasst"
               >
-                {{ saving() ? 'Wird übernommen …' : 'Übernehmen' }}
-              </button>
-            }
+                Bitte erfasse dein Monatseinkommen in den Einstellungen
+              </app-notice>
 
-            @if (saveErrorMessage(); as saveError) {
-              <app-notice variant="error" class="no-income__error">{{ saveError }}</app-notice>
-            }
-          </div>
-        }
-      </div>
-    </app-card>
+              @if (suggestionText(); as suggestion) {
+                <p class="no-income__suggestion">{{ suggestion }}</p>
+                <button
+                  appButton
+                  block
+                  type="button"
+                  class="no-income__apply"
+                  [disabled]="saving()"
+                  (click)="applySuggestion()"
+                >
+                  {{ saving() ? 'Wird übernommen …' : 'Übernehmen' }}
+                </button>
+              }
+
+              @if (saveErrorMessage(); as saveError) {
+                <app-notice variant="error" class="no-income__error">{{ saveError }}</app-notice>
+              }
+            </div>
+          }
+        </div>
+      </app-card>
+    }
   }
+
+  <!--
+    Drei-Monats-Übersicht (FE-STS-04, US-12).
+
+    Bewusst AUSSERHALB der Lade-/Fehler-Kette des Safe-to-Spend: die beiden Blöcke laden
+    unabhängig, und der AC verlangt ausdrücklich, dass ein Ausfall hier den Block darüber
+    geladen und bedienbar lässt. Umgekehrt gilt es genauso — ein fehlgeschlagener
+    Safe-to-Spend nimmt der Übersicht nicht die Aussage, die sie selbst tragen kann.
+
+    Sie steht UNTER dem Betrag: sie ordnet ihn ein, sie ersetzt ihn nicht. Wer nur die
+    Kernzahl braucht, soll sie zuerst sehen.
+
+    Safe-to-Spend führt die Übersicht nicht — US-12 AC2 und der SafeToSpendService halten fest,
+    dass für einen abgeschlossenen Monat bewusst nicht gerechnet wird. Ein Wochenbudget für
+    einen abgelaufenen Monat trägt keine Aussage, weil keine Woche mehr übrig ist.
+  -->
+  <app-card class="totals-card" title="Letzte drei Monate">
+    @if (totalsLoading()) {
+      <p class="status">Lädt …</p>
+    } @else if (totalsErrorMessage(); as totalsError) {
+      <app-notice variant="error">{{ totalsError }}</app-notice>
+    } @else if (totalRows().length > 0) {
+      <!--
+        Eigener Scroll-Container statt gequetschter Spalten (vgl. FE-CAT-06): auf schmalen
+        Schirmen scrollt die Tabelle innerhalb der Card, statt die Seite seitlich rauslaufen
+        zu lassen.
+      -->
+      <div class="table-scroll">
+        <table class="totals">
+          <caption class="visually-hidden">
+            Einnahmen, Ausgaben und Differenz der letzten drei Monate, neuester Monat zuerst
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Monat</th>
+              <th scope="col" class="totals__num">Einnahmen</th>
+              <th scope="col" class="totals__num">Ausgaben</th>
+              <th scope="col" class="totals__num">Differenz</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of totalRows(); track row.month) {
+              <tr [class.totals__row--selected]="row.selected">
+                <th scope="row" class="totals__month">
+                  {{ row.label }}
+                  @if (row.selected) {
+                    <!-- Die Hervorhebung ist sonst rein visuell und für Screenreader stumm. -->
+                    <span class="visually-hidden">(gewählter Monat)</span>
+                  }
+                </th>
+
+                <!--
+                  Einnahmen und Ausgaben ohne «+»: das sind Beträge, keine Veränderungen — wie
+                  beim Safe-to-Spend selbst. Die Differenz darunter trägt ihr Vorzeichen dagegen
+                  sichtbar, weil dort die Richtung die Aussage ist.
+
+                  `–` statt `0.00` für einen Monat ohne Buchungen: eine Null behauptete erfasste
+                  Nullbeträge. Genau dafür kann `income`/`expenses` im Backend `null` sein.
+                -->
+                <td class="totals__num">
+                  @if (row.income !== null) {
+                    <app-amount [value]="row.income" [hidePositiveSign]="true" />
+                  } @else {
+                    <span aria-hidden="true">–</span>
+                    <span class="visually-hidden">Keine Daten</span>
+                  }
+                </td>
+                <td class="totals__num">
+                  @if (row.expenses !== null) {
+                    <app-amount [value]="row.expenses" [hidePositiveSign]="true" />
+                  } @else {
+                    <span aria-hidden="true">–</span>
+                    <span class="visually-hidden">Keine Daten</span>
+                  }
+                </td>
+                <td class="totals__num">
+                  @if (row.difference !== null) {
+                    <!--
+                      Ohne `hidePositiveSign`: `+` bei Überschuss, `−` bei Defizit. Das Vorzeichen
+                      steht sichtbar UND im aria-label (app-amount), die Farbe kommt zusätzlich —
+                      bei Rot-Grün-Schwäche bleibt die Aussage damit erhalten.
+                    -->
+                    <app-amount [value]="row.difference" />
+                  } @else {
+                    <span aria-hidden="true">–</span>
+                    <span class="visually-hidden">Keine Daten</span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </app-card>
 </section>

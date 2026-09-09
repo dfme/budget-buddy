@@ -11,12 +11,7 @@ import { Card } from '../shared/card/card';
 import { CATEGORIES } from '../shared/category';
 import { DonutChart, DonutSlice } from '../shared/chart/donut-chart';
 import { Input } from '../shared/input/input';
-import {
-  currentMonth,
-  formatMonth,
-  isValidMonth,
-  shiftMonth,
-} from '../shared/month';
+import { currentMonth, formatMonth, isValidMonth, shiftMonth } from '../shared/month';
 import { MonthNav, MonthOption } from '../shared/month-nav/month-nav';
 import { Notice } from '../shared/notice/notice';
 import { CategorySummary } from './category-summary.model';
@@ -766,5 +761,4 @@ export class CategoryOverview {
         },
       });
   }
-
 }
