@@ -46,9 +46,7 @@ export class NotificationService {
   markAsRead(id: number): Observable<NotificationResponse> {
     return this.http.post<NotificationResponse>(`/api/notifications/${id}/read`, {}).pipe(
       tap((updated) => {
-        this.notificationsState.update((list) =>
-          list.map((n) => (n.id === id ? updated : n)),
-        );
+        this.notificationsState.update((list) => list.map((n) => (n.id === id ? updated : n)));
       }),
     );
   }

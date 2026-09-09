@@ -114,10 +114,9 @@ describe('NotificationBell', () => {
 
     expect(bellButton().getAttribute('aria-expanded')).toBe('true');
     const items = Array.from(el().querySelectorAll<HTMLElement>('.bell-list__item'));
-    expect(items.map((item) => item.querySelector('.bell-list__message')?.textContent?.trim())).toEqual([
-      UNREAD.message,
-      READ.message,
-    ]);
+    expect(
+      items.map((item) => item.querySelector('.bell-list__message')?.textContent?.trim()),
+    ).toEqual([UNREAD.message, READ.message]);
     expect(items[0].classList.contains('bell-list__item--unread')).toBe(true);
     expect(items[1].classList.contains('bell-list__item--unread')).toBe(false);
   });
