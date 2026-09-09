@@ -18,8 +18,11 @@ z.B. E-Mails    Upload        Vektor-DB      unbegrenzt     Embedding-Modell
 
 # Datenkarte BudgetBuddy
 
-Quelle für jede Zeile: das Inventar aus [08_01_prompt_datenarten_inventar.md](08_01_prompt_datenarten_inventar.md),
-dort mit Datei- und Zeilenbeleg. Diese Karte ist die verdichtete Sicht darauf.
+Quelle für jede Zeile: das Inventar aus
+[08_01_prompt_lab1_l1_datenarten_inventar.md](08_01_prompt_lab1_l1_datenarten_inventar.md),
+dort mit Datei- und Zeilenbeleg. Diese Karte ist die verdichtete Sicht darauf — plus die
+Ewigkeits-Markierung (Deliverable 2), deren Herleitung im Abschnitt
+[Ewigkeits-Check](#ewigkeits-check--die-vier-prüf-fragen) steht.
 
 **Legende der Spalte «Extern?»**
 
@@ -30,6 +33,18 @@ dort mit Datei- und Zeilenbeleg. Diese Karte ist die verdichtete Sicht darauf.
 | `← Anthropic` | kommt von dort zurück und wird gespeichert |
 | `???` | im Code **nicht** festgelegt — offene Frage, siehe unten |
 
+**Legende der Spalte «Ewigkeit»** (Deliverable 2, Definitionen aus dem Lab)
+
+| Marke | Bedeutung |
+| ----- | --------- |
+| 🟢 **LÖSCHBAR** | Liegt in DB, Datei oder Log. Kann gelöscht werden, eine Frist wäre setzbar. Recht auf Vergessen funktioniert. |
+| 🟠 **EXTERN** | Geht an eine fremde API. Wir verlieren die Kontrolle — aber es ist (noch) kein Training. |
+| 🔴 **EWIG** | Fliesst in Training, Fine-Tuning oder dauerhaften Modell-Kontext. Punkt ohne Rückkehr, nicht mehr entfernbar. |
+| 🟢\* | Löschbar, aber **nicht zuordenbar** — die Zeile lässt sich nicht mehr einer Person zuweisen. Genau einmal vergeben. |
+
+Zwei Marken in einer Zelle heissen: die Datenart liegt bei uns **und** eine (maskierte) Fassung
+geht hinaus.
+
 **Ein Wort zu «bis Kontolöschung»:** Das ist keine Frist, sondern eine Bedingung. Solange niemand
 sein Konto löscht, ist die Aufbewahrung faktisch unbegrenzt. Die Karte sagt das bewusst so, statt
 es als geregelte Retention zu verkleiden.
@@ -39,30 +54,30 @@ es als geregelte Retention zu verkleiden.
 ## Verdichtete Fassung (Kurs-Kanal / Whiteboard)
 
 ```
-Datenart                     Quelle           Speicher            Aufbewahrung      Extern?
-──────────────────────────────────────────────────────────────────────────────────────────────────
-Kontodaten                   Registrierung    DB users            bis Kontoloesch.  —
+Datenart                     Quelle           Speicher            Aufbewahrung      Extern?       Ewigkeit
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+Kontodaten                   Registrierung    DB users            bis Kontoloesch.  —             LOESCHBAR
   (E-Mail, Name, Einkommen, Passwort-Hash)
-Session-Token (JWT)          Login            Browser-Cookie      24 h              —
-PDF-Datei                    Upload <=10 MB   RAM, nie auf Disk   Request-Dauer     —
-Transaktionen                PDF-Parse        DB transactions     bis Kontoloesch.  —
+Session-Token (JWT)          Login            Browser-Cookie      24 h              —             LOESCHBAR
+PDF-Datei                    Upload <=10 MB   RAM, nie auf Disk   Request-Dauer     —             LOESCHBAR
+Transaktionen                PDF-Parse        DB transactions     bis Kontoloesch.  —             LOESCHBAR
   (Datum, Betrag, Richtung, Kategorie)
-Buchungstext + Details       PDF-Parse        DB transactions     bis Kontoloesch.  → Anthropic
-  (Gegenpartei, Zweck)                        UNMASKIERT                              (maskiert)
-Prompt an das Modell         obige Zeile      nirgends (RAM)      Call-Dauer 10 s   → Anthropic
-  (maskiert: IBAN/Karte/Betrag/Name raus)                                             haiku-4-5
-Modellantwort (Kategorie)    Anthropic        DB transactions     bis Kontoloesch.  ← Anthropic
-Gelerntes Haendler-Pattern   man. Korrektur   DB category_lookup  UNBEGRENZT (!)    —
-  (roher Buchungstext, GLOBAL ohne user_id)                       ueberlebt Loesch.
-Fixkosten                    manuell          DB fixed_costs      bis Kontoloesch.  —
-Safe-to-Spend                berechnet        nirgends            —                 —
-Benachrichtigungen           System           DB notifications    bis Kontoloesch.  —
-Logs (req-id, user-id)       jeder Request    Render-Logs         ???               —
-Logs (Transaktionstext)      Fehlerpfade      Render-Logs         ???               —
+Buchungstext + Details       PDF-Parse        DB transactions     bis Kontoloesch.  → Anthropic   LOESCHBAR
+  (Gegenpartei, Zweck)                        UNMASKIERT                            (maskiert)    + EXTERN
+Prompt an das Modell         obige Zeile      nirgends (RAM)      Call-Dauer 10 s   → Anthropic   EXTERN
+  (maskiert: IBAN/Karte/Betrag/Name raus)                                           haiku-4-5
+Modellantwort (Kategorie)    Anthropic        DB transactions     bis Kontoloesch.  ← Anthropic   LOESCHBAR
+Gelerntes Haendler-Pattern   man. Korrektur   DB category_lookup  UNBEGRENZT (!)    —             LOESCHBAR*
+  (roher Buchungstext, GLOBAL ohne user_id)                       ueberlebt Loesch.               nicht zuordenbar
+Fixkosten                    manuell          DB fixed_costs      bis Kontoloesch.  —             LOESCHBAR
+Safe-to-Spend                berechnet        nirgends            —                 —             LOESCHBAR
+Benachrichtigungen           System           DB notifications    bis Kontoloesch.  —             LOESCHBAR
+Logs (req-id, user-id)       jeder Request    Render-Logs         ???               —             LOESCHBAR
+Logs (Transaktionstext)      Fehlerpfade      Render-Logs         ???               —             LOESCHBAR
   (redigiert: <len=34 sha256=ab12cd34>, gesalzen)
-Theme-Wahl                   Einstellungen    localStorage        bis Storage leer  —
-Bank-PDF-Fixtures            Repo             Git                 unbegrenzt        CI-Runner
-  (anonymisiert / generiert)
+Theme-Wahl                   Einstellungen    localStorage        bis Storage leer  —             LOESCHBAR
+Bank-PDF-Fixtures            Repo             Git                 unbegrenzt        CI-Runner     EWIG?
+  (anonymisiert / generiert)                                                                      Consumer Terms
 ```
 
 ---
@@ -71,70 +86,95 @@ Bank-PDF-Fixtures            Repo             Git                 unbegrenzt    
 
 ### Konto
 
-| Datenart | Quelle | Speicher | Aufbewahrung | Extern? |
-|---|---|---|---|---|
-| E-Mail | Registrierung | DB `users.email` | bis Kontolöschung | — |
-| Passwort | Registrierung | DB `users.password_hash` (BCrypt) | bis Kontolöschung | — |
-| Vor-/Nachname | Registrierung (optional) | DB `users.first_name/last_name` | bis Kontolöschung | — |
-| Monatseinkommen | Onboarding oder Vorschlag aus den eigenen Transaktionen | DB `users.monthly_income` | bis Kontolöschung | — |
-| Onboarding-Status, Token-Version | System | DB `users` | bis Kontolöschung | — |
+| Datenart | Quelle | Speicher | Aufbewahrung | Extern? | Ewigkeit |
+|---|---|---|---|---|---|
+| E-Mail | Registrierung | DB `users.email` | bis Kontolöschung | — | 🟢 |
+| Passwort | Registrierung | DB `users.password_hash` (BCrypt) | bis Kontolöschung | — | 🟢 |
+| Vor-/Nachname | Registrierung (optional) | DB `users.first_name/last_name` | bis Kontolöschung | — | 🟢 |
+| Monatseinkommen | Onboarding oder Vorschlag aus den eigenen Transaktionen | DB `users.monthly_income` | bis Kontolöschung | — | 🟢 |
+| Onboarding-Status, Token-Version | System | DB `users` | bis Kontolöschung | — | 🟢 |
 
 ### Session
 
-| Datenart | Quelle | Speicher | Aufbewahrung | Extern? |
-|---|---|---|---|---|
-| JWT (User-ID + `tokenVersion`) | Login | Browser, `httpOnly`-Cookie — serverseitig **keine** Session | 24 h; früher bei Passwortänderung | — |
-| JWT-Secret | Umgebungsvariable | nur Render-Umgebung | — | — |
+| Datenart | Quelle | Speicher | Aufbewahrung | Extern? | Ewigkeit |
+|---|---|---|---|---|---|
+| JWT (User-ID + `tokenVersion`) | Login | Browser, `httpOnly`-Cookie — serverseitig **keine** Session | 24 h; früher bei Passwortänderung | — | 🟢 |
+| JWT-Secret | Umgebungsvariable | nur Render-Umgebung | — | — | 🟢 |
 
 ### PDF-Import
 
-| Datenart | Quelle | Speicher | Aufbewahrung | Extern? |
-|---|---|---|---|---|
-| PDF-Datei (ganzer Auszug: Adresse, IBAN, Saldi) | Upload, max. 10 MB | **RAM** — weder DB noch Disk | Dauer des Requests bzw. Jobs | — |
-| SHA-256 des PDF | berechnet beim Upload | DB `transactions.pdf_sha256`, `import_jobs.pdf_sha256` | bis Kontolöschung | — |
-| Buchungsdatum | PDF-Parse | DB `transactions` | bis Kontolöschung | — |
-| **Buchungstext** | PDF-Parse | DB `transactions.buchungstext`, **unmaskiert** | bis Kontolöschung | **→ Anthropic** (maskiert) |
-| **Buchungsdetails** (Gegenpartei + Zweck, max. 3×40 Zeichen) | PDF-Parse | DB `transactions.buchungsdetails`, **unmaskiert** | bis Kontolöschung | **→ Anthropic** (maskiert) |
-| Betrag | PDF-Parse | DB `transactions.betrag` `DECIMAL(10,2)` | bis Kontolöschung | — |
-| Richtung + Unsicherheitsflag | aus dem Saldo abgeleitet | DB `transactions` | bis Kontolöschung | — |
-| Import-Job-Metadaten (Status, Fortschritt) | System | DB `import_jobs` | bis Kontolöschung | — |
+| Datenart | Quelle | Speicher | Aufbewahrung | Extern? | Ewigkeit |
+|---|---|---|---|---|---|
+| PDF-Datei (ganzer Auszug: Adresse, IBAN, Saldi) | Upload, max. 10 MB | **RAM** — weder DB noch Disk | Dauer des Requests bzw. Jobs | — | 🟢 |
+| SHA-256 des PDF | berechnet beim Upload | DB `transactions.pdf_sha256`, `import_jobs.pdf_sha256` | bis Kontolöschung | — | 🟢 |
+| Buchungsdatum | PDF-Parse | DB `transactions` | bis Kontolöschung | — | 🟢 |
+| **Buchungstext** | PDF-Parse | DB `transactions.buchungstext`, **unmaskiert** | bis Kontolöschung | **→ Anthropic** (maskiert) | 🟢 🟠 |
+| **Buchungsdetails** (Gegenpartei + Zweck, max. 3×40 Zeichen) | PDF-Parse | DB `transactions.buchungsdetails`, **unmaskiert** | bis Kontolöschung | **→ Anthropic** (maskiert) | 🟢 🟠 |
+| Betrag | PDF-Parse | DB `transactions.betrag` `DECIMAL(10,2)` | bis Kontolöschung | — | 🟢 |
+| Richtung + Unsicherheitsflag | aus dem Saldo abgeleitet | DB `transactions` | bis Kontolöschung | — | 🟢 |
+| Import-Job-Metadaten (Status, Fortschritt) | System | DB `import_jobs` | bis Kontolöschung | — | 🟢 |
 
 ### Kategorisierung
 
-| Datenart | Quelle | Speicher | Aufbewahrung | Extern? |
-|---|---|---|---|---|
-| **Prompt** = maskierter Transaktionstext | Buchungstext + Details, durch `PromptSanitizer` | **nirgends** — nur im Request-Body | Dauer des Calls (Timeout 10 s) | **→ Anthropic**, `claude-haiku-4-5` |
-| Modellantwort (Kategorie) | Anthropic | DB `transactions.category` | bis Kontolöschung | ← Anthropic |
-| **Gelerntes Händler-Pattern** = roher Buchungstext | manuelle Kategorie-Korrektur | DB `category_lookup` — **global, ohne `user_id`** | **unbegrenzt, überlebt die Kontolöschung** | — |
-| Token-/Kostenzeile | Anthropic-Response | Render-Logs | **???** | — |
-| API-Key | Umgebungsvariable | nur Render-Umgebung | — | als Header an Anthropic |
-| Startup-Healthcheck `GET /v1/models` | System, einmalig beim Start | — | — | → Anthropic (**ohne** Nutzerdaten) |
+| Datenart | Quelle | Speicher | Aufbewahrung | Extern? | Ewigkeit |
+|---|---|---|---|---|---|
+| **Prompt** = maskierter Transaktionstext | Buchungstext + Details, durch `PromptSanitizer` | **nirgends** — nur im Request-Body | Dauer des Calls (Timeout 10 s) | **→ Anthropic**, `claude-haiku-4-5` | 🟠 |
+| Modellantwort (Kategorie) | Anthropic | DB `transactions.category` | bis Kontolöschung | ← Anthropic | 🟢 |
+| **Gelerntes Händler-Pattern** = roher Buchungstext | manuelle Kategorie-Korrektur | DB `category_lookup` — **global, ohne `user_id`** | **unbegrenzt, überlebt die Kontolöschung** | — | 🟢\* |
+| Token-/Kostenzeile | Anthropic-Response | Render-Logs | **???** | — | 🟢 |
+| API-Key | Umgebungsvariable | nur Render-Umgebung | — | als Header an Anthropic | 🟠 |
+| Startup-Healthcheck `GET /v1/models` | System, einmalig beim Start | — | — | → Anthropic (**ohne** Nutzerdaten) | 🟠 |
 
 ### Budget und Benachrichtigungen
 
-| Datenart | Quelle | Speicher | Aufbewahrung | Extern? |
-|---|---|---|---|---|
-| Fixkosten (Bezeichnung, Betrag, Intervall) | manuelle Eingabe | DB `fixed_costs` | bis Kontolöschung | — |
-| Safe-to-Spend-Betrag | berechnet aus Einkommen + Transaktionen + Fixkosten | **nirgends** — je Request neu | — | — |
-| Benachrichtigung (Typ, Text, gelesen) | System | DB `notifications` | bis Kontolöschung | — |
+| Datenart | Quelle | Speicher | Aufbewahrung | Extern? | Ewigkeit |
+|---|---|---|---|---|---|
+| Fixkosten (Bezeichnung, Betrag, Intervall) | manuelle Eingabe | DB `fixed_costs` | bis Kontolöschung | — | 🟢 |
+| Safe-to-Spend-Betrag | berechnet aus Einkommen + Transaktionen + Fixkosten | **nirgends** — je Request neu | — | — | 🟢 |
+| Benachrichtigung (Typ, Text, gelesen) | System | DB `notifications` | bis Kontolöschung | — | 🟢 |
 
 ### Logs und Betrieb
 
-| Datenart | Quelle | Speicher | Aufbewahrung | Extern? |
-|---|---|---|---|---|
-| Request-ID + User-ID an jeder Zeile | MDC, jeder Request | Render-Logs | **???** | — |
-| Redigierter Transaktionstext `<len=34 sha256=ab12cd34>` | Fehlerpfade der Kategorisierung | Render-Logs | **???** | — |
-| Import-Kennzahlen (Anzahl, Parse-Dauer) | `PdfImportService` | Render-Logs | **???** | — |
-| Deployter Commit-SHA | Render-Umgebung | `/actuator/info` | — | — |
+| Datenart | Quelle | Speicher | Aufbewahrung | Extern? | Ewigkeit |
+|---|---|---|---|---|---|
+| Request-ID + User-ID an jeder Zeile | MDC, jeder Request | Render-Logs | **???** | — | 🟢 |
+| Redigierter Transaktionstext `<len=34 sha256=ab12cd34>` | Fehlerpfade der Kategorisierung | Render-Logs | **???** | — | 🟢 |
+| Import-Kennzahlen (Anzahl, Parse-Dauer) | `PdfImportService` | Render-Logs | **???** | — | 🟢 |
+| Deployter Commit-SHA | Render-Umgebung | `/actuator/info` | — | — | 🟢 |
 
 ### Client und Repository
 
-| Datenart | Quelle | Speicher | Aufbewahrung | Extern? |
-|---|---|---|---|---|
-| Theme-Wahl (`light`/`dark`/`system`) | Einstellungen | `localStorage` im Browser | bis der Storage geleert wird | — |
-| Bank-PDF-Fixtures (7 generiert, 1 echt-anonymisiert) | Repository | Git | unbegrenzt | GitHub-Runner + Anthropic beim automatischen PR-Review — **Consumer Terms**, siehe unten |
+| Datenart | Quelle | Speicher | Aufbewahrung | Extern? | Ewigkeit |
+|---|---|---|---|---|---|
+| Theme-Wahl (`light`/`dark`/`system`) | Einstellungen | `localStorage` im Browser | bis der Storage geleert wird | — | 🟢 |
+| Bank-PDF-Fixtures (7 generiert, 1 echt-anonymisiert) | Repository | Git | unbegrenzt | GitHub-Runner + Anthropic beim automatischen PR-Review — **Consumer Terms**, siehe unten | 🔴 **potenziell** |
 
 ---
+
+## Ewigkeits-Check — die vier Prüf-Fragen
+
+| Prüf-Frage | Antwort | Beleg |
+| --- | --- | --- |
+| Fine-Tuning oder Training auf eigenen Daten? | **Nein.** Kein Trainingscode, kein eigenes Modell, kein Datensatz. | `grep -riE 'fine.?tun\|train\|embedding\|vector' backend/src/main frontend/src/app` — kein Treffer ausser `constraint` |
+| Anbieter, der auf Eingaben trainiert? **Default geprüft?** | **Nein.** Nicht-Training ist bei den Commercial Terms der Ausgangszustand, kein Opt-out nötig. Umgekehrt gäbe es ein *Opt-in* (Development Partner Mode) — nicht aktiviert. | siehe [Pfad 1](#pfad-1--backend--apianthropiccom-api-key-commercial-terms) |
+| Nutzerdaten in einem dauerhaften Vektor-Store, der Teil des Modell-Kontexts wird? | **Nein.** Keine Vektor-DB, kein Embedding-Modell, keine Konversationshistorie — jeder Request ist zustandslos und trägt nur das aktuelle 20er-Bündel. | `frontend/package.json`, `config/AnthropicConfig.java` |
+| Opt-out beim Anbieter — **ist es aktiv?** | **Hier bricht es.** Für Pfad 1 nicht nötig. Für Pfad 2 ist «Model Improvement» der einzige echte Schalter im ganzen Bild — und er liegt in einem persönlichen Konto, nicht in diesem Repo. | `gh secret list` führt **nur** `CLAUDE_CODE_OAUTH_TOKEN`; ein `ANTHROPIC_API_KEY` existiert als Repo-Secret gar nicht |
+
+**Ergebnis: kein 🔴 EWIG bei den Nutzerdaten.** Der einzige Pfad, der die Definition überhaupt
+erfüllen kann, ist nicht das Produkt, sondern das Werkzeug: das automatische PR-Review unter
+Consumer Terms. Hinein fliessen Diff, Quellcode und die Bank-Fixtures — **keine Produktivdaten**.
+Deshalb steht dort `EWIG?` mit Fragezeichen: ob es tatsächlich eintritt, hängt an einer
+Kontoeinstellung, die von hier aus nicht auditierbar ist. Grenze dagegen: den Workflow auf einen
+`ANTHROPIC_API_KEY` einer Commercial Organization umstellen — der Zweig steht bereits im YAML
+([L3 → F13](08_01_prompt_lab1_l3_minimieren_trennen.md)).
+
+### Warum `category_lookup` 🟢 ist und nicht 🔴
+
+Die Zeile war unser erster Kandidat für die 🔴-Markierung — falsch. Sie liegt in einer
+Postgres-Tabelle: `TRUNCATE` genügt, eine Frist wäre setzbar, kein Gewicht hat sie je gesehen.
+Nach der Definition des Labs ist das **LÖSCHBAR**. Ihr Problem sitzt auf einer anderen Achse:
+ohne `user_id` findet **keine Abfrage «seine» Zeilen** — löschbar in der Theorie, nicht
+zuordenbar in der Praxis. Daher 🟢\*, die einzige Zelle mit Sternchen auf der ganzen Karte.
 
 ## Die drei Zeilen, die auffallen
 
