@@ -194,4 +194,38 @@ describe('NotificationBell', () => {
 
     expect(query('.bell__badge')?.textContent?.trim()).toBe('1');
   });
+
+  // Regressionsschutz für die error-Handler aus 506b096 (Review-Befund @dfme, PR #285). Per
+  // Mutationsprobe verifiziert: ohne den Handler in `reload()`/`select()` wirft der fehlschlagende
+  // Call einen unbehandelten `HttpErrorResponse` — RxJS meldet ihn asynchronisch
+  // (`reportUnhandledError`), also nicht innerhalb dieses synchronen `it()`-Blocks selbst, sondern
+  // als "Unhandled Errors" des gesamten Testlaufs, der dadurch mit Exit-Code ≠ 0 fehlschlägt (und
+  // damit `npm test`/CI). Die Assertions unten prüfen zusätzlich den unveränderten Zustand.
+  it('bleibt bei einem fehlschlagenden initialen Laden still, Badge unverändert', () => {
+    create();
+
+    httpMock
+      .expectOne('/api/notifications')
+      .flush(null, { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+
+    expect(query('.bell__badge')).toBeNull();
+  });
+
+  it('bleibt bei einem fehlschlagenden markAsRead-Call still, die Benachrichtigung bleibt ungelesen', () => {
+    create();
+    flushInitialLoad([UNREAD]);
+    bellButton().click();
+    fixture.detectChanges();
+
+    query<HTMLButtonElement>('.bell-list__item')!.click();
+
+    httpMock
+      .expectOne('/api/notifications/1/read')
+      .flush(null, { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+
+    expect(query('.bell__badge')?.textContent?.trim()).toBe('1');
+    expect(query('.bell-list__item--unread')).not.toBeNull();
+  });
 });
