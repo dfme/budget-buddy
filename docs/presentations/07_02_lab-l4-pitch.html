@@ -1,0 +1,464 @@
+<title>Lab L4 — Doku &amp; CI live</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --c-bg:#ffffff;
+    --c-bg-subtle:#f6f8f7;
+    --c-surface:#ffffff;
+    --c-line:#e3e8e6;
+    --c-line-strong:#cbd4d1;
+    --c-ink:#101413;
+    --c-ink-2:#5b6462;
+    --c-ink-3:#8b9694;
+    --c-accent:#0f6b5f;
+    --c-accent-hover:#0b544a;
+    --c-accent-soft:#e6f2f0;
+    --c-positive:#0f6b5f;
+    --c-positive-soft:#e6f2f0;
+    --c-negative:#b3261e;
+    --c-negative-soft:#fdecea;
+    --c-warning:#8a6100;
+    --c-warning-soft:#fdf3dd;
+    --shadow-card:0 1px 2px rgba(16,20,19,.05);
+    --shadow-elev:0 12px 32px rgba(16,20,19,.10);
+    --font-display:'Archivo', 'IBM Plex Sans', system-ui, sans-serif;
+    --font-body:'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+    --font-mono:'IBM Plex Mono', ui-monospace, 'SF Mono', monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --c-bg:#121917;
+      --c-bg-subtle:#0e1312;
+      --c-surface:#171f1d;
+      --c-line:#26302e;
+      --c-line-strong:#36423f;
+      --c-ink:#e6efec;
+      --c-ink-2:#9db0aa;
+      --c-ink-3:#6f817b;
+      --c-accent:#2dbfa4;
+      --c-accent-hover:#45cbb2;
+      --c-accent-soft:#10302a;
+      --c-positive:#2dbfa4;
+      --c-positive-soft:#10302a;
+      --c-negative:#f2837b;
+      --c-negative-soft:#2e1a19;
+      --c-warning:#e0b64f;
+      --c-warning-soft:#2a2313;
+      --shadow-card:0 1px 2px rgba(0,0,0,.35);
+      --shadow-elev:0 12px 32px rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="dark"]{
+    --c-bg:#121917;
+    --c-bg-subtle:#0e1312;
+    --c-surface:#171f1d;
+    --c-line:#26302e;
+    --c-line-strong:#36423f;
+    --c-ink:#e6efec;
+    --c-ink-2:#9db0aa;
+    --c-ink-3:#6f817b;
+    --c-accent:#2dbfa4;
+    --c-accent-hover:#45cbb2;
+    --c-accent-soft:#10302a;
+    --c-positive:#2dbfa4;
+    --c-positive-soft:#10302a;
+    --c-negative:#f2837b;
+    --c-negative-soft:#2e1a19;
+    --c-warning:#e0b64f;
+    --c-warning-soft:#2a2313;
+    --shadow-card:0 1px 2px rgba(0,0,0,.35);
+    --shadow-elev:0 12px 32px rgba(0,0,0,.4);
+  }
+
+  *,*::before,*::after{ box-sizing:border-box; }
+  html{ -webkit-text-size-adjust:100%; }
+  body{
+    margin:0;
+    background:var(--c-bg-subtle);
+    color:var(--c-ink);
+    font-family:var(--font-body);
+    line-height:1.5;
+    overflow-x:hidden;
+  }
+  h1,h2,h3,p,figure{ margin:0; }
+  ul{ margin:0; padding:0; list-style:none; }
+  :focus-visible{ outline:2px solid var(--c-accent); outline-offset:2px; border-radius:4px; }
+
+  .eyebrow{
+    font-family:var(--font-mono);
+    font-size:.72rem;
+    letter-spacing:.09em;
+    text-transform:uppercase;
+    color:var(--c-accent);
+    font-weight:500;
+  }
+  .timebox{
+    display:inline-flex; align-items:center; gap:.4rem;
+    font-family:var(--font-mono); font-size:.72rem; color:var(--c-ink-3);
+    border:1px solid var(--c-line-strong); border-radius:999px;
+    padding:.2rem .65rem; margin-left:.6rem; vertical-align:middle;
+  }
+  p a{ color:var(--c-accent); font-weight:600; text-decoration:none; border-bottom:1px solid var(--c-accent-soft); }
+  p a:hover{ border-bottom-color:var(--c-accent); }
+
+  /* ---------- deck shell ---------- */
+  .deck{
+    position:relative;
+    height:100dvh;
+    min-height:560px;
+    width:100%;
+    background:var(--c-bg-subtle);
+  }
+  .progress{
+    position:absolute; top:0; left:0; right:0; height:3px;
+    background:var(--c-line);
+    z-index:20;
+  }
+  .progress-bar{
+    height:100%; background:var(--c-accent);
+    width:calc(100% / 7);
+    transition:width .35s ease;
+  }
+  @media (prefers-reduced-motion: reduce){ .progress-bar{ transition:none; } }
+
+  .slide{
+    position:absolute; inset:0;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    padding:clamp(1.75rem,5vw,4.5rem) clamp(1.75rem,7vw,6rem);
+    opacity:0;
+    visibility:hidden;
+    transform:translateY(6px);
+    transition:opacity .3s ease, transform .3s ease;
+    overflow-y:auto;
+  }
+  .slide.is-active{
+    opacity:1; visibility:visible; transform:translateY(0);
+    z-index:5;
+  }
+  @media (prefers-reduced-motion: reduce){ .slide{ transition:none; } }
+
+  .slide-inner{ max-width:1180px; margin:0 auto; width:100%; }
+
+  h1{ font-family:var(--font-display); font-weight:800; text-wrap:balance; color:var(--c-ink); }
+  h2{ font-family:var(--font-display); font-weight:800; text-wrap:balance; color:var(--c-ink);
+      font-size:clamp(1.5rem,3.2vw,2.3rem); letter-spacing:-.01em; margin-top:.4rem; }
+  h3{ font-family:var(--font-display); font-weight:700; color:var(--c-ink); font-size:1.05rem; }
+  p{ color:var(--c-ink-2); }
+  .lede{ font-size:clamp(1rem,1.7vw,1.15rem); color:var(--c-ink-2); max-width:66ch; margin-top:.9rem; }
+  code{ font-family:var(--font-mono); }
+
+  /* ---------- title slide ---------- */
+  .title-slide h1{ font-size:clamp(2.4rem,7vw,4.6rem); line-height:1; margin-top:.5rem; }
+  .title-slide .tag{
+    display:inline-flex; align-items:center; gap:.5rem;
+    font-family:var(--font-mono); font-size:.78rem; color:var(--c-ink-2);
+    border:1px solid var(--c-line-strong); border-radius:999px;
+    padding:.35rem .8rem; margin-top:1.6rem;
+  }
+  .tag .dot{ width:6px; height:6px; border-radius:50%; background:var(--c-accent); }
+  .title-meta{ margin-top:2.2rem; display:flex; gap:2rem; flex-wrap:wrap; }
+  .title-meta div{ font-family:var(--font-mono); font-size:.85rem; color:var(--c-ink-3); }
+  .title-meta strong{ display:block; color:var(--c-ink); font-family:var(--font-body); font-weight:600; font-size:.95rem; }
+
+  /* ---------- generic components ---------- */
+  .grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; margin-top:1.8rem; }
+  .grid-3{ display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; margin-top:1.8rem; }
+  .grid-4{ display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-top:1.8rem; }
+  @media (max-width:760px){ .grid-2,.grid-3,.grid-4{ grid-template-columns:1fr; } }
+
+  .card{
+    background:var(--c-surface); border:1px solid var(--c-line); border-radius:14px;
+    padding:1.3rem 1.4rem; box-shadow:var(--shadow-card);
+  }
+  .card h3{ margin-bottom:.5rem; }
+  .card p{ font-size:.92rem; }
+  .card .role{ font-family:var(--font-mono); font-size:.72rem; color:var(--c-ink-3); text-transform:uppercase; letter-spacing:.06em; margin-bottom:.3rem; display:block; }
+
+  .pill{
+    display:inline-flex; align-items:center; gap:.4rem;
+    font-family:var(--font-mono); font-size:.72rem; letter-spacing:.03em;
+    padding:.25rem .65rem; border-radius:999px; font-weight:500;
+  }
+  .pill.done{ background:var(--c-positive-soft); color:var(--c-positive); }
+  .pill.warn{ background:var(--c-warning-soft); color:var(--c-warning); }
+  .pill.bad{ background:var(--c-negative-soft); color:var(--c-negative); }
+
+  /* ---------- CI run trace ---------- */
+  .trace{ margin-top:1.9rem; display:flex; flex-direction:column; gap:0; border:1px solid var(--c-line); border-radius:14px; overflow:hidden; box-shadow:var(--shadow-card); }
+  .trace-row{ display:flex; align-items:center; gap:.9rem; padding:.75rem 1.1rem; border-bottom:1px solid var(--c-line); background:var(--c-surface); font-size:.88rem; text-decoration:none; }
+  .trace-row:last-child{ border-bottom:none; }
+  .trace-row .mark{ font-family:var(--font-mono); font-size:.9rem; flex:0 0 1.2rem; }
+  .trace-row.ok .mark{ color:var(--c-positive); }
+  .trace-row.fail .mark{ color:var(--c-negative); font-weight:700; }
+  .trace-row .step{ color:var(--c-ink); flex:1; }
+  .trace-row .fail .step{ font-weight:600; }
+  .trace-row.fail{ background:var(--c-negative-soft); }
+  .trace-row .job{ font-family:var(--font-mono); font-size:.68rem; color:var(--c-ink-3); flex:0 0 auto; }
+  a.trace-row.fail{ cursor:pointer; transition:background .15s ease; }
+  a.trace-row.fail:hover{ background:var(--c-negative-soft); filter:brightness(0.97); }
+  a.trace-row.fail:hover .step{ text-decoration:underline; }
+
+  .finding{
+    margin-top:1.6rem; background:var(--c-surface); border:1px solid var(--c-line); border-radius:14px;
+    padding:1.2rem 1.4rem; box-shadow:var(--shadow-card);
+  }
+  .finding .k{ font-family:var(--font-mono); font-size:.72rem; color:var(--c-ink-3); text-transform:uppercase; letter-spacing:.06em; }
+  .finding p{ margin-top:.4rem; font-size:.92rem; }
+
+  .quote{
+    display:block; text-decoration:none; margin-top:1.8rem; background:var(--c-surface); border:1px solid var(--c-line); border-left:3px solid var(--c-accent);
+    border-radius:10px; padding:1.2rem 1.4rem; box-shadow:var(--shadow-card);
+    transition:background .15s ease;
+  }
+  a.quote:hover{ background:var(--c-accent-soft); }
+  .quote p{ font-size:.9rem; color:var(--c-ink); font-style:italic; }
+  .quote .src{ margin-top:.7rem; font-family:var(--font-mono); font-size:.72rem; color:var(--c-ink-3); font-style:normal; }
+  a.quote:hover .src{ text-decoration:underline; }
+
+  .learning{
+    margin-top:1.6rem; background:var(--c-accent-soft); border:1px solid var(--c-accent); border-radius:12px;
+    padding:1.1rem 1.3rem;
+  }
+  .learning .k{ font-family:var(--font-mono); font-size:.72rem; color:var(--c-accent); text-transform:uppercase; letter-spacing:.06em; }
+  .learning p{ color:var(--c-ink); margin-top:.4rem; font-size:.92rem; }
+
+  /* ---------- deliverables recap table ---------- */
+  .deliverables{ margin-top:1.9rem; display:flex; flex-direction:column; gap:.7rem; }
+  .drow{ display:flex; align-items:center; gap:1rem; background:var(--c-surface); border:1px solid var(--c-line); border-radius:12px; padding:.85rem 1.1rem; box-shadow:var(--shadow-card); }
+  .drow .num{ font-family:var(--font-mono); color:var(--c-ink-3); font-size:.8rem; flex:0 0 1.4rem; }
+  .drow .label{ font-weight:600; flex:0 0 190px; }
+  .drow .detail{ color:var(--c-ink-2); font-size:.88rem; flex:1; }
+  a.drow{ text-decoration:none; color:inherit; transition:background .15s ease; }
+  a.drow:hover{ background:var(--c-accent-soft); }
+  a.drow:hover .detail{ text-decoration:underline; }
+  @media (max-width:820px){ .drow{ flex-wrap:wrap; } .drow .label{ flex:1 1 100%; } }
+
+  /* ---------- closing ---------- */
+  .close-slide{ align-items:flex-start; }
+  .close-slide h1{ font-size:clamp(2.2rem,6vw,4rem); }
+
+  /* ---------- nav ---------- */
+  .nav{
+    position:absolute; bottom:0; left:0; right:0; z-index:20;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:1rem clamp(1.25rem,4vw,3rem);
+    background:linear-gradient(to top, var(--c-bg-subtle) 40%, transparent);
+    pointer-events:none;
+  }
+  .nav > *{ pointer-events:auto; }
+  .nav-btn{
+    display:flex; align-items:center; justify-content:center;
+    width:38px; height:38px; border-radius:50%;
+    background:var(--c-surface); border:1px solid var(--c-line-strong);
+    color:var(--c-ink); cursor:pointer;
+    box-shadow:var(--shadow-card);
+  }
+  .nav-btn:hover{ border-color:var(--c-accent); color:var(--c-accent); }
+  .nav-btn:disabled{ opacity:.35; cursor:default; }
+  .nav-btn:disabled:hover{ border-color:var(--c-line-strong); color:var(--c-ink); }
+  .dots{ display:flex; gap:.45rem; }
+  .dots button{ width:7px; height:7px; border-radius:50%; background:var(--c-line-strong); border:none; padding:0; cursor:pointer; }
+  .dots button.is-active{ background:var(--c-accent); width:18px; border-radius:4px; transition:width .25s ease; }
+  .counter{ font-family:var(--font-mono); font-size:.78rem; color:var(--c-ink-3); min-width:3.4rem; text-align:center; }
+  .nav-center{ display:flex; align-items:center; gap:1rem; }
+</style>
+
+<div class="deck" id="deck" tabindex="0" aria-label="Präsentation Lab L4 — Doku und CI live">
+  <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+
+  <!-- 1 -->
+  <section class="slide title-slide is-active">
+    <div class="slide-inner">
+      <div class="eyebrow">CAS ADAI · Modul 7 · Tag 1 — Lab L4</div>
+      <h1>Doku &amp; CI, live gezeigt</h1>
+      <p class="lede">Vier Fundstücke aus dem heutigen Lab an BudgetBuddy — kein Test-Repo, sondern das echte Projekt: ein roter CI-Lauf, ein ADR mit Preis, der Doku-Checkliste-Fund und ein echter @claude-Review.</p>
+      <div class="tag"><span class="dot"></span> 15:15–15:30 · 3-Minuten-Pitch</div>
+      <div class="title-meta">
+        <div><strong>Projekt</strong>BudgetBuddy</div>
+        <div><strong>Repo</strong>dfme/budget-buddy</div>
+        <div><strong>Datum</strong>09.09.2026</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="eyebrow">01 — Badge &amp; roter Lauf<span class="timebox">45 Sek</span></div>
+      <h2>Rot war ein Migrations-Guard, nicht der Code selbst</h2>
+      <p class="lede">PR #272 (<code>DB-08</code>, notifications-Tabelle) schlug am 07.09. im CI fehl — nicht bei Tests, sondern beim Schutz-Job für Flyway-Migrationen.</p>
+      <div class="trace">
+        <div class="trace-row ok"><span class="mark">✓</span><span class="step">Backend build, E2E-Setup, Frontend-Tests</span><span class="job">build</span></div>
+        <a class="trace-row fail" href="https://github.com/dfme/budget-buddy/actions/runs/34150346885/job/101831133441" target="_blank" rel="noopener"><span class="mark">✗</span><span class="step">Bereits angewendete Migrationen unverändert</span><span class="job">Flyway-Migrationen unverändert ↗</span></a>
+      </div>
+      <div class="finding">
+        <div class="k">Ursache → Fix</div>
+        <p>Während der PR offen war, vergab <code>main</code> die Versionsnummer <code>V09</code> ebenfalls (parallele PR, <code>BE-AUTH-11</code>) — der Migrations-Guard (INFRA-29) blockierte zu Recht die zweite Kollision. Fix: die <code>notifications</code>-Migration auf <code>V10</code> neu gehoben, dann grün.</p>
+      </div>
+      <div class="finding" style="margin-top:1rem;">
+        <div class="k">Offener Punkt → in Arbeit</div>
+        <p>CI läuft seit Wochen grün auf <code>main</code> — ein Badge stand bis heute trotzdem nicht im README. Fix ist unterwegs: <a href="https://github.com/dfme/budget-buddy/pull/284" target="_blank" rel="noopener">PR #284</a> (noch offen).</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="eyebrow">02 — Ein Satz aus dem ADR<span class="timebox">1 Min</span></div>
+      <h2>ADR-9: BigDecimal statt double — bewusst langsamer, nie ungenau</h2>
+      <div class="grid-2">
+        <div class="card">
+          <span class="role">Entscheidung</span>
+          <h3>BigDecimal für jeden CHF-Betrag</h3>
+          <p><code>DECIMAL(10,2)</code> in Postgres, <code>RoundingMode.HALF_UP</code> bei Division — nie <code>double</code>/<code>float</code>, weil <code>0.1 + 0.2</code> dort <code>0.30000000000000004</code> ergibt, nicht <code>0.3</code>.</p>
+        </div>
+        <div class="card">
+          <span class="role">Preis</span>
+          <h3>Langsamer, mehr Boilerplate</h3>
+          <p><code>amount.add(new BigDecimal("10"))</code> statt <code>amount + 10</code>. Akzeptiert: kein Bottleneck bei &lt;1000 Transaktionen/Monat — Rappen-Genauigkeit zählt mehr als Tempo.</p>
+        </div>
+      </div>
+      <div class="learning">
+        <div class="k">Lebendes Dokument</div>
+        <p>ADR-9 bekam am 07.09. einen Nachtrag: das eigene <code>money</code>-Package als begründete Ausnahme von „Packages nach Domäne" — inklusive der ausdrücklich verworfenen Alternativen (Werttyp <code>ChfAmount</code>, Bean-Validation-Constraint). Der Kernentscheid von damals steht unverändert.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="eyebrow">03 — Schlimmster Fund der Checkliste<span class="timebox">45 Sek</span></div>
+      <h2>Kein erfundenes Feature — der Fund war eine Auslassung</h2>
+      <p class="lede">README.md und CLAUDE.md gegen den Code geprüft: Modell-Default, Prompt-Maskierung, die zwei bekannten Restexpositionen (#233) — jede Aussage per <code>grep</code> bestätigt.</p>
+      <div class="grid-2">
+        <div class="card">
+          <span class="role">Stichprobe bestanden</span>
+          <h3>Belege stimmen</h3>
+          <p><code>ANTHROPIC_API_MODEL</code>-Default, <code>PromptSanitizer.buildUserPrompt</code>-Verweis, Issue-Link #233 — alle drei im Code exakt so, wie CLAUDE.md es behauptet.</p>
+        </div>
+        <div class="card">
+          <span class="role">Fund</span>
+          <h3>Keine Erfindung, eine Lücke</h3>
+          <p>Der schlimmste Treffer war nicht „erfunden", sondern fehlend: kein CI-Badge im README, obwohl die Actions seit Wochen grün laufen — dieselbe Lücke wie bei Punkt 1.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="eyebrow">04 — @claude im PR<span class="timebox">30 Sek</span></div>
+      <h2>Der Review lief den Build selbst, nicht nur den Diff</h2>
+      <a class="quote" href="https://github.com/dfme/budget-buddy/pull/279#pullrequestreview-5134389178" target="_blank" rel="noopener">
+        <p>„Habe die Behauptungen im PR-Text einzeln nachvollzogen, nicht nur gelesen: Build/Tests selbst ausgeführt — 773/773 grün, BUILD SUCCESS — deckt sich exakt mit der PR-Angabe."</p>
+        <div class="src">claude[bot] · Review zu PR #279 (BE-FC-04-chf-betragsregel) ↗</div>
+      </a>
+      <div class="finding" style="margin-top:1.4rem;">
+        <div class="k">Und einen echten Fund gemacht</div>
+        <p>🟡 Nicht-blockierend: eine aus dem Issue-Text übernommene, aber falsche Prämisse zu <code>UserIncomePort</code> — per <code>grep</code> widerlegt. Am selben Tag im Folgecommit korrigiert.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="eyebrow">05 — Stand der 4 Deliverables</div>
+      <h2>Drei grün, eine im Merge</h2>
+      <div class="deliverables">
+        <div class="drow"><span class="num">1</span><span class="label">CLAUDE.md</span><span class="detail">547 → 89 Zeilen gekürzt — unter der 100-Zeilen-Marke</span><span class="pill done">erledigt</span></div>
+        <div class="drow"><span class="num">2</span><span class="label">README</span><span class="detail">Checkliste bestanden — Belege stimmen, kein Fluff</span><span class="pill done">erledigt</span></div>
+        <div class="drow"><span class="num">3</span><span class="label">ADR</span><span class="detail">ADR-9 angenommen, mit Nachtrag vom 07.09.</span><span class="pill done">erledigt</span></div>
+        <a class="drow" href="https://github.com/dfme/budget-buddy/pull/284" target="_blank" rel="noopener"><span class="num">4</span><span class="label">Grüner Workflow</span><span class="detail">CI seit Wochen grün — Badge folgt mit PR #284 ↗</span><span class="pill warn">PR offen</span></a>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 -->
+  <section class="slide close-slide">
+    <div class="slide-inner">
+      <div class="eyebrow">Fragen</div>
+      <h1>Danke.</h1>
+      <p class="lede">BudgetBuddy — CAS Application Development with AI, BFH Biel · Modul 7, Lab L4.</p>
+    </div>
+  </section>
+
+  <div class="nav">
+    <button class="nav-btn" id="prevBtn" aria-label="Vorherige Folie">&#8592;</button>
+    <div class="nav-center">
+      <div class="dots" id="dots"></div>
+      <div class="counter" id="counter">1 / 7</div>
+    </div>
+    <button class="nav-btn" id="nextBtn" aria-label="Nächste Folie">&#8594;</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var total = slides.length;
+  var idx = 0;
+  var dotsEl = document.getElementById('dots');
+  var counterEl = document.getElementById('counter');
+  var progressBar = document.getElementById('progressBar');
+  var prevBtn = document.getElementById('prevBtn');
+  var nextBtn = document.getElementById('nextBtn');
+  var deck = document.getElementById('deck');
+
+  slides.forEach(function(_, i){
+    var b = document.createElement('button');
+    b.setAttribute('aria-label', 'Zu Folie ' + (i+1));
+    b.addEventListener('click', function(){ go(i); });
+    dotsEl.appendChild(b);
+  });
+
+  function render(){
+    slides.forEach(function(s, i){ s.classList.toggle('is-active', i === idx); });
+    Array.prototype.forEach.call(dotsEl.children, function(d, i){ d.classList.toggle('is-active', i === idx); });
+    counterEl.textContent = (idx+1) + ' / ' + total;
+    progressBar.style.width = ((idx+1) / total * 100) + '%';
+    prevBtn.disabled = idx === 0;
+    nextBtn.disabled = idx === total - 1;
+    try { localStorage.setItem('bb-l4-deck-slide', String(idx)); } catch(e){}
+  }
+
+  function go(i){
+    idx = Math.max(0, Math.min(total - 1, i));
+    render();
+  }
+
+  prevBtn.addEventListener('click', function(){ go(idx - 1); });
+  nextBtn.addEventListener('click', function(){ go(idx + 1); });
+
+  window.addEventListener('keydown', function(e){
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown'){ go(idx + 1); e.preventDefault(); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp'){ go(idx - 1); e.preventDefault(); }
+    else if (e.key === 'Home'){ go(0); }
+    else if (e.key === 'End'){ go(total - 1); }
+  });
+
+  var startX = null;
+  deck.addEventListener('touchstart', function(e){ startX = e.touches[0].clientX; }, {passive:true});
+  deck.addEventListener('touchend', function(e){
+    if (startX === null) return;
+    var dx = e.changedTouches[0].clientX - startX;
+    if (Math.abs(dx) > 50){ go(idx + (dx < 0 ? 1 : -1)); }
+    startX = null;
+  }, {passive:true});
+
+  try {
+    var saved = parseInt(localStorage.getItem('bb-l4-deck-slide'), 10);
+    if (!isNaN(saved) && saved >= 0 && saved < total) idx = saved;
+  } catch(e){}
+
+  render();
+  deck.focus();
+})();
+</script>
