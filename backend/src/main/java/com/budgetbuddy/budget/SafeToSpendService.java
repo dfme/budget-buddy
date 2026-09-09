@@ -4,6 +4,7 @@ import com.budgetbuddy.auth.UserIncomePort;
 import com.budgetbuddy.budget.dto.FixedCostSummaryResponse;
 import com.budgetbuddy.budget.dto.SafeToSpendResponse;
 import com.budgetbuddy.budget.dto.SafeToSpendStatus;
+import com.budgetbuddy.money.ChfAmounts;
 import com.budgetbuddy.transaction.IncomeSuggestionPort;
 import com.budgetbuddy.transaction.MonthlyExpensePort;
 import java.math.BigDecimal;
@@ -103,8 +104,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class SafeToSpendService {
 
-    /** Rappen — Zielskala aller Beträge nach aussen. */
-    private static final int RAPPEN_SCALE = 2;
+    /** Rappen — Zielskala aller Beträge nach aussen (ADR-9). */
+    private static final int RAPPEN_SCALE = ChfAmounts.RAPPEN_SCALE;
 
     private static final int TAGE_PRO_WOCHE = 7;
 

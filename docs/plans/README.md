@@ -41,6 +41,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `BE-FC-01` | [FixedCost Entity und Repository](BE-FC-01-fixedcost-entity.md) | [#10](https://github.com/dfme/budget-buddy/issues/10) | US-03 | Sprint 4 |
 | `BE-FC-02` | [FixedCostService: CRUD und Normalisierung](BE-FC-02-fixedcost-service.md) | [#11](https://github.com/dfme/budget-buddy/issues/11) | US-03 | Sprint 4 |
 | `BE-FC-03` | [REST-Endpoints für Fixkosten](BE-FC-03-fixed-costs-endpoints.md) | [#12](https://github.com/dfme/budget-buddy/issues/12) | US-03 | Sprint 4 |
+| `BE-FC-04` | [CHF-Betragsregel steht doppelt im Backend](BE-FC-04-chf-betragsregel.md) | [#205](https://github.com/dfme/budget-buddy/issues/205) | — | Sprint 6 |
 | `BE-NOTIF-01` | [NotificationService + REST-Endpoints](BE-NOTIF-01-notification-service.md) | [#246](https://github.com/dfme/budget-buddy/issues/246) | US-08 | Sprint 6 |
 | `BE-PDF-01` | [PDFBox-Parser für Schweizer Bank-PDFs](BE-PDF-01-swiss-bank-parser.md) | [#13](https://github.com/dfme/budget-buddy/issues/13) | US-04 | Sprint 3 |
 | `BE-PDF-02` | [PdfImportService](BE-PDF-02-pdf-import-service.md) | [#17](https://github.com/dfme/budget-buddy/issues/17) | US-04 | Sprint 3 |
@@ -58,6 +59,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `BE-STS-02` | [Einkommens-Heuristik](BE-STS-02-einkommens-heuristik.md) | [#22](https://github.com/dfme/budget-buddy/issues/22) | US-06 | Sprint 4 |
 | `BE-STS-03` | [GET /budget/safe-to-spend](BE-STS-03-safe-to-spend-endpoint.md) | [#23](https://github.com/dfme/budget-buddy/issues/23) | US-06 | Sprint 4 |
 | `BE-STS-04` | [Fixkosten werden im Safe-to-Spend doppelt abgezogen](BE-STS-04-fixkosten-doppelabzug.md) | [#154](https://github.com/dfme/budget-buddy/issues/154) | US-06 | Sprint 5 |
+| `BE-STS-05` | [Einkommens-Heuristik über den Absender gruppieren](BE-STS-05-absender-gruppierung.md) | [#208](https://github.com/dfme/budget-buddy/issues/208) | US-06 | Sprint 6 |
 | `BE-STS-06` | [Safe-to-Spend: Monat-Parameter + Abgeschlossen-Status](BE-STS-06-safe-to-spend-monat.md) | [#248](https://github.com/dfme/budget-buddy/issues/248) | US-12 | Sprint 6 |
 | `DB-01` | [DB-01 — Flyway V1: users-Tabelle](DB-01-flyway-users-table.md) | [#4](https://github.com/dfme/budget-buddy/issues/4) | — | Sprint 1 |
 | `DB-02` | [DB-02 — Flyway V2: transactions-Tabelle](DB-02-transactions-table.md) | [#5](https://github.com/dfme/budget-buddy/issues/5) | US-04, US-05, US-06 | Sprint 1 |
@@ -66,6 +68,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `DB-05` | [Migration von SQLite auf Neon Postgres (inkl. Entscheid-ADR)](DB-05-neon-postgres-migration.md) | [#89](https://github.com/dfme/budget-buddy/issues/89) | — | Sprint 4 |
 | `DB-07` | [Foreign Keys auf users ohne ON DELETE — Löschpfad für US-02](DB-07-user-loeschpfad.md) | [#142](https://github.com/dfme/budget-buddy/issues/142) | US-02 | Sprint 5 |
 | `DB-08` | [Flyway V10: notifications-Tabelle](DB-08-notifications-table.md) | [#245](https://github.com/dfme/budget-buddy/issues/245) | US-08 | Sprint 6 |
+| `DB-09` | [Flyway V11: recurring_expenses-Tabelle](DB-09-recurring-expenses-table.md) | [#252](https://github.com/dfme/budget-buddy/issues/252) | US-08 | Sprint 6 |
 | `E2E-AUTH-01` | [Playwright: Register → Login → Logout (Happy + Fehlerpfad)](E2E-AUTH-01-register-login-logout.md) | [#58](https://github.com/dfme/budget-buddy/issues/58) | US-01 | Sprint 5 |
 | `E2E-CAT-01` | [Playwright: Transaktionen kategorisieren (Happy Path + Fehlerpfad)](E2E-CAT-01-playwright-kategorisierung.md) | [#124](https://github.com/dfme/budget-buddy/issues/124) | US-05 | Sprint 5 |
 | `E2E-FC-01` | [Playwright: Fixkosten-Wizard (Happy Path + Fehlerpfad)](E2E-FC-01-playwright-fixkosten-wizard.md) | [#123](https://github.com/dfme/budget-buddy/issues/123) | US-03 | Sprint 5 |

@@ -1,5 +1,6 @@
 package com.budgetbuddy.transaction;
 
+import com.budgetbuddy.money.ChfAmounts;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
@@ -24,10 +25,11 @@ import org.springframework.transaction.annotation.Transactional;
  * US-06) — der Vorschlag, den das Dashboard anbietet, solange kein Einkommen erfasst ist.
  *
  * <p><strong>Verfahren.</strong> Gutschriften der letzten {@value #LOOKBACK_MONTHS} Monate werden
- * über einen normalisierten Buchungstext gruppiert. Eine Gruppe gilt als wiederkehrendes Einkommen,
- * wenn sie in mindestens {@value #MIN_DISTINCT_MONTHS} <em>verschiedenen</em> Kalendermonaten
- * vorkommt und alle ihre Beträge innerhalb von ±5 % des Gruppen-Medians liegen. Vorgeschlagen wird
- * der Median.
+ * über einen normalisierten Absender gruppiert — die erste Detailzeile der Buchung, mit Rückfall
+ * auf den Buchungstext (BE-STS-05, siehe {@link #groupingKey}). Eine Gruppe gilt als
+ * wiederkehrendes Einkommen, wenn sie in mindestens {@value #MIN_DISTINCT_MONTHS}
+ * <em>verschiedenen</em> Kalendermonaten vorkommt und alle ihre Beträge innerhalb von ±5 % des
+ * Gruppen-Medians liegen. Vorgeschlagen wird der Median.
  *
  * <p><strong>Warum der Median.</strong> Er ist robust gegen einen Ausreisser innerhalb des Bands und
  * gegen einen 13. Monatslohn, der knapp mit hineinrutscht. Der jüngste Betrag würde einer
@@ -42,18 +44,23 @@ import org.springframework.transaction.annotation.Transactional;
  * <p><strong>Bekannte Einschränkung — Eigenübertragungen.</strong> Die Auswahlregel «höchster
  * Median» bevorzugt systematisch den grössten wiederkehrenden Betrag, und das muss nicht der Lohn
  * sein: eine monatliche Umbuchung vom eigenen Sparkonto ist typischerweise rund, gross und
- * regelmässig — ohne den Absender ist sie von einem Lohneingang nicht zu unterscheiden. Die Folge
- * ist ein <em>zu hoher</em> Vorschlag und, falls er übernommen wird, ein zu hoher Safe-to-Spend.
- * Entschärft ist das nur durch die Rückfrage aus US-06 («als Monatseinkommen übernehmen?») — der
- * Vorschlag wird nie still übernommen. Sauber löst es erst die Absender-Gruppierung, siehe unten.
+ * regelmässig. Die Absender-Gruppierung <em>entschärft</em> das, löst es aber nicht: Die Umbuchung
+ * bekommt seit BE-STS-05 einen eigenen Schlüssel und wird nicht mehr mit dem Lohn in eine Gruppe
+ * geworfen — als eigene Gruppe qualifiziert sie sich aber weiterhin, und liegt ihr Median über dem
+ * des Lohns, gewinnt sie. Die Folge ist dann ein <em>zu hoher</em> Vorschlag und, falls er
+ * übernommen wird, ein zu hoher Safe-to-Spend. Aufzulösen wäre das erst über ein Merkmal, das eine
+ * Eigenübertragung als solche ausweist — der Absender allein leistet das nicht, weil er bei einer
+ * Umbuchung auf den eigenen Namen lautet und damit genauso konstant ist wie ein Arbeitgeber.
+ * Entschärft bleibt es durch die Rückfrage aus US-06 («als Monatseinkommen übernehmen?») — der
+ * Vorschlag wird nie still übernommen.
  *
- * <p><strong>Bekannte Einschränkung — Gruppierung ohne Absender.</strong> US-06 verlangt eine
- * regelmässige Gutschrift <em>desselben Absenders</em>. Der Absender steht nicht in der Datenbank:
- * {@code PdfImportService} persistiert nur den Buchungstext, die Detailzeilen aus
- * {@link ParsedTransaction#details()} werden nach der Kategorisierung verworfen. Diese Klasse
- * gruppiert deshalb über den normalisierten Buchungstext — an den vorliegenden Auszügen tragfähig,
- * aber die schwächere Aussage. Erfasst als BE-PDF-07 (#159); danach kann hier auf
- * Absender-Gruppierung umgestellt werden.
+ * <p><strong>Bekannte Einschränkung — Transaktionen vor V06.</strong> Der Absender steht in
+ * {@code transactions.buchungsdetails}, gefüllt seit BE-PDF-07 (#159, Migration {@code V06}). Für
+ * alles davor Importierte ist die Spalte {@code NULL}, und ein Backfill ist ausgeschlossen: die
+ * Detailzeilen stehen nur im Quell-PDF, gespeichert wird davon nur der SHA-256. Diese Buchungen
+ * gruppieren deshalb weiterhin über den Buchungstext — bei UBS und Raiffeisen tragfähig, weil der
+ * Absender dort in der Buchungszeile steht, bei PostFinance nicht. Aufgelöst wird das nur durch
+ * einen Reimport des Auszugs.
  *
  * <p><strong>Zeitzone.</strong> «Heute» wird wie im {@code SafeToSpendService} in
  * {@code Europe/Zurich} bestimmt und nicht in der Zone der {@link Clock}-Bean, die
@@ -69,8 +76,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class IncomeSuggestionService implements IncomeSuggestionPort {
 
-    /** Rappen — Zielskala des vorgeschlagenen Betrags. */
-    private static final int RAPPEN_SCALE = 2;
+    /** Rappen — Zielskala des vorgeschlagenen Betrags (ADR-9). */
+    private static final int RAPPEN_SCALE = ChfAmounts.RAPPEN_SCALE;
 
     /**
      * Länge des Rückblicks. Ohne Grenze zählte ein Jobwechsel vor Jahren noch mit; zwölf Monate
@@ -139,7 +146,7 @@ public class IncomeSuggestionService implements IncomeSuggestionPort {
         // und der muss dafür in einer stabilen Reihenfolge vorliegen.
         Map<String, List<Transaction>> byKey = new TreeMap<>();
         for (Transaction tx : credits) {
-            byKey.computeIfAbsent(groupingKey(tx.getBuchungstext()), k -> new ArrayList<>()).add(tx);
+            byKey.computeIfAbsent(groupingKey(tx), k -> new ArrayList<>()).add(tx);
         }
 
         // Höchster Median gewinnt: das ist der Lohn, nicht die wiederkehrende Kleinrückerstattung.
@@ -202,16 +209,62 @@ public class IncomeSuggestionService implements IncomeSuggestionPort {
     }
 
     /**
-     * Normalisiert einen Buchungstext zum Gruppenschlüssel: kleingeschrieben, ohne Monatsnamen und
-     * ohne ziffernhaltige Tokens.
+     * Der Gruppenschlüssel einer Buchung: der <strong>Absender</strong>, normalisiert (BE-STS-05).
      *
-     * <p>Bleibt davon nichts übrig — etwa bei einem Buchungstext, der nur aus einer Referenznummer
+     * <p>Quelle ist die erste Detailzeile — in den drei PostFinance-Fixtures durchgängig die
+     * Gegenpartei jeder Gutschrift ({@code SwissBankStatementParserFixtureTest}). Gibt es keine,
+     * dient der Buchungstext als Rückfall; das ist der Zustand für alles vor {@code V06}
+     * Importierte und für Auszüge, deren Buchungen gar keine Detailzeilen tragen — in den
+     * Fixtures UBS und Raiffeisen, die den Absender stattdessen in die Buchungszeile schreiben.
+     *
+     * <p><strong>Warum nur die erste Zeile.</strong> Die zweite und dritte tragen den
+     * Verwendungszweck, und der wechselt von Monat zu Monat: {@code Post_Kontoauszug_2026_Juli}
+     * bricht ihn sogar mitten im Wort auf zwei Zeilen um ({@code LOHN JULI 2026 SOWIE SPE} /
+     * {@code SENVERGUETUNG}). Alle Zeilen zu verketten zerlegte damit genau die Gruppe, die
+     * zusammengehört — die Normalisierung fängt Monatsnamen und Jahreszahlen ab, einen anderen
+     * Zeilenumbruch nicht.
+     *
+     * <p><strong>Warum Absender- und Buchungstext-Schlüssel denselben Raum teilen.</strong> Eine
+     * Kollision setzte einen Absender voraus, der normalisiert exakt wie eine Zahlungsart heisst.
+     * Träte sie ein, wäre das Ergebnis das bisherige Verhalten — kein neuer Fehlermodus, der ein
+     * Präfix je Herkunft aufwöge. Der Schlüssel verlässt diese Klasse ohnehin nie: über
+     * {@link IncomeSuggestionPort} geht nur der Betrag.
+     */
+    private static String groupingKey(Transaction tx) {
+        String absender = senderLine(tx.getBuchungsdetails());
+        return normalise(absender != null ? absender : tx.getBuchungstext());
+    }
+
+    /**
+     * Die erste Detailzeile — der Absender —, oder {@code null}, wenn es keine verwertbare gibt.
+     *
+     * <p>{@code null} deckt beide Fälle ab, in denen der Absender fehlt: die Spalte ist {@code NULL}
+     * (vor {@code V06} importiert oder Buchung ohne Detailzeilen, siehe
+     * {@link Transaction#getBuchungsdetails()}), oder die erste Zeile ist leer. Der zweite Fall
+     * kann aus dem Parser nicht kommen — {@code ParsedTransaction#detailsAsText()} verbindet nur
+     * nichtleere Zeilen —, aber ein leerer Schlüssel würde hier sämtliche betroffenen Buchungen in
+     * einen Topf werfen, und das ist der teuerste denkbare Fehler dieser Methode.
+     */
+    private static String senderLine(String buchungsdetails) {
+        if (buchungsdetails == null) {
+            return null;
+        }
+        int umbruch = buchungsdetails.indexOf('\n');
+        String erste = (umbruch < 0 ? buchungsdetails : buchungsdetails.substring(0, umbruch)).trim();
+        return erste.isEmpty() ? null : erste;
+    }
+
+    /**
+     * Normalisiert einen Text zum Gruppenschlüssel: kleingeschrieben, ohne Monatsnamen und ohne
+     * ziffernhaltige Tokens.
+     *
+     * <p>Bleibt davon nichts übrig — etwa bei einem Text, der nur aus einer Referenznummer
      * besteht —, dient der kleingeschriebene Originaltext als Schlüssel. Ein leerer Schlüssel würde
      * sonst alle solchen Buchungen in einen Topf werfen, obwohl sie nichts miteinander zu tun haben;
      * mit dem Fallback gruppieren sich nur wirklich identische Texte.
      */
-    private static String groupingKey(String buchungstext) {
-        String klein = buchungstext.toLowerCase(Locale.ROOT);
+    private static String normalise(String text) {
+        String klein = text.toLowerCase(Locale.ROOT);
         String ohneMonate = MONTH_NAME.matcher(klein).replaceAll(" ");
         String ohneZiffern = DIGIT_TOKEN.matcher(ohneMonate).replaceAll(" ");
         String normalisiert = WHITESPACE.matcher(ohneZiffern).replaceAll(" ").trim();
@@ -221,8 +274,8 @@ public class IncomeSuggestionService implements IncomeSuggestionPort {
     /**
      * Eine Gruppe, die beide Bedingungen erfüllt.
      *
-     * @param key normalisierter Buchungstext — letzte Tiebreak-Stufe, damit die Auswahl nicht an der
-     *     Zeilenreihenfolge der Query hängt.
+     * @param key normalisierter Absender, siehe {@link #groupingKey} — letzte Tiebreak-Stufe, damit
+     *     die Auswahl nicht an der Zeilenreihenfolge der Query hängt.
      * @param median vorgeschlagener Betrag, Skala 2.
      * @param occurrences Anzahl Gutschriften in der Gruppe — Tiebreak, wenn zwei Gruppen denselben
      *     Median haben.

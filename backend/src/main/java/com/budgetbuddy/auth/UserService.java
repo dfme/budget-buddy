@@ -2,10 +2,10 @@ package com.budgetbuddy.auth;
 
 import com.budgetbuddy.auth.dto.UserProfileResponse;
 import com.budgetbuddy.budget.FixedCostCleanupPort;
+import com.budgetbuddy.money.ChfAmounts;
 import com.budgetbuddy.notification.NotificationCleanupPort;
 import com.budgetbuddy.transaction.TransactionCleanupPort;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.Optional;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -18,25 +18,19 @@ import org.springframework.transaction.annotation.Transactional;
  * Einkommen für die Fixkosten-Warnung liest (BE-FC-02) — ohne Zugriff auf {@link UserRepository}
  * oder die {@link User}-Entity über die Modulgrenze hinweg.
  *
- * <p><strong>Die Regeln für {@code monthlyIncome} stehen hier und nur hier</strong> (BE-AUTH-08).
- * {@code UpdateIncomeRequest} trägt bewusst keine Bean-Validation-Annotationen mehr — dieselbe
- * Aufteilung wie bei {@code FixedCostRequest}/{@code FixedCostService}, und aus denselben zwei
- * Gründen: Annotationen greifen erst, wenn ein Controller {@code @Valid} setzt (der Service wäre
- * also ungeschützt, sobald ihn jemand anders aufruft), und dieselbe Regel an zwei Stellen läuft
- * irgendwann auseinander.
+ * <p><strong>Die Prüfung von {@code monthlyIncome} steht im Service, nicht am DTO</strong>
+ * (BE-AUTH-08). {@code UpdateIncomeRequest} trägt bewusst keine Bean-Validation-Annotationen —
+ * dieselbe Aufteilung wie bei {@code FixedCostRequest}/{@code FixedCostService}, und aus denselben
+ * zwei Gründen: Annotationen greifen erst, wenn ein Controller {@code @Valid} setzt (der Service
+ * wäre also ungeschützt, sobald ihn jemand anders aufruft), und dieselbe Regel an zwei Stellen
+ * läuft irgendwann auseinander.
+ *
+ * <p>Die CHF-Regel selbst liegt seit BE-FC-04 in {@link ChfAmounts} — genau deshalb, weil sie
+ * zuvor hier <em>und</em> in {@code FixedCostService} stand. Modul-lokal bleiben die beiden Dinge,
+ * die sich unterscheiden sollen: {@link InvalidIncomeException} und ihre feldspezifischen Texte.
  */
 @Service
 public class UserService implements UserIncomePort {
-
-    /** Rappen — Zielskala von {@code monthly_income} (ADR-9, {@code DECIMAL(10,2)} in V01). */
-    private static final int RAPPEN_SCALE = 2;
-
-    /**
-     * Kapazitätsgrenze von {@code users.monthly_income}: {@code DECIMAL(10,2)} fasst maximal
-     * {@code 99999999.99} (Flyway {@code V01__create_users_table.sql}). Ein grösserer Wert lief
-     * vorher nicht in eine 400-Antwort, sondern in einen DB-Fehler.
-     */
-    private static final BigDecimal MAX_INCOME = new BigDecimal("99999999.99");
 
     private final UserRepository userRepository;
     private final TransactionCleanupPort transactionCleanupPort;
@@ -76,7 +70,7 @@ public class UserService implements UserIncomePort {
      * Antwort — richtig ist ein 400 mit der verletzten Regel.
      *
      * @param betrag Monatseinkommen in CHF. Muss {@code > 0} sein, höchstens zwei
-     *     Nachkommastellen tragen und {@link #MAX_INCOME} nicht überschreiten.
+     *     Nachkommastellen tragen und {@link ChfAmounts#MAX} nicht überschreiten.
      * @throws UserNotFoundException wenn kein User mit dieser ID existiert.
      * @throws InvalidIncomeException wenn der Betrag eine der Regeln verletzt. Der User wird dann
      *     nicht geladen und nichts geschrieben — die Prüfung steht vor {@link #findUser(long)}.
@@ -92,33 +86,36 @@ public class UserService implements UserIncomePort {
     /**
      * Prüft das Einkommen und liefert es auf Rappen normalisiert.
      *
-     * <p>Dieselbe Regel wie {@code FixedCostService.validateBetrag} für {@code fixed_costs.betrag}
-     * — inklusive der {@code stripTrailingZeros()}-Feinheit: {@code 100.00} (Skala 2) und
-     * {@code 100.000} (Skala 3) sind derselbe Wert, und wie viele Nullen ein Client anhängt, ist
-     * seine Sache. Ein {@code @Digits(fraction = 2)} am DTO könnte das nicht leisten — es zählt
-     * {@code scale()} ohne Normalisierung und lehnte {@code 100.000} ab.
-     *
-     * <p>{@link RoundingMode#UNNECESSARY} beim {@code setScale}: An dieser Stelle steht bereits
-     * fest, dass höchstens zwei Nachkommastellen belegt sind. Müsste hier gerundet werden, wäre die
-     * Prüfung darüber falsch — dann soll es laut scheitern und nicht still runden. Genau das
-     * stille Runden ist der Defekt, den dieser Task behebt.
+     * <p>Die Regel liefert {@link ChfAmounts} — dieselbe, die {@code FixedCostService} für
+     * {@code fixed_costs.betrag} anwendet, inklusive der {@code stripTrailingZeros()}-Feinheit und
+     * der Kapazitätsgrenze der {@code DECIMAL(10,2)}-Spalte. Hier bleibt nur, was das auth-Modul
+     * ausmacht: {@link InvalidIncomeException} und der Text, der «Einkommen» sagt statt «Betrag».
      */
     private static BigDecimal validateBetrag(BigDecimal betrag) {
-        if (betrag == null) {
-            throw new InvalidIncomeException("betrag", "Einkommen ist erforderlich.");
-        }
-        if (betrag.signum() <= 0) {
-            throw new InvalidIncomeException("betrag", "Einkommen muss grösser als 0 sein.");
-        }
-        if (betrag.stripTrailingZeros().scale() > RAPPEN_SCALE) {
-            throw new InvalidIncomeException(
-                    "betrag", "Einkommen darf höchstens zwei Nachkommastellen haben.");
-        }
-        if (betrag.compareTo(MAX_INCOME) > 0) {
-            throw new InvalidIncomeException(
-                    "betrag", "Einkommen darf 99'999'999.99 nicht überschreiten.");
-        }
-        return betrag.setScale(RAPPEN_SCALE, RoundingMode.UNNECESSARY);
+        ChfAmounts.check(betrag)
+                .ifPresent(
+                        violation -> {
+                            throw new InvalidIncomeException("betrag", meldung(violation));
+                        });
+        return ChfAmounts.toRappen(betrag);
+    }
+
+    /**
+     * Der feldspezifische Text zu einer verletzten Regel.
+     *
+     * <p>Bewusst nicht in {@link ChfAmounts}: {@code FixedCostService} formuliert dieselben vier
+     * Fälle mit «Betrag» statt «Einkommen». US-03 und #148 verlangen feldspezifische Meldungen —
+     * geteilt wird die Prüfung, nicht der Text.
+     */
+    private static String meldung(ChfAmounts.Violation violation) {
+        return switch (violation) {
+            case FEHLT -> "Einkommen ist erforderlich.";
+            case NICHT_POSITIV -> "Einkommen muss grösser als 0 sein.";
+            case ZU_VIELE_NACHKOMMASTELLEN ->
+                    "Einkommen darf höchstens zwei Nachkommastellen haben.";
+            case UEBER_MAXIMUM ->
+                    "Einkommen darf " + ChfAmounts.MAX_FORMATTED + " nicht überschreiten.";
+        };
     }
 
     /**

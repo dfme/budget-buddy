@@ -9,8 +9,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * Schema-Introspektion für die Flyway-Migrationstests (DB-05, ADR-12).
  *
  * <p>Ersetzt die {@code PRAGMA}-Aufrufe der SQLite-Zeit durch {@code information_schema} bzw. die
- * {@code pg_*}-Kataloge. Die Abfragen sind in vier Migrationstests identisch und stehen deshalb
- * hier statt viermal als private Helfer.
+ * {@code pg_*}-Kataloge. Die Abfragen sind in allen Migrationstests identisch und stehen deshalb
+ * hier statt mehrfach als private Helfer.
  *
  * <p>Alle Abfragen sind auf {@code current_schema()} eingeschränkt: die Testdatenbank enthält
  * neben {@code public} auch die Kataloge von Postgres selbst, und ein Tabellenname allein ist
@@ -104,6 +104,63 @@ final class SchemaInspector {
                 """, Integer.class, table, column);
 
         return matches != null && matches > 0;
+    }
+
+    /**
+     * Die Spaltenkombinationen aller UNIQUE-Constraints der Tabelle, je in Definitionsreihenfolge.
+     *
+     * <p>Ergänzt {@link #hasUniqueConstraintOn}, statt es zu ersetzen: Für eine zusammengesetzte
+     * Constraint beantwortet die Einzelspalten-Variante die Frage <em>falsch positiv</em>. Sie
+     * meldet {@code true} für {@code user_id} allein, obwohl die Eindeutigkeit erst mit der
+     * zweiten Spalte gilt — und liesse damit eine versehentlich auf {@code user_id} reduzierte
+     * Constraint («ein Nutzer, ein Abo») unbemerkt durch, obwohl die dem Zweck genau
+     * widerspricht.
+     */
+    List<List<String>> uniqueConstraintColumns(String table) {
+        return jdbcTemplate.queryForList("""
+                SELECT tc.constraint_name,
+                       string_agg(kcu.column_name, ',' ORDER BY kcu.ordinal_position) AS columns
+                FROM information_schema.table_constraints tc
+                JOIN information_schema.key_column_usage kcu
+                  ON kcu.constraint_name = tc.constraint_name
+                 AND kcu.table_schema = tc.table_schema
+                WHERE tc.table_schema = current_schema()
+                  AND tc.table_name = ?
+                  AND tc.constraint_type = 'UNIQUE'
+                GROUP BY tc.constraint_name
+                """, table)
+                .stream()
+                .map(row -> List.of(((String) row.get("columns")).split(",")))
+                .toList();
+    }
+
+    /**
+     * Die Prüfausdrücke aller CHECK-Constraints der Tabelle, wie
+     * {@code pg_get_constraintdef} sie ausgibt — z. B.
+     * {@code "CHECK ((status = ANY (ARRAY['DETECTED'::text, 'DISMISSED'::text])))"}.
+     *
+     * <p>{@code contype = 'c'} liefert ausschliesslich echte CHECK-Constraints.
+     * {@code NOT NULL} steht seit Postgres 17 als eigener {@code contype = 'n'} im Katalog
+     * (Definition {@code "NOT NULL <spalte>"}) und fällt damit ohne weiteres Zutun heraus —
+     * gegenprobiert an dieser Tabelle unter Postgres 18: sieben {@code n}-Zeilen, eine
+     * {@code c}-Zeile.
+     *
+     * <p>Die Definition allein ist nur der halbe Nachweis — dass die Constraint auch
+     * <em>greift</em>, zeigt erst ein abgewiesenes {@code INSERT}.
+     */
+    List<String> checkConstraintDefinitions(String table) {
+        return jdbcTemplate.queryForList("""
+                SELECT pg_get_constraintdef(con.oid) AS definition
+                FROM pg_constraint con
+                JOIN pg_class rel ON rel.oid = con.conrelid
+                JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+                WHERE nsp.nspname = current_schema()
+                  AND rel.relname = ?
+                  AND con.contype = 'c'
+                """, table)
+                .stream()
+                .map(row -> (String) row.get("definition"))
+                .toList();
     }
 
     /**

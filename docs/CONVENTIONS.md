@@ -107,10 +107,18 @@ backend/
         ├── transaction/    (TransactionController, PdfImportService, Transaction-Entity)
         ├── categorization/ (CategorizationService, LookupTable, CategorizationPort)
         ├── budget/         (BudgetController, SafeToSpendService, SavingsGoalService)
-        └── report/         (ReportController, AiReportService)
+        ├── report/         (ReportController, AiReportService)
+        ├── config/         (SecurityConfig, ClockConfig, OpenApiConfig — Spring-Verdrahtung)
+        └── money/          (ChfAmounts — geteilte CHF-Betragsregel, ADR-9-Nachtrag)
 ```
 
 Regel: Kein direkter Zugriff auf Repositories oder Services eines anderen Moduls. Cross-Modul-Kommunikation nur über definierte Interfaces.
+
+`config/` und `money/` sind die beiden Packages, die keine Domäne sind. `config/` hält
+Spring-Verdrahtung. `money/` ist die begründete Ausnahme aus dem
+[ADR-9-Nachtrag](adr/ADR-9-bigdecimal-money.md): zustandslose CHF-Regeln, die mehr als ein Modul
+braucht — keine Repositories, keine Entities, keine Beans, keine Meldungstexte. Was hinein darf
+und was nicht, steht in `money/package-info.java`.
 
 ## Backend: REST-Endpoints unter `/api/**`
 
