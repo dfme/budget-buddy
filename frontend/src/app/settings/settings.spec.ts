@@ -568,6 +568,11 @@ describe('Route /einstellungen', () => {
     await firstNavigation;
     httpMock.expectOne('/api/budget/safe-to-spend').flush(NO_INCOME_WITHOUT_SUGGESTION);
     root.detectChanges();
+    // FE-NOTIF-01: Sobald isAuthenticated() kippt, rendert die Shell app-notification-bell
+    // (Topbar + Sidebar) und beide Instanzen laden beim Erstellen — gebündelt auf einen Request.
+    // Die Komponenten selbst entstehen erst mit diesem detectChanges(), anders als Settings, das
+    // der Router bereits während der Navigation erzeugt.
+    httpMock.expectOne('/api/notifications').flush([]);
 
     const settings = root.debugElement.query(By.directive(Settings)).componentInstance as Settings;
     settings.incomeForm.controls.betrag.setValue(3800);
@@ -591,6 +596,8 @@ describe('Route /einstellungen', () => {
     // BE-PDF-10: Das Dashboard lädt daneben die Zahl der ungeprüften Buchungsrichtungen. Für
     // diesen Fall ohne Belang, aber `verify()` im afterEach stolperte sonst darüber.
     httpMock.expectOne((r) => r.url === '/api/transactions/uncertain').flush([]);
+    // FE-NOTIF-01: Jede Navigation löst bei app-notification-bell einen Reload aus.
+    httpMock.expectOne('/api/notifications').flush([]);
     root.detectChanges();
 
     const dashboard = root.debugElement.query(By.directive(Dashboard))

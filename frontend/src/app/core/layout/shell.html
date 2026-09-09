@@ -8,19 +8,23 @@
       BudgetBuddy
     </div>
 
-    <!-- Die Tab-Bar gehört den Hauptzielen; der Konto-Block hat dort keinen
-         Platz. Auf Mobile führt deshalb dieser Button zu Konto und Logout. -->
-    <button
-      #avatarButton
-      type="button"
-      class="topbar__avatar"
-      aria-label="Konto"
-      aria-controls="account-menu"
-      [attr.aria-expanded]="accountMenuOpen()"
-      (click)="toggleAccountMenu()"
-    >
-      {{ initials() }}
-    </button>
+    <div class="topbar__actions">
+      <app-notification-bell />
+
+      <!-- Die Tab-Bar gehört den Hauptzielen; der Konto-Block hat dort keinen
+           Platz. Auf Mobile führt deshalb dieser Button zu Konto und Logout. -->
+      <button
+        #avatarButton
+        type="button"
+        class="topbar__avatar"
+        aria-label="Konto"
+        aria-controls="account-menu"
+        [attr.aria-expanded]="accountMenuOpen()"
+        (click)="toggleAccountMenu()"
+      >
+        {{ initials() }}
+      </button>
+    </div>
 
     <!-- Disclosure, kein WAI-ARIA-Menu: `role="menu"` würde Pfeiltasten-Navigation
          und Fokus-Sprung aufs erste Item versprechen, und es liesse die E-Mail-Zeile
@@ -72,6 +76,8 @@
     }
 
     <div class="nav__account">
+      <app-notification-bell />
+
       <div class="nav__user">
         <span class="nav__avatar" aria-hidden="true">{{ initials() }}</span>
         <span class="nav__user-info">

@@ -53,11 +53,30 @@ describe('Shell', () => {
 
   afterEach(() => httpMock.verify());
 
-  /** Meldet einen User an, indem der Login-Call gemockt und der State gesetzt wird. */
-  function login(user: User = LARA): void {
+  /**
+   * Meldet einen User an, indem der Login-Call gemockt und der State gesetzt wird.
+   *
+   * <p>Flusht danach auch `GET /api/notifications`: sobald `isAuthenticated()` auf `true`
+   * kippt, rendert die Shell `app-notification-bell` an beiden Stellen (Topbar + Sidebar), und
+   * beide Instanzen laden beim Erstellen (FE-NOTIF-01). `NotificationService.load()` bündelt die
+   * beiden gleichzeitigen Aufrufe auf einen einzigen Request.
+   */
+  function login(user: User = LARA, notifications: unknown[] = []): void {
     auth.login(user.email, 'supersecret').subscribe();
     httpMock.expectOne('/api/auth/login').flush(user);
     fixture.detectChanges();
+    httpMock.expectOne('/api/notifications').flush(notifications);
+    fixture.detectChanges();
+  }
+
+  /**
+   * Flusht den Reload, den `app-notification-bell` bei jeder Navigation auslöst
+   * (FE-NOTIF-01: „Laden bei Login/Navigation, kein Polling"). Nötig nach jedem echten
+   * `router.navigate(...)` in einem Test — anders als bei `login()` reicht hier kein
+   * gemeinsamer Helper, weil die Navigation selbst der jeweiligen Testaussage dient.
+   */
+  function flushNotificationsReload(): void {
+    httpMock.expectOne('/api/notifications').flush([]);
   }
 
   function el(): HTMLElement {
@@ -124,6 +143,7 @@ describe('Shell', () => {
     login();
 
     await router.navigate(['/einstellungen']);
+    flushNotificationsReload();
     fixture.detectChanges();
 
     const link = query<HTMLAnchorElement>('.nav__settings');
@@ -135,6 +155,7 @@ describe('Shell', () => {
     login();
 
     await router.navigate(['/categories']);
+    flushNotificationsReload();
     fixture.detectChanges();
 
     const active = query<HTMLAnchorElement>('.nav__item--active');
@@ -241,6 +262,7 @@ describe('Shell', () => {
       login();
 
       await router.navigate(['/einstellungen']);
+      flushNotificationsReload();
       avatarButton().click();
       fixture.detectChanges();
       // `RouterLinkActive.update()` toggelt die Klasse in einem `queueMicrotask` — anders als
