@@ -132,7 +132,7 @@ Bank-PDF-Fixtures            Repo             Git                 unbegrenzt    
 | Datenart | Quelle | Speicher | Aufbewahrung | Extern? |
 |---|---|---|---|---|
 | Theme-Wahl (`light`/`dark`/`system`) | Einstellungen | `localStorage` im Browser | bis der Storage geleert wird | — |
-| Bank-PDF-Fixtures (7 generiert, 1 echt-anonymisiert) | Repository | Git | unbegrenzt | GitHub-Runner + Anthropic beim automatischen PR-Review |
+| Bank-PDF-Fixtures (7 generiert, 1 echt-anonymisiert) | Repository | Git | unbegrenzt | GitHub-Runner + Anthropic beim automatischen PR-Review — **Consumer Terms**, siehe unten |
 
 ---
 
@@ -156,6 +156,45 @@ Die Aufbewahrungsdauer der Render-Logs ist nirgends im Code festgelegt. Sie ist 
 Plattformeinstellung, keine Anwendungsentscheidung — und damit genau die Sorte offene Frage, die
 diese Karte sichtbar machen soll. Was in den Logs steht, ist zwar redigiert und gesalzen gehasht;
 Request- und User-ID stehen aber im Klartext an jeder Zeile.
+
+---
+
+## Was jenseits der Systemgrenze gilt
+
+Die Spalte «Extern?» endet an unserer Grenze. Was Anthropic mit dem Empfangenen tut, steht nicht im
+Code und ist deshalb auch nicht konfigurierbar — es ist Vertragslage. **Kein Trainings-Opt-out ist
+hinterlegt, weil es keines gibt: Nicht-Training ist der Ausgangszustand, nicht eine Einstellung.**
+`AnthropicConfig` setzt genau drei Dinge — Key, Timeout, Retries — und weder Header noch
+Retention-Parameter existieren in der API.
+
+### Pfad 1 — Backend → `api.anthropic.com` (API-Key, Commercial Terms)
+
+| Frage | Antwort |
+| --- | --- |
+| Training auf unseren Requests? | **Nein, per Default:** «By default, we will not use your inputs or outputs from our commercial products … to train our models.» |
+| Opt-out nötig? | Nein. Es gäbe umgekehrt ein *Opt-in* (Development Partner Mode) — nicht aktiviert |
+| Speicherung dort? | **Nicht null:** Löschung «within 30 days of receipt or generation»; von Trust & Safety geflaggte Inhalte bis zu 2 Jahre |
+| Zero Data Retention? | Wäre möglich (`claude-haiku-4-5` ist kein Covered Model), ist aber **keine Config**, sondern eine Vereinbarung pro Organisation über den Anthropic-Sales |
+
+Das relativiert die Prompt-Zeile der Karte: «Call-Dauer 10 s» ist unsere Aufbewahrung, nicht die
+der Gegenseite. Dort sind es bis zu 30 Tage.
+
+### Pfad 2 — PR-Review → GitHub Action (Consumer Terms)
+
+Der Workflow gibt dem `CLAUDE_CODE_OAUTH_TOKEN` Vorrang vor dem `ANTHROPIC_API_KEY`, und genau
+dieses Secret ist gesetzt. Jedes automatische Review läuft damit über ein persönliches Pro/Max-Konto
+und **unter den Consumer Terms**, wo die Trainingsnutzung an der Kontoeinstellung «Model
+Improvement» hängt — der einzige echte Opt-out-Schalter im ganzen Bild, und er liegt ausserhalb
+dieses Repos. Übermittelt wird der Diff plus alles, was der Review-Skill liest, inklusive der
+anonymisierten Bank-Fixtures. Wer das unter dieselbe Zusicherung wie Pfad 1 stellen will, stellt den
+Workflow auf den `ANTHROPIC_API_KEY` einer Commercial Organization um.
+
+**Quellen:** [Is my data used for model training? (Commercial)](https://privacy.claude.com/en/articles/7996868-is-my-data-used-for-model-training)
+· [How long do you store my organization's data?](https://privacy.claude.com/en/articles/7996866-how-long-do-you-store-my-organization-s-data)
+· [API and data retention](https://platform.claude.com/docs/en/manage-claude/api-and-data-retention)
+· [Updates to Consumer Terms](https://www.anthropic.com/news/updates-to-our-consumer-terms) — abgerufen 09.09.2026
+
+---
 
 **Nicht auf der Karte, weil es im Code nicht existiert:** kein Tracker im Frontend, kein
 Mail-Versand, kein Payment-Provider, kein Push-Dienst, keine OpenBanking-Anbindung, keine
