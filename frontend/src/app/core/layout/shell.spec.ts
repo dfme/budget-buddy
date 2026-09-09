@@ -6,6 +6,7 @@ import { Router, provideRouter } from '@angular/router';
 
 import { AuthService } from '../../auth/auth.service';
 import { User } from '../../auth/user.model';
+import { NotificationService } from '../../notifications/notification.service';
 import { Shell } from './shell';
 
 const LARA: User = {
@@ -26,6 +27,7 @@ describe('Shell', () => {
   let auth: AuthService;
   let httpMock: HttpTestingController;
   let router: Router;
+  let notifications: NotificationService;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -48,6 +50,7 @@ describe('Shell', () => {
     auth = TestBed.inject(AuthService);
     httpMock = TestBed.inject(HttpTestingController);
     router = TestBed.inject(Router);
+    notifications = TestBed.inject(NotificationService);
     fixture.detectChanges();
   });
 
@@ -370,6 +373,48 @@ describe('Shell', () => {
 
       expect(auth.isAuthenticated()).toBe(false);
       expect(navigate).toHaveBeenCalledWith(['/login']);
+    });
+
+    // FE-NOTIF-01, Review-Befund von @dfme (PR #285): ohne diesen Test bliebe eine Regression
+    // an `NotificationService.clear()` unbemerkt — sonst blitzen die Benachrichtigungen des
+    // vorherigen Users kurz auf, bevor der nächste Login in derselben Tab-Session neu lädt.
+    it('leert den Notification-State beim Abmelden', () => {
+      login(LARA, [
+        {
+          id: 1,
+          type: 'RECURRING_EXPENSE_DETECTED',
+          referenceId: null,
+          message: 'Netflix erkannt',
+          read: false,
+          createdAt: '2026-09-08T10:15:00Z',
+        },
+      ]);
+      expect(notifications.notifications()).toHaveLength(1);
+
+      query<HTMLButtonElement>('.nav__logout')!.click();
+      httpMock.expectOne('/api/auth/logout').flush(null);
+
+      expect(notifications.notifications()).toEqual([]);
+    });
+
+    it('leert den Notification-State auch, wenn der Logout-Call fehlschlägt', () => {
+      login(LARA, [
+        {
+          id: 1,
+          type: 'RECURRING_EXPENSE_DETECTED',
+          referenceId: null,
+          message: 'Netflix erkannt',
+          read: false,
+          createdAt: '2026-09-08T10:15:00Z',
+        },
+      ]);
+
+      query<HTMLButtonElement>('.nav__logout')!.click();
+      httpMock
+        .expectOne('/api/auth/logout')
+        .flush(null, { status: 500, statusText: 'Server Error' });
+
+      expect(notifications.notifications()).toEqual([]);
     });
   });
 });
