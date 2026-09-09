@@ -1,4 +1,5 @@
 import { DatePipe } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, ElementRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router } from '@angular/router';
@@ -49,14 +50,27 @@ export class NotificationBell {
   protected readonly open = signal(false);
 
   constructor() {
-    this.notificationService.load().subscribe();
+    this.reload();
 
     this.router.events
       .pipe(
         filter((event): event is NavigationEnd => event instanceof NavigationEnd),
         takeUntilDestroyed(),
       )
-      .subscribe(() => this.notificationService.load().subscribe());
+      .subscribe(() => this.reload());
+  }
+
+  /**
+   * Lädt neu (Mount/Login und jede Navigation, siehe Klassen-Doc). Ein Fehler bleibt bewusst
+   * still: die Glocke zeigt dann weiterhin den zuletzt bekannten Stand statt einer Fehlermeldung
+   * für eine sekundäre Funktion — dieselbe Abwägung wie bei `Dashboard.loadUncertainCount`.
+   */
+  private reload(): void {
+    this.notificationService.load().subscribe({
+      error: (_err: HttpErrorResponse) => {
+        // Siehe Methoden-Doc: bewusst ohne Meldung.
+      },
+    });
   }
 
   protected toggle(): void {
@@ -80,10 +94,17 @@ export class NotificationBell {
    * Markiert eine ungelesene Benachrichtigung als gelesen. Bereits gelesene lösen keinen
    * weiteren Call aus — das Backend ist zwar idempotent, ein Call ohne Wirkung ist trotzdem
    * unnötig. Das Dropdown bleibt bewusst offen, damit der Wechsel auf «gelesen» sichtbar wird.
+   *
+   * <p>Ein Fehler bleibt bewusst still: die Benachrichtigung zeigt dann weiterhin als ungelesen
+   * — der sichere Fallback, ein erneuter Klick versucht es wieder.
    */
   protected select(notification: NotificationResponse): void {
     if (!notification.read) {
-      this.notificationService.markAsRead(notification.id).subscribe();
+      this.notificationService.markAsRead(notification.id).subscribe({
+        error: (_err: HttpErrorResponse) => {
+          // Siehe Methoden-Doc: bewusst ohne Meldung.
+        },
+      });
     }
   }
 }
