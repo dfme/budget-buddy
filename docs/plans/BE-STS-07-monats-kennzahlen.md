@@ -150,7 +150,7 @@ festgehalten, damit die Abweichung zum Kontoauszug erklärbar bleibt.
    und des Unterschieds zum Safe-to-Spend-Endpoint bei Zukunftsmonaten.
 5. `TransactionExceptionHandler.java` — Controller registrieren, Handler ergänzen (Entscheid 2).
 6. Tests schreiben (unten).
-7. `JAVA_HOME=$(/usr/libexec/java_home -v 25) ./mvnw -pl backend test` grün.
+7. `cd backend && JAVA_HOME=$(/usr/libexec/java_home -v 25) ./mvnw test` grün.
 
 ## Test-Strategie
 
