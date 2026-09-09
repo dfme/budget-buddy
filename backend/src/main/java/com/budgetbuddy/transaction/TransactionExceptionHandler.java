@@ -12,13 +12,20 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * bereits als 400 ({@code MissingServletRequestParameterException} bzw.
  * {@code MethodArgumentNotValidException}); hier werden zusätzlich die domänenspezifischen Fälle
  * abgebildet: ungültiger {@code month}/{@code category}-Wert → 400, unbrauchbare {@code page}/
- * {@code size}-Werte → 400, unbekannte Transaktion → 404.
+ * {@code size}-Werte → 400, unbrauchbarer {@code months}-Wert → 400, unbekannte Transaktion → 404.
+ *
+ * <p>Die {@code assignableTypes}-Liste ist Pflichtpflege, kein Beiwerk: {@link MonthParser} hält
+ * fest, dass es in diesem Projekt bewusst kein {@code @RestControllerAdvice} ohne
+ * {@code assignableTypes} gibt (Begründung in {@code UserExceptionHandler}). Ein Controller, der
+ * hier fehlt, liefert für einen kaputten {@code month} eine 500 statt einer 400 — deshalb steht
+ * jeder Aufrufer des Parsers aus diesem Modul in der Liste.
  */
 @RestControllerAdvice(assignableTypes = {
     TransactionSummaryController.class,
     TransactionCategoryController.class,
     TransactionListController.class,
-    TransactionDirectionController.class
+    TransactionDirectionController.class,
+    MonthlyTotalsController.class
 })
 public class TransactionExceptionHandler {
 
@@ -32,6 +39,12 @@ public class TransactionExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public void handleInvalidPagination(InvalidPaginationException ex) {
         // Kein Body: 400 genügt für unbrauchbare page/size-Werte, die Grenzen stehen in Swagger.
+    }
+
+    @ExceptionHandler(InvalidMonthWindowException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public void handleInvalidMonthWindow(InvalidMonthWindowException ex) {
+        // Kein Body: 400 genügt für einen unbrauchbaren months-Wert, die Grenzen stehen in Swagger.
     }
 
     @ExceptionHandler(InvalidCategoryException.class)
