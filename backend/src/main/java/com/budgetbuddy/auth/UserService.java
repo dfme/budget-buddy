@@ -3,6 +3,7 @@ package com.budgetbuddy.auth;
 import com.budgetbuddy.auth.dto.UserProfileResponse;
 import com.budgetbuddy.budget.FixedCostCleanupPort;
 import com.budgetbuddy.money.ChfAmounts;
+import com.budgetbuddy.notification.NotificationCleanupPort;
 import com.budgetbuddy.transaction.TransactionCleanupPort;
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -34,16 +35,19 @@ public class UserService implements UserIncomePort {
     private final UserRepository userRepository;
     private final TransactionCleanupPort transactionCleanupPort;
     private final FixedCostCleanupPort fixedCostCleanupPort;
+    private final NotificationCleanupPort notificationCleanupPort;
     private final PasswordEncoder passwordEncoder;
 
     public UserService(
             UserRepository userRepository,
             TransactionCleanupPort transactionCleanupPort,
             FixedCostCleanupPort fixedCostCleanupPort,
+            NotificationCleanupPort notificationCleanupPort,
             PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.transactionCleanupPort = transactionCleanupPort;
         this.fixedCostCleanupPort = fixedCostCleanupPort;
+        this.notificationCleanupPort = notificationCleanupPort;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -167,11 +171,11 @@ public class UserService implements UserIncomePort {
     /**
      * Löscht den User und alle abhängigen Daten (US-02, DB-07).
      *
-     * <p>{@code transactions}, {@code import_jobs} und {@code fixed_costs} tragen alle eine
-     * Fremdschlüssel auf {@code users} ohne {@code ON DELETE} — der User wird deshalb erst
-     * gelöscht, <em>nachdem</em> beide Cleanup-Ports ihre Tabellen geräumt haben, sonst schlägt
-     * die letzte Zeile am Constraint fehl. Bewusst kein {@code ON DELETE CASCADE}: die Löschung
-     * bleibt eine sichtbare, einzeln testbare Operation im Code statt einer stillen
+     * <p>{@code transactions}, {@code import_jobs}, {@code fixed_costs} und {@code notifications}
+     * tragen alle eine Fremdschlüssel auf {@code users} ohne {@code ON DELETE} — der User wird
+     * deshalb erst gelöscht, <em>nachdem</em> alle Cleanup-Ports ihre Tabellen geräumt haben, sonst
+     * schlägt die letzte Zeile am Constraint fehl. Bewusst kein {@code ON DELETE CASCADE}: die
+     * Löschung bleibt eine sichtbare, einzeln testbare Operation im Code statt einer stillen
      * DB-Nebenwirkung (siehe {@code V05__create_import_jobs_table.sql}).
      *
      * @throws UserNotFoundException wenn kein User mit dieser ID existiert.
@@ -181,6 +185,7 @@ public class UserService implements UserIncomePort {
         User user = findUser(userId);
         transactionCleanupPort.deleteAllForUser(userId);
         fixedCostCleanupPort.deleteAllForUser(userId);
+        notificationCleanupPort.deleteAllForUser(userId);
         userRepository.delete(user);
     }
 
