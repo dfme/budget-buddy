@@ -28,25 +28,33 @@ dort). Drei Hebel, wie im Prompt vorgegeben:
 
 ## Entscheidungstabelle
 
-| # | Fundstelle | Was daran heikel ist | Vorschlag | Aufwand |
-| --- | --- | --- | --- | --- |
-| **F1** | `category_lookup` — global, unmaskiert, ewig | Mandantengrenze | **trennen** | M |
-| **F2** | `deleteUser` ohne Aufrufer | keine Frist ist einlösbar | **kürzer** (Löschpfad) | M |
-| **F3** | `transactions` ohne Retention | unbegrenzt | **kürzer** | M |
-| **F4** | `import_jobs` bleiben ewig | unbegrenzt, tragen `pdf_sha256` | **kürzer** | S |
-| **F5** | `recurring_expenses` nicht im Löschpfad | Waise ab dem ersten Schreibzugriff | **trennen** (jetzt vorbereiten) | S |
-| **F6** | Restexposition im Prompt (BE-CAT-08) | Vorname, Telefonnummer gehen hinaus | **weglassen** | M |
-| **F7** | `buchungsdetails` im Prompt | mehr als die Kategorisierung braucht | **weglassen** (messen!) | S |
-| **F8** | `notifications.message` Freitext | noch kein Produzent — Regel jetzt setzen | **weglassen** | XS |
-| **F9** | `user_id` im Klartext an jeder Log-Zeile | Verkettbarkeit im Log | **trennen** | S |
-| **F10** | Log-Retention nirgends gesetzt | die vier `???` aus L2 | **kürzer** | XS |
-| **F11** | `users.first_name/last_name` | nur für zwei Initialen | **weglassen** | S |
-| **F12** | `transactions.pdf_sha256` | Abgleich gegen ein bekanntes PDF möglich | **trennen** (HMAC) | S |
-| **F13** | PR-Review unter Consumer Terms | Repo-Inhalt inkl. echter Fixture-Struktur | **trennen** | XS |
-| **F14** | JWT-Laufzeit 24 h | langes Fenster für ein gestohlenes Cookie | **kürzer** | M |
+| # | Fundstelle | Was daran heikel ist | Vorschlag | Aufwand | Issue |
+| --- | --- | --- | --- | --- | --- |
+| **F1** | `category_lookup` — global, unmaskiert, ewig | Mandantengrenze | **trennen** | M | — |
+| **F2** | `deleteUser` ohne Aufrufer | keine Frist ist einlösbar | **kürzer** (Löschpfad) | M | [#290](https://github.com/dfme/budget-buddy/issues/290) |
+| **F3** | `transactions` ohne Retention | unbegrenzt | **kürzer** | M | — |
+| **F4** | `import_jobs` bleiben ewig | unbegrenzt, tragen `pdf_sha256` | **kürzer** | S | — |
+| **F5** | `recurring_expenses` nicht im Löschpfad | Waise ab dem ersten Schreibzugriff | **trennen** (jetzt vorbereiten) | S | — |
+| **F6** | Restexposition im Prompt (BE-CAT-08) | Vorname, Telefonnummer gehen hinaus | **weglassen** | M | — |
+| **F7** | `buchungsdetails` im Prompt | mehr als die Kategorisierung braucht | **weglassen** (messen!) | S | — |
+| **F8** | `notifications.message` Freitext | noch kein Produzent — Regel jetzt setzen | **weglassen** | XS | — |
+| **F9** | `user_id` im Klartext an jeder Log-Zeile | Verkettbarkeit im Log | **trennen** | S | — |
+| **F10** | Log-Retention nirgends gesetzt | die vier `???` aus L2 | **kürzer** | XS | — |
+| **F11** | `users.first_name/last_name` | nur für zwei Initialen | **weglassen** | S | — |
+| **F12** | `transactions.pdf_sha256` | Abgleich gegen ein bekanntes PDF möglich | **trennen** (HMAC) | S | — |
+| **F13** | PR-Review unter Consumer Terms | Repo-Inhalt inkl. echter Fixture-Struktur | **trennen** | XS | — |
+| **F14** | JWT-Laufzeit 24 h | langes Fenster für ein gestohlenes Cookie | **kürzer** | XS (Sliding: M) | [#289](https://github.com/dfme/budget-buddy/issues/289) |
 
-Reihenfolge, wenn nur wenig umgesetzt wird: **F2 → F1 → F8 → F13 → F10**. F2 zuerst, weil ohne
-Löschpfad jede andere Frist auf dem Papier bleibt; F8/F13/F10 sind fast gratis.
+Reihenfolge, wenn nur wenig umgesetzt wird: **F2 → F1 → F8 → F13 → F10 → F14**. F2 zuerst, weil
+ohne Löschpfad jede andere Frist auf dem Papier bleibt; F8, F13, F10 und F14 sind Einzeiler.
+
+**Ticketiert sind bisher zwei Fundstellen** — F2 als
+[#290 `[BE-AUTH-14]` Konto löschen: Endpoint auf /api/users/me](https://github.com/dfme/budget-buddy/issues/290)
+und F14 als
+[#289 `[BE-AUTH-13]` JWT-Laufzeit von 24 h verkürzen](https://github.com/dfme/budget-buddy/issues/289).
+Beide Issues tragen die Optionen aus den Abschnitten unten als Acceptance Criteria; die Wahl
+zwischen ihnen ist dort jeweils das erste Kriterium und bleibt beim Team. Die übrigen zwölf
+Fundstellen sind bewusst noch nicht ticketiert — was davon umgesetzt wird, ist offen.
 
 ---
 
@@ -87,6 +95,14 @@ wie eine Bedingung, die der Nutzer auslösen kann. Real ist die Aufbewahrung fü
 **Vorschlag — kürzer:** `DELETE /api/users/me` mit Passwortbestätigung auf das vorhandene
 `deleteUser` legen, plus Aktion in den Einstellungen. Der teure Teil existiert bereits; es fehlt
 die Fassade. Vor F3 umzusetzen, sonst regelt man Fristen für Daten, die man ohnehin nicht loswird.
+
+**Umsetzung:** ticketiert als
+[#290 — `[BE-AUTH-14]` Konto löschen: Endpoint auf /api/users/me](https://github.com/dfme/budget-buddy/issues/290)
+(Label `us-02`). Der Task liefert bewusst nur die API; die Aktion in den Einstellungen wäre
+`FE-SET-05`. Zwei Lücken bleiben ausdrücklich ausserhalb und sind im Issue benannt, damit US-02
+nicht vorschnell als erfüllt gilt: **F1** (`category_lookup` überlebt die Löschung) und **F5**
+(`recurring_expenses` hängt nicht in der Kette). US-02 AC 3 verlangt «alle personenbezogenen
+Daten» — mit dem Endpoint allein ist das nicht abhakbar.
 
 ## F3 — `transactions` kennt keine Aufbewahrungsfrist
 
@@ -251,9 +267,28 @@ gilt für CI dieselbe Zusicherung wie für die Produktion.
 Das Cookie ist `httpOnly`, `Secure` in Prod, `SameSite=Strict`, und `token_version` entwertet es bei
 Passwortänderung — sauber gebaut. 24 h sind trotzdem ein langes Fenster.
 
-**Vorschlag — kürzer:** 8 h, oder Sliding Expiration bei Aktivität. Ohne Refresh-Mechanismus heisst
-das häufigeres Einloggen, deshalb steht der Punkt bewusst zuunterst: der Sicherheitsgewinn ist real,
-aber kleiner als bei F1–F4, und der UX-Preis unmittelbar spürbar.
+**Vorschlag — kürzer, Variante A (XS):** `app.jwt.expiration=8h`. Eine Zeile, und zwar wirklich nur
+eine: `JwtService` liest den Wert im Konstruktor ([:32](../../backend/src/main/java/com/budgetbuddy/auth/JwtService.java#L32)),
+und `JwtCookieFactory` leitet die Cookie-`maxAge` aus derselben Property ab
+([:28](../../backend/src/main/java/com/budgetbuddy/auth/JwtCookieFactory.java#L28)) — Token und Cookie
+können nicht auseinanderlaufen. Kein Test hängt daran: `JwtServiceTest` konstruiert `JwtProperties`
+mit eigenen Dauern. Und der Ablauf ist abgefedert, weil
+[auth-error.interceptor.ts:39](../../frontend/src/app/core/interceptors/auth-error.interceptor.ts#L39)
+jeden 401 auf einem geschützten Call auf den Login umleitet. Preis: einmal pro Arbeitstag neu
+einloggen.
+
+**Variante B (M):** Sliding Expiration — das Token bei Aktivität verlängern, statt es hart ablaufen
+zu lassen. Das ist neuer Code (Erneuerungspfad, Entscheidung wann verlängert wird, Tests) und der
+Grund, warum diese Zeile ursprünglich mit M stand. Variante A ist davon unabhängig und schon für
+sich der ganze Sicherheitsgewinn; B kauft nur die UX zurück.
+
+**Umsetzung:** ticketiert als
+[#289 — `[BE-AUTH-13]` JWT-Laufzeit von 24 h verkürzen](https://github.com/dfme/budget-buddy/issues/289)
+(Label `us-01`). Beide Varianten stehen gleichwertig im Issue, die Wahl ist das erste Acceptance
+Criterion; die vier zusätzlichen Kriterien für Variante B (Erneuerungsschwelle, absolute
+Obergrenze, ERROR-Dispatch, Zusammenspiel mit `token_version`) sind als eigener Block markiert.
+Scope-Hinweis im Issue: «Automatischer Session-Ablauf nach Inaktivität» steht in US-01 unter
+*Post-MVP* — Variante B zieht diesen Punkt vor.
 
 ---
 
