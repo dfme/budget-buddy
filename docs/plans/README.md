@@ -61,6 +61,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `BE-STS-04` | [Fixkosten werden im Safe-to-Spend doppelt abgezogen](BE-STS-04-fixkosten-doppelabzug.md) | [#154](https://github.com/dfme/budget-buddy/issues/154) | US-06 | Sprint 5 |
 | `BE-STS-05` | [Einkommens-Heuristik über den Absender gruppieren](BE-STS-05-absender-gruppierung.md) | [#208](https://github.com/dfme/budget-buddy/issues/208) | US-06 | Sprint 6 |
 | `BE-STS-06` | [Safe-to-Spend: Monat-Parameter + Abgeschlossen-Status](BE-STS-06-safe-to-spend-monat.md) | [#248](https://github.com/dfme/budget-buddy/issues/248) | US-12 | Sprint 6 |
+| `BE-STS-07` | [Monats-Kennzahlen: Einnahmen, Ausgaben und Differenz pro Monat](BE-STS-07-monats-kennzahlen.md) | [#288](https://github.com/dfme/budget-buddy/issues/288) | US-12 | Sprint 6 |
 | `DB-01` | [DB-01 — Flyway V1: users-Tabelle](DB-01-flyway-users-table.md) | [#4](https://github.com/dfme/budget-buddy/issues/4) | — | Sprint 1 |
 | `DB-02` | [DB-02 — Flyway V2: transactions-Tabelle](DB-02-transactions-table.md) | [#5](https://github.com/dfme/budget-buddy/issues/5) | US-04, US-05, US-06 | Sprint 1 |
 | `DB-03` | [DB-03 — Flyway V3: fixed_costs-Tabelle](DB-03-fixed-costs-table.md) | [#6](https://github.com/dfme/budget-buddy/issues/6) | US-03 | Sprint 1 |
