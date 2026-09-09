@@ -11,6 +11,12 @@ import { Card } from '../shared/card/card';
 import { CATEGORIES } from '../shared/category';
 import { DonutChart, DonutSlice } from '../shared/chart/donut-chart';
 import { Input } from '../shared/input/input';
+import {
+  currentMonth,
+  formatMonth,
+  isValidMonth,
+  shiftMonth,
+} from '../shared/month';
 import { MonthNav, MonthOption } from '../shared/month-nav/month-nav';
 import { Notice } from '../shared/notice/notice';
 import { CategorySummary } from './category-summary.model';
@@ -50,12 +56,6 @@ const FAILED_TO_SAVE_DIRECTION = 'Die Buchungsrichtung konnte nicht gespeichert 
  * ablehnt. Grenze des Fensters, das nach einer Kategorie-Korrektur neu geladen wird.
  */
 const MAX_PAGES_PER_REQUEST = MAX_TRANSACTION_PAGE_SIZE / TRANSACTION_PAGE_SIZE;
-
-/**
- * Zulässiger `month`-Query-Parameter. Ein unbrauchbarer Wert darf nicht bis `formatMonth()`
- * durchkommen — `new Date(NaN)` erzeugte dort ein «Invalid Date» als Überschrift.
- */
-const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 /** Zustand der aktuell aufgeklappten Kategorie. `null`, solange keine offen ist. */
 interface Drilldown {
@@ -129,7 +129,7 @@ export class CategoryOverview {
   private readonly router = inject(Router);
 
   /** Aktuell angezeigter Monat im Format `YYYY-MM`. */
-  readonly month = signal(CategoryOverview.currentMonth());
+  readonly month = signal(currentMonth());
 
   /** Geladenes Summary oder `null`, solange nichts geladen ist. */
   readonly summary = signal<CategorySummary | null>(null);
@@ -141,7 +141,7 @@ export class CategoryOverview {
   readonly errorMessage = signal<string | null>(null);
 
   /** Menschlich lesbares Monatslabel, z. B. `"Juli 2026"`. */
-  readonly monthLabel = computed(() => CategoryOverview.formatMonth(this.month()));
+  readonly monthLabel = computed(() => formatMonth(this.month()));
 
   /**
    * Segmente des Donut-Charts (FE-CAT-02) — dieselben Zahlen wie die Tabelle, in der
@@ -169,7 +169,7 @@ export class CategoryOverview {
   });
 
   /** `true`, wenn der angezeigte Monat der aktuelle Monat ist — sperrt "›". */
-  readonly isCurrentMonth = computed(() => this.month() >= CategoryOverview.currentMonth());
+  readonly isCurrentMonth = computed(() => this.month() >= currentMonth());
 
   /**
    * Monate mit Ausgaben aus `GET /api/transactions/months`, roh wie geliefert. Leer, solange nichts
@@ -191,13 +191,13 @@ export class CategoryOverview {
    * </ul>
    */
   readonly monthOptions = computed<readonly MonthOption[]>(() => {
-    const current = CategoryOverview.currentMonth();
+    const current = currentMonth();
     const values = new Set(this.loadedMonths().filter((month) => month <= current));
     values.add(this.month());
     return [...values]
       .sort()
       .reverse()
-      .map((value) => ({ value, label: CategoryOverview.formatMonth(value) }));
+      .map((value) => ({ value, label: formatMonth(value) }));
   });
 
   /** Aufgeklappte Kategorie samt ihren Buchungen, oder `null`, wenn keine offen ist. */
@@ -277,12 +277,12 @@ export class CategoryOverview {
 
   /** Einen Monat zurück. */
   previousMonth(): void {
-    this.goTo(CategoryOverview.shiftMonth(this.month(), -1));
+    this.goTo(shiftMonth(this.month(), -1));
   }
 
   /** Einen Monat vor. */
   nextMonth(): void {
-    this.goTo(CategoryOverview.shiftMonth(this.month(), 1));
+    this.goTo(shiftMonth(this.month(), 1));
   }
 
   /**
@@ -326,8 +326,8 @@ export class CategoryOverview {
     // Buchungen, und der Stepper verbietet den Weg dorthin ohnehin. Ihn erst weiter unten aus dem
     // Dropdown zu filtern, hiesse Entscheid 5 zu brechen — das <select> stünde dann auf einem
     // Wert, den seine eigene Liste nicht enthält. Hier abgefangen, halten beide Regeln.
-    const valid = raw !== null && MONTH_PATTERN.test(raw) && raw <= CategoryOverview.currentMonth();
-    const month = valid ? raw : CategoryOverview.currentMonth();
+    const valid = isValidMonth(raw);
+    const month = valid ? raw : currentMonth();
 
     if (raw !== null && !valid) {
       // Unbrauchbarer Parameter: die Adresse auf den tatsächlich angezeigten Monat zurechtrücken,
@@ -767,29 +767,4 @@ export class CategoryOverview {
       });
   }
 
-  /** Aktueller Monat als `YYYY-MM`. */
-  private static currentMonth(): string {
-    const now = new Date();
-    return CategoryOverview.toMonthString(now.getFullYear(), now.getMonth() + 1);
-  }
-
-  /** Verschiebt einen `YYYY-MM`-String um `delta` Monate (jahresübergreifend). */
-  private static shiftMonth(month: string, delta: number): string {
-    const [year, monthNumber] = month.split('-').map(Number);
-    // Date normalisiert Monats-Overflow/-Underflow (z. B. Monat 0 → Dezember Vorjahr).
-    const shifted = new Date(year, monthNumber - 1 + delta, 1);
-    return CategoryOverview.toMonthString(shifted.getFullYear(), shifted.getMonth() + 1);
-  }
-
-  /** Baut `YYYY-MM` aus Jahr und 1-basiertem Monat mit führender Null. */
-  private static toMonthString(year: number, monthNumber: number): string {
-    return `${year}-${String(monthNumber).padStart(2, '0')}`;
-  }
-
-  /** Formatiert `YYYY-MM` als `"Juli 2026"` (de-CH). */
-  private static formatMonth(month: string): string {
-    const [year, monthNumber] = month.split('-').map(Number);
-    const date = new Date(year, monthNumber - 1, 1);
-    return new Intl.DateTimeFormat('de-CH', { month: 'long', year: 'numeric' }).format(date);
-  }
 }
