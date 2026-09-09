@@ -238,6 +238,18 @@ class MonthlyTotalsControllerIntegrationTest {
     }
 
     @Test
+    void rejectsANonNumericWindowSizeWithBadRequest() throws Exception {
+        // months ist ein int; ein unbrauchbarer Wert darf nicht als 500 durchschlagen. Behandelt
+        // wird das von Springs eigenem Resolver (MethodArgumentTypeMismatchException), nicht vom
+        // TransactionExceptionHandler — der Test hält fest, dass das auch so bleibt.
+        mockMvc.perform(get("/api/transactions/monthly-totals")
+                        .param("month", "2026-07")
+                        .param("months", "drei")
+                        .cookie(jwtCookie(laraId)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void requiresAuthentication() throws Exception {
         mockMvc.perform(get("/api/transactions/monthly-totals").param("month", "2026-07"))
                 .andExpect(status().isUnauthorized());
