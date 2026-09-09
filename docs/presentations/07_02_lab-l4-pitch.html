@@ -334,19 +334,22 @@
   <section class="slide">
     <div class="slide-inner">
       <div class="eyebrow">03 — Schlimmster Fund der Checkliste<span class="timebox">45 Sek</span></div>
-      <h2>Kein erfundenes Feature — der Fund war eine Auslassung</h2>
-      <p class="lede">README.md und CLAUDE.md gegen den Code geprüft: Modell-Default, Prompt-Maskierung, die zwei bekannten Restexpositionen (#233) — jede Aussage per <code>grep</code> bestätigt.</p>
-      <div class="grid-2">
-        <div class="card">
-          <span class="role">Stichprobe bestanden</span>
-          <h3>Belege stimmen</h3>
-          <p><code>ANTHROPIC_API_MODEL</code>-Default, <code>PromptSanitizer.buildUserPrompt</code>-Verweis, Issue-Link #233 — alle drei im Code exakt so, wie CLAUDE.md es behauptet.</p>
+      <h2>Der eigene Badge-Fix hätte für immer „no status" gezeigt</h2>
+      <p class="lede">README.md und CLAUDE.md gegen den Code geprüft: Modell-Default, Prompt-Maskierung, die zwei bekannten Restexpositionen (#233) — jede Aussage per <code>grep</code> bestätigt. Der schlimmste Fund kam aber erst beim eigenen Nachtrag.</p>
+      <div class="card" style="margin-top:1.8rem;">
+        <span class="role">Stichprobe bestanden</span>
+        <h3>Belege im Bestand stimmen</h3>
+        <p><code>ANTHROPIC_API_MODEL</code>-Default, <code>PromptSanitizer.buildUserPrompt</code>-Verweis, Issue-Link #233 — alle drei im Code exakt so, wie CLAUDE.md es behauptet.</p>
+      </div>
+      <div class="finding" style="margin-top:1.1rem;">
+        <div class="k">Fund — im eigenen PR #284</div>
+        <p>Der neu ergänzte Badge zeigte auf <code>build.yml</code> — das läuft nur per <code>workflow_call</code>, nie direkt auf <code>main</code>. Ergebnis: dauerhaft grau, nicht rot oder grün.</p>
+        <div class="trace" style="margin-top:.9rem;">
+          <div class="trace-row fail"><span class="mark">✗</span><span class="step"><code>badge.svg?branch=main</code> gegen <code>build.yml</code></span><span class="job">Build - no status</span></div>
+          <div class="trace-row ok"><span class="mark">✓</span><span class="step"><code>badge.svg?branch=main</code> gegen <code>cd.yml</code></span><span class="job">CD - passing</span></div>
         </div>
-        <div class="card">
-          <span class="role">Fund</span>
-          <h3>Keine Erfindung, eine Lücke</h3>
-          <p>Der schlimmste Treffer war nicht „erfunden", sondern fehlend: kein CI-Badge im README, obwohl die Actions seit Wochen grün laufen — dieselbe Lücke wie bei Punkt 1.</p>
-        </div>
+        <p style="margin-top:.8rem;">Gefunden hat es nicht die Checkliste, sondern <a href="https://github.com/dfme/budget-buddy/pull/284#discussion_r3965224832" target="_blank" rel="noopener">claude[bot] im automatischen PR-Review ↗</a> — <code>CHANGES_REQUESTED</code>, mit <code>curl</code>-Beleg. Gleicher Tag behoben.</p>
+      </div>
       </div>
     </div>
   </section>
