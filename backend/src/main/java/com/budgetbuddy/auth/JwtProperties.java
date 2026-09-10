@@ -23,10 +23,19 @@ public record JwtProperties(
 
         Duration expiration) {
 
-    /** Default-Gültigkeitsdauer, falls {@code app.jwt.expiration} nicht gesetzt ist. */
+    /**
+     * Default-Gültigkeitsdauer, falls {@code app.jwt.expiration} nicht gesetzt ist (BE-AUTH-13).
+     *
+     * <p>Der Wert muss dem in {@code application.properties} entsprechen. Er ist kein
+     * beliebiger Notnagel: Weil der Token nach dem Login von nichts mehr erneuert wird, ist die
+     * Gültigkeitsdauer exakt das Fenster, in dem ein abhandengekommenes Cookie nutzbar bleibt.
+     * Ein Fallback, der grosszügiger ist als die konfigurierte Dauer, würde dieses Fenster
+     * lautlos wieder aufreissen, sobald die Property einmal fehlt — genau der Zustand, den
+     * BE-AUTH-13 abgeschafft hat. {@code JwtExpirationConfigTest} hält beide Werte gegeneinander.
+     */
     public JwtProperties {
         if (expiration == null) {
-            expiration = Duration.ofHours(24);
+            expiration = Duration.ofHours(4);
         }
     }
 }
