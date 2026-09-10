@@ -78,19 +78,17 @@ export class Dashboard {
   readonly month = signal(currentMonth());
 
   /**
-   * Anzahl Buchungen des laufenden Monats, deren Richtung der PDF-Parser nur angenommen hat
-   * (BE-PDF-10, US-04). `0`, solange nichts geladen ist — der Normalfall.
+   * Anzahl Buchungen des <strong>gewählten</strong> Monats, deren Richtung der PDF-Parser nur
+   * angenommen hat (BE-PDF-10, US-04). `0`, solange nichts geladen ist — der Normalfall.
    *
    * <p>Der Hinweis steht hier und nicht nur auf der Kategorie-Übersicht, weil der Schaden hier
    * eintritt: Eine als Belastung übernommene Gutschrift drückt genau diese Zahl. Ein Nutzer, der
    * die Übersicht nie öffnet, sähe einen Hinweis, der nur dort steht, nie — und der Bug wäre für
    * ihn unverändert stumm.
    *
-   * <p>Auf den laufenden Monat begrenzt, wie der Safe-to-Spend selbst: Eine unsichere Buchung aus
-   * dem März trägt zu dieser Zahl nichts bei, und ein Banner, das ihretwegen erschiene, behauptete
-   * einen Zusammenhang, den es nicht gibt. Seit FE-STS-04 ist das keine Annahme mehr, sondern
-   * folgt aus dem Backend: Ein Monat, für den gerechnet wird, *ist* der laufende — jeder frühere
-   * kommt als `CLOSED` zurück, jeder spätere als HTTP 400.
+   * <p>Warum der Zähler seit FE-STS-04 jedem Monat gilt und nicht mehr nur dem laufenden, steht
+   * bei {@link #loadUncertainCount}; welche Folge der Hinweis je Monatszustand benennt, bei
+   * {@link uncertainText}.
    */
   readonly uncertainCount = signal(0);
 
@@ -168,16 +166,30 @@ export class Dashboard {
   });
 
   /**
-   * `true`, wenn für den angezeigten Monat keine Ausgaben vorliegen (FE-CAT-08-Hinweis, US-12).
+   * `true`, wenn der angezeigte Monat keine einzige Buchung trägt (FE-CAT-08-Hinweis, US-12).
    *
-   * <p>Grundlage ist `GET /api/transactions/months`, das laut seiner OpenAPI-Beschreibung Monate
-   * **mit Ausgaben** liefert; ein Monat mit ausschliesslich Gutschriften gilt hier also als leer.
-   * Dieselbe Grundlage, auf der der Hinweis in der Kategorie-Übersicht steht — die beiden Seiten
-   * sollen für denselben Monat nicht Verschiedenes behaupten.
+   * <p>Massgeblich ist die Zeile des gewählten Monats aus der Drei-Monats-Übersicht: Alle drei
+   * Beträge `null` heisst laut `MonthlyTotals` genau dann, wenn der Monat keine Buchung trägt.
+   * Das ist die einzige Quelle auf dieser Seite, die «keine Buchungen» von «keine Ausgaben»
+   * unterscheidet.
+   *
+   * <p>Erst wenn die Übersicht für diesen Monat nichts hergibt — sie lädt noch, ist ausgefallen,
+   * oder ihr Fenster endet woanders — fällt der Hinweis auf `GET /api/transactions/months`
+   * zurück. Diese Liste ist als alleinige Grundlage untauglich, weil sie laut ihrer
+   * OpenAPI-Beschreibung nur Monate **mit Ausgaben** führt: Ein Monat mit ausschliesslich
+   * Gutschriften fehlt darin, und der Hinweis «Keine Daten» stünde dann direkt über einer
+   * Übersichtszeile, die für denselben Monat Einnahmen ausweist. Solange das Dashboard nur die
+   * Kernzahl zeigte, war der Kurzschluss folgenlos; mit der Übersicht widerspräche sich die Seite
+   * auf einem Schirm. Über {@link closed} verdeckte er zudem das «Abgeschlossen»-Banner eines
+   * solchen vergangenen Monats.
    */
-  readonly noData = computed(
-    () => this.monthsLoaded() && !this.loadedMonths().includes(this.month()),
-  );
+  readonly noData = computed(() => {
+    const row = this.totals().find((entry) => entry.month === this.month());
+    if (row !== undefined) {
+      return row.income === null && row.expenses === null && row.difference === null;
+    }
+    return this.monthsLoaded() && !this.loadedMonths().includes(this.month());
+  });
 
   /**
    * Die Zeilen der Übersicht fürs Template: Label und Hervorhebung schon berechnet.
@@ -197,6 +209,21 @@ export class Dashboard {
       selected: row.month === selected,
     }));
   });
+
+  /**
+   * Überschrift der Übersicht, z. B. `"Drei Monate bis Juli 2026"`.
+   *
+   * <p>Nennt den gewählten Monat statt «Letzte drei Monate»: Das Fenster endet beim gewählten
+   * Monat und wandert beim Blättern mit (AC), «letzte» ist aber relativ zu heute. Im März
+   * geblättert stünde «Letzte drei Monate» über Januar bis März.
+   */
+  readonly totalsTitle = computed(() => `Drei Monate bis ${this.monthLabel()}`);
+
+  /** Die visually-hidden `<caption>` der Übersichtstabelle — nennt denselben Monat. */
+  readonly totalsCaption = computed(
+    () =>
+      `Einnahmen, Ausgaben und Differenz der drei Monate bis ${this.monthLabel()}, neuester Monat zuerst`,
+  );
 
   /**
    * `true`, wenn das «Abgeschlossen»-Banner zu zeigen ist.
@@ -349,6 +376,11 @@ export class Dashboard {
    * <p>Nach Erfolg wird Safe-to-Spend neu geladen: der dann erscheinende Betrag ist die
    * Bestätigung, dass die Übernahme gewirkt hat. Eine blosse Erfolgsmeldung liesse den
    * Nutzer mit dem Platzhalter zurück, den er gerade loswerden wollte.
+   *
+   * <p>Nur dieser eine Request, nicht das ganze {@link load}: Das erfasste Monatseinkommen geht
+   * allein in die Safe-to-Spend-Rechnung ein. Die Übersicht summiert die tatsächlichen Buchungen
+   * und die Prüfliste zählt sie — beide ändern sich durch die Übernahme nicht, und ihre Requests
+   * wären hier reine Wiederholung.
    */
   applySuggestion(): void {
     const suggestion = this.data()?.incomeSuggestion;
@@ -362,7 +394,7 @@ export class Dashboard {
     this.authService.updateIncome(suggestion).subscribe({
       next: () => {
         this.saving.set(false);
-        this.load();
+        this.loadSafeToSpend(this.month());
       },
       error: (_err: HttpErrorResponse) => {
         this.saveErrorMessage.set('Das Einkommen konnte nicht gespeichert werden.');
@@ -448,7 +480,21 @@ export class Dashboard {
     });
   }
 
+  /** Lädt alle drei Blöcke der Seite für den gewählten Monat. */
   private load(): void {
+    const month = this.month();
+    this.loadSafeToSpend(month);
+    this.loadUncertainCount(month);
+    this.loadTotals(month);
+  }
+
+  /**
+   * Lädt die Kernzahl für den gegebenen Monat.
+   *
+   * <p>Eigene Methode neben {@link load}, weil das Übernehmen des Einkommens-Vorschlags genau
+   * diesen einen Block neu laden muss und nicht die beiden anderen.
+   */
+  private loadSafeToSpend(month: string): void {
     // Einen noch laufenden Request canceln, bevor ein neuer startet — sonst kann bei schneller
     // Monat-Navigation die spätere Antwort von der früheren überschrieben werden (Race Condition).
     // Dasselbe Muster wie in `category-overview.ts`.
@@ -456,7 +502,6 @@ export class Dashboard {
     this.loading.set(true);
     this.errorMessage.set(null);
 
-    const month = this.month();
     this.pendingRequest = this.safeToSpendService.getSafeToSpend(month).subscribe({
       next: (response) => {
         this.data.set(response);
@@ -468,8 +513,6 @@ export class Dashboard {
         this.loading.set(false);
       },
     });
-    this.loadUncertainCount(month);
-    this.loadTotals(month);
   }
 
   /**

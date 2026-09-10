@@ -154,7 +154,7 @@
     dass für einen abgeschlossenen Monat bewusst nicht gerechnet wird. Ein Wochenbudget für
     einen abgelaufenen Monat trägt keine Aussage, weil keine Woche mehr übrig ist.
   -->
-  <app-card class="totals-card" title="Letzte drei Monate">
+  <app-card class="totals-card" [title]="totalsTitle()">
     @if (totalsLoading()) {
       <p class="status">Lädt …</p>
     } @else if (totalsErrorMessage(); as totalsError) {
@@ -168,7 +168,9 @@
       <div class="table-scroll">
         <table class="totals">
           <caption class="visually-hidden">
-            Einnahmen, Ausgaben und Differenz der letzten drei Monate, neuester Monat zuerst
+            {{
+              totalsCaption()
+            }}
           </caption>
           <thead>
             <tr>

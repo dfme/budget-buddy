@@ -361,6 +361,25 @@ describe('Dashboard', () => {
     expect(fixture.debugElement.query(By.css('app-amount')).componentInstance.value()).toBe(500);
   });
 
+  it('reloads only safe-to-spend after applying the suggestion', () => {
+    expectSafeToSpendRequest(httpMock).flush(NO_INCOME);
+    expectUncertainRequest().flush([]);
+    expectTotalsRequest().flush([]);
+    fixture.detectChanges();
+
+    fixture.nativeElement.querySelector('.no-income__apply').click();
+    httpMock
+      .expectOne('/api/users/me/income')
+      .flush({ id: 1, email: 'lara@example.ch', monthlyIncome: 3800, onboardingCompleted: true });
+
+    // Das erfasste Monatseinkommen geht allein in die Safe-to-Spend-Rechnung ein. Übersicht und
+    // Prüfliste summieren bzw. zählen die tatsächlichen Buchungen — die ändert die Übernahme
+    // nicht, ihre Requests wären reine Wiederholung.
+    expectSafeToSpendRequest(httpMock).flush(NORMAL);
+    expect(httpMock.match((req) => req.url === '/api/transactions/monthly-totals')).toHaveLength(0);
+    expect(httpMock.match((req) => req.url === '/api/transactions/uncertain')).toHaveLength(0);
+  });
+
   it('disables the apply button while the request is in flight', () => {
     expectSafeToSpendRequest(httpMock).flush(NO_INCOME);
     fixture.detectChanges();
@@ -697,6 +716,47 @@ describe('Dashboard', () => {
       expect(fixture.nativeElement.querySelector('.closed-banner')).toBeNull();
     });
 
+    /**
+     * Der Fall, an dem die Monatsliste als alleinige Grundlage zerbricht:
+     * `GET /api/transactions/months` führt laut seiner OpenAPI-Beschreibung nur Monate **mit
+     * Ausgaben**, ein Monat mit ausschliesslich Gutschriften fehlt darin. Solange das Dashboard
+     * nur die Kernzahl zeigte, war das folgenlos — mit der Drei-Monats-Übersicht stünde «Keine
+     * Daten» direkt über einer Zeile, die für denselben Monat Einnahmen ausweist.
+     */
+    it('claims no missing data for a credits-only month, and keeps the closed banner', async () => {
+      const months = await recreate({ month: PREVIOUS_MONTH });
+      // Der Vormonat fehlt in der Liste — er trägt nur Gutschriften.
+      months.flush([CURRENT_MONTH]);
+      expectSafeToSpendRequest(httpMock).flush(CLOSED);
+      expectUncertainRequest().flush([]);
+      // Das Backend liefert für ihn `expenses: 0.00` statt `null`: dort GIBT es Buchungen.
+      expectTotalsRequest().flush([
+        { month: PREVIOUS_MONTH, income: 5000, expenses: 0, difference: 5000 },
+        { month: OLDER_MONTH, income: 800, expenses: 1250.5, difference: -450.5 },
+        { month: relativeMonth(-3), income: null, expenses: null, difference: null },
+      ]);
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.status.empty')).toBeNull();
+      // Zweite Folge desselben Ursprungs: Der Keine-Daten-Hinweis verdrängt das
+      // «Abgeschlossen»-Banner (siehe `Dashboard.closed`) — ohne den Fix stünde für diesen
+      // Monat weder das eine noch das andere da, nur eine Übersicht, die Daten zeigt.
+      expect(fixture.nativeElement.querySelector('.closed-banner')).not.toBeNull();
+    });
+
+    it('falls back to the month list when the overview cannot be loaded', async () => {
+      const months = await recreate({ month: OLDER_MONTH });
+      months.flush([CURRENT_MONTH]);
+      expectSafeToSpendRequest(httpMock).flush(CLOSED);
+      expectUncertainRequest().flush([]);
+      expectTotalsRequest().error(new ProgressEvent('error'));
+      fixture.detectChanges();
+
+      // Ohne Übersicht ist die Monatsliste die einzige Auskunft, die die Seite hat — der
+      // Hinweis steht dann weiterhin, statt still zu verschwinden.
+      expect(fixture.nativeElement.querySelector('.status.empty')).not.toBeNull();
+    });
+
     // Die Antwort des verlassenen Monats darf die des neuen nicht überschreiben. Sichtbar wäre
     // das nicht bloss als falsche Zahl: Die Card trägt ihr Monatslabel als `meta`, der Betrag
     // stünde also unter der Überschrift eines anderen Monats.
@@ -889,6 +949,29 @@ describe('Dashboard', () => {
       const cell = cells(rows()[0])[2];
       expect(cell.textContent).toContain('0.00');
       expect(cell.textContent).not.toContain('–');
+    });
+
+    it('names the selected month in title and caption, not "die letzten drei"', () => {
+      loadWith(totalsWindow(CURRENT_MONTH, PREVIOUS_MONTH, OLDER_MONTH));
+
+      const title = () => fixture.nativeElement.querySelector('.totals-card .card__title');
+      // «Letzte drei Monate» wäre relativ zu heute; das Fenster endet aber beim gewählten Monat.
+      expect(title().textContent).toContain(`Drei Monate bis ${formatMonth(CURRENT_MONTH)}`);
+      expect(fixture.nativeElement.querySelector('.totals caption').textContent).toContain(
+        formatMonth(CURRENT_MONTH),
+      );
+
+      const back: HTMLButtonElement[] = Array.from(
+        fixture.nativeElement.querySelectorAll('.month-nav__btn'),
+      );
+      back[0].click();
+      fixture.detectChanges();
+      expectSafeToSpendRequest(httpMock).flush(CLOSED);
+      expectTotalsRequest().flush(totalsWindow(PREVIOUS_MONTH, OLDER_MONTH, relativeMonth(-3)));
+      fixture.detectChanges();
+
+      // Und sie wandert beim Blättern mit, wie das Fenster darunter.
+      expect(title().textContent).toContain(`Drei Monate bis ${formatMonth(PREVIOUS_MONTH)}`);
     });
 
     it('highlights the selected month', () => {
