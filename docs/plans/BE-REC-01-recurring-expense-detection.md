@@ -105,7 +105,7 @@ Eigene Entscheide, im Plan vorgelegt:
 - Neu `recurring/RecurringExpenseCleanupServiceTest` (Unit)
 - Neu `transaction/ExpenseHistoryServiceTest` (Unit): Normalisierung
 - Geändert `ImportJobRunnerTest` / `ImportJobRunnerTimingTest`: Konstruktor; Erkennung nach
-  `saveAll`; Exception aus `detect()` lässt Job `SUCCESS`
+  `saveAll`; Exception aus `detect()` lässt Job `DONE`
 - Geändert `UserServiceTest` (InOrder), `UserDeletionIntegrationTest` (Zeilenzahl 0, AC 6)
 
 ## Implementierungsschritte

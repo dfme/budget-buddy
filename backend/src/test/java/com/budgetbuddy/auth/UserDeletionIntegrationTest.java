@@ -8,6 +8,8 @@ import com.budgetbuddy.budget.FixedCostRepository;
 import com.budgetbuddy.budget.Intervall;
 import com.budgetbuddy.notification.Notification;
 import com.budgetbuddy.notification.NotificationRepository;
+import com.budgetbuddy.recurring.RecurringExpense;
+import com.budgetbuddy.recurring.RecurringExpenseRepository;
 import com.budgetbuddy.support.PostgresTestDatabase;
 import com.budgetbuddy.transaction.ImportJob;
 import com.budgetbuddy.transaction.ImportJobRepository;
@@ -16,6 +18,7 @@ import com.budgetbuddy.transaction.TransactionRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,14 +30,16 @@ import org.springframework.test.context.DynamicPropertySource;
 
 /**
  * Integrationstest der Kontolöschung (US-02, DB-07/nDSG) gegen echtes PostgreSQL: belegt, dass
- * {@code transactions}, {@code import_jobs}, {@code fixed_costs} und {@code notifications} vor
- * dem User selbst gelöscht werden. Ohne diese Reihenfolge schlägt die letzte Löschung an der
- * Fremdschlüssel-Constraint fehl (siehe {@code V02}/{@code V03}/{@code V05}/{@code V10}) — ein
+ * {@code transactions}, {@code import_jobs}, {@code fixed_costs}, {@code notifications} und
+ * {@code recurring_expenses} vor dem User selbst gelöscht werden. Ohne diese Reihenfolge schlägt
+ * die letzte Löschung an der Fremdschlüssel-Constraint fehl (siehe
+ * {@code V02}/{@code V03}/{@code V05}/{@code V10}/{@code V11}) — ein
  * Mock-Repository wie in {@code UserServiceTest} könnte das nicht belegen, da die Constraint nur
  * in einer echten Datenbank existiert. Die {@code notifications}-Zeile deckt AC6 von #246
  * (BE-NOTIF-01) ab — der Review-Befund aus PR #272, der ohne sie eine
  * {@code DataIntegrityViolationException} verursacht hätte, sobald diese Tabelle die erste Zeile
- * enthält.
+ * enthält. Die {@code recurring_expenses}-Zeile deckt AC 6 von #253 (BE-REC-01) ab — dieselbe
+ * Verpflichtung, in DB-09 (#252) für die Erkennung vorgemerkt.
  */
 @SpringBootTest
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
@@ -64,6 +69,9 @@ class UserDeletionIntegrationTest {
     private NotificationRepository notificationRepository;
 
     @Autowired
+    private RecurringExpenseRepository recurringExpenseRepository;
+
+    @Autowired
     private JdbcTemplate jdbcTemplate;
 
     private long userId;
@@ -75,6 +83,7 @@ class UserDeletionIntegrationTest {
         importJobRepository.deleteAll();
         fixedCostRepository.deleteAll();
         notificationRepository.deleteAll();
+        recurringExpenseRepository.deleteAll();
         jdbcTemplate.update("DELETE FROM users");
 
         User user = userRepository.save(new User("lara@example.ch", "bcrypt-hash"));
@@ -89,6 +98,9 @@ class UserDeletionIntegrationTest {
         notificationRepository.save(new Notification(
                 userId, "RECURRING_EXPENSE_DETECTED", null, "Netflix wurde als Abo erkannt",
                 Instant.now()));
+        recurringExpenseRepository.save(new RecurringExpense(
+                userId, "NETFLIX INTERNATIONAL BV", new BigDecimal("20.90"),
+                YearMonth.of(2026, 7), Instant.now()));
     }
 
     @Test
@@ -100,6 +112,7 @@ class UserDeletionIntegrationTest {
         assertThat(countRows("SELECT COUNT(*) FROM import_jobs WHERE user_id = ?")).isZero();
         assertThat(countRows("SELECT COUNT(*) FROM fixed_costs WHERE user_id = ?")).isZero();
         assertThat(countRows("SELECT COUNT(*) FROM notifications WHERE user_id = ?")).isZero();
+        assertThat(countRows("SELECT COUNT(*) FROM recurring_expenses WHERE user_id = ?")).isZero();
     }
 
     private int countRows(String sql) {

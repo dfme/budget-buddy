@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 import com.budgetbuddy.auth.dto.UserProfileResponse;
 import com.budgetbuddy.budget.FixedCostCleanupPort;
 import com.budgetbuddy.notification.NotificationCleanupPort;
+import com.budgetbuddy.recurring.RecurringExpenseCleanupPort;
 import com.budgetbuddy.transaction.TransactionCleanupPort;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
@@ -41,6 +42,9 @@ class UserServiceTest {
 
     @Mock
     private NotificationCleanupPort notificationCleanupPort;
+
+    @Mock
+    private RecurringExpenseCleanupPort recurringExpenseCleanupPort;
 
     @Mock
     private PasswordEncoder passwordEncoder;
@@ -253,7 +257,7 @@ class UserServiceTest {
      * Reihenfolge ist der eigentliche Kern von DB-07: alle Cleanup-Ports müssen laufen, bevor
      * der User selbst gelöscht wird — sonst schlägt dessen Löschung an der Fremdschlüssel-
      * Constraint auf {@code transactions}/{@code fixed_costs}/{@code import_jobs}/
-     * {@code notifications} fehl.
+     * {@code notifications}/{@code recurring_expenses} fehl.
      */
     @Test
     void deleteUserCleansUpDependentDataBeforeRemovingTheUser() {
@@ -263,10 +267,11 @@ class UserServiceTest {
 
         InOrder order = inOrder(
                 transactionCleanupPort, fixedCostCleanupPort, notificationCleanupPort,
-                userRepository);
+                recurringExpenseCleanupPort, userRepository);
         order.verify(transactionCleanupPort).deleteAllForUser(1L);
         order.verify(fixedCostCleanupPort).deleteAllForUser(1L);
         order.verify(notificationCleanupPort).deleteAllForUser(1L);
+        order.verify(recurringExpenseCleanupPort).deleteAllForUser(1L);
         order.verify(userRepository).delete(user);
     }
 
@@ -277,7 +282,8 @@ class UserServiceTest {
         assertThatThrownBy(() -> userService.deleteUser(99L))
                 .isInstanceOf(UserNotFoundException.class);
 
-        verifyNoInteractions(transactionCleanupPort, fixedCostCleanupPort, notificationCleanupPort);
+        verifyNoInteractions(transactionCleanupPort, fixedCostCleanupPort, notificationCleanupPort,
+                recurringExpenseCleanupPort);
         verify(userRepository, never()).delete(any());
     }
 

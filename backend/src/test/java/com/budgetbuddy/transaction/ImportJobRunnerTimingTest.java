@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import com.budgetbuddy.categorization.CategorizationPort;
 import com.budgetbuddy.categorization.CategorizationResult;
 import com.budgetbuddy.categorization.Category;
+import com.budgetbuddy.recurring.RecurringExpenseDetectionPort;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Duration;
@@ -52,7 +53,8 @@ class ImportJobRunnerTimingTest {
             new TransactionTemplate(mock(PlatformTransactionManager.class));
 
     private final ImportJobRunner runner = new ImportJobRunner(categorizationPort, repository,
-            importJobRepository, transactionTemplate, Clock.systemUTC(),
+            importJobRepository, transactionTemplate, mock(RecurringExpenseDetectionPort.class),
+            Clock.systemUTC(),
             Duration.ofSeconds(WATCHDOG_SECONDS), BATCH_SIZE);
 
     private static List<ParsedTransaction> unknownTransactions(int count) {
