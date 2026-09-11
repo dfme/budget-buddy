@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
@@ -16,8 +16,17 @@ import { SafeToSpendResponse } from './safe-to-spend.model';
 export class SafeToSpendService {
   private readonly http = inject(HttpClient);
 
-  /** Lädt den wöchentlichen Safe-to-Spend-Betrag des eingeloggten Users. */
-  getSafeToSpend(): Observable<SafeToSpendResponse> {
-    return this.http.get<SafeToSpendResponse>('/api/budget/safe-to-spend');
+  /**
+   * Lädt den wöchentlichen Safe-to-Spend-Betrag des eingeloggten Users.
+   *
+   * @param month Monat als `YYYY-MM` (BE-STS-06). Ohne Angabe antwortet das Backend für den
+   *     laufenden Monat, und der Request geht zeichengleich hinaus wie vor FE-STS-04 — der
+   *     Parameter ist auch dort optional. Ein vergangener Monat liefert `status: 'CLOSED'` statt
+   *     einer Berechnung, ein künftiger HTTP 400; die Aufrufer-Seite verhindert Letzteres, indem
+   *     sie keinen Zukunftsmonat anbietet.
+   */
+  getSafeToSpend(month?: string): Observable<SafeToSpendResponse> {
+    const options = month === undefined ? {} : { params: new HttpParams().set('month', month) };
+    return this.http.get<SafeToSpendResponse>('/api/budget/safe-to-spend', options);
   }
 }

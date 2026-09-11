@@ -11,9 +11,29 @@
 // braucht hier nichts: er liegt *in* der Card, nicht darüber.
 .negative-banner,
 .uncertain-banner,
+.closed-banner,
 .safe-to-spend-card {
   max-width: 28rem;
   margin: $sp-6 auto 0;
+}
+
+// Monatswechsel (FE-STS-04) — bündig zur Spalte darunter, damit Stepper und Card nicht
+// gegeneinander versetzt stehen. Abstände wie in der Kategorie-Übersicht.
+.month-selector {
+  display: block;
+  max-width: 28rem;
+  margin: $sp-4 auto $sp-5;
+}
+
+// Lade- und Leerzustand, im Aufbau wie in der Kategorie-Übersicht: zentriert, und der
+// Keine-Daten-Fall gedämpft — er ist eine Auskunft, keine Warnung.
+.status {
+  text-align: center;
+  padding: $sp-5 0;
+}
+
+.status.empty {
+  color: $c-ink-2;
 }
 
 .safe-to-spend {
@@ -84,4 +104,67 @@
 
 .no-income__error {
   margin-top: $sp-4;
+}
+
+// --- Drei-Monats-Übersicht (FE-STS-04) ---
+
+// Teilt die Spaltenbreite der Card darüber — als eigene Regel und nicht in die Liste oben
+// hineingezogen: die dort genannten Elemente tragen `margin-top: $sp-6`, hier genügt der
+// kleinere Abstand, weil die Übersicht zur Zahl darüber gehört und nicht davon abgesetzt ist.
+.totals-card {
+  max-width: 28rem;
+  margin: $sp-5 auto 0;
+}
+
+// Card gibt auf schmalen Viewports weniger Breite her, als die Tabelle mit ihren vier Spalten
+// braucht — statt die Spalten unleserlich zu quetschen, scrollt die Tabelle innerhalb der Card
+// (dasselbe Muster wie in der Kategorie-Übersicht, FE-CAT-06).
+.table-scroll {
+  overflow-x: auto;
+}
+
+.totals {
+  width: 100%;
+  min-width: 22rem;
+  border-collapse: collapse;
+
+  th,
+  td {
+    padding: $sp-2;
+    border-bottom: 1px solid $c-line;
+    text-align: left;
+  }
+
+  tbody tr:last-child th,
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+}
+
+// Zahlenspalten rechtsbündig mit `tabular-nums`, damit die Beträge dreier Zeilen
+// stellenweise untereinander stehen.
+.totals__num {
+  @include tabular;
+
+  text-align: right;
+}
+
+.totals__month {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+// Der gewählte Monat — die Übersicht sagt damit auch, wo man gerade steht.
+//
+// Hintergrund plus Akzentkante links statt Fettschrift: Fett ist in dieser Tabelle schon die
+// Monatsspalte, und ein zweiter Fett-Zustand daneben wäre nicht als Auswahl lesbar. Die Kante
+// trägt die Aussage auch dann, wenn der Hintergrund im dunklen Theme kaum trägt. Für
+// Screenreader steht zusätzlich «(gewählter Monat)» in der Zeile — Farbe allein sagt hier
+// nichts.
+.totals__row--selected {
+  background: $c-accent-soft;
+
+  th:first-child {
+    box-shadow: inset 3px 0 0 $c-accent;
+  }
 }
