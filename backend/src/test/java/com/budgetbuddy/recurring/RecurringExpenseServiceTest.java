@@ -182,6 +182,33 @@ class RecurringExpenseServiceTest {
         assertThat(saved.getFirstDetectedMonth()).isEqualTo(YearMonth.of(2026, 4));
     }
 
+    /**
+     * Review PR #298: Mehrere Buchungen im selben Monat, mehrere gleichzeitig qualifizierende
+     * Paare — der gespeicherte Betrag darf nicht von der Zeilenreihenfolge der Query abhängen.
+     * Gespeichert wird der höchste qualifizierende Betrag des jüngsten Paars, in beiden
+     * Reihenfolgen derselbe.
+     */
+    @Test
+    void severalBookingsPerMonth_storeTheSameAmountRegardlessOfInputOrder() {
+        ExpenseEntry juniKlein = entry("COOP BERN", "49.90", 2026, 6);
+        ExpenseEntry juniGross = entry("COOP BERN", "50.00", 2026, 6);
+        ExpenseEntry juliKlein = entry("COOP BERN", "49.90", 2026, 7);
+        ExpenseEntry juliGross = entry("COOP BERN", "50.00", 2026, 7);
+
+        history(juniKlein, juniGross, juliKlein, juliGross);
+        service.detect(USER_ID);
+        BigDecimal ersteReihenfolge = captureSaved().getAmount();
+
+        org.mockito.Mockito.reset(repository);
+        repositoryAssignsIdsOnSave();
+        history(juliGross, juniGross, juliKlein, juniKlein);
+        service.detect(USER_ID);
+        BigDecimal zweiteReihenfolge = captureSaved().getAmount();
+
+        assertThat(ersteReihenfolge).isEqualByComparingTo("50.00");
+        assertThat(zweiteReihenfolge).isEqualByComparingTo(ersteReihenfolge);
+    }
+
     /** Verschiedene Empfänger gruppieren getrennt, auch bei gleichem Betrag. */
     @Test
     void differentPayeesWithTheSameAmount_areNotOneGroup() {

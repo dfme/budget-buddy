@@ -9,6 +9,7 @@ import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.YearMonth;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -156,6 +157,14 @@ public class RecurringExpenseService implements RecurringExpenseDetectionPort {
      * <em>letzten</em> Treffers — die aufsteigende Reihenfolge macht ihn zum jüngsten — wird
      * gespeichert.
      *
+     * <p><strong>Deterministisch auch bei mehreren Buchungen im selben Monat.</strong> Die Beträge
+     * je Monat werden aufsteigend sortiert, bevor die Paare verglichen werden. Ohne das hinge bei
+     * zwei gleichzeitig qualifizierenden Paaren — etwa zwei Coop-Einkäufe zu 49.90 und 50.00 in
+     * beiden Monaten — der gespeicherte Betrag an der Zeilenreihenfolge der Query, die keine
+     * Zusage trägt ({@link ExpenseHistoryPort#expenseHistory}); und weil die Zeile danach nie
+     * aktualisiert wird, bliebe der Zufall dauerhaft. Mit der Sortierung ist es immer der
+     * <em>höchste</em> qualifizierende Betrag des jüngsten Paars (Review PR #298).
+     *
      * @return leer, wenn kein Folgemonatspaar innerhalb der Toleranz liegt.
      */
     private static Optional<Detection> qualify(List<ExpenseEntry> group) {
@@ -164,6 +173,7 @@ public class RecurringExpenseService implements RecurringExpenseDetectionPort {
             byMonth.computeIfAbsent(entry.month(), m -> new ArrayList<>())
                     .add(rappen(entry.amount()));
         }
+        byMonth.values().forEach(amounts -> amounts.sort(Comparator.naturalOrder()));
 
         YearMonth firstMonth = null;
         BigDecimal latestAmount = null;
