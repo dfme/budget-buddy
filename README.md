@@ -100,6 +100,22 @@ der Umgebung gesetzt (Launch-Configs generieren — anders als die Task — kein
 z. B. in `~/.zshrc`: `export JWT_SECRET="$(openssl rand -base64 48)"`, dann VS Code neu
 starten).
 
+### Demo-Daten für die Präsentation
+
+Ein frisch aufgesetztes Konto ist leer — Safe-to-Spend, Kategorien und Monatsverlauf zeigen dann
+nichts. Für Vorführungen liegen fertige Kontoauszüge für Lara und Marc im Repo; ein Lauf legt
+beide Accounts an und importiert sie über den normalen Upload:
+
+```bash
+export DEMO_LARA_PASSWORD='<im Team vereinbart>'
+export DEMO_MARC_PASSWORD='<im Team vereinbart>'
+backend/tools/seed_demo_accounts.sh
+```
+
+Die beiden Passwörter sind Pflicht und stehen bewusst nicht im Repo. Details, Zurücksetzen und
+warum die Auszüge bei einer Präsentation in einem späteren Monat neu zu generieren sind:
+[docs/demo/README.md](docs/demo/README.md).
+
 ## Environment Variables
 
 Secrets werden ausschliesslich über die Umgebung übergeben — **niemals** im
