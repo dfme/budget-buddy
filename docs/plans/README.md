@@ -30,6 +30,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `BE-AUTH-09` | [Passwort-Änderung-Endpoint](BE-AUTH-09-password-change.md) | [#176](https://github.com/dfme/budget-buddy/issues/176) | US-14 | Sprint 5 |
 | `BE-AUTH-10` | [Passwort über 72 Bytes führt zu HTTP 500 statt 400](BE-AUTH-10-password-byte-length.md) | [#200](https://github.com/dfme/budget-buddy/issues/200) | US-14 | Sprint 6 |
 | `BE-AUTH-11` | [JWT bleibt nach Passwort-Änderung gültig — Session-Invalidierung entscheiden](BE-AUTH-11-token-version-invalidation.md) | [#201](https://github.com/dfme/budget-buddy/issues/201) | US-14 | Sprint 6 |
+| `BE-AUTH-13` | [JWT-Laufzeit von 24 h verkürzen](BE-AUTH-13-jwt-laufzeit-4h.md) | [#289](https://github.com/dfme/budget-buddy/issues/289) | US-01 | Sprint 6 |
 | `BE-CAT-01` | [CategorizationPort Interface und LookupTableService](BE-CAT-01-categorization-port.md) | [#14](https://github.com/dfme/budget-buddy/issues/14) | US-05 | Sprint 2 |
 | `BE-CAT-02` | [ClaudeCategorizationService](BE-CAT-02-claude-categorization.md) | [#15](https://github.com/dfme/budget-buddy/issues/15) | US-05 | Sprint 2 |
 | `BE-CAT-03` | [HybridCategorizationService](BE-CAT-03-hybrid-categorization.md) | [#16](https://github.com/dfme/budget-buddy/issues/16) | US-05 | Sprint 3 |
@@ -61,6 +62,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `BE-STS-04` | [Fixkosten werden im Safe-to-Spend doppelt abgezogen](BE-STS-04-fixkosten-doppelabzug.md) | [#154](https://github.com/dfme/budget-buddy/issues/154) | US-06 | Sprint 5 |
 | `BE-STS-05` | [Einkommens-Heuristik über den Absender gruppieren](BE-STS-05-absender-gruppierung.md) | [#208](https://github.com/dfme/budget-buddy/issues/208) | US-06 | Sprint 6 |
 | `BE-STS-06` | [Safe-to-Spend: Monat-Parameter + Abgeschlossen-Status](BE-STS-06-safe-to-spend-monat.md) | [#248](https://github.com/dfme/budget-buddy/issues/248) | US-12 | Sprint 6 |
+| `BE-STS-07` | [Monats-Kennzahlen: Einnahmen, Ausgaben und Differenz pro Monat](BE-STS-07-monats-kennzahlen.md) | [#288](https://github.com/dfme/budget-buddy/issues/288) | US-12 | Sprint 6 |
 | `DB-01` | [DB-01 — Flyway V1: users-Tabelle](DB-01-flyway-users-table.md) | [#4](https://github.com/dfme/budget-buddy/issues/4) | — | Sprint 1 |
 | `DB-02` | [DB-02 — Flyway V2: transactions-Tabelle](DB-02-transactions-table.md) | [#5](https://github.com/dfme/budget-buddy/issues/5) | US-04, US-05, US-06 | Sprint 1 |
 | `DB-03` | [DB-03 — Flyway V3: fixed_costs-Tabelle](DB-03-fixed-costs-table.md) | [#6](https://github.com/dfme/budget-buddy/issues/6) | US-03 | Sprint 1 |
@@ -102,6 +104,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `FE-STS-01` | [Safe-to-Spend Dashboard-Widget](FE-STS-01-safe-to-spend-widget.md) | [#33](https://github.com/dfme/budget-buddy/issues/33) | US-06 | Sprint 4 |
 | `FE-STS-02` | [Negativ-Banner](FE-STS-02-negativ-banner.md) | [#34](https://github.com/dfme/budget-buddy/issues/34) | US-06 | Sprint 4 |
 | `FE-STS-03` | [No-Income State und Einkommens-Vorschlag](FE-STS-03-no-income-state-and-suggestion.md) | [#35](https://github.com/dfme/budget-buddy/issues/35) | US-06 | Sprint 4 |
+| `FE-STS-04` | [Dashboard: Monatsnavigation und Drei-Monats-Übersicht](FE-STS-04-dashboard-monatsuebersicht.md) | [#250](https://github.com/dfme/budget-buddy/issues/250) | US-12 | Sprint 6 |
 | `FE-UI-01` | [UI-Design definieren: 3 klickbare Varianten](FE-UI-01-design-varianten.md) | [#80](https://github.com/dfme/budget-buddy/issues/80) | US-05, US-06 | Sprint 3 |
 | `FE-UI-02` | [Design-Token-Fundament (Variante A, theme-fähig)](FE-UI-02-design-token-fundament.md) | [#99](https://github.com/dfme/budget-buddy/issues/99) | — | Sprint 3 |
 | `FE-UI-03` | [Shared-Basiskomponenten (Variante A)](FE-UI-03-shared-basiskomponenten.md) | [#100](https://github.com/dfme/budget-buddy/issues/100) | — | Sprint 3 |
@@ -133,4 +136,5 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `INFRA-31` | [Automatisches PR-Review via GitHub Action einrichten (Claude Code)](INFRA-31-claude-pr-review-action.md) | [#215](https://github.com/dfme/budget-buddy/issues/215) | — | Sprint 5 |
 | `INFRA-35` | [Automatisches PR-Review verstummt bei Hintergrund-Verifikation im nicht-interaktiven Lauf](INFRA-35-review-pr-no-background-verify.md) | [#224](https://github.com/dfme/budget-buddy/issues/224) | — | Sprint 5 |
 | `INFRA-37` | [MDC einführen: User-ID in Logs für bessere Analysierbarkeit](INFRA-37-mdc-logging.md) | [#257](https://github.com/dfme/budget-buddy/issues/257) | — | Sprint 6 |
+| `INFRA-38` | [Testdaten für Präsentation: Demo-Logins + Kontoauszüge für Lara und Marc](INFRA-38-demo-testdaten.md) | [#258](https://github.com/dfme/budget-buddy/issues/258) | — | Sprint 6 |
 | — | [Zuschnitt: US-08, US-12](us-08-09-12-breakdown.md) | — | — | — |

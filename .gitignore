@@ -47,6 +47,10 @@ target/
 *.db-journal
 *.sqlite
 
+# Python-Bytecode der Tool-Skripte (backend/tools/)
+__pycache__/
+*.pyc
+
 # Local environment files (secrets via env vars only)
 .env
 .env.*
