@@ -1,6 +1,7 @@
 package com.budgetbuddy.auth;
 
 import com.budgetbuddy.auth.dto.ChangePasswordRequest;
+import com.budgetbuddy.auth.dto.DeleteAccountRequest;
 import com.budgetbuddy.auth.dto.IncomeErrorResponse;
 import com.budgetbuddy.auth.dto.UpdateIncomeRequest;
 import com.budgetbuddy.auth.dto.UserProfileResponse;
@@ -11,7 +12,10 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -22,9 +26,9 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * Profil-Endpoints des eingeloggten Users (BE-AUTH-02).
  *
- * <p>Beide Endpoints sind durch {@code anyRequest().authenticated()} geschützt; die User-ID kommt
- * als Principal aus dem {@code JwtCookieAuthenticationFilter} (BE-AUTH-01). Ohne gültiges JWT
- * antwortet Spring Security mit 401, bevor der Controller erreicht wird.
+ * <p>Alle Endpoints sind durch {@code requestMatchers("/api/**").authenticated()} geschützt; die
+ * User-ID kommt als Principal aus dem {@code JwtCookieAuthenticationFilter} (BE-AUTH-01). Ohne
+ * gültiges JWT antwortet Spring Security mit 401, bevor der Controller erreicht wird.
  */
 @RestController
 @RequestMapping("/api/users/me")
@@ -32,9 +36,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController {
 
     private final UserService userService;
+    private final JwtCookieFactory cookieFactory;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService, JwtCookieFactory cookieFactory) {
         this.userService = userService;
+        this.cookieFactory = cookieFactory;
     }
 
     @GetMapping
@@ -97,5 +103,31 @@ public class UserController {
     public void changePassword(
             @AuthenticationPrincipal Long userId, @Valid @RequestBody ChangePasswordRequest request) {
         userService.changePassword(userId, request.aktuellesPasswort(), request.neuesPasswort());
+    }
+
+    @DeleteMapping
+    @Operation(summary = "Konto endgültig löschen",
+            description = "Löscht das Konto des eingeloggten Users samt aller Transaktionen, "
+                    + "Import-Jobs, Fixkosten und Benachrichtigungen (US-02, nDSG-Recht auf "
+                    + "Löschung). Die Löschung ist endgültig und kann nicht rückgängig gemacht "
+                    + "werden; ein erneuter Login mit denselben Zugangsdaten schlägt danach fehl. "
+                    + "Verlangt das aktuelle Passwort als Bestätigung im Body. Die Antwort löscht "
+                    + "das JWT-Cookie (Max-Age=0). Zwei bekannte Lücken bleiben offen (#290): "
+                    + "manuelle Kategorie-Korrekturen in category_lookup überleben die Löschung "
+                    + "(Tabelle ohne user_id, eigenes Issue), und recurring_expenses ist noch "
+                    + "nicht in der Cleanup-Kette (AC an BE-REC-01, #253).")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "Konto gelöscht, JWT-Cookie gelöscht",
+                content = {}),
+        @ApiResponse(responseCode = "400",
+                description = "passwort fehlt oder stimmt nicht — es wurde nichts gelöscht"),
+        @ApiResponse(responseCode = "401", description = "Nicht authentifiziert", content = {})
+    })
+    public ResponseEntity<Void> deleteAccount(
+            @AuthenticationPrincipal Long userId, @Valid @RequestBody DeleteAccountRequest request) {
+        userService.deleteUser(userId, request.passwort());
+        return ResponseEntity.noContent()
+                .header(HttpHeaders.SET_COOKIE, cookieFactory.clear().toString())
+                .build();
     }
 }
