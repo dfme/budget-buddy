@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  *
  * <p>Hier werden die domänenspezifischen Fälle abgebildet: fehlender User → 404, doppelte E-Mail
  * bei Registrierung → 409, ungültige Anmeldedaten → 401, falsches aktuelles Passwort bei der
- * Passwort-Änderung → 400 (BE-AUTH-09).
+ * Passwort-Änderung (BE-AUTH-09) oder der Kontolöschung (BE-AUTH-14) → 400.
  *
  * <p>Auf {@link AuthController} und {@link UserController} beschränkt statt global (analog
  * {@code FixedCostExceptionHandler}): seit {@link InvalidCurrentPasswordException} einen 400-Body
@@ -24,9 +24,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * <p><strong>Alle 400er dieser beiden Controller tragen deshalb denselben Body</strong> — mit einer
  * Ausnahme. Das Scoping allein löst nur die Hälfte des Problems: Springdoc dokumentiert
  * {@link AuthErrorResponse} sonst nur an den Endpoints, die tatsächlich {@code @Valid}-Bodys lesen
- * ({@code POST /auth/register}, {@code POST /auth/login}, {@code PUT /users/me/password}). Deshalb
- * fängt dieses Advice auch {@link MethodArgumentNotValidException} ab, die sonst Spring Boots
- * Default-Fehlerbody lieferte.
+ * ({@code POST /auth/register}, {@code POST /auth/login}, {@code PUT /users/me/password},
+ * {@code DELETE /users/me}). Deshalb fängt dieses Advice auch
+ * {@link MethodArgumentNotValidException} ab, die sonst Spring Boots Default-Fehlerbody lieferte.
  *
  * <p><strong>{@code HttpMessageNotReadableException} (kaputtes JSON) gehört bewusst nicht hierher.</strong>
  * Für {@link UserController} deckt das bereits {@code UserIncomeExceptionHandler} ab — inklusive

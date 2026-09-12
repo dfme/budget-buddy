@@ -258,8 +258,9 @@ class UserServiceTest {
     @Test
     void deleteUserCleansUpDependentDataBeforeRemovingTheUser() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("richtigesPasswort1", "irrelevant-for-test")).thenReturn(true);
 
-        userService.deleteUser(1L);
+        userService.deleteUser(1L, "richtigesPasswort1");
 
         InOrder order = inOrder(
                 transactionCleanupPort, fixedCostCleanupPort, notificationCleanupPort,
@@ -274,8 +275,24 @@ class UserServiceTest {
     void deleteUserThrowsWhenUserMissingAndNeverTouchesCleanupPorts() {
         when(userRepository.findById(anyLong())).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> userService.deleteUser(99L))
+        assertThatThrownBy(() -> userService.deleteUser(99L, "egal"))
                 .isInstanceOf(UserNotFoundException.class);
+
+        verifyNoInteractions(transactionCleanupPort, fixedCostCleanupPort, notificationCleanupPort);
+        verify(userRepository, never()).delete(any());
+    }
+
+    /**
+     * BE-AUTH-14: die Passwortprüfung steht vor dem ersten Cleanup-Port. Ein falsches Passwort
+     * darf keine Teillöschung hinterlassen — weder Transaktionen noch den User selbst.
+     */
+    @Test
+    void deleteUserWithWrongPasswordThrowsAndDeletesNothing() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("falschesPasswort", "irrelevant-for-test")).thenReturn(false);
+
+        assertThatThrownBy(() -> userService.deleteUser(1L, "falschesPasswort"))
+                .isInstanceOf(InvalidCurrentPasswordException.class);
 
         verifyNoInteractions(transactionCleanupPort, fixedCostCleanupPort, notificationCleanupPort);
         verify(userRepository, never()).delete(any());
