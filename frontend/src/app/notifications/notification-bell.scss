@@ -1,0 +1,108 @@
+@use 'tokens' as *;
+
+// Eigener Positionierungskontext: die Komponente wird zweimal platziert (mobile Topbar,
+// Desktop-Sidebar-Konto-Block) und darf sich nicht auf einen positionierten Vorfahren
+// verlassen — anders als das Konto-Popover, das an `.topbar` (position: sticky) hängt.
+:host {
+  position: relative;
+  display: inline-flex;
+}
+
+.bell {
+  position: relative;
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: $r-pill;
+  background: transparent;
+  color: $c-ink-2;
+  font-size: $fs-md;
+
+  &:hover {
+    background: $c-bg-subtle;
+    color: $c-ink;
+  }
+}
+
+.bell__icon {
+  line-height: 1;
+}
+
+.bell__badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  padding: 0 0.25rem;
+  transform: translate(20%, -20%);
+  border-radius: $r-pill;
+  background: $c-negative;
+  color: $c-surface;
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 1.1rem;
+  text-align: center;
+  @include tabular;
+}
+
+.bell-list {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 20;
+  width: 18rem;
+  // Verhindert, dass die Liste auf schmalen Viewports über den Rand hinausschiebt —
+  // dieselbe Absicherung wie beim Konto-Popover in Shell.
+  max-width: calc(100vw - #{$sp-4} * 2);
+  max-height: 20rem;
+  overflow-y: auto;
+  padding: $sp-2;
+  background: $c-surface;
+  border: 1px solid $c-line;
+  border-radius: $r-md;
+  box-shadow: $shadow-card;
+}
+
+.bell-list__empty {
+  padding: $sp-3;
+  color: $c-ink-3;
+  font-size: $fs-sm;
+  text-align: center;
+}
+
+.bell-list__item {
+  display: flex;
+  flex-direction: column;
+  gap: $sp-1;
+  width: 100%;
+  padding: $sp-3;
+  border: none;
+  border-top: 1px solid $c-line;
+  background: transparent;
+  text-align: left;
+
+  &:first-child {
+    border-top: none;
+  }
+
+  &:hover {
+    background: $c-bg-subtle;
+  }
+
+  &--unread {
+    background: $c-accent-soft;
+  }
+}
+
+.bell-list__message {
+  color: $c-ink;
+  font-size: $fs-sm;
+}
+
+.bell-list__time {
+  color: $c-ink-3;
+  font-size: $fs-xs;
+}

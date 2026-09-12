@@ -6,6 +6,7 @@ import { Router, provideRouter } from '@angular/router';
 
 import { AuthService } from '../../auth/auth.service';
 import { User } from '../../auth/user.model';
+import { NotificationService } from '../../notifications/notification.service';
 import { Shell } from './shell';
 
 const LARA: User = {
@@ -26,6 +27,7 @@ describe('Shell', () => {
   let auth: AuthService;
   let httpMock: HttpTestingController;
   let router: Router;
+  let notifications: NotificationService;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -48,16 +50,36 @@ describe('Shell', () => {
     auth = TestBed.inject(AuthService);
     httpMock = TestBed.inject(HttpTestingController);
     router = TestBed.inject(Router);
+    notifications = TestBed.inject(NotificationService);
     fixture.detectChanges();
   });
 
   afterEach(() => httpMock.verify());
 
-  /** Meldet einen User an, indem der Login-Call gemockt und der State gesetzt wird. */
-  function login(user: User = LARA): void {
+  /**
+   * Meldet einen User an, indem der Login-Call gemockt und der State gesetzt wird.
+   *
+   * <p>Flusht danach auch `GET /api/notifications`: sobald `isAuthenticated()` auf `true`
+   * kippt, rendert die Shell `app-notification-bell` an beiden Stellen (Topbar + Sidebar), und
+   * beide Instanzen laden beim Erstellen (FE-NOTIF-01). `NotificationService.load()` bündelt die
+   * beiden gleichzeitigen Aufrufe auf einen einzigen Request.
+   */
+  function login(user: User = LARA, notifications: unknown[] = []): void {
     auth.login(user.email, 'supersecret').subscribe();
     httpMock.expectOne('/api/auth/login').flush(user);
     fixture.detectChanges();
+    httpMock.expectOne('/api/notifications').flush(notifications);
+    fixture.detectChanges();
+  }
+
+  /**
+   * Flusht den Reload, den `app-notification-bell` bei jeder Navigation auslöst
+   * (FE-NOTIF-01: „Laden bei Login/Navigation, kein Polling"). Nötig nach jedem echten
+   * `router.navigate(...)` in einem Test — anders als bei `login()` reicht hier kein
+   * gemeinsamer Helper, weil die Navigation selbst der jeweiligen Testaussage dient.
+   */
+  function flushNotificationsReload(): void {
+    httpMock.expectOne('/api/notifications').flush([]);
   }
 
   function el(): HTMLElement {
@@ -124,6 +146,7 @@ describe('Shell', () => {
     login();
 
     await router.navigate(['/einstellungen']);
+    flushNotificationsReload();
     fixture.detectChanges();
 
     const link = query<HTMLAnchorElement>('.nav__settings');
@@ -135,6 +158,7 @@ describe('Shell', () => {
     login();
 
     await router.navigate(['/categories']);
+    flushNotificationsReload();
     fixture.detectChanges();
 
     const active = query<HTMLAnchorElement>('.nav__item--active');
@@ -241,6 +265,7 @@ describe('Shell', () => {
       login();
 
       await router.navigate(['/einstellungen']);
+      flushNotificationsReload();
       avatarButton().click();
       fixture.detectChanges();
       // `RouterLinkActive.update()` toggelt die Klasse in einem `queueMicrotask` — anders als
@@ -348,6 +373,48 @@ describe('Shell', () => {
 
       expect(auth.isAuthenticated()).toBe(false);
       expect(navigate).toHaveBeenCalledWith(['/login']);
+    });
+
+    // FE-NOTIF-01, Review-Befund von @dfme (PR #285): ohne diesen Test bliebe eine Regression
+    // an `NotificationService.clear()` unbemerkt — sonst blitzen die Benachrichtigungen des
+    // vorherigen Users kurz auf, bevor der nächste Login in derselben Tab-Session neu lädt.
+    it('leert den Notification-State beim Abmelden', () => {
+      login(LARA, [
+        {
+          id: 1,
+          type: 'RECURRING_EXPENSE_DETECTED',
+          referenceId: null,
+          message: 'Netflix erkannt',
+          read: false,
+          createdAt: '2026-09-08T10:15:00Z',
+        },
+      ]);
+      expect(notifications.notifications()).toHaveLength(1);
+
+      query<HTMLButtonElement>('.nav__logout')!.click();
+      httpMock.expectOne('/api/auth/logout').flush(null);
+
+      expect(notifications.notifications()).toEqual([]);
+    });
+
+    it('leert den Notification-State auch, wenn der Logout-Call fehlschlägt', () => {
+      login(LARA, [
+        {
+          id: 1,
+          type: 'RECURRING_EXPENSE_DETECTED',
+          referenceId: null,
+          message: 'Netflix erkannt',
+          read: false,
+          createdAt: '2026-09-08T10:15:00Z',
+        },
+      ]);
+
+      query<HTMLButtonElement>('.nav__logout')!.click();
+      httpMock
+        .expectOne('/api/auth/logout')
+        .flush(null, { status: 500, statusText: 'Server Error' });
+
+      expect(notifications.notifications()).toEqual([]);
     });
   });
 });

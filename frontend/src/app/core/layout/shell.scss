@@ -61,6 +61,12 @@
     }
   }
 
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: $sp-2;
+  }
+
   &__avatar {
     width: 2rem;
     height: 2rem;
@@ -262,6 +268,11 @@
     margin-top: auto;
     padding-top: $sp-4;
     border-top: 1px solid $c-line;
+  }
+
+  // Auf Höhe des Konto-Blocks, aber kein Konto-Ziel — deshalb knapp darüber statt darin.
+  app-notification-bell {
+    margin: 0 0 $sp-1 $sp-1;
   }
 }
 

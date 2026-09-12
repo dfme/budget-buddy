@@ -1,0 +1,35 @@
+<button
+  type="button"
+  class="bell"
+  aria-label="Benachrichtigungen"
+  [attr.aria-controls]="listId"
+  [attr.aria-expanded]="open()"
+  (click)="toggle()"
+>
+  <span class="bell__icon" aria-hidden="true">🔔︎</span>
+  @if (unreadCount() > 0) {
+    <span class="bell__badge">{{ unreadCount() }}</span>
+  }
+</button>
+
+<!-- Disclosure, kein WAI-ARIA-Menu — gleiche Begründung wie beim Konto-Popover in Shell:
+     role="menu" würde Pfeiltasten-Navigation versprechen, die es hier nicht gibt. -->
+@if (open()) {
+  <div class="bell-list" [id]="listId">
+    @if (notifications().length === 0) {
+      <p class="bell-list__empty">Keine Benachrichtigungen</p>
+    } @else {
+      @for (notification of notifications(); track notification.id) {
+        <button
+          type="button"
+          class="bell-list__item"
+          [class.bell-list__item--unread]="!notification.read"
+          (click)="select(notification)"
+        >
+          <span class="bell-list__message">{{ notification.message }}</span>
+          <span class="bell-list__time">{{ notification.createdAt | date: 'short' }}</span>
+        </button>
+      }
+    }
+  </div>
+}

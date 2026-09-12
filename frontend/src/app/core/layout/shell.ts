@@ -11,6 +11,8 @@ import {
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 
 import { AuthService } from '../../auth/auth.service';
+import { NotificationBell } from '../../notifications/notification-bell';
+import { NotificationService } from '../../notifications/notification.service';
 
 /** Ein Ziel der Hauptnavigation. */
 interface NavItem {
@@ -37,7 +39,7 @@ interface NavItem {
  */
 @Component({
   selector: 'app-shell',
-  imports: [NgTemplateOutlet, RouterLink, RouterLinkActive],
+  imports: [NgTemplateOutlet, RouterLink, RouterLinkActive, NotificationBell],
   templateUrl: './shell.html',
   styleUrl: './shell.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -52,6 +54,7 @@ export class Shell {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly notifications = inject(NotificationService);
 
   private readonly avatarButton = viewChild<ElementRef<HTMLButtonElement>>('avatarButton');
 
@@ -129,16 +132,24 @@ export class Shell {
   }
 
   /**
-   * Loggt aus (`POST /api/auth/logout`), leert den Auth-State und leitet auf `/login`.
-   * Auch bei einem fehlgeschlagenen Backend-Call wird der lokale State geleert und
+   * Loggt aus (`POST /api/auth/logout`), leert den Auth- und Notification-State und leitet auf
+   * `/login`. Auch bei einem fehlgeschlagenen Backend-Call wird der lokale State geleert und
    * umgeleitet — so bleibt der Nutzer nie in einem scheinbar eingeloggten Zustand.
+   *
+   * <p>{@link NotificationService.clear} verhindert, dass die Benachrichtigungen dieses Users
+   * kurz aufblitzen, bevor ein nächster Login in derselben Tab-Session neu lädt — der Service ist
+   * `providedIn: 'root'` und überlebt den Wechsel.
    */
   protected logout(): void {
     this.accountMenuOpen.set(false);
     this.auth.logout().subscribe({
-      next: () => this.router.navigate(['/login']),
+      next: () => {
+        this.notifications.clear();
+        this.router.navigate(['/login']);
+      },
       error: () => {
         this.auth.resetState();
+        this.notifications.clear();
         this.router.navigate(['/login']);
       },
     });
