@@ -88,6 +88,7 @@ die im JAR gebündelte SPA aus«) schlägt dann als Einziger fehl und nennt gena
 | `tests/pdf-import.spec.ts` | PDF-Upload (US-04): Happy Path mit Anzahl-Meldung, Fehlerpfad mit unlesbarem PDF |
 | `tests/categorization.spec.ts` | Kategorisierung (US-05): Happy Path mit Korrektur über einen Reload, Fehlerpfad mit 500 auf dem Korrektur-PUT |
 | `tests/safe-to-spend.spec.ts` | Safe-to-Spend (US-06): Happy Path mit Querprobe gegen `GET /budget/safe-to-spend`, Fehlerpfad ohne erfasstes Einkommen |
+| `tests/month-switch.spec.ts` | Monatswechsel (US-12): Happy Path in einen vergangenen Monat mit «Abgeschlossen» auf Dashboard und Kategorie-Übersicht, Fehlerpfad in einen Monat ohne Daten |
 | `fixtures/auth.fixture.ts` | Auth-Fixture: eingeloggte Session als Vorbedingung |
 | `fixtures/pdf/` | Synthetische Kontoauszug-PDFs — unkomprimiertes ASCII, lokal mit `cat` oder `git diff` prüfbar (GitHub zeigt sie als binär) |
 | `support/backend.ts` | Port, Basis-URL, JAR-Auflösung, Test-JWT-Secret |
@@ -152,6 +153,11 @@ Auth-Flow als Verifikation der Harness selbst. Abgedeckt sind inzwischen **alle 
 Über dieses Minimum hinaus deckt `onboarding-completion.spec.ts` (E2E-FC-02) die beiden Wege ab,
 auf denen US-03 den Wizard verlassen lässt — «Keine Fixkosten» und «mindestens ein Eintrag». Ein
 Happy Path und ein Fehlerpfad sind die Untergrenze pro Story, nicht die Obergrenze.
+
+Dazu kommt `month-switch.spec.ts` (E2E-STS-02) für die Should-Have-Story US-12. Sie steht
+ausserhalb der Must-Have-Liste, teilt sich mit US-06 aber die Ansicht: Der Monatswechsel
+entscheidet, *welchen* Monat der Safe-to-Spend beantwortet, und für einen vergangenen antwortet
+er mit «Abgeschlossen» statt mit einer Zahl.
 
 Die Fälle hängen nicht an einzelnen Feature-Issues, sondern je an einem eigenen Task pro Story:
 US-04 allein besteht aus acht Issues, die zwei Testfälle liessen sich keinem davon sinnvoll
