@@ -107,12 +107,20 @@ backend/
         ├── transaction/    (TransactionController, PdfImportService, Transaction-Entity)
         ├── categorization/ (CategorizationService, LookupTable, CategorizationPort)
         ├── budget/         (BudgetController, SafeToSpendService, SavingsGoalService)
+        ├── notification/   (NotificationController, NotificationService, NotificationPort — In-App-Benachrichtigungen)
+        ├── recurring/      (RecurringExpenseService, RecurringExpenseDetectionPort — Abo-Erkennung, US-08)
         ├── report/         (ReportController, AiReportService)
         ├── config/         (SecurityConfig, ClockConfig, OpenApiConfig — Spring-Verdrahtung)
         └── money/          (ChfAmounts — geteilte CHF-Betragsregel, ADR-9-Nachtrag)
 ```
 
 Regel: Kein direkter Zugriff auf Repositories oder Services eines anderen Moduls. Cross-Modul-Kommunikation nur über definierte Interfaces.
+
+Das Interface steht im *liefernden* Modul (`transaction.MonthlyExpensePort`, `notification.NotificationPort`,
+`recurring.RecurringExpenseCleanupPort`). Zyklen zwischen zwei Modulen sind zulässig, solange sie
+ausschliesslich aus solchen Interfaces bestehen — `auth ↔ budget` (`FixedCostCleanupPort` /
+`UserIncomePort`) und `transaction ↔ recurring` (`RecurringExpenseDetectionPort` / `ExpenseHistoryPort`)
+sind die beiden bestehenden.
 
 `config/` und `money/` sind die beiden Packages, die keine Domäne sind. `config/` hält
 Spring-Verdrahtung. `money/` ist die begründete Ausnahme aus dem
@@ -186,7 +194,7 @@ Transaktionen reproduzierbar ins 30-Sekunden-Budget und verwarf dabei den gesamt
 | Phase | Wo | Dauer | Fehler |
 | ----- | -- | ----- | ------ |
 | Hash, Duplikatcheck, Parse, `ImportJob` anlegen | im Request (`PdfImportService`) | ~2s | 400 mit `reason`, 408, 409, 413 |
-| Kategorisierung, Persistierung | `@Async` (`ImportJobRunner`) | Sekunden | Job-Status `FAILED` |
+| Kategorisierung, Persistierung, Abo-Erkennung | `@Async` (`ImportJobRunner`) | Sekunden | Job-Status `FAILED`; ein Fehler in der Abo-Erkennung lässt den Job auf `DONE` (BE-REC-01) |
 
 `POST /api/import/pdf` antwortet mit `202 Accepted` und `{jobId, total}`;
 `GET /api/import/{jobId}/status` liefert `{status, total, processed, degraded}`. Das Frontend

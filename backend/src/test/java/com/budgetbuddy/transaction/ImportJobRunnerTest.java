@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.groups.Tuple.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -14,6 +16,7 @@ import static org.mockito.Mockito.when;
 import com.budgetbuddy.categorization.CategorizationPort;
 import com.budgetbuddy.categorization.CategorizationResult;
 import com.budgetbuddy.categorization.Category;
+import com.budgetbuddy.recurring.RecurringExpenseDetectionPort;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Duration;
@@ -27,6 +30,7 @@ import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -49,6 +53,8 @@ class ImportJobRunnerTest {
     private final CategorizationPort categorizationPort = mock(CategorizationPort.class);
     private final TransactionRepository repository = mock(TransactionRepository.class);
     private final ImportJobRepository importJobRepository = mock(ImportJobRepository.class);
+    private final RecurringExpenseDetectionPort recurringExpenseDetectionPort =
+            mock(RecurringExpenseDetectionPort.class);
     private final Clock clock = mock(Clock.class);
 
     /**
@@ -60,7 +66,8 @@ class ImportJobRunnerTest {
             new TransactionTemplate(mock(PlatformTransactionManager.class));
 
     private final ImportJobRunner runner = new ImportJobRunner(categorizationPort, repository,
-            importJobRepository, transactionTemplate, clock, Duration.ofSeconds(WATCHDOG_SECONDS), BATCH_SIZE);
+            importJobRepository, transactionTemplate, recurringExpenseDetectionPort, clock,
+            Duration.ofSeconds(WATCHDOG_SECONDS), BATCH_SIZE);
 
     @BeforeEach
     void persistJobsAsGiven() {
@@ -347,6 +354,52 @@ class ImportJobRunnerTest {
 
         assertThat(job.getStatus()).isEqualTo(ImportJobStatus.FAILED);
         verify(repository, never()).saveAll(any());
+        // Ohne persistierte Transaktionen gibt es nichts zu erkennen — und eine Erkennung über
+        // einen halb geschriebenen Import wäre falsch.
+        verifyNoInteractions(recurringExpenseDetectionPort);
+    }
+
+    // --- Abo-Erkennung (BE-REC-01, US-08) ---
+
+    /**
+     * AC «Aufruf am Ende von ImportJobRunner, nach der Kategorisierung»: Die Erkennung sieht die
+     * Historie des Users erst, wenn dieser Import committet ist — vor {@code saveAll} liefe sie
+     * über den alten Stand und fände das Abo aus genau diesem Auszug nicht.
+     */
+    @Test
+    void recurringExpenseDetection_runsForTheJobsUserAfterTheImportIsPersisted() {
+        clockNeverExpires();
+        categorizeAllAs(Category.SONSTIGES, CategorizationResult.Source.LOOKUP);
+        ImportJob job = new ImportJob(USER_ID, "sha-fixture", 1, T0);
+
+        runner.run(job, List.of(parsed("LASTSCHRIFT", List.of("NETFLIX INTERNATIONAL BV"),
+                "20.90", false)), SHA, false);
+
+        InOrder order = inOrder(repository, recurringExpenseDetectionPort);
+        order.verify(repository).saveAll(any());
+        order.verify(recurringExpenseDetectionPort).detect(USER_ID);
+        assertThat(job.getStatus()).isEqualTo(ImportJobStatus.DONE);
+    }
+
+    /**
+     * Ein Fehler in der Erkennung darf den Import nicht auf FAILED setzen: Die Transaktionen sind
+     * zu diesem Zeitpunkt committet, und ein «gescheiterter» Import, dessen Buchungen trotzdem
+     * da sind, schickte den Nutzer in einen Force-Reimport, der nichts ändert (CLAUDE.md: ein
+     * einzelner Ausfall blockiert nie den ganzen Import-Flow).
+     */
+    @Test
+    void failingRecurringExpenseDetection_leavesTheImportSuccessful() {
+        clockNeverExpires();
+        categorizeAllAs(Category.SONSTIGES, CategorizationResult.Source.LOOKUP);
+        doThrow(new IllegalStateException("Erkennung kaputt"))
+                .when(recurringExpenseDetectionPort).detect(USER_ID);
+        ImportJob job = new ImportJob(USER_ID, "sha-fixture", 1, T0);
+
+        runner.run(job, List.of(parsed("GIRO POST", List.of(), "850.00", false)), SHA, false);
+
+        assertThat(capturePersisted()).hasSize(1);
+        assertThat(job.getStatus()).isEqualTo(ImportJobStatus.DONE);
+        assertThat(job.getProcessed()).isEqualTo(1);
     }
 
     /**

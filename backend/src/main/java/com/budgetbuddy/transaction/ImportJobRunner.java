@@ -4,6 +4,7 @@ import com.budgetbuddy.categorization.CategorizationPort;
 import com.budgetbuddy.categorization.CategorizationResult;
 import com.budgetbuddy.categorization.Category;
 import com.budgetbuddy.config.AsyncConfig;
+import com.budgetbuddy.recurring.RecurringExpenseDetectionPort;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -40,6 +41,15 @@ import org.springframework.transaction.support.TransactionTemplate;
  * alte Zustand — 30 s warten und dann alle 108 Transaktionen verlieren (#192) — ist damit nicht
  * mehr erreichbar. Nicht kategorisierte Transaktionen kosten den Nutzer eine Korrektur, die nach
  * ADR-6 zugleich die Lookup-Tabelle füttert; ein verworfener Import kostet ihn alles.
+ *
+ * <p><strong>Abo-Erkennung (BE-REC-01, US-08):</strong> Nach dem Persistieren stösst der Runner
+ * über {@link RecurringExpenseDetectionPort} die Erkennung wiederkehrender Ausgaben an — hier und
+ * nicht in einem Scheduler, weil neue Abos nur durch neue Transaktionen entstehen. Sie läuft vor
+ * {@code finishSuccessfully}, damit die Benachrichtigung steht, sobald der Status-Poll
+ * {@link ImportJobStatus#DONE} meldet. Ein Fehler darin lässt den Import unberührt: Die
+ * Transaktionen sind zu diesem Zeitpunkt committet, der Job wird trotzdem {@code DONE} — dieselbe
+ * Haltung wie beim Claude-Call (CLAUDE.md: ein einzelner Ausfall darf nie den ganzen Import-Flow
+ * blockieren).
  */
 @Service
 public class ImportJobRunner {
@@ -50,6 +60,7 @@ public class ImportJobRunner {
     private final TransactionRepository transactionRepository;
     private final ImportJobRepository importJobRepository;
     private final TransactionTemplate transactionTemplate;
+    private final RecurringExpenseDetectionPort recurringExpenseDetectionPort;
     private final Clock clock;
     private final Duration categorizationTimeout;
     private final int batchSize;
@@ -59,6 +70,7 @@ public class ImportJobRunner {
             TransactionRepository transactionRepository,
             ImportJobRepository importJobRepository,
             TransactionTemplate transactionTemplate,
+            RecurringExpenseDetectionPort recurringExpenseDetectionPort,
             Clock clock,
             @Value("${budgetbuddy.import.categorization-timeout:300s}")
                     Duration categorizationTimeout,
@@ -67,6 +79,7 @@ public class ImportJobRunner {
         this.transactionRepository = transactionRepository;
         this.importJobRepository = importJobRepository;
         this.transactionTemplate = transactionTemplate;
+        this.recurringExpenseDetectionPort = recurringExpenseDetectionPort;
         this.clock = clock;
         this.categorizationTimeout = categorizationTimeout;
         this.batchSize = batchSize;
@@ -212,6 +225,8 @@ public class ImportJobRunner {
             transactionRepository.saveAll(entities);
         });
 
+        detectRecurringExpenses(job);
+
         Instant end = clock.instant();
         job.finishSuccessfully(degraded, end);
         importJobRepository.save(job);
@@ -225,6 +240,24 @@ public class ImportJobRunner {
                         + "{} via Lookup, {} via Claude, {} ohne Call{}).",
                 job.getId(), entities.size(), Duration.between(start, end).toMillis(),
                 viaLookup, viaClaude, ohneCall, degraded ? ", Zeitbudget überschritten" : "");
+    }
+
+    /**
+     * Abo-Erkennung über die gesamte Historie des Users, nachdem dieser Import committet ist.
+     *
+     * <p>Fängt nur {@link RuntimeException}: Ein Fehler hier — Datenbank, Port, Bug in der
+     * Erkennung — darf den Job nicht auf FAILED setzen, die Transaktionen sind bereits gespeichert
+     * und der Nutzer sähe sonst einen gescheiterten Import, dessen Buchungen trotzdem da sind. Ein
+     * {@link Error} läuft weiter nach oben zum Catch in {@link #run}, wie überall im Runner.
+     */
+    private void detectRecurringExpenses(ImportJob job) {
+        try {
+            recurringExpenseDetectionPort.detect(job.getUserId());
+        } catch (RuntimeException e) {
+            log.warn("Import-Job {}: Abo-Erkennung fehlgeschlagen — der Import bleibt vollständig, "
+                            + "die Erkennung läuft beim nächsten Import erneut.",
+                    job.getId(), e);
+        }
     }
 
     /** Ein Bündel, das ohne Claude-Call auskommt — {@code Sonstiges} über {@code CLAUDE_SKIPPED}. */

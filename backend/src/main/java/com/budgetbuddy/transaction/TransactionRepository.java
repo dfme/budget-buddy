@@ -130,6 +130,18 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
             Long userId, LocalDate von, LocalDate bis);
 
     /**
+     * Alle <em>Ausgaben</em> ({@code is_income = false}) eines Users, ohne Zeitfenster — Eingabe
+     * der Abo-Erkennung (BE-REC-01, US-08) über {@link ExpenseHistoryPort}.
+     *
+     * <p>Bewusst ohne Datumsgrenzen, anders als die Monats-Queries oben: Die Erkennung läuft nach
+     * jedem Import, und ein Import kann Monate weit in der Vergangenheit nachreichen. Die Menge
+     * ist die Historie <em>eines</em> Users, einige hundert Zeilen pro importiertem Jahr. Die
+     * Gruppierung nach Empfänger läuft in Java, weil sie {@code buchungsdetails} zeilenweise liest
+     * — dieselbe Begründung wie bei {@link #findByUserIdAndIncomeTrueAndBuchungsdatumBetween}.
+     */
+    List<Transaction> findByUserIdAndIncomeFalse(Long userId);
+
+    /**
      * Duplikatcheck des PDF-Imports (BE-PDF-02): {@code true}, wenn dieser User bereits
      * Transaktionen aus dem PDF mit diesem SHA-256 importiert hat. Pro User — dasselbe PDF darf
      * von einem anderen User (z. B. Gemeinschaftskonto) erneut importiert werden.

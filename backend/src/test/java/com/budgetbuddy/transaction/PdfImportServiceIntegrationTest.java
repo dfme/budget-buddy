@@ -79,6 +79,10 @@ class PdfImportServiceIntegrationTest {
         transactionRepository.deleteAll();
         // Vor den Usern: import_jobs.user_id ist ein Fremdschlüssel auf users (Flyway V05).
         importJobRepository.deleteAll();
+        // Seit BE-REC-01 schreibt der Import selbst in recurring_expenses und notifications
+        // (Abo-Erkennung am Ende des ImportJobRunner) — beide hängen per FK an users (V10, V11).
+        jdbcTemplate.update("DELETE FROM notifications");
+        jdbcTemplate.update("DELETE FROM recurring_expenses");
         jdbcTemplate.update("DELETE FROM users");
         jdbcTemplate.update(
                 "INSERT INTO users (email, password_hash, monthly_income, onboarding_completed)"
