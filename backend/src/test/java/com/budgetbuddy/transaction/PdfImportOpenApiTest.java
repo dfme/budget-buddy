@@ -32,6 +32,8 @@ class PdfImportOpenApiTest {
 
     private static final String UPLOAD_POST = "$.paths['/api/import/pdf'].post";
     private static final String STATUS_GET = "$.paths['/api/import/{jobId}/status'].get";
+    private static final String TRANSACTIONS_GET =
+            "$.paths['/api/import/{jobId}/transactions'].get";
 
     @DynamicPropertySource
     static void datasourceProperties(DynamicPropertyRegistry registry) {
@@ -49,6 +51,42 @@ class PdfImportOpenApiTest {
                 .andExpect(jsonPath(STATUS_GET + ".parameters[?(@.name == 'jobId')].description")
                         .isNotEmpty())
                 .andExpect(jsonPath(STATUS_GET + ".responses['404']").exists());
+    }
+
+    /**
+     * AC 5 von BE-PDF-14: «Endpoint ist in Swagger UI sichtbar». Mitgeprüft werden die beiden
+     * Fehlerfälle, die den Vertrag ausmachen — 404 für einen fremden oder unbekannten Job und 409
+     * für einen, der noch nicht abgeschlossen ist.
+     */
+    @Test
+    void theImportTransactionsEndpointIsDocumented() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath(TRANSACTIONS_GET).exists())
+                .andExpect(jsonPath(TRANSACTIONS_GET + ".summary").isNotEmpty())
+                .andExpect(jsonPath(TRANSACTIONS_GET + ".description").isNotEmpty())
+                .andExpect(jsonPath(TRANSACTIONS_GET
+                        + ".parameters[?(@.name == 'jobId')].description").isNotEmpty())
+                .andExpect(jsonPath(TRANSACTIONS_GET + ".responses['200']").exists())
+                .andExpect(jsonPath(TRANSACTIONS_GET + ".responses['404']").exists())
+                .andExpect(jsonPath(TRANSACTIONS_GET + ".responses['409']").exists());
+    }
+
+    /**
+     * Der 409 trägt seinen Stand als Body, nicht nur als Status — genau darin unterscheidet er
+     * sich vom Duplikat-409 des Uploads. Ein Client, der zwischen «später nochmal» (RUNNING) und
+     * «wird nie etwas liefern» (FAILED) unterscheiden soll, braucht das Feld dokumentiert.
+     */
+    @Test
+    void theConflictBodyDocumentsTheJobStatus() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath(TRANSACTIONS_GET
+                        + ".responses['409'].content['*/*'].schema.$ref")
+                        .value("#/components/schemas/ImportNotCompleteResponse"))
+                .andExpect(jsonPath(
+                        "$.components.schemas.ImportNotCompleteResponse.properties.status.enum")
+                        .isArray());
     }
 
     @Test

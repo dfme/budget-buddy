@@ -2,7 +2,9 @@ package com.budgetbuddy.transaction;
 
 import com.budgetbuddy.transaction.dto.ImportErrorResponse;
 import com.budgetbuddy.transaction.dto.ImportJobStatusResponse;
+import com.budgetbuddy.transaction.dto.ImportNotCompleteResponse;
 import com.budgetbuddy.transaction.dto.ImportStartedResponse;
+import com.budgetbuddy.transaction.dto.TransactionResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -12,6 +14,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -44,6 +47,12 @@ import org.springframework.web.multipart.MultipartFile;
  * <p>Fehlerabbildung (siehe {@link PdfImportExceptionHandler}): ungültiges/passwortgeschütztes PDF
  * → 400, Duplikat → 409 ({@code @ResponseStatus} auf {@link DuplicatePdfImportException}), Timeout
  * → 408 ({@link PdfImportTimeoutException}), Überschreitung des serverseitigen 10-MB-Limits → 413.
+ *
+ * <p>Neben dem Fortschritt liefert der Controller seit BE-PDF-14 auch das Ergebnis:
+ * {@link #importTransactions(Long, Long)} gibt die Buchungen eines abgeschlossenen Imports
+ * zurück, damit der Import-Screen sie samt zugeordneter Kategorie zeigen und korrigieren lassen
+ * kann (FE-PDF-04). Solange der Job nicht {@code DONE} ist, antwortet er mit 409 statt mit einer
+ * leeren Liste — Begründung in {@link PdfImportService#listTransactions(long, Long)}.
  *
  * <p>Der optionale Parameter {@code force} ist die Gegenseite des 409: Bestätigt der User im
  * Duplikat-Dialog «Trotzdem importieren» (FE-PDF-03, US-04), wiederholt der Client denselben
@@ -117,6 +126,38 @@ public class PdfImportController {
         return pdfImportService.findJob(userId, jobId)
                 .map(ImportJobStatusResponse::from)
                 .orElseThrow(ImportJobNotFoundException::new);
+    }
+
+    @GetMapping("/{jobId}/transactions")
+    @Operation(summary = "Transaktionen eines Import-Jobs auflisten",
+            description = "Liefert die Buchungen, die dieser Import angelegt hat — Datum, "
+                    + "Buchungstext, Betrag und zugeordnete Kategorie, neueste zuerst. Eingabe "
+                    + "des Import-Screens, der nach dem Upload nicht nur die Anzahl, sondern die "
+                    + "Buchungen selbst zeigt; die Kategorie kommt im selben Format wie bei "
+                    + "GET /api/transactions, sodass die Korrektur über "
+                    + "PUT /api/transactions/{id}/category unverändert greift. Noch nicht "
+                    + "kategorisierte Buchungen erscheinen als 'Sonstiges'. Die Liste ist nicht "
+                    + "seitenweise: sie umfasst genau einen Kontoauszug (max. 10 MB). Ein "
+                    + "Auszug ohne Buchungen liefert eine leere Liste, keinen Fehler.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Transaktionen des Imports"),
+        @ApiResponse(responseCode = "401", description = "Nicht authentifiziert", content = @Content),
+        @ApiResponse(responseCode = "404",
+                description = "Kein Job dieser ID für den eingeloggten User", content = @Content),
+        @ApiResponse(responseCode = "409",
+                description = "Der Job ist noch nicht abgeschlossen; der Body nennt seinen Stand "
+                        + "(RUNNING: später erneut versuchen, FAILED: der Import ist gescheitert "
+                        + "und wird keine Buchungen liefern)",
+                content = @Content(schema = @Schema(implementation = ImportNotCompleteResponse.class)))
+    })
+    public List<TransactionResponse> importTransactions(
+            @AuthenticationPrincipal Long userId,
+            @Parameter(description = "Job-ID aus der Upload-Antwort") @PathVariable Long jobId) {
+        // Wie beim Status-Endpoint geht die Abfrage über den User, nicht über die Job-ID allein:
+        // Job-IDs sind fortlaufend und damit ratbar. Ein fremder Job ist deshalb nicht «verboten»,
+        // sondern nicht vorhanden — sonst verriete ein 403, dass unter dieser ID ein fremder
+        // Import liegt. Die Einschränkung selbst sitzt im Service, wo die Query steht.
+        return pdfImportService.listTransactions(userId, jobId);
     }
 
     private static byte[] readBytes(MultipartFile file) {
