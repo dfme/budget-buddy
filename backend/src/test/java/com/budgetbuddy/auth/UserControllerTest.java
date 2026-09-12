@@ -3,10 +3,12 @@ package com.budgetbuddy.auth;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -466,5 +468,88 @@ class UserControllerTest {
 
         mockMvc.perform(get("/api/users/me").cookie(oldCookie))
                 .andExpect(status().isUnauthorized());
+    }
+
+    // --- DELETE /users/me (BE-AUTH-14, US-02) ---
+
+    private int userRowCount() {
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM users WHERE id = ?", Integer.class, userId);
+        return count == null ? 0 : count;
+    }
+
+    @Test
+    void deleteAccountWithCorrectPasswordReturns204ClearsCookieAndBlocksFurtherLogin()
+            throws Exception {
+        setPasswordHash("laraPasswort1");
+        Cookie oldCookie = jwtCookie();
+
+        mockMvc.perform(delete("/api/users/me")
+                        .cookie(oldCookie)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"passwort\": \"laraPasswort1\"}"))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""))
+                // AC: die Antwort löscht das JWT-Cookie (JwtCookieFactory.clear()).
+                .andExpect(header().string("Set-Cookie", containsString("jwt=;")))
+                .andExpect(header().string("Set-Cookie", containsString("Max-Age=0")));
+
+        org.assertj.core.api.Assertions.assertThat(userRowCount()).isZero();
+
+        // US-02 AC 3: ein erneuter Login mit denselben Zugangsdaten schlägt fehl.
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\": \"lara@example.ch\", \"password\": \"laraPasswort1\"}"))
+                .andExpect(status().isUnauthorized());
+
+        // Das alte Cookie ist nach der Löschung wertlos: der Filter findet keinen User mehr.
+        mockMvc.perform(get("/api/users/me").cookie(oldCookie))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void deleteAccountWithWrongPasswordReturns400AndDeletesNothing() throws Exception {
+        setPasswordHash("laraPasswort1");
+
+        mockMvc.perform(delete("/api/users/me")
+                        .cookie(jwtCookie())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"passwort\": \"falschesPasswort\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Aktuelles Passwort falsch"))
+                .andExpect(content().string(not(containsString("falschesPasswort"))))
+                // Kein Clear-Cookie bei Ablehnung: die Session bleibt bestehen.
+                .andExpect(header().doesNotExist("Set-Cookie"));
+
+        org.assertj.core.api.Assertions.assertThat(userRowCount()).isEqualTo(1);
+
+        mockMvc.perform(get("/api/users/me").cookie(jwtCookie()))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void deleteAccountWithBlankPasswordReturns400WithGermanMessage() throws Exception {
+        setPasswordHash("laraPasswort1");
+
+        mockMvc.perform(delete("/api/users/me")
+                        .cookie(jwtCookie())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"passwort\": \"\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Passwort ist erforderlich."));
+
+        org.assertj.core.api.Assertions.assertThat(userRowCount()).isEqualTo(1);
+    }
+
+    @Test
+    void deleteAccountWithoutJwtReturns401() throws Exception {
+        setPasswordHash("laraPasswort1");
+
+        mockMvc.perform(delete("/api/users/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"passwort\": \"laraPasswort1\"}"))
+                .andExpect(status().isUnauthorized());
+
+        org.assertj.core.api.Assertions.assertThat(userRowCount()).isEqualTo(1);
     }
 }
