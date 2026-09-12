@@ -1,5 +1,6 @@
 package com.budgetbuddy.transaction.dto;
 
+import com.budgetbuddy.categorization.Category;
 import com.budgetbuddy.transaction.Transaction;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -30,9 +31,43 @@ public record TransactionResponse(
         boolean directionUncertain,
         String category) {
 
+    /**
+     * Baut die Antwort mit dem <em>Rohwert</em> der Kategorie — {@code null} bleibt {@code null}.
+     *
+     * <p>Für die Schreibpfade ({@code PUT /transactions/{id}/category},
+     * {@code PUT /transactions/{id}/direction}): Dort ist {@code category} nach der Operation nie
+     * {@code null}, und eine stille Auflösung verschöbe die Bedeutung des Rückgabewerts — er soll
+     * sagen, was jetzt in der Zeile steht.
+     *
+     * <p>Lesepfade nehmen {@link #fromResolvingCategory(Transaction)}.
+     */
     public static TransactionResponse from(Transaction tx) {
         return new TransactionResponse(tx.getId(), tx.getBuchungsdatum(), tx.getBuchungstext(),
                 tx.getBuchungsdetails(), tx.getBetrag(), tx.isIncome(), tx.isDirectionUncertain(),
                 tx.getCategory());
+    }
+
+    /**
+     * Baut die Antwort mit <em>aufgelöster</em> Kategorie: eine noch nicht kategorisierte Buchung
+     * ({@code category == null}) erscheint als {@link Category#SONSTIGES} — dieselbe Regel, nach
+     * der {@code TransactionSummaryService} sie in der Übersicht summiert.
+     *
+     * <p><strong>Warum das hier steht und nicht je Lesepfad.</strong> Die Regel lag als
+     * {@code private} in {@code TransactionListService}. Mit BE-PDF-14 braucht
+     * {@code GET /import/{jobId}/transactions} dieselbe — das AC verlangt ausdrücklich «dasselbe
+     * Kategorie-Feld/Format wie GET /api/transactions», damit das Frontend die Korrektur aus
+     * FE-CAT-05 unverändert wiederverwenden kann. Zwei Kopien derselben Auflösung könnten
+     * auseinanderlaufen, und sichtbar würde das erst als leeres Dropdown in genau der Zeile, die
+     * der Nutzer korrigieren will.
+     *
+     * <p>Bewusst als String statt über {@link Category#fromLabel(String)}: Ein unerwarteter Wert
+     * in der Spalte würde dort eine {@link IllegalArgumentException} und damit eine 500 auslösen,
+     * während die Übersicht denselben Wert unverändert durchreicht. Ein Lesepfad soll nicht
+     * strenger sein als der, der die Zahl daneben berechnet.
+     */
+    public static TransactionResponse fromResolvingCategory(Transaction tx) {
+        return new TransactionResponse(tx.getId(), tx.getBuchungsdatum(), tx.getBuchungstext(),
+                tx.getBuchungsdetails(), tx.getBetrag(), tx.isIncome(), tx.isDirectionUncertain(),
+                tx.getCategory() != null ? tx.getCategory() : Category.SONSTIGES.getLabel());
     }
 }

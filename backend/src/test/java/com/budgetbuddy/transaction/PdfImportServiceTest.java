@@ -14,6 +14,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.budgetbuddy.categorization.Category;
+import com.budgetbuddy.transaction.dto.TransactionResponse;
 import java.math.BigDecimal;
 import java.security.MessageDigest;
 import java.time.Clock;
@@ -304,6 +306,131 @@ class PdfImportServiceTest {
 
         assertThat(service.findJob(USER_ID, 7L)).contains(job);
         assertThat(service.findJob(USER_ID + 1, 7L)).isEmpty();
+    }
+
+    // --- Transaktionen eines Imports (BE-PDF-14, US-04/US-05) ---
+
+    /** Der Happy Path: Ein abgeschlossener Job liefert die Buchungen seines PDFs. */
+    @Test
+    void listTransactions_returnsTheBookingsOfTheJobsPdf() {
+        ImportJob job = doneJob("sha-fixture");
+        when(importJobRepository.findByIdAndUserId(7L, USER_ID)).thenReturn(Optional.of(job));
+        when(repository.findByUserIdAndPdfSha256OrderByBuchungsdatumDescIdDesc(
+                USER_ID, "sha-fixture"))
+                .thenReturn(List.of(
+                        transaction("COOP BERN", "42.50", "Lebensmittel", "sha-fixture")));
+
+        List<TransactionResponse> result = service.listTransactions(USER_ID, 7L);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.getFirst().buchungstext()).isEqualTo("COOP BERN");
+        assertThat(result.getFirst().betrag()).isEqualByComparingTo("42.50");
+        assertThat(result.getFirst().category()).isEqualTo("Lebensmittel");
+    }
+
+    /**
+     * AC «dasselbe Kategorie-Feld/Format wie GET /api/transactions»: Eine noch nicht
+     * kategorisierte Buchung kommt als {@code Sonstiges} heraus, nicht als {@code null}. Sonst
+     * hätte das Kategorie-Dropdown im Import-Screen keine gültige Vorauswahl, und das Frontend
+     * müsste die Auflösung ein zweites Mal nachbauen.
+     */
+    @Test
+    void listTransactions_resolvesAnUncategorisedBookingToSonstiges() {
+        ImportJob job = doneJob("sha-fixture");
+        when(importJobRepository.findByIdAndUserId(7L, USER_ID)).thenReturn(Optional.of(job));
+        when(repository.findByUserIdAndPdfSha256OrderByBuchungsdatumDescIdDesc(
+                USER_ID, "sha-fixture"))
+                .thenReturn(List.of(transaction("UNBEKANNT AG", "10.00", null, "sha-fixture")));
+
+        assertThat(service.listTransactions(USER_ID, 7L).getFirst().category())
+                .isEqualTo(Category.SONSTIGES.getLabel());
+    }
+
+    /** Ein erkannter Auszug ohne Buchungen ist kein Fehler — die leere Liste ist die Antwort. */
+    @Test
+    void listTransactions_returnsAnEmptyListForAStatementWithoutBookings() {
+        ImportJob job = doneJob("sha-leer");
+        when(importJobRepository.findByIdAndUserId(7L, USER_ID)).thenReturn(Optional.of(job));
+        when(repository.findByUserIdAndPdfSha256OrderByBuchungsdatumDescIdDesc(USER_ID, "sha-leer"))
+                .thenReturn(List.of());
+
+        assertThat(service.listTransactions(USER_ID, 7L)).isEmpty();
+    }
+
+    /**
+     * Mandantentrennung, dieselbe Begründung wie bei {@link #findJob_isScopedToTheAuthenticatedUser}:
+     * Die Abfrage geht über {@code findByIdAndUserId}. Ein fremder Job ist nicht «verboten»,
+     * sondern nicht vorhanden — und die Buchungen werden gar nicht erst gelesen.
+     */
+    @Test
+    void listTransactions_ofAForeignJobIsNotFound() {
+        when(importJobRepository.findByIdAndUserId(7L, USER_ID + 1)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.listTransactions(USER_ID + 1, 7L))
+                .isInstanceOf(ImportJobNotFoundException.class);
+        verify(repository, never())
+                .findByUserIdAndPdfSha256OrderByBuchungsdatumDescIdDesc(anyLong(), anyString());
+    }
+
+    /** Ein unbekannter Job liefert denselben Fehler wie ein fremder. */
+    @Test
+    void listTransactions_ofAnUnknownJobIsNotFound() {
+        when(importJobRepository.findByIdAndUserId(99L, USER_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.listTransactions(USER_ID, 99L))
+                .isInstanceOf(ImportJobNotFoundException.class);
+    }
+
+    /**
+     * Ein laufender Job liefert keine halbe Liste. Der {@link ImportJobRunner} schreibt erst in
+     * seinem Abschlussblock — vor {@code DONE} steht nichts in der Tabelle, und eine leere Liste
+     * wäre von «dieser Auszug enthielt keine Buchungen» nicht zu unterscheiden.
+     */
+    @Test
+    void listTransactions_ofARunningJobConflictsAndNamesTheStatus() {
+        ImportJob job = new ImportJob(USER_ID, "sha-fixture", 3, T0);
+        when(importJobRepository.findByIdAndUserId(7L, USER_ID)).thenReturn(Optional.of(job));
+
+        assertThatThrownBy(() -> service.listTransactions(USER_ID, 7L))
+                .isInstanceOf(ImportJobNotCompleteException.class)
+                .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.type(
+                        ImportJobNotCompleteException.class))
+                .extracting(ImportJobNotCompleteException::getStatus)
+                .isEqualTo(ImportJobStatus.RUNNING);
+        verify(repository, never())
+                .findByUserIdAndPdfSha256OrderByBuchungsdatumDescIdDesc(anyLong(), anyString());
+    }
+
+    /**
+     * Ein gescheiterter Job ebenso — und mit einem anderen Status im Fehler, weil sich die
+     * Reaktion unterscheidet: Bei {@code RUNNING} lohnt ein zweiter Versuch, bei {@code FAILED}
+     * nicht.
+     */
+    @Test
+    void listTransactions_ofAFailedJobConflictsAndNamesTheStatus() {
+        ImportJob job = new ImportJob(USER_ID, "sha-fixture", 3, T0);
+        job.fail(T0);
+        when(importJobRepository.findByIdAndUserId(7L, USER_ID)).thenReturn(Optional.of(job));
+
+        assertThatThrownBy(() -> service.listTransactions(USER_ID, 7L))
+                .isInstanceOf(ImportJobNotCompleteException.class)
+                .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.type(
+                        ImportJobNotCompleteException.class))
+                .extracting(ImportJobNotCompleteException::getStatus)
+                .isEqualTo(ImportJobStatus.FAILED);
+    }
+
+    /** Ein abgeschlossener Job mit dem gegebenen PDF-Hash. */
+    private static ImportJob doneJob(String pdfSha256) {
+        ImportJob job = new ImportJob(USER_ID, pdfSha256, 1, T0);
+        job.finishSuccessfully(false, T0);
+        return job;
+    }
+
+    private static Transaction transaction(String buchungstext, String betrag, String category,
+            String pdfSha256) {
+        return new Transaction(USER_ID, LocalDate.of(2025, 6, 3), buchungstext, null,
+                new BigDecimal(betrag), false, category, pdfSha256);
     }
 
     /**
