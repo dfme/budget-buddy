@@ -157,6 +157,12 @@ public class RecurringExpenseService implements RecurringExpenseDetectionPort {
      * <em>letzten</em> Treffers — die aufsteigende Reihenfolge macht ihn zum jüngsten — wird
      * gespeichert.
      *
+     * <p><strong>Eine Lücke beginnt die Reihe neu.</strong> Schliesst ein Treffer nicht direkt an
+     * den vorherigen an — Januar/Februar erkannt, März bis Juli nichts, August/September wieder —,
+     * wird der Erstmonat auf den jüngeren Abschnitt gesetzt. Sonst behauptete die Zeile «seit
+     * Januar» eine Laufzeit, die die Daten nicht hergeben (Review PR #298). Ein Preissprung wirkt
+     * gleich: das Paar über den Sprung hinweg qualifiziert nicht, die Reihe beginnt danach.
+     *
      * <p><strong>Deterministisch auch bei mehreren Buchungen im selben Monat.</strong> Die Beträge
      * je Monat werden aufsteigend sortiert, bevor die Paare verglichen werden. Ohne das hinge bei
      * zwei gleichzeitig qualifizierenden Paaren — etwa zwei Coop-Einkäufe zu 49.90 und 50.00 in
@@ -176,22 +182,32 @@ public class RecurringExpenseService implements RecurringExpenseDetectionPort {
         byMonth.values().forEach(amounts -> amounts.sort(Comparator.naturalOrder()));
 
         YearMonth firstMonth = null;
+        YearMonth lastHitMonth = null;
         BigDecimal latestAmount = null;
         for (Map.Entry<YearMonth, List<BigDecimal>> month : byMonth.entrySet()) {
-            List<BigDecimal> next = byMonth.get(month.getKey().plusMonths(1));
+            YearMonth nextMonth = month.getKey().plusMonths(1);
+            List<BigDecimal> next = byMonth.get(nextMonth);
             if (next == null) {
                 continue;
             }
+            boolean pairHit = false;
             for (BigDecimal earlier : month.getValue()) {
                 for (BigDecimal later : next) {
                     if (withinTolerance(earlier, later)) {
-                        if (firstMonth == null) {
-                            firstMonth = month.getKey();
-                        }
+                        pairHit = true;
                         latestAmount = later;
                     }
                 }
             }
+            if (!pairHit) {
+                continue;
+            }
+            // Schliesst das Paar nicht an den letzten Treffer an, beginnt die Reihe neu. Pro Paar
+            // entschieden, nicht pro Treffer: mehrere Buchungen im Monat sind keine Lücke.
+            if (!month.getKey().equals(lastHitMonth)) {
+                firstMonth = month.getKey();
+            }
+            lastHitMonth = nextMonth;
         }
         return firstMonth == null
                 ? Optional.empty()

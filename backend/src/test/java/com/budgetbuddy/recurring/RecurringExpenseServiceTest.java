@@ -183,6 +183,38 @@ class RecurringExpenseServiceTest {
     }
 
     /**
+     * Review PR #298: Reisst die Reihe ab und setzt später wieder ein, ist der Erstmonat der
+     * Beginn des jüngeren Abschnitts — nicht der des ersten. Sonst behauptete die Zeile «seit
+     * Januar» eine Laufzeit, die die Daten nicht hergeben.
+     */
+    @Test
+    void aGapInTheSeries_restartsItAtTheLaterSegment() {
+        history(entry(NETFLIX, "17.90", 2026, 1), entry(NETFLIX, "17.90", 2026, 2),
+                entry(NETFLIX, "17.90", 2026, 8), entry(NETFLIX, "17.90", 2026, 9));
+
+        service.detect(USER_ID);
+
+        RecurringExpense saved = captureSaved();
+        assertThat(saved.getFirstDetectedMonth()).isEqualTo(YearMonth.of(2026, 8));
+    }
+
+    /**
+     * Gegenprobe zur Lückenregel: mehrere Buchungen im selben Monat sind keine Lücke — die Reihe
+     * läuft durch und behält ihren Erstmonat.
+     */
+    @Test
+    void severalBookingsPerMonth_doNotRestartTheSeries() {
+        history(entry("COOP BERN", "50.00", 2026, 5),
+                entry("COOP BERN", "49.90", 2026, 6), entry("COOP BERN", "50.00", 2026, 6),
+                entry("COOP BERN", "50.00", 2026, 7));
+
+        service.detect(USER_ID);
+
+        RecurringExpense saved = captureSaved();
+        assertThat(saved.getFirstDetectedMonth()).isEqualTo(YearMonth.of(2026, 5));
+    }
+
+    /**
      * Review PR #298: Mehrere Buchungen im selben Monat, mehrere gleichzeitig qualifizierende
      * Paare — der gespeicherte Betrag darf nicht von der Zeilenreihenfolge der Query abhängen.
      * Gespeichert wird der höchste qualifizierende Betrag des jüngsten Paars, in beiden
