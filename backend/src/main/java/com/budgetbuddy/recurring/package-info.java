@@ -1,10 +1,12 @@
 /**
- * Recurring-Modul: RecurringExpense/RecurringExpenseRepository, RecurringExpenseService.
+ * Recurring-Modul: RecurringExpense/RecurringExpenseRepository, RecurringExpenseService,
+ * RecurringExpenseController.
  *
  * <p>Abo-Erkennung aus US-08 (BE-REC-01, siehe {@code docs/plans/us-08-09-12-breakdown.md}):
  * Ein Empfänger, der in zwei aufeinanderfolgenden Monaten einen Betrag innerhalb von ±2 %
- * belastet, wird als wiederkehrende Ausgabe persistiert und dem Nutzer gemeldet. Die Endpoints
- * der Abo-Übersicht (BE-REC-02) folgen in diesem Modul.
+ * belastet, wird als wiederkehrende Ausgabe persistiert und dem Nutzer gemeldet. Die
+ * REST-Endpoints der Abo-Übersicht (BE-REC-02) — Auflisten und «Kein Abo» markieren — liegen im
+ * selben Modul.
  *
  * <p>Drei Kanten zu anderen Modulen, alle über Interfaces (Modulgrenze, CLAUDE.md):
  *
@@ -16,7 +18,9 @@
  *       herein, mit bereits normalisiertem Empfänger. Der Zyklus transaction ↔ recurring besteht
  *       nur aus diesen beiden Interfaces, wie heute schon auth ↔ budget.
  *   <li>Benachrichtigt wird über {@code com.budgetbuddy.notification.NotificationPort} mit dem Typ
- *       {@link com.budgetbuddy.recurring.RecurringExpenseService#NOTIFICATION_TYPE}.
+ *       {@link com.budgetbuddy.recurring.RecurringExpenseService#NOTIFICATION_TYPE}; derselbe Port
+ *       liefert auch das «Neu»-Flag der Abo-Übersicht zurück (BE-REC-02), aus dem Gelesen-Zustand
+ *       der Notification abgeleitet statt in einem eigenen Feld dupliziert.
  * </ul>
  *
  * <p>Die Kontolöschung (US-02, nDSG) räumt über den

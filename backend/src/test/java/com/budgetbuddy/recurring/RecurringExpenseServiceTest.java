@@ -1,6 +1,7 @@
 package com.budgetbuddy.recurring;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -11,6 +12,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.budgetbuddy.notification.NotificationPort;
+import com.budgetbuddy.recurring.dto.RecurringExpenseResponse;
 import com.budgetbuddy.transaction.ExpenseHistoryPort;
 import com.budgetbuddy.transaction.ExpenseHistoryPort.ExpenseEntry;
 import java.lang.reflect.Field;
@@ -19,6 +21,8 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -331,13 +335,102 @@ class RecurringExpenseServiceTest {
         verify(notificationPort, never()).create(anyLong(), anyString(), any(), anyString());
     }
 
+    // --- BE-REC-02: list() ---
+
+    /** Nur DETECTED-Einträge gehören in die Abo-Übersicht (US-08 AC3). */
+    @Test
+    void listReturnsOnlyDetectedEntries() {
+        when(repository.findByUserIdAndStatus(USER_ID, RecurringExpenseStatus.DETECTED))
+                .thenReturn(List.of(withId(NETFLIX, "20.90", 200L)));
+        when(notificationPort.unreadReferenceIds(USER_ID, RecurringExpenseService.NOTIFICATION_TYPE))
+                .thenReturn(Set.of());
+
+        List<RecurringExpenseResponse> result = service.list(USER_ID);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).payeeKey()).isEqualTo(NETFLIX);
+        verify(repository).findByUserIdAndStatus(USER_ID, RecurringExpenseStatus.DETECTED);
+    }
+
+    /** Das «Neu»-Flag kommt aus der ungelesenen Notification, nicht aus einem eigenen Feld. */
+    @Test
+    void listMarksEntriesWithAnUnreadNotificationAsNew() {
+        RecurringExpense withUnread = withId(NETFLIX, "20.90", 200L);
+        RecurringExpense withoutUnread = withId("SPOTIFY AB", "12.95", 201L);
+        when(repository.findByUserIdAndStatus(USER_ID, RecurringExpenseStatus.DETECTED))
+                .thenReturn(List.of(withUnread, withoutUnread));
+        when(notificationPort.unreadReferenceIds(USER_ID, RecurringExpenseService.NOTIFICATION_TYPE))
+                .thenReturn(Set.of(200L));
+
+        List<RecurringExpenseResponse> result = service.list(USER_ID);
+
+        assertThat(result).filteredOn(r -> r.id() == 200L).extracting("isNew")
+                .containsExactly(true);
+        assertThat(result).filteredOn(r -> r.id() == 201L).extracting("isNew")
+                .containsExactly(false);
+    }
+
+    @Test
+    void listReturnsEmptyForAUserWithoutDetectedEntries() {
+        when(repository.findByUserIdAndStatus(USER_ID, RecurringExpenseStatus.DETECTED))
+                .thenReturn(List.of());
+        when(notificationPort.unreadReferenceIds(USER_ID, RecurringExpenseService.NOTIFICATION_TYPE))
+                .thenReturn(Set.of());
+
+        assertThat(service.list(USER_ID)).isEmpty();
+    }
+
+    // --- BE-REC-02: dismiss() ---
+
+    @Test
+    void dismissSetsStatusToDismissedAndReturnsTheUpdatedState() {
+        RecurringExpense entity = withId(NETFLIX, "20.90", 200L);
+        when(repository.findByIdAndUserId(200L, USER_ID)).thenReturn(Optional.of(entity));
+        when(notificationPort.unreadReferenceIds(USER_ID, RecurringExpenseService.NOTIFICATION_TYPE))
+                .thenReturn(Set.of());
+
+        RecurringExpenseResponse response = service.dismiss(USER_ID, 200L);
+
+        assertThat(entity.getStatus()).isEqualTo(RecurringExpenseStatus.DISMISSED);
+        assertThat(response.status()).isEqualTo(RecurringExpenseStatus.DISMISSED);
+    }
+
+    @Test
+    void dismissIsIdempotent() {
+        RecurringExpense entity = dismissed(NETFLIX, "20.90");
+        setField(entity, "id", 200L);
+        when(repository.findByIdAndUserId(200L, USER_ID)).thenReturn(Optional.of(entity));
+        when(notificationPort.unreadReferenceIds(USER_ID, RecurringExpenseService.NOTIFICATION_TYPE))
+                .thenReturn(Set.of());
+
+        RecurringExpenseResponse response = service.dismiss(USER_ID, 200L);
+
+        assertThat(response.status()).isEqualTo(RecurringExpenseStatus.DISMISSED);
+    }
+
+    @Test
+    void dismissThrowsNotFoundWhenTheEntryIsMissingOrForeign() {
+        when(repository.findByIdAndUserId(999L, USER_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.dismiss(USER_ID, 999L))
+                .isInstanceOf(RecurringExpenseNotFoundException.class);
+    }
+
     // --- Helfer ---
 
-    /** Eine DISMISSED-Zeile — die Entity hat bewusst keinen Setter dafür (BE-REC-02 stellt um). */
+    /** Eine DETECTED-Zeile mit gesetzter ID, wie sie aus der Datenbank käme. */
+    private static RecurringExpense withId(String payeeKey, String amount, long id) {
+        RecurringExpense entity = new RecurringExpense(USER_ID, payeeKey, new BigDecimal(amount),
+                YearMonth.of(2026, 1), NOW);
+        setField(entity, "id", id);
+        return entity;
+    }
+
+    /** Eine DISMISSED-Zeile, über {@link RecurringExpense#dismiss()} (BE-REC-02). */
     private static RecurringExpense dismissed(String payeeKey, String amount) {
         RecurringExpense entity = new RecurringExpense(USER_ID, payeeKey, new BigDecimal(amount),
                 YearMonth.of(2026, 1), NOW);
-        setField(entity, "status", RecurringExpenseStatus.DISMISSED);
+        entity.dismiss();
         return entity;
     }
 
