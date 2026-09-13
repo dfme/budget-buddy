@@ -51,19 +51,19 @@ API; die Aktion in den Einstellungen ist FE-SET-05.
   falsches Passwort → `InvalidCurrentPasswordException`, kein Cleanup-Port berührt
 - **`UserDeletionIntegrationTest`** (Postgres): geht über den Endpoint (MockMvc, echter
   bcrypt-Hash) — belegt «nach dem Aufruf keine Zeile in `users`, `transactions`, `import_jobs`,
-  `fixed_costs`, `notifications`»
+  `fixed_costs`, `notifications`, `recurring_expenses`»
 - **`UserControllerTest`** (MockMvc + Postgres): 204 + Clear-Cookie; Login mit alten
   Credentials → 401; altes Cookie → 401; falsches Passwort → 400, Zeile bleibt, Passwort nicht in
   der Response; leeres Passwort → 400; ohne JWT → 401
 - **`UserOpenApiTest`**: `paths['/api/users/me'].delete` mit `summary`, `description` enthält
-  «endgültig», `category_lookup` und `recurring_expenses`; Request-Schema
+  «endgültig» und `category_lookup`, aber nicht mehr `recurring_expenses` (seit BE-REC-01 in
+  der Cleanup-Kette); Request-Schema
   `DeleteAccountRequest`, 400 → `AuthErrorResponse`
 
 ## Nicht in diesem PR
 
 - Frontend-Aktion (FE-SET-05)
 - `category_lookup` überlebt die Löschung (Tabelle ohne `user_id`) — eigenes Issue
-- `recurring_expenses` nicht in der Cleanup-Kette — AC an BE-REC-01 (#253)
 
 ## Acceptance Criteria (aus dem Issue)
 

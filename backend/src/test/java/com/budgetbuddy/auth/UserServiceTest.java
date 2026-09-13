@@ -300,7 +300,8 @@ class UserServiceTest {
         assertThatThrownBy(() -> userService.deleteUser(1L, "falschesPasswort"))
                 .isInstanceOf(InvalidCurrentPasswordException.class);
 
-        verifyNoInteractions(transactionCleanupPort, fixedCostCleanupPort, notificationCleanupPort);
+        verifyNoInteractions(transactionCleanupPort, fixedCostCleanupPort, notificationCleanupPort,
+                recurringExpenseCleanupPort);
         verify(userRepository, never()).delete(any());
     }
 
