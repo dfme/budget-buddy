@@ -1,3 +1,4 @@
+import { CurrencyPipe, DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
@@ -11,12 +12,16 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { Button } from '../shared/button/button';
 import { Card } from '../shared/card/card';
+import { CATEGORIES } from '../shared/category';
+import { Input } from '../shared/input/input';
 import { Meter } from '../shared/meter/meter';
 import { Modal } from '../shared/modal/modal';
 import { Notice } from '../shared/notice/notice';
 import { ImportErrorResponse } from './import-error.model';
 import { ImportJobStatusResponse } from './import-response.model';
 import { ImportPollTimeoutError, PdfImportService } from './pdf-import.service';
+import { Transaction } from './transaction.model';
+import { TransactionService } from './transaction.service';
 
 /** Serverseitiges Upload-Limit aus BE-PDF-03 — client-seitig vorab geprüft (US-04). */
 const MAX_PDF_BYTES = 10 * 1024 * 1024;
@@ -37,6 +42,20 @@ const DEGRADED_HINT =
 
 /** Meldung, wenn der Hintergrundlauf selbst gescheitert ist. */
 const JOB_FAILED_MESSAGE = 'Der Import ist fehlgeschlagen — bitte versuche es erneut.';
+
+/**
+ * Meldung, wenn die Liste der importierten Buchungen nicht geladen werden konnte (FE-PDF-04).
+ *
+ * <p>Bewusst kein Fehlschlag des Imports: Die Buchungen sind gespeichert, nur ihre Anzeige fehlt.
+ * Die Erfolgsmeldung darüber bleibt deshalb stehen, und der Satz nennt mit der
+ * Kategorie-Übersicht den Weg, der trotzdem zum Ziel führt.
+ */
+const LIST_FAILED_MESSAGE =
+  'Die importierten Buchungen konnten nicht geladen werden. Sie sind gespeichert — du findest ' +
+  'sie in der Kategorie-Übersicht.';
+
+/** Meldung, wenn eine Kategorie-Korrektur nicht gespeichert werden konnte (FE-PDF-04). */
+const CATEGORY_SAVE_FAILED_MESSAGE = 'Die Kategorie konnte nicht gespeichert werden.';
 
 /**
  * Die Statusabfrage hat aufgegeben, ohne einen Endzustand gesehen zu haben.
@@ -84,17 +103,28 @@ export interface ImportProgress {
  * öffnet den Bestätigungsdialog ({@link duplicateFile}). «Trotzdem importieren»
  * wiederholt den Upload mit `force=true` und ersetzt damit den früheren Import,
  * «Abbrechen» schliesst den Dialog und lässt die Daten unverändert.
+ *
+ * <p><strong>Seit FE-PDF-04 endet der Import nicht bei der Zahl:</strong> Nach einem
+ * erfolgreichen Lauf mit mindestens einer Buchung lädt die Komponente über
+ * `GET /api/import/{jobId}/transactions` (BE-PDF-14) die Buchungen selbst nach und zeigt sie
+ * unter der Erfolgsmeldung — jede mit einem Dropdown, über das sich ihre Kategorie an Ort und
+ * Stelle korrigieren lässt ({@link changeCategory}). Vorher musste der Nutzer dafür auf die
+ * Kategorie-Übersicht wechseln und dort den Monat des Auszugs suchen.
  */
 @Component({
   selector: 'app-pdf-upload',
-  imports: [Button, Card, Meter, Modal, Notice],
+  imports: [Button, Card, CurrencyPipe, DatePipe, Input, Meter, Modal, Notice],
   templateUrl: './pdf-upload.html',
   styleUrl: './pdf-upload.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PdfUpload {
   private readonly importService = inject(PdfImportService);
+  private readonly transactionService = inject(TransactionService);
   private readonly destroyRef = inject(DestroyRef);
+
+  /** Die 13 Kategorien des Dropdowns — dieselbe Quelle wie die Kategorie-Übersicht (FE-CAT-03). */
+  protected readonly categories = CATEGORIES;
 
   /** `true`, solange Upload oder Kategorisierung laufen — sperrt die Dropzone. */
   readonly uploading = signal(false);
@@ -130,6 +160,25 @@ export class PdfUpload {
    * Bestätigungsdialog offen. `null`, sobald der User entschieden hat.
    */
   readonly duplicateFile = signal<File | null>(null);
+
+  /**
+   * Die Buchungen des soeben abgeschlossenen Imports, oder `null`, solange es keine gibt
+   * (FE-PDF-04).
+   *
+   * <p>`null` ist der Normalzustand vor dem ersten Import und nach einem Fehlschlag; eine
+   * *leere* Liste ist es nie: Der Nullfall (Auszug ohne Buchungen) fragt gar nicht erst nach,
+   * und das Template zeigt eine leere Liste auch dann nicht an.
+   *
+   * <p>Der Inhalt gehört ausschliesslich zu diesem einen Job — die Einschränkung kommt vom
+   * Endpoint, der über Job-ID *und* eingeloggten User abfragt, nicht aus einem Filter hier.
+   */
+  readonly importedTransactions = signal<Transaction[] | null>(null);
+
+  /** Meldung, wenn die Liste nicht geladen werden konnte — der Import selbst blieb erfolgreich. */
+  readonly listErrorMessage = signal<string | null>(null);
+
+  /** Meldung, wenn eine Kategorie-Korrektur nicht gespeichert werden konnte. */
+  readonly saveErrorMessage = signal<string | null>(null);
 
   onDragOver(event: DragEvent): void {
     // Ohne preventDefault löst der Browser das drop-Event nicht aus.
@@ -179,6 +228,11 @@ export class PdfUpload {
     this.importOutcome.set(null);
     this.progress.set(null);
     this.duplicateFile.set(null);
+    // Zusammen mit der Erfolgsmeldung, nicht erst beim Upload: Eine abgelehnte Datei
+    // (kein PDF, zu gross) kommt gar nicht bis `upload()` — die Liste des vorigen Imports
+    // stünde dann ohne ihre Meldung unter einer Fehlermeldung und sähe aus, als gehörte sie
+    // zu der Datei, die eben zurückgewiesen wurde.
+    this.clearImportedTransactions();
 
     const file = files[0];
     if (!file) {
@@ -202,6 +256,9 @@ export class PdfUpload {
   private upload(file: File, force = false): void {
     this.uploading.set(true);
     this.progress.set(null);
+    // Noch einmal, obwohl `selectFile` es bereits getan hat: `confirmDuplicateImport` springt
+    // direkt hierher und nimmt den Weg über die Dateiauswahl gar nicht (FE-PDF-04).
+    this.clearImportedTransactions();
     this.importService
       .importPdf(file, force)
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -241,6 +298,9 @@ export class PdfUpload {
           this.progress.set({ processed: status.processed, total: status.total });
           if (status.status === 'DONE') {
             this.finish({ kind: 'success', count: status.total, degraded: status.degraded });
+            // Erst jetzt, nie vorher: Vor `DONE` antwortet der Endpoint mit 409 (BE-PDF-14).
+            // Der Nullfall kommt hier nicht an — er verlässt `upload()` schon vor `trackJob`.
+            this.loadImportedTransactions(jobId);
           } else if (status.status === 'FAILED') {
             this.finish({ kind: 'error', message: JOB_FAILED_MESSAGE });
           }
@@ -257,6 +317,85 @@ export class PdfUpload {
                 : PdfUpload.importErrorMessage(error),
           }),
       });
+  }
+
+  /**
+   * Lädt die Buchungen des abgeschlossenen Imports nach (FE-PDF-04).
+   *
+   * <p>Ein Fehlschlag bleibt bewusst folgenlos für den Ausgang des Imports: {@link importOutcome}
+   * steht bereits auf Erfolg und bleibt dort. Die Buchungen sind gespeichert — scheitert nur
+   * ihre Anzeige, wäre es eine Lüge, daraus einen gescheiterten Import zu machen.
+   */
+  private loadImportedTransactions(jobId: number): void {
+    this.importService
+      .importTransactions(jobId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (transactions) => this.importedTransactions.set(transactions),
+        error: () => this.listErrorMessage.set(LIST_FAILED_MESSAGE),
+      });
+  }
+
+  /**
+   * Setzt die Kategorie einer importierten Buchung (FE-PDF-04, AC 2 und 3).
+   *
+   * <p>Optimistisch wie in der Kategorie-Übersicht ({@code CategoryOverview.changeCategory}):
+   * der neue Wert steht sofort im Signal und damit im DOM, erst danach läuft der PUT. Scheitert
+   * er, kommt der alte Wert zurück und eine Meldung erscheint — die Anzeige behauptet nie einen
+   * Stand, den der Server nicht hat.
+   *
+   * <p>Anders als dort folgt <em>kein</em> Nachladen: Dieser Screen zeigt eine flache Liste ohne
+   * Summen, Anteile oder Donut, die nach einer Korrektur nicht mehr zu den Zeilen darunter
+   * passen könnten. Der serverseitige Lerneffekt (BE-CAT-04 erweitert die Lookup-Tabelle) hängt
+   * am PUT und nicht an einem erneuten GET.
+   */
+  changeCategory(transaction: Transaction, category: string): void {
+    const previous = transaction.category;
+    if (previous === category) {
+      return;
+    }
+
+    this.saveErrorMessage.set(null);
+    this.applyCategory(transaction.id, category);
+
+    this.transactionService
+      .updateCategory(transaction.id, category)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        error: () => {
+          this.applyCategory(transaction.id, previous);
+          this.saveErrorMessage.set(CATEGORY_SAVE_FAILED_MESSAGE);
+        },
+      });
+  }
+
+  /** Räumt die Liste des vorigen Imports samt ihrer beiden Meldungen weg (AC 7). */
+  private clearImportedTransactions(): void {
+    this.importedTransactions.set(null);
+    this.listErrorMessage.set(null);
+    this.saveErrorMessage.set(null);
+  }
+
+  /** Ersetzt die Kategorie einer Buchung in der Liste (neue Objekte wegen OnPush). */
+  private applyCategory(transactionId: number, category: string): void {
+    this.importedTransactions.update((current) =>
+      current === null
+        ? current
+        : current.map((tx) => (tx.id === transactionId ? { ...tx, category } : tx)),
+    );
+  }
+
+  /**
+   * Barrierefreie Beschriftung des Dropdowns — Buchungstext plus Gegenpartei.
+   *
+   * <p>`\n` aus {@link Transaction.buchungsdetails} wird zu «, »: Der Text landet in einem
+   * Attribut, ein `\n` darin wäre für die Ausgabe bloss ein Leerzeichen ohne Pause. Gleiche
+   * Begründung wie bei {@code CategoryOverview.transactionLabel}.
+   */
+  transactionLabel(tx: Transaction): string {
+    return tx.buchungsdetails
+      ? `${tx.buchungstext}, ${tx.buchungsdetails.replaceAll('\n', ', ')}`
+      : tx.buchungstext;
   }
 
   private finish(outcome: ImportOutcome): void {
