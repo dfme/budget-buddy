@@ -1,6 +1,7 @@
 package com.budgetbuddy.transaction;
 
 import com.budgetbuddy.transaction.dto.ImportErrorResponse;
+import com.budgetbuddy.transaction.dto.ImportNotCompleteResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -22,6 +23,23 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
  * Deklarationsreihenfolge — ohne den eigenen Handler wäre der Scan-Fall im generischen
  * {@code UNSUPPORTED_FORMAT} untergegangen, obwohl die Exception selbst eine andere,
  * hilfreichere Nutzermeldung dokumentiert.
+ *
+ * <p>Seit BE-PDF-14 kommt {@link ImportJobNotCompleteException} → 409 dazu, mit einem
+ * {@link ImportNotCompleteResponse}-Body. <strong>Dieser 409 läuft bewusst über einen Handler
+ * und nicht über {@code @ResponseStatus}</strong> wie der Duplikat-409 daneben — zwei
+ * nachgemessene Gründe:
+ *
+ * <ul>
+ *   <li>{@code server.error.include-message} ist nirgends gesetzt, Spring Boots Default ist
+ *       {@code never}. Ein {@code @ResponseStatus(CONFLICT, reason = "…")} lieferte damit einen
+ *       Body <em>ohne</em> die Meldung, und der Status des Jobs — der eigentliche Hinweis —
+ *       käme beim Client nie an.
+ *   <li>{@code @ResponseStatus} antwortet über {@code sendError()} und damit über den
+ *       ERROR-Dispatch auf {@code /error}, den MockMvc nicht ausführt. Genau daran waren 408 und
+ *       409 unter MockMvc grün und kamen real als 401 an (siehe die Anmerkung in
+ *       {@code PdfImportControllerIntegrationTest} und {@code PdfImportErrorDispatchIntegrationTest}).
+ *       Ein Handler antwortet direkt und ist dort prüfbar, wo der Endpoint getestet wird.
+ * </ul>
  *
  * <p>Die restlichen Fälle brauchen keinen Handler: {@link DuplicatePdfImportException} (409) und
  * {@link PdfImportTimeoutException} (408) tragen ihr Status-Mapping bereits als
@@ -58,6 +76,15 @@ public class PdfImportExceptionHandler {
     public ImportErrorResponse handlePasswordProtected(PasswordProtectedPdfException ex) {
         // 400 für ein verschlüsseltes PDF.
         return new ImportErrorResponse(ImportErrorResponse.Reason.PASSWORD_PROTECTED);
+    }
+
+    @ExceptionHandler(ImportJobNotCompleteException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ImportNotCompleteResponse handleJobNotComplete(ImportJobNotCompleteException ex) {
+        // 409 statt einer leeren Liste: Der Job existiert und gehört dem User, seine Buchungen
+        // stehen nur noch nicht (RUNNING) oder werden nie stehen (FAILED). Der Status im Body
+        // sagt dem Client, welches von beidem — und damit, ob sich ein zweiter Versuch lohnt.
+        return new ImportNotCompleteResponse(ex.getStatus());
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)

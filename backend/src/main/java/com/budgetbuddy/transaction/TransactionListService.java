@@ -95,8 +95,11 @@ public class TransactionListService {
                         userId, yearMonth.atDay(1), yearMonth.atEndOfMonth(), filter,
                         Category.SONSTIGES.getLabel(), pageable);
 
+        // Aufgelöstes Label statt Rohwert: so bekommt das Frontend nie `null`, und das Dropdown
+        // der Zeile hat immer eine gültige Vorauswahl. Die Regel liegt seit BE-PDF-14 in
+        // TransactionResponse, weil GET /import/{jobId}/transactions dieselbe braucht.
         List<TransactionResponse> transactions = slice.getContent().stream()
-                .map(this::toResponse)
+                .map(TransactionResponse::fromResolvingCategory)
                 .toList();
         return new TransactionListResponse(transactions, slice.hasNext());
     }
@@ -142,40 +145,13 @@ public class TransactionListService {
     }
 
     /**
-     * Kategorie-Label einer Transaktion, wobei {@code null} als {@link Category#SONSTIGES} gilt —
-     * dieselbe Regel wie im {@link TransactionSummaryService}. Ein Filter auf {@code Sonstiges}
-     * trifft damit auch die noch nicht kategorisierten Buchungen, die in der Übersicht unter diesem
-     * Namen summiert sind; auf dem Auswahlpfad steht dieselbe Regel als {@code coalesce} in
-     * {@link TransactionRepository#findExpensesByCategoryLabel}.
-     *
-     * <p>Bewusst als String und nicht über {@link Category#fromLabel(String)}: ein unerwarteter
-     * Wert in der Spalte würde dort eine {@link IllegalArgumentException} und damit eine 500
-     * auslösen, während das Summary denselben Wert unverändert durchreicht. Ein Lesepfad soll nicht
-     * strenger sein als der, der die Zahl daneben berechnet.
-     */
-    private String labelOf(Transaction tx) {
-        return tx.getCategory() != null ? tx.getCategory() : Category.SONSTIGES.getLabel();
-    }
-
-    /**
-     * Baut die Antwort mit dem <em>aufgelösten</em> Label statt mit dem Rohwert der Entity: so
-     * bekommt das Frontend nie {@code null}, und das Dropdown der Zeile hat immer eine gültige
-     * Vorauswahl.
-     */
-    private TransactionResponse toResponse(Transaction tx) {
-        return new TransactionResponse(tx.getId(), tx.getBuchungsdatum(), tx.getBuchungstext(),
-                tx.getBuchungsdetails(), tx.getBetrag(), tx.isIncome(), tx.isDirectionUncertain(),
-                labelOf(tx));
-    }
-
-    /**
      * Normalisiert den Filter auf {@code null} (kein Filter) oder das zu vergleichende Label.
      *
      * <p>Bewusst ohne Validierung gegen {@link Category}: der Filter muss jedes Label treffen
-     * können, das {@link #labelOf(Transaction)} ausgibt — und das reicht einen unerwarteten Wert
-     * aus der Datenbank absichtlich durch. Eine strenge Prüfung hier hätte genau die Zeilen
-     * unaufklappbar gemacht, die in der Übersicht sichtbar sind: das Frontend schickt den Wert
-     * zurück, den es von dort bekommen hat, und bekäme eine 400.
+     * können, das {@link TransactionResponse#fromResolvingCategory(Transaction)} ausgibt — und das
+     * reicht einen unerwarteten Wert aus der Datenbank absichtlich durch. Eine strenge Prüfung
+     * hier hätte genau die Zeilen unaufklappbar gemacht, die in der Übersicht sichtbar sind: das
+     * Frontend schickt den Wert zurück, den es von dort bekommen hat, und bekäme eine 400.
      *
      * <p>Der Preis ist, dass ein Tippfehler eine leere Liste liefert statt eines Fehlers. Das ist
      * für einen Filter die richtige Antwort — die Vokabular-Prüfung gehört auf den Schreibpfad,

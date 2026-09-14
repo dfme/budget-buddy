@@ -260,6 +260,136 @@ class PdfImportControllerIntegrationTest {
                 .andExpect(status().isNotFound());
     }
 
+    // --- Transaktionen eines Imports (BE-PDF-14, US-04/US-05) ---
+
+    /**
+     * Happy Path über den echten Upload: Was der Import angelegt hat, kommt über den neuen
+     * Endpoint auch wieder heraus — mit Datum, Buchungstext, Betrag und Kategorie.
+     */
+    @Test
+    void importTransactionsReturnsTheBookingsOfThatImport() throws Exception {
+        long jobId = uploadAndAwait(fixture(), userId, false);
+        long imported = transactionRepository.count();
+        assertThat(imported).isPositive();
+
+        mockMvc.perform(get("/api/import/{jobId}/transactions", jobId).cookie(jwtCookie(userId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value((int) imported))
+                .andExpect(jsonPath("$[0].id").isNumber())
+                .andExpect(jsonPath("$[0].buchungsdatum").isNotEmpty())
+                .andExpect(jsonPath("$[0].buchungstext").isNotEmpty())
+                .andExpect(jsonPath("$[0].betrag").isNumber())
+                // Der seed() mockt die Kategorisierung auf Lebensmittel — die Kategorie kommt
+                // also aus dem Import und ist nicht bloss ein Platzhalter.
+                .andExpect(jsonPath("$[0].category").value("Lebensmittel"));
+    }
+
+    /**
+     * AC «dasselbe Kategorie-Feld/Format wie GET /api/transactions», über die echte Wire-Grenze:
+     * Eine Buchung ohne Kategorie erscheint als {@code Sonstiges}, nicht als {@code null}. Ohne
+     * das hätte das Kategorie-Dropdown im Import-Screen keine gültige Vorauswahl.
+     */
+    @Test
+    void importTransactionsResolveAnUncategorisedBookingToSonstiges() throws Exception {
+        long jobId = uploadAndAwait(fixture(), userId, false);
+        String sha = importJobRepository.findById(jobId).orElseThrow().getPdfSha256();
+        // Direkt in die Tabelle, weil der Import selbst jede Buchung kategorisiert: Der Zustand
+        // `category IS NULL` entsteht real erst, wenn die Kategorisierung ausgefallen ist.
+        jdbcTemplate.update(
+                "UPDATE transactions SET category = NULL WHERE user_id = ? AND pdf_sha256 = ?",
+                userId, sha);
+
+        mockMvc.perform(get("/api/import/{jobId}/transactions", jobId).cookie(jwtCookie(userId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].category").value("Sonstiges"));
+    }
+
+    /**
+     * Mandantentrennung: derselbe Gedanke wie bei {@link #statusOfForeignJobReturns404()} — und
+     * hier wiegt er schwerer, weil am Ende nicht ein Fortschrittszähler stünde, sondern die
+     * Buchungen eines fremden Kontoauszugs.
+     */
+    @Test
+    void importTransactionsOfAForeignJobReturns404() throws Exception {
+        jdbcTemplate.update(
+                "INSERT INTO users (email, password_hash, monthly_income, onboarding_completed)"
+                        + " VALUES (?, ?, ?, ?)",
+                "fremd@example.ch", "bcrypt-hash", new BigDecimal("3000.00"), true);
+        long otherUserId = jdbcTemplate.queryForObject(
+                "SELECT id FROM users WHERE email = 'fremd@example.ch'", Long.class);
+        long jobId = uploadAndAwait(fixture(), userId, false);
+
+        mockMvc.perform(get("/api/import/{jobId}/transactions", jobId)
+                        .cookie(jwtCookie(otherUserId)))
+                .andExpect(status().isNotFound());
+    }
+
+    /** Ein unbekannter Job liefert denselben 404 — er ist von einem fremden nicht zu unterscheiden. */
+    @Test
+    void importTransactionsOfAnUnknownJobReturns404() throws Exception {
+        mockMvc.perform(get("/api/import/{jobId}/transactions", 999_999L).cookie(jwtCookie(userId)))
+                .andExpect(status().isNotFound());
+    }
+
+    /**
+     * AC «kein unvollständiges Ergebnis unkommentiert»: Ein laufender Job antwortet mit 409 und
+     * nennt seinen Stand im Body. Der Job wird direkt in die Tabelle geschrieben — ein echter Lauf
+     * ist in Millisekunden durch und liesse sich nicht zuverlässig im Zustand RUNNING abfragen.
+     */
+    @Test
+    void importTransactionsOfARunningJobReturns409WithStatus() throws Exception {
+        long jobId = insertJob("sha-laeuft-noch", ImportJobStatus.RUNNING);
+
+        mockMvc.perform(get("/api/import/{jobId}/transactions", jobId).cookie(jwtCookie(userId)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value("RUNNING"));
+    }
+
+    /**
+     * Ein gescheiterter Job ebenso, mit dem anderen Status: Bei {@code RUNNING} lohnt ein zweiter
+     * Versuch, bei {@code FAILED} nicht — genau diese Unterscheidung trägt der Body.
+     */
+    @Test
+    void importTransactionsOfAFailedJobReturns409WithStatus() throws Exception {
+        long jobId = insertJob("sha-gescheitert", ImportJobStatus.FAILED);
+
+        mockMvc.perform(get("/api/import/{jobId}/transactions", jobId).cookie(jwtCookie(userId)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value("FAILED"));
+    }
+
+    /**
+     * Ein erkannter Auszug ohne Buchungen (BE-PDF-05) ist kein Fehler: Der Job ist DONE, die Liste
+     * ist leer. Genau deshalb darf die leere Liste nicht zusätzlich «noch nicht fertig» bedeuten.
+     */
+    @Test
+    void importTransactionsOfAStatementWithoutBookingsReturnsAnEmptyList() throws Exception {
+        byte[] emptyStatement = pdfWithLines(List.of(
+                "Kontoauszug Maerz 2024",
+                "Saldovortrag 1'000.00",
+                "Schlusssaldo 1'000.00"));
+        long jobId = uploadAndAwait(emptyStatement, userId, false);
+
+        mockMvc.perform(get("/api/import/{jobId}/transactions", jobId).cookie(jwtCookie(userId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    void importTransactionsWithoutJwtReturns401() throws Exception {
+        mockMvc.perform(get("/api/import/{jobId}/transactions", 1L))
+                .andExpect(status().isUnauthorized());
+    }
+
+    /** Legt einen Job in einem Zustand an, den ein echter Lauf im Test nicht stabil hergibt. */
+    private long insertJob(String pdfSha256, ImportJobStatus status) {
+        jdbcTemplate.update(
+                "INSERT INTO import_jobs (user_id, pdf_sha256, status, total) VALUES (?, ?, ?, ?)",
+                userId, pdfSha256, status.name(), 3);
+        return jdbcTemplate.queryForObject(
+                "SELECT id FROM import_jobs WHERE pdf_sha256 = ?", Long.class, pdfSha256);
+    }
+
     @Test
     void statusWithoutJwtReturns401() throws Exception {
         mockMvc.perform(get("/api/import/{jobId}/status", 1L))

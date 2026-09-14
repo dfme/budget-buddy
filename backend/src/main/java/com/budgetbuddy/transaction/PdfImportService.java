@@ -1,5 +1,6 @@
 package com.budgetbuddy.transaction;
 
+import com.budgetbuddy.transaction.dto.TransactionResponse;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
@@ -13,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.task.TaskRejectedException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Synchroner Teil des PDF-Import-Flows (BE-PDF-02, US-04): SHA-256-Hash → Duplikatcheck →
@@ -156,6 +158,56 @@ public class PdfImportService {
      */
     public Optional<ImportJob> findJob(long userId, Long jobId) {
         return importJobRepository.findByIdAndUserId(jobId, userId);
+    }
+
+    /**
+     * Die Transaktionen eines abgeschlossenen Imports (BE-PDF-14, US-04/US-05).
+     *
+     * <p>Eingabe des Import-Screens: Er zeigt nach dem Upload nicht mehr nur «42 Transaktionen
+     * erkannt», sondern die Buchungen selbst samt zugeordneter Kategorie, die der Nutzer dort
+     * direkt über {@code PUT /transactions/{id}/category} korrigieren kann (FE-PDF-04).
+     *
+     * <p><strong>Die Zuordnung läuft über den PDF-Hash</strong>, nicht über eine
+     * {@code import_job_id}-Spalte — Job und Transaktion tragen ihn beide bereits (V05/V02).
+     * Grenze nach einem Force-Reimport: siehe
+     * {@link TransactionRepository#findByUserIdAndPdfSha256OrderByBuchungsdatumDescIdDesc}.
+     *
+     * <p><strong>Nur bei {@link ImportJobStatus#DONE}.</strong> Der {@link ImportJobRunner}
+     * schreibt die Transaktionen erst in seinem Abschlussblock: Bei {@code RUNNING} steht noch
+     * nichts in der Tabelle, bei {@code FAILED} wird nie etwas darin stehen. Eine leere Liste wäre
+     * in beiden Fällen nicht von «dieser Auszug enthielt keine Buchungen» zu unterscheiden — den
+     * Fall gibt es wirklich (ein erkannter Auszug ohne Buchungen endet mit {@code total = 0}), und
+     * genau deshalb darf die leere Liste nicht doppelt belegt sein.
+     *
+     * <p><strong>Ohne Paginierung</strong>, anders als {@code GET /api/transactions} (US-13): Der
+     * Screen zeigt, was gerade importiert wurde, und eine Seitengrenze mitten darin beantwortete
+     * eine andere Frage. Die Menge ist durch ein einzelnes PDF begrenzt — 10 MB laut
+     * {@code application.properties}; der grösste Auszug im Testbestand trägt 240 Buchungen.
+     *
+     * <p>Die Einschränkung auf {@code userId} steht hier und nicht erst im Controller, aus
+     * demselben Grund wie bei {@link #findJob}: Sie gehört dorthin, wo die Query abgesetzt wird.
+     * Sie wirkt zweifach — der Job wird über {@code findByIdAndUserId} geholt, und die Buchungen
+     * werden mit derselben ID gelesen.
+     *
+     * @param userId ID des eingeloggten Users (aus dem JWT).
+     * @param jobId Job-ID aus der Upload-Antwort.
+     * @return die Buchungen dieses Imports, neueste zuerst; leer, wenn der Auszug keine enthielt.
+     * @throws ImportJobNotFoundException wenn es keinen Job dieser ID für diesen User gibt.
+     * @throws ImportJobNotCompleteException wenn der Job nicht {@link ImportJobStatus#DONE} ist.
+     */
+    @Transactional(readOnly = true)
+    public List<TransactionResponse> listTransactions(long userId, Long jobId) {
+        ImportJob job = findJob(userId, jobId).orElseThrow(ImportJobNotFoundException::new);
+        if (job.getStatus() != ImportJobStatus.DONE) {
+            throw new ImportJobNotCompleteException(job.getStatus());
+        }
+        return transactionRepository
+                .findByUserIdAndPdfSha256OrderByBuchungsdatumDescIdDesc(userId, job.getPdfSha256())
+                .stream()
+                // Aufgelöstes Label wie in TransactionListService: Das Frontend bekommt nie `null`
+                // und kann die Korrektur aus FE-CAT-05 unverändert wiederverwenden (AC 4).
+                .map(TransactionResponse::fromResolvingCategory)
+                .toList();
     }
 
     /**

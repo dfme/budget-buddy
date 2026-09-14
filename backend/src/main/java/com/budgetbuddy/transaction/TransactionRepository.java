@@ -163,6 +163,28 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     long deleteByUserIdAndPdfSha256(Long userId, String pdfSha256);
 
     /**
+     * Die Transaktionen eines Imports (BE-PDF-14, US-04/US-05) — neueste Buchung zuoberst.
+     *
+     * <p>Die Zuordnung Job → Transaktionen läuft über {@code userId} + {@code pdfSha256} und
+     * nicht über eine {@code import_job_id}-Spalte: Beide Tabellen tragen den Hash bereits
+     * (V05/V02), und der Duplikatschutz sorgt dafür, dass es pro User und PDF höchstens einen
+     * Bestand gibt. Die Einschränkung auf {@code userId} ist dieselbe Mandantentrennung wie bei
+     * {@link #deleteByUserIdAndPdfSha256} — ohne sie läse der Hash quer über alle User.
+     *
+     * <p><strong>Grenze nach einem Force-Reimport:</strong> Zwei Jobs desselben Users können
+     * denselben Hash tragen. Weil der Force-Lauf die früheren Zeilen vorher löscht
+     * ({@link #deleteByUserIdAndPdfSha256}), liefern dann beide Job-IDs den Bestand des jüngsten
+     * Imports. Das ist konsistent — die alten Zeilen gibt es nicht mehr —, aber es ist keine
+     * Historie.
+     *
+     * <p>Sortiert wie die Monatsliste: Datum absteigend, die ID als eindeutiger Zweitschlüssel.
+     * Ohne den zweiten Schlüssel dürfte die Datenbank gleichdatierte Zeilen je Abfrage anders
+     * anordnen, und zwei Aufrufe zeigten dieselbe Buchung an verschiedener Stelle.
+     */
+    List<Transaction> findByUserIdAndPdfSha256OrderByBuchungsdatumDescIdDesc(
+            Long userId, String pdfSha256);
+
+    /**
      * Löscht alle Transaktionen eines Users (Kontolöschung, US-02, DB-07).
      *
      * <p>Bewusst {@code @Modifying} statt einer abgeleiteten {@code deleteByUserId}-Methode:
