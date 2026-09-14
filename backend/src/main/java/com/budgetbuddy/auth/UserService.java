@@ -173,7 +173,12 @@ public class UserService implements UserIncomePort {
     }
 
     /**
-     * Löscht den User und alle abhängigen Daten (US-02, DB-07).
+     * Löscht den User und alle abhängigen Daten, nachdem das Passwort bestätigt wurde (US-02,
+     * DB-07, BE-AUTH-14).
+     *
+     * <p>Die Passwortprüfung steht hier und nicht im Controller — dieselbe Aufteilung wie bei
+     * {@link #changePassword}: ein Aufrufer, der den Endpoint umgeht, kann sie so nicht umgehen.
+     * Sie läuft vor dem ersten Cleanup-Port; bei falschem Passwort wird nichts gelöscht.
      *
      * <p>{@code transactions}, {@code import_jobs}, {@code fixed_costs}, {@code notifications} und
      * {@code recurring_expenses} tragen alle eine Fremdschlüssel auf {@code users} ohne
@@ -182,11 +187,23 @@ public class UserService implements UserIncomePort {
      * Löschung bleibt eine sichtbare, einzeln testbare Operation im Code statt einer stillen
      * DB-Nebenwirkung (siehe {@code V05__create_import_jobs_table.sql}).
      *
+     * <p><strong>Eine bekannte Lücke, die diese Methode nicht schliesst</strong> (#290) — US-02
+     * gilt erst als erfüllt, wenn sie geschlossen ist: {@code category_lookup} überlebt die
+     * Löschung. Manuelle Kategorie-Korrekturen schreiben den rohen Buchungstext als
+     * Primärschlüssel in eine Tabelle ohne {@code user_id} ({@code TransactionCategoryService} →
+     * {@code CategoryLearningService.learn}, V04). Ohne {@code user_id} lässt sie sich nicht
+     * mandantenweise räumen — eigenes Issue.
+     *
      * @throws UserNotFoundException wenn kein User mit dieser ID existiert.
+     * @throws InvalidCurrentPasswordException wenn {@code currentPassword} nicht mit dem
+     *     gespeicherten Hash übereinstimmt — die Löschung findet dann nicht statt.
      */
     @Transactional
-    public void deleteUser(long userId) {
+    public void deleteUser(long userId, String currentPassword) {
         User user = findUser(userId);
+        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            throw new InvalidCurrentPasswordException();
+        }
         transactionCleanupPort.deleteAllForUser(userId);
         fixedCostCleanupPort.deleteAllForUser(userId);
         notificationCleanupPort.deleteAllForUser(userId);

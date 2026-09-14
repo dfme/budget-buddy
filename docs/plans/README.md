@@ -31,6 +31,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `BE-AUTH-10` | [Passwort über 72 Bytes führt zu HTTP 500 statt 400](BE-AUTH-10-password-byte-length.md) | [#200](https://github.com/dfme/budget-buddy/issues/200) | US-14 | Sprint 6 |
 | `BE-AUTH-11` | [JWT bleibt nach Passwort-Änderung gültig — Session-Invalidierung entscheiden](BE-AUTH-11-token-version-invalidation.md) | [#201](https://github.com/dfme/budget-buddy/issues/201) | US-14 | Sprint 6 |
 | `BE-AUTH-13` | [JWT-Laufzeit von 24 h verkürzen](BE-AUTH-13-jwt-laufzeit-4h.md) | [#289](https://github.com/dfme/budget-buddy/issues/289) | US-01 | Sprint 6 |
+| `BE-AUTH-14` | [Konto löschen: Endpoint auf /api/users/me](BE-AUTH-14-account-deletion-endpoint.md) | [#290](https://github.com/dfme/budget-buddy/issues/290) | US-02 | Sprint 6 |
 | `BE-CAT-01` | [CategorizationPort Interface und LookupTableService](BE-CAT-01-categorization-port.md) | [#14](https://github.com/dfme/budget-buddy/issues/14) | US-05 | Sprint 2 |
 | `BE-CAT-02` | [ClaudeCategorizationService](BE-CAT-02-claude-categorization.md) | [#15](https://github.com/dfme/budget-buddy/issues/15) | US-05 | Sprint 2 |
 | `BE-CAT-03` | [HybridCategorizationService](BE-CAT-03-hybrid-categorization.md) | [#16](https://github.com/dfme/budget-buddy/issues/16) | US-05 | Sprint 3 |
