@@ -35,3 +35,17 @@ form {
   font-size: $fs-sm;
   color: $c-ink-2;
 }
+
+// Der Warntext der Lösch-Card trägt mehr Gewicht als ein gewöhnlicher Hinweis: die Aktion ist
+// nicht umkehrbar. Farbe statt Fettung — der Hinweis steht bereits unter einer eindeutigen
+// Überschrift, und `$c-negative` ist dasselbe Rot wie in `notice--error`.
+.settings__hint--danger {
+  color: $c-negative;
+}
+
+// Das projizierte Formular im Löschdialog bringt den globalen `form`-Selektor oben mit seinem
+// `gap` mit; im Dialog sitzt das Feld allein zwischen Text und Aktionen und braucht nur Abstand
+// nach oben.
+app-modal form {
+  margin-top: $sp-3;
+}
