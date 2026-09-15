@@ -161,6 +161,48 @@ class NotificationServiceTest {
                 .isInstanceOf(NotificationNotFoundException.class);
     }
 
+    // --- unreadReferenceIds() (BE-REC-02) ---
+
+    @Test
+    void unreadReferenceIdsReturnsReferenceIdsOfUnreadNotificationsOfTheGivenType() {
+        Notification unread = entry(1L, "RECURRING_EXPENSE_DETECTED", 200L, "Netflix", null);
+        when(notificationRepository.findByUserIdAndTypeAndReadAtIsNull(
+                USER_ID, "RECURRING_EXPENSE_DETECTED"))
+                .thenReturn(List.of(unread));
+
+        assertThat(service.unreadReferenceIds(USER_ID, "RECURRING_EXPENSE_DETECTED"))
+                .containsExactly(200L);
+    }
+
+    @Test
+    void unreadReferenceIdsReturnsEmptyWhenNoneAreUnread() {
+        when(notificationRepository.findByUserIdAndTypeAndReadAtIsNull(
+                USER_ID, "RECURRING_EXPENSE_DETECTED"))
+                .thenReturn(List.of());
+
+        assertThat(service.unreadReferenceIds(USER_ID, "RECURRING_EXPENSE_DETECTED")).isEmpty();
+    }
+
+    // --- isUnread() (BE-REC-02) ---
+
+    @Test
+    void isUnreadDelegatesToTheExistsQueryBoundToUserTypeAndReference() {
+        when(notificationRepository.existsByUserIdAndTypeAndReferenceIdAndReadAtIsNull(
+                USER_ID, "RECURRING_EXPENSE_DETECTED", 200L))
+                .thenReturn(true);
+
+        assertThat(service.isUnread(USER_ID, "RECURRING_EXPENSE_DETECTED", 200L)).isTrue();
+    }
+
+    @Test
+    void isUnreadReturnsFalseWhenNoUnreadNotificationPointsToTheReference() {
+        when(notificationRepository.existsByUserIdAndTypeAndReferenceIdAndReadAtIsNull(
+                USER_ID, "RECURRING_EXPENSE_DETECTED", 200L))
+                .thenReturn(false);
+
+        assertThat(service.isUnread(USER_ID, "RECURRING_EXPENSE_DETECTED", 200L)).isFalse();
+    }
+
     // --- Helfer ---
 
     /**

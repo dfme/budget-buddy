@@ -3,6 +3,9 @@ package com.budgetbuddy.notification;
 import com.budgetbuddy.notification.dto.NotificationResponse;
 import java.time.Clock;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -78,6 +81,34 @@ public class NotificationService implements NotificationPort {
                 .orElseThrow(() -> new NotificationNotFoundException(userId, notificationId));
         notification.markRead(clock.instant());
         return toResponse(notification);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Nur gelesen, keine Mandantentrennung nötig über das hinaus, was {@code userId} in der
+     * Query ohnehin einschränkt (kein einzelner Datensatz per ID abgefragt).
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public Set<Long> unreadReferenceIds(long userId, String type) {
+        return notificationRepository.findByUserIdAndTypeAndReadAtIsNull(userId, type).stream()
+                .map(Notification::getReferenceId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Nur gelesen; die Query ist über {@code userId} eingeschränkt, ein fremder Verweis liefert
+     * schlicht {@code false}.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public boolean isUnread(long userId, String type, long referenceId) {
+        return notificationRepository.existsByUserIdAndTypeAndReferenceIdAndReadAtIsNull(
+                userId, type, referenceId);
     }
 
     private static NotificationResponse toResponse(Notification notification) {

@@ -2,6 +2,7 @@ package com.budgetbuddy.recurring;
 
 import com.budgetbuddy.money.ChfAmounts;
 import com.budgetbuddy.notification.NotificationPort;
+import com.budgetbuddy.recurring.dto.RecurringExpenseResponse;
 import com.budgetbuddy.transaction.ExpenseHistoryPort;
 import com.budgetbuddy.transaction.ExpenseHistoryPort.ExpenseEntry;
 import java.math.BigDecimal;
@@ -24,7 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Erkennt wiederkehrende Ausgaben — Abos, Ratenzahlungen — in der Ausgaben-Historie eines Users
- * (BE-REC-01, US-08).
+ * und stellt die Abo-Übersicht bereit (BE-REC-01/BE-REC-02, US-08).
  *
  * <p><strong>Regel.</strong> Ein Empfänger gilt als wiederkehrend, wenn er in zwei
  * <em>aufeinanderfolgenden</em> Kalendermonaten je eine Belastung trägt, deren Beträge um höchstens
@@ -227,6 +228,62 @@ public class RecurringExpenseService implements RecurringExpenseDetectionPort {
         }
         BigDecimal maxAbweichung = earlier.multiply(TOLERANCE);
         return later.subtract(earlier).abs().compareTo(maxAbweichung) <= 0;
+    }
+
+    /**
+     * Liefert die Abo-Übersicht des Users (BE-REC-02): nur {@code DETECTED}-Einträge, ein «Kein
+     * Abo» markierter Eintrag ist keine Abo-Übersicht mehr wert (US-08). Das «Neu»-Flag kommt aus
+     * dem Gelesen-Zustand der zugehörigen Notification, nicht aus einem eigenen Feld — siehe
+     * Klassen-Javadoc zur Notification-Erzeugung in {@link #detect(long)}.
+     *
+     * <p><strong>Mandantentrennung:</strong>
+     * {@link RecurringExpenseRepository#findByUserIdAndStatusOrderByPayeeKeyAsc} ist auf den
+     * übergebenen User eingeschränkt. Die Reihenfolge ist alphabetisch nach Empfänger und damit
+     * stabil zwischen zwei Aufrufen.
+     *
+     * @param userId ID des eingeloggten Users (aus dem JWT).
+     */
+    @Transactional(readOnly = true)
+    public List<RecurringExpenseResponse> list(long userId) {
+        Set<Long> unread = notificationPort.unreadReferenceIds(userId, NOTIFICATION_TYPE);
+        return recurringExpenseRepository
+                .findByUserIdAndStatusOrderByPayeeKeyAsc(userId, RecurringExpenseStatus.DETECTED)
+                .stream()
+                .map(expense -> toResponse(expense, unread.contains(expense.getId())))
+                .toList();
+    }
+
+    /**
+     * Markiert einen Eintrag des Users als «Kein Abo» und liefert seinen aktuellen Zustand
+     * (BE-REC-02). Der zugehörige {@code payee_key} bleibt damit dauerhaft von künftiger Erkennung
+     * ausgeschlossen — das leistet bereits {@link #detect(long)} (siehe Klassen-Javadoc), hier
+     * wird nur der Status umgestellt.
+     *
+     * <p>Idempotent: ein zweiter Aufruf auf einen bereits {@code DISMISSED}-Eintrag ändert nichts
+     * (siehe {@link RecurringExpense#dismiss()}).
+     *
+     * @throws RecurringExpenseNotFoundException wenn die ID nicht existiert oder einem anderen
+     *     User gehört.
+     */
+    @Transactional
+    public RecurringExpenseResponse dismiss(long userId, long recurringExpenseId) {
+        RecurringExpense expense = recurringExpenseRepository
+                .findByIdAndUserId(recurringExpenseId, userId)
+                .orElseThrow(() -> new RecurringExpenseNotFoundException(userId, recurringExpenseId));
+        expense.dismiss();
+        boolean isNew = notificationPort.isUnread(userId, NOTIFICATION_TYPE, expense.getId());
+        return toResponse(expense, isNew);
+    }
+
+    private static RecurringExpenseResponse toResponse(RecurringExpense expense, boolean isNew) {
+        return new RecurringExpenseResponse(
+                expense.getId(),
+                expense.getPayeeKey(),
+                expense.getAmount(),
+                expense.getStatus(),
+                expense.getFirstDetectedMonth().toString(),
+                expense.getCreatedAt(),
+                isNew);
     }
 
     /**

@@ -40,6 +40,23 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     Optional<Notification> findByIdAndUserId(Long id, Long userId);
 
     /**
+     * Ungelesene Benachrichtigungen eines Users zu einem Typ — für
+     * {@link NotificationPort#unreadReferenceIds}. Abgeleitete Query genügt hier (anders als bei
+     * {@link #findByUserIdOrderByUnreadFirstThenNewest}): es wird nur gefiltert, nicht nach
+     * {@code read_at} sortiert, das DB-spezifische NULL-Ordering betrifft diese Query also nicht.
+     */
+    List<Notification> findByUserIdAndTypeAndReadAtIsNull(Long userId, String type);
+
+    /**
+     * Ob eine ungelesene Benachrichtigung eines Users zu einem Typ auf eine bestimmte
+     * {@code referenceId} zeigt — für {@link NotificationPort#isUnread}. Ein {@code EXISTS} statt
+     * der Liste aus {@link #findByUserIdAndTypeAndReadAtIsNull}: für ein einzelnes Flag müssen
+     * nicht alle ungelesenen Zeilen des Typs geladen werden.
+     */
+    boolean existsByUserIdAndTypeAndReferenceIdAndReadAtIsNull(
+            Long userId, String type, Long referenceId);
+
+    /**
      * Löscht alle Benachrichtigungen eines Users (Kontolöschung, US-02, nDSG).
      *
      * <p>Bewusst {@code @Modifying} — Begründung wie bei

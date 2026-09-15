@@ -108,4 +108,14 @@ public class RecurringExpense {
     public Instant getCreatedAt() {
         return createdAt;
     }
+
+    /**
+     * Markiert den Eintrag als «Kein Abo» (BE-REC-02, US-08).
+     *
+     * <p>Idempotent, analog {@code Notification#markRead}: ein zweiter Aufruf auf einen bereits
+     * {@link RecurringExpenseStatus#DISMISSED}-Eintrag ändert nichts.
+     */
+    public void dismiss() {
+        this.status = RecurringExpenseStatus.DISMISSED;
+    }
 }
