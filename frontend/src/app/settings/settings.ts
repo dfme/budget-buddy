@@ -2,15 +2,18 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, ValidatorFn, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
 
 import { AuthService } from '../auth/auth.service';
 import { Theme } from '../core/theme/theme';
 import { SafeToSpendService } from '../dashboard/safe-to-spend.service';
+import { NotificationService } from '../notifications/notification.service';
 import { Button } from '../shared/button/button';
 import { Card } from '../shared/card/card';
 import { formatSwissAmount } from '../shared/format';
 import { Field } from '../shared/field/field';
 import { Input } from '../shared/input/input';
+import { Modal } from '../shared/modal/modal';
 import { Notice } from '../shared/notice/notice';
 import { Segment, SegmentOption } from '../shared/segment/segment';
 
@@ -32,15 +35,16 @@ const maxTwoDecimals: ValidatorFn = (control) => {
 /**
  * Einstellungen-Screen (FE-SET-01, US-14).
  *
- * <p>Route, Navigation und drei Abschnitts-Cards — «Passwort» (FE-SET-02), «Einkommen»
- * (FE-SET-03) und «Erscheinungsbild» (FE-SET-04) — sind alle gefüllt.
+ * <p>Route, Navigation und vier Abschnitts-Cards — «Passwort» (FE-SET-02), «Einkommen»
+ * (FE-SET-03), «Erscheinungsbild» (FE-SET-04) und «Konto löschen» (FE-SET-05, US-02) — sind
+ * alle gefüllt.
  *
  * <p>Kein Token- oder Header-Code: das httpOnly-JWT-Cookie wird durch den
  * `credentialsInterceptor` automatisch mitgesendet (ADR-7).
  */
 @Component({
   selector: 'app-settings',
-  imports: [ReactiveFormsModule, Card, Field, Input, Notice, Button, Segment],
+  imports: [ReactiveFormsModule, Card, Field, Input, Notice, Button, Segment, Modal],
   templateUrl: './settings.html',
   styleUrl: './settings.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -49,6 +53,8 @@ export class Settings {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
   private readonly safeToSpend = inject(SafeToSpendService);
+  private readonly notifications = inject(NotificationService);
+  private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
 
   /** Quelle und Ziel der Theme-Wahl; das Template liest `preference()` daraus. */
@@ -282,5 +288,108 @@ export class Settings {
     if (value === 'light' || value === 'dark' || value === 'system') {
       this.theme.select(value);
     }
+  }
+
+  // --- Konto löschen (FE-SET-05, US-02) ---
+
+  /** `true`, solange der Bestätigungsdialog offen ist. Der Dialog selbst hält keinen State. */
+  readonly deleteDialogOpen = signal(false);
+
+  /** Fehlermeldung im Dialog oder `null`. */
+  readonly deleteErrorMessage = signal<string | null>(null);
+
+  /** `true`, solange das `DELETE` läuft — sperrt Bestätigen und Abbrechen. */
+  readonly deleteSubmitting = signal(false);
+
+  /**
+   * Eigenes Formular statt eines Felds in {@link passwordForm}: die beiden Abschnitte sind
+   * unabhängig, und ein gemeinsames Formular hiesse, dass ein angefangener Passwortwechsel den
+   * Löschdialog ungültig machte.
+   */
+  readonly deleteForm = this.fb.nonNullable.group({
+    passwort: ['', [Validators.required]],
+  });
+
+  /** Öffnet den Dialog — immer mit leerem Feld und ohne die Meldung des letzten Versuchs. */
+  openDeleteDialog(): void {
+    this.deleteForm.reset({ passwort: '' });
+    this.deleteErrorMessage.set(null);
+    this.deleteDialogOpen.set(true);
+  }
+
+  /**
+   * Schliesst den Dialog über «Abbrechen», Escape oder den Backdrop.
+   *
+   * <p>Während eines laufenden Requests passiert nichts: das `DELETE` liesse sich nicht mehr
+   * zurücknehmen, ein geschlossener Dialog würde also einen Abbruch vortäuschen, den es nicht
+   * gibt. {@link Modal} sperrt von sich aus nur das Bestätigen — diese Entscheidung gehört
+   * hierher, wo der Request-Zustand bekannt ist.
+   */
+  cancelDeleteDialog(): void {
+    if (this.deleteSubmitting()) {
+      return;
+    }
+    this.deleteDialogOpen.set(false);
+    this.deleteForm.reset({ passwort: '' });
+    this.deleteErrorMessage.set(null);
+  }
+
+  /**
+   * `true`, solange das Löschen nicht abgeschickt werden darf — leeres Feld oder laufender
+   * Request (AC1). Das Template bindet das an `confirmDisabled` des Dialogs.
+   */
+  deleteDisabled(): boolean {
+    return this.deleteForm.invalid || this.deleteSubmitting();
+  }
+
+  /**
+   * Löscht das Konto endgültig und verlässt die App Richtung `/login`.
+   *
+   * <p>Nach Erfolg wird neben dem Auth-State auch der `NotificationService` geleert — beide sind
+   * `providedIn: 'root'` und überleben den Wechsel, sonst blitzten die Benachrichtigungen des
+   * gelöschten Users beim nächsten Login in derselben Tab-Session auf (dieselbe Begründung wie
+   * in `Shell.logout`).
+   *
+   * <p>Die Bestätigung auf der Login-Seite reist im Navigation-State, nicht als Query-Parameter:
+   * ein `?deleted=1` wäre bookmarkbar und überlebte einen Reload, „Konto gelöscht" stünde dann
+   * über einem frisch aufgerufenen Login. Der State trägt ausschliesslich das Boolean — das
+   * Passwort verlässt dieses Formular nur als Request-Body (ADR-7, AC5).
+   */
+  confirmDelete(): void {
+    if (this.deleteDisabled()) {
+      return;
+    }
+
+    this.deleteErrorMessage.set(null);
+    this.deleteSubmitting.set(true);
+
+    const { passwort } = this.deleteForm.getRawValue();
+    this.auth
+      .deleteAccount(passwort)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.deleteSubmitting.set(false);
+          this.deleteDialogOpen.set(false);
+          // Vor der Navigation leeren, nicht danach: das Feld überlebt die Komponente sonst
+          // so lange, bis Angular sie zerstört hat.
+          this.deleteForm.reset({ passwort: '' });
+          this.notifications.clear();
+          this.router.navigate(['/login'], { state: { accountDeleted: true } });
+        },
+        error: (err: HttpErrorResponse) => {
+          this.deleteSubmitting.set(false);
+          // 400 heisst hier praktisch immer „Passwort falsch": der Submit ist bei leerem Feld
+          // gesperrt, die Bean-Validation des Backends (@NotBlank) kann nur noch ein
+          // Leerzeichen-Passwort treffen, das Validators.required nicht trimmt. Der Text ist
+          // bewusst fix und nicht die Backend-`message` („Aktuelles Passwort falsch"): im
+          // Löschdialog gibt es kein neues Passwort, zu dem „aktuelles" den Gegensatz bildete.
+          this.deleteErrorMessage.set(
+            err.status === 400
+              ? 'Passwort falsch'
+              : 'Konto konnte nicht gelöscht werden. Bitte versuche es später erneut.',
+          );
+        },
+      });
   }
 }

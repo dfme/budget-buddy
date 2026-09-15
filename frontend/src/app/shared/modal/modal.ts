@@ -1,5 +1,5 @@
 import { CdkTrapFocus } from '@angular/cdk/a11y';
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, booleanAttribute, input, output } from '@angular/core';
 
 import { Button } from '../button/button';
 
@@ -54,6 +54,19 @@ export class Modal {
 
   /** Beschriftung der abbrechenden Aktion. */
   readonly cancelLabel = input('Abbrechen');
+
+  /**
+   * Sperrt die bestätigende Aktion, solange sie nicht ausgeführt werden darf — etwa weil der
+   * Dialog eine Eingabe verlangt, die noch fehlt, oder weil der ausgelöste Request noch läuft
+   * (FE-SET-05).
+   *
+   * <p>Betrifft nur den Bestätigen-Button: «Abbrechen», Escape und der Backdrop-Klick bleiben
+   * erreichbar. Ein Dialog, aus dem man nicht mehr herauskommt, wäre eine Fokus-Falle im
+   * wörtlichen Sinn. Wer das Abbrechen während eines laufenden Requests ebenfalls unterbinden
+   * will, ignoriert {@link cancel} am Aufrufort — die Entscheidung gehört dorthin, wo der
+   * Request-Zustand bekannt ist.
+   */
+  readonly confirmDisabled = input(false, { transform: booleanAttribute });
 
   /** Der User hat die Aktion bestätigt. */
   readonly confirm = output<void>();
