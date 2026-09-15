@@ -236,8 +236,10 @@ public class RecurringExpenseService implements RecurringExpenseDetectionPort {
      * dem Gelesen-Zustand der zugehörigen Notification, nicht aus einem eigenen Feld — siehe
      * Klassen-Javadoc zur Notification-Erzeugung in {@link #detect(long)}.
      *
-     * <p><strong>Mandantentrennung:</strong> {@link RecurringExpenseRepository#findByUserIdAndStatus}
-     * ist auf den übergebenen User eingeschränkt.
+     * <p><strong>Mandantentrennung:</strong>
+     * {@link RecurringExpenseRepository#findByUserIdAndStatusOrderByPayeeKeyAsc} ist auf den
+     * übergebenen User eingeschränkt. Die Reihenfolge ist alphabetisch nach Empfänger und damit
+     * stabil zwischen zwei Aufrufen.
      *
      * @param userId ID des eingeloggten Users (aus dem JWT).
      */
@@ -245,7 +247,8 @@ public class RecurringExpenseService implements RecurringExpenseDetectionPort {
     public List<RecurringExpenseResponse> list(long userId) {
         Set<Long> unread = notificationPort.unreadReferenceIds(userId, NOTIFICATION_TYPE);
         return recurringExpenseRepository
-                .findByUserIdAndStatus(userId, RecurringExpenseStatus.DETECTED).stream()
+                .findByUserIdAndStatusOrderByPayeeKeyAsc(userId, RecurringExpenseStatus.DETECTED)
+                .stream()
                 .map(expense -> toResponse(expense, unread.contains(expense.getId())))
                 .toList();
     }
@@ -268,8 +271,8 @@ public class RecurringExpenseService implements RecurringExpenseDetectionPort {
                 .findByIdAndUserId(recurringExpenseId, userId)
                 .orElseThrow(() -> new RecurringExpenseNotFoundException(userId, recurringExpenseId));
         expense.dismiss();
-        Set<Long> unread = notificationPort.unreadReferenceIds(userId, NOTIFICATION_TYPE);
-        return toResponse(expense, unread.contains(expense.getId()));
+        boolean isNew = notificationPort.isUnread(userId, NOTIFICATION_TYPE, expense.getId());
+        return toResponse(expense, isNew);
     }
 
     private static RecurringExpenseResponse toResponse(RecurringExpense expense, boolean isNew) {

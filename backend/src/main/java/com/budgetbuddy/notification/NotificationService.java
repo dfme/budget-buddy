@@ -98,6 +98,19 @@ public class NotificationService implements NotificationPort {
                 .collect(Collectors.toSet());
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Nur gelesen; die Query ist über {@code userId} eingeschränkt, ein fremder Verweis liefert
+     * schlicht {@code false}.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public boolean isUnread(long userId, String type, long referenceId) {
+        return notificationRepository.existsByUserIdAndTypeAndReferenceIdAndReadAtIsNull(
+                userId, type, referenceId);
+    }
+
     private static NotificationResponse toResponse(Notification notification) {
         return new NotificationResponse(
                 notification.getId(),

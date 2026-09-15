@@ -340,7 +340,8 @@ class RecurringExpenseServiceTest {
     /** Nur DETECTED-Einträge gehören in die Abo-Übersicht (US-08 AC3). */
     @Test
     void listReturnsOnlyDetectedEntries() {
-        when(repository.findByUserIdAndStatus(USER_ID, RecurringExpenseStatus.DETECTED))
+        when(repository.findByUserIdAndStatusOrderByPayeeKeyAsc(
+                USER_ID, RecurringExpenseStatus.DETECTED))
                 .thenReturn(List.of(withId(NETFLIX, "20.90", 200L)));
         when(notificationPort.unreadReferenceIds(USER_ID, RecurringExpenseService.NOTIFICATION_TYPE))
                 .thenReturn(Set.of());
@@ -349,7 +350,8 @@ class RecurringExpenseServiceTest {
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).payeeKey()).isEqualTo(NETFLIX);
-        verify(repository).findByUserIdAndStatus(USER_ID, RecurringExpenseStatus.DETECTED);
+        verify(repository).findByUserIdAndStatusOrderByPayeeKeyAsc(
+                USER_ID, RecurringExpenseStatus.DETECTED);
     }
 
     /** Das «Neu»-Flag kommt aus der ungelesenen Notification, nicht aus einem eigenen Feld. */
@@ -357,7 +359,8 @@ class RecurringExpenseServiceTest {
     void listMarksEntriesWithAnUnreadNotificationAsNew() {
         RecurringExpense withUnread = withId(NETFLIX, "20.90", 200L);
         RecurringExpense withoutUnread = withId("SPOTIFY AB", "12.95", 201L);
-        when(repository.findByUserIdAndStatus(USER_ID, RecurringExpenseStatus.DETECTED))
+        when(repository.findByUserIdAndStatusOrderByPayeeKeyAsc(
+                USER_ID, RecurringExpenseStatus.DETECTED))
                 .thenReturn(List.of(withUnread, withoutUnread));
         when(notificationPort.unreadReferenceIds(USER_ID, RecurringExpenseService.NOTIFICATION_TYPE))
                 .thenReturn(Set.of(200L));
@@ -372,7 +375,8 @@ class RecurringExpenseServiceTest {
 
     @Test
     void listReturnsEmptyForAUserWithoutDetectedEntries() {
-        when(repository.findByUserIdAndStatus(USER_ID, RecurringExpenseStatus.DETECTED))
+        when(repository.findByUserIdAndStatusOrderByPayeeKeyAsc(
+                USER_ID, RecurringExpenseStatus.DETECTED))
                 .thenReturn(List.of());
         when(notificationPort.unreadReferenceIds(USER_ID, RecurringExpenseService.NOTIFICATION_TYPE))
                 .thenReturn(Set.of());
@@ -386,22 +390,36 @@ class RecurringExpenseServiceTest {
     void dismissSetsStatusToDismissedAndReturnsTheUpdatedState() {
         RecurringExpense entity = withId(NETFLIX, "20.90", 200L);
         when(repository.findByIdAndUserId(200L, USER_ID)).thenReturn(Optional.of(entity));
-        when(notificationPort.unreadReferenceIds(USER_ID, RecurringExpenseService.NOTIFICATION_TYPE))
-                .thenReturn(Set.of());
+        when(notificationPort.isUnread(USER_ID, RecurringExpenseService.NOTIFICATION_TYPE, 200L))
+                .thenReturn(false);
 
         RecurringExpenseResponse response = service.dismiss(USER_ID, 200L);
 
         assertThat(entity.getStatus()).isEqualTo(RecurringExpenseStatus.DISMISSED);
         assertThat(response.status()).isEqualTo(RecurringExpenseStatus.DISMISSED);
+        assertThat(response.isNew()).isFalse();
+    }
+
+    @Test
+    void dismissAsksOnlyForTheOwnNotificationInsteadOfAllUnreadIds() {
+        RecurringExpense entity = withId(NETFLIX, "20.90", 200L);
+        when(repository.findByIdAndUserId(200L, USER_ID)).thenReturn(Optional.of(entity));
+        when(notificationPort.isUnread(USER_ID, RecurringExpenseService.NOTIFICATION_TYPE, 200L))
+                .thenReturn(true);
+
+        RecurringExpenseResponse response = service.dismiss(USER_ID, 200L);
+
+        assertThat(response.isNew()).isTrue();
+        verify(notificationPort, never()).unreadReferenceIds(anyLong(), anyString());
     }
 
     @Test
     void dismissIsIdempotent() {
-        RecurringExpense entity = dismissed(NETFLIX, "20.90");
-        setField(entity, "id", 200L);
+        RecurringExpense entity = withId(NETFLIX, "20.90", 200L);
+        entity.dismiss();
         when(repository.findByIdAndUserId(200L, USER_ID)).thenReturn(Optional.of(entity));
-        when(notificationPort.unreadReferenceIds(USER_ID, RecurringExpenseService.NOTIFICATION_TYPE))
-                .thenReturn(Set.of());
+        when(notificationPort.isUnread(USER_ID, RecurringExpenseService.NOTIFICATION_TYPE, 200L))
+                .thenReturn(false);
 
         RecurringExpenseResponse response = service.dismiss(USER_ID, 200L);
 

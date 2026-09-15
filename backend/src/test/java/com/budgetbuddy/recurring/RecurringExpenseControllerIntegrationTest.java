@@ -77,6 +77,20 @@ class RecurringExpenseControllerIntegrationTest {
     }
 
     @Test
+    void listIsSortedAlphabeticallyByPayeeKey() throws Exception {
+        // Bewusst nicht in Zielreihenfolge angelegt: ohne ORDER BY käme die Einfügereihenfolge.
+        createRecurringExpense(lara, "SPOTIFY");
+        createRecurringExpense(lara, "NETFLIX");
+        createRecurringExpense(lara, "SWISSCOM");
+
+        mockMvc.perform(get("/api/recurring-expenses").cookie(jwtCookie(lara)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].payeeKey").value("NETFLIX"))
+                .andExpect(jsonPath("$[1].payeeKey").value("SPOTIFY"))
+                .andExpect(jsonPath("$[2].payeeKey").value("SWISSCOM"));
+    }
+
+    @Test
     void dismissedEntriesDoNotAppearInTheList() throws Exception {
         long id = createRecurringExpense(lara, "NETFLIX");
 
@@ -134,6 +148,24 @@ class RecurringExpenseControllerIntegrationTest {
                 .get()
                 .extracting(RecurringExpense::getStatus)
                 .isEqualTo(RecurringExpenseStatus.DISMISSED);
+    }
+
+    @Test
+    void dismissAnswersWithTheNewFlagOfTheOwnEntryOnly() throws Exception {
+        long netflix = createRecurringExpense(lara, "NETFLIX");
+        long spotify = createRecurringExpense(lara, "SPOTIFY");
+        // Nur Spotify hat eine ungelesene Notification — Netflix darf davon nichts erben.
+        notificationRepository.save(new Notification(
+                lara, "RECURRING_EXPENSE_DETECTED", spotify, "Spotify erkannt", Instant.now()));
+
+        mockMvc.perform(post("/api/recurring-expenses/" + netflix + "/dismiss")
+                        .cookie(jwtCookie(lara)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.isNew").value(false));
+        mockMvc.perform(post("/api/recurring-expenses/" + spotify + "/dismiss")
+                        .cookie(jwtCookie(lara)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.isNew").value(true));
     }
 
     @Test

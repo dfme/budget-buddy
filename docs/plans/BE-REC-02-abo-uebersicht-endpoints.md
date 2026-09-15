@@ -25,7 +25,8 @@ Mit dem User bestätigt:
   (`type=RECURRING_EXPENSE_DETECTED`, `referenceId=recurring_expense.id`) an; deren `readAt`
   trägt den Gelesen-Zustand bereits. Ein neuer schlanker Port `NotificationPort.unreadReferenceIds`
   liefert die Menge der `referenceId`s mit ungelesener Notification eines Typs — `recurring` ruft
-  ihn einmal pro `GET` auf, kein N+1.
+  ihn einmal pro `GET` auf, kein N+1. `dismiss` braucht das Flag nur für eine Zeile und fragt
+  gezielt über `NotificationPort.isUnread` (Review-Befund, `EXISTS` statt Liste).
 
   Verworfen: eigenes `seen_at`-Feld direkt auf `recurring_expenses` (neue Migration). Hätte den
   Gelesen-Zustand dupliziert, den `notification` bereits besitzt, und eine eigene Definition von
@@ -33,7 +34,9 @@ Mit dem User bestätigt:
 
 - **`GET` liefert nur `status=DETECTED`.** US-08 AC3 verlangt, dass ein per «Kein Abo» markierter
   Eintrag aus der Abo-Übersicht verschwindet — nicht nur, dass künftige Erkennung ihn ausschliesst
-  (das leistet BE-REC-01 bereits). Neue Repository-Query `findByUserIdAndStatus`.
+  (das leistet BE-REC-01 bereits). Neue Repository-Query `findByUserIdAndStatusOrderByPayeeKeyAsc`
+  — alphabetisch nach Empfänger, damit die Übersicht zwischen zwei Aufrufen nicht springt
+  (Review-Befund).
 
 - **`dismiss` ist idempotent**, analog `Notification.markRead`: ein zweiter Aufruf auf einen
   bereits `DISMISSED`-Eintrag ist kein Fehler, sondern liefert den aktuellen Zustand.
@@ -57,10 +60,13 @@ Mit dem User bestätigt:
 ### Geändert
 
 - `recurring/RecurringExpense.java` — `dismiss()`-Methode (idempotent, setzt `status=DISMISSED`)
-- `recurring/RecurringExpenseRepository.java` — `findByIdAndUserId`, `findByUserIdAndStatus`
+- `recurring/RecurringExpenseRepository.java` — `findByIdAndUserId`,
+  `findByUserIdAndStatusOrderByPayeeKeyAsc`
 - `recurring/RecurringExpenseService.java` — `list(long userId)`, `dismiss(long userId, long id)`
-- `notification/NotificationPort.java` — `Set<Long> unreadReferenceIds(long userId, String type)`
-- `notification/NotificationRepository.java` — `findByUserIdAndTypeAndReadAtIsNull`
+- `notification/NotificationPort.java` — `Set<Long> unreadReferenceIds(long userId, String type)`,
+  `boolean isUnread(long userId, String type, long referenceId)`
+- `notification/NotificationRepository.java` — `findByUserIdAndTypeAndReadAtIsNull`,
+  `existsByUserIdAndTypeAndReferenceIdAndReadAtIsNull`
 - `notification/NotificationService.java` — implementiert die neue Port-Methode
 - `docs/plans/README.md` — neue Zeile
 

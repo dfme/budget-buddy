@@ -36,4 +36,18 @@ public interface NotificationPort {
      *     keine existiert.
      */
     Set<Long> unreadReferenceIds(long userId, String type);
+
+    /**
+     * Ob zu <em>einer</em> {@code referenceId} eine ungelesene Benachrichtigung eines Users
+     * existiert — das Pendant zu {@link #unreadReferenceIds} für den Einzelfall (BE-REC-02,
+     * {@code dismiss}): dort geht es um das «Neu»-Flag einer einzigen Zeile, dafür alle
+     * ungelesenen IDs des Typs zu laden wäre unnötig.
+     *
+     * @param userId ID des Users, dessen Benachrichtigungen durchsucht werden.
+     * @param type Benachrichtigungs-Typ, z. B. {@code "RECURRING_EXPENSE_DETECTED"}.
+     * @param referenceId Verweis auf die Zeile des aufrufenden Moduls.
+     * @return {@code true}, wenn mindestens eine ungelesene Benachrichtigung dieses Typs auf die
+     *     {@code referenceId} zeigt.
+     */
+    boolean isUnread(long userId, String type, long referenceId);
 }

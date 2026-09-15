@@ -25,8 +25,13 @@ public interface RecurringExpenseRepository extends JpaRepository<RecurringExpen
     /**
      * Einträge eines Users in einem Status — für {@code list} (BE-REC-02): nur {@code DETECTED}
      * gehört in die Abo-Übersicht, ein «Kein Abo» markierter Eintrag verschwindet daraus (US-08).
+     *
+     * <p>Alphabetisch nach {@code payee_key}, damit die Übersicht zwischen zwei Aufrufen nicht
+     * springt — ohne {@code ORDER BY} hinge die Reihenfolge an der Datenbank. Der Schlüssel ist pro
+     * User eindeutig (V11), die Sortierung damit total.
      */
-    List<RecurringExpense> findByUserIdAndStatus(Long userId, RecurringExpenseStatus status);
+    List<RecurringExpense> findByUserIdAndStatusOrderByPayeeKeyAsc(
+            Long userId, RecurringExpenseStatus status);
 
     /**
      * Einzelner Eintrag eines Users — für {@code dismiss} (BE-REC-02).
