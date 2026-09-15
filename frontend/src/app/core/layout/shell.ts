@@ -13,6 +13,7 @@ import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../auth/auth.service';
 import { NotificationBell } from '../../notifications/notification-bell';
 import { NotificationService } from '../../notifications/notification.service';
+import { RecurringExpenseService } from '../../recurring/recurring-expense.service';
 
 /** Ein Ziel der Hauptnavigation. */
 interface NavItem {
@@ -55,6 +56,7 @@ export class Shell {
   private readonly router = inject(Router);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly notifications = inject(NotificationService);
+  private readonly recurringExpenses = inject(RecurringExpenseService);
 
   private readonly avatarButton = viewChild<ElementRef<HTMLButtonElement>>('avatarButton');
 
@@ -132,24 +134,27 @@ export class Shell {
   }
 
   /**
-   * Loggt aus (`POST /api/auth/logout`), leert den Auth- und Notification-State und leitet auf
-   * `/login`. Auch bei einem fehlgeschlagenen Backend-Call wird der lokale State geleert und
+   * Loggt aus (`POST /api/auth/logout`), leert den Auth-, Notification- und Abo-State und
+   * leitet auf `/login`. Auch bei einem fehlgeschlagenen Backend-Call wird der lokale State geleert und
    * umgeleitet — so bleibt der Nutzer nie in einem scheinbar eingeloggten Zustand.
    *
    * <p>{@link NotificationService.clear} verhindert, dass die Benachrichtigungen dieses Users
    * kurz aufblitzen, bevor ein nächster Login in derselben Tab-Session neu lädt — der Service ist
-   * `providedIn: 'root'` und überlebt den Wechsel.
+   * `providedIn: 'root'` und überlebt den Wechsel. {@link RecurringExpenseService.clear} aus
+   * demselben Grund für die Zahl in der Abo-Teaser-Card (FE-REC-01).
    */
   protected logout(): void {
     this.accountMenuOpen.set(false);
     this.auth.logout().subscribe({
       next: () => {
         this.notifications.clear();
+        this.recurringExpenses.clear();
         this.router.navigate(['/login']);
       },
       error: () => {
         this.auth.resetState();
         this.notifications.clear();
+        this.recurringExpenses.clear();
         this.router.navigate(['/login']);
       },
     });

@@ -5,7 +5,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router } from '@angular/router';
 import { filter } from 'rxjs';
 
-import { NotificationResponse } from './notification.model';
+import { NotificationResponse, RECURRING_EXPENSE_DETECTED } from './notification.model';
 import { NotificationService } from './notification.service';
 
 let nextId = 0;
@@ -97,6 +97,12 @@ export class NotificationBell {
    *
    * <p>Ein Fehler bleibt bewusst still: die Benachrichtigung zeigt dann weiterhin als ungelesen
    * — der sichere Fallback, ein erneuter Klick versucht es wieder.
+   *
+   * <p><strong>Abo-Benachrichtigung (FE-REC-01).</strong> Trägt sie den Typ aus
+   * {@link RECURRING_EXPENSE_DETECTED}, führt der Klick zusätzlich in die Abo-Übersicht und
+   * schliesst das Dropdown — dort steht der Eintrag mit seinem «Neu»-Label, und das ist die
+   * Antwort auf die Benachrichtigung. Die Navigation hängt nicht am Erfolg des Gelesen-Calls:
+   * der Nutzer wollte hin, ein fehlgeschlagener Nebeneffekt hält ihn nicht auf.
    */
   protected select(notification: NotificationResponse): void {
     if (!notification.read) {
@@ -105,6 +111,10 @@ export class NotificationBell {
           // Siehe Methoden-Doc: bewusst ohne Meldung.
         },
       });
+    }
+    if (notification.type === RECURRING_EXPENSE_DETECTED) {
+      this.close();
+      void this.router.navigate(['/abos']);
     }
   }
 }

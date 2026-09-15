@@ -39,6 +39,14 @@ export const routes: Routes = [
     loadComponent: () => import('./onboarding/fixed-cost-list').then((m) => m.FixedCostList),
   },
   {
+    // Kein Eintrag in der Hauptnavigation — der Einstieg läuft über die Teaser-Card auf dem
+    // Dashboard und über die Abo-Benachrichtigung in der Glocke (FE-REC-01, US-08).
+    path: 'abos',
+    canActivate: [authGuard, onboardingGuard],
+    loadComponent: () =>
+      import('./recurring/recurring-expense-list').then((m) => m.RecurringExpenseList),
+  },
+  {
     path: 'einstellungen',
     canActivate: [authGuard, onboardingGuard],
     loadComponent: () => import('./settings/settings').then((m) => m.Settings),
