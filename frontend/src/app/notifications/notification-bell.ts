@@ -98,23 +98,34 @@ export class NotificationBell {
    * <p>Ein Fehler bleibt bewusst still: die Benachrichtigung zeigt dann weiterhin als ungelesen
    * — der sichere Fallback, ein erneuter Klick versucht es wieder.
    *
-   * <p><strong>Abo-Benachrichtigung (FE-REC-01).</strong> Trägt sie den Typ aus
+   * <p><strong>Abo-Benachrichtigung (FE-REC-01).</strong> Trägt sie den Typ
    * {@link RECURRING_EXPENSE_DETECTED}, führt der Klick zusätzlich in die Abo-Übersicht und
-   * schliesst das Dropdown — dort steht der Eintrag mit seinem «Neu»-Label, und das ist die
-   * Antwort auf die Benachrichtigung. Die Navigation hängt nicht am Erfolg des Gelesen-Calls:
-   * der Nutzer wollte hin, ein fehlgeschlagener Nebeneffekt hält ihn nicht auf.
+   * schliesst das Dropdown — dort steht der Eintrag, und das ist die Antwort auf die Meldung.
+   * Navigiert wird erst, wenn der Gelesen-Call abgeschlossen ist, mit Erfolg oder Fehler: die
+   * Übersicht leitet ihr «Neu»-Label aus genau dieser Benachrichtigung ab (BE-REC-02), und
+   * liefen beide Requests parallel, hinge es vom Zufall ab, ob der Eintrag dort noch als neu
+   * steht. Der Fehlerfall navigiert trotzdem — der Nutzer wollte hin, ein fehlgeschlagener
+   * Nebeneffekt hält ihn nicht auf.
    */
   protected select(notification: NotificationResponse): void {
-    if (!notification.read) {
-      this.notificationService.markAsRead(notification.id).subscribe({
-        error: (_err: HttpErrorResponse) => {
-          // Siehe Methoden-Doc: bewusst ohne Meldung.
-        },
-      });
+    const navigate =
+      notification.type === RECURRING_EXPENSE_DETECTED
+        ? () => {
+            this.close();
+            void this.router.navigate(['/abos']);
+          }
+        : () => undefined;
+
+    if (notification.read) {
+      navigate();
+      return;
     }
-    if (notification.type === RECURRING_EXPENSE_DETECTED) {
-      this.close();
-      void this.router.navigate(['/abos']);
-    }
+    this.notificationService.markAsRead(notification.id).subscribe({
+      next: navigate,
+      error: (_err: HttpErrorResponse) => {
+        // Siehe Methoden-Doc: bewusst ohne Meldung — aber mit Navigation.
+        navigate();
+      },
+    });
   }
 }

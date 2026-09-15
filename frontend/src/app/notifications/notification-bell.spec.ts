@@ -210,10 +210,32 @@ describe('NotificationBell', () => {
     query<HTMLButtonElement>('.bell-list__item')!.click();
     await fixture.whenStable();
 
+    // Noch nicht navigiert: erst muss der Gelesen-Call durch sein, sonst hinge das «Neu»-Label
+    // in der Übersicht vom Race zwischen beiden Requests ab.
+    expect(router.url).toBe('/');
+    httpMock.expectOne('/api/notifications/3/read').flush({ ...RECURRING_UNREAD, read: true });
+    await fixture.whenStable();
+    fixture.detectChanges();
+
     expect(router.url).toBe('/abos');
     expect(query('.bell-list')).toBeNull();
-    // Gelesen-Markieren läuft daneben weiter; die Navigation löst den üblichen Reload aus.
-    httpMock.expectOne('/api/notifications/3/read').flush({ ...RECURRING_UNREAD, read: true });
+    // Die Navigation löst den üblichen Reload aus.
+    httpMock.expectOne('/api/notifications').flush([]);
+  });
+
+  it('führt auch dann in die Abo-Übersicht, wenn das Gelesen-Markieren fehlschlägt', async () => {
+    create();
+    flushInitialLoad([RECURRING_UNREAD]);
+    bellButton().click();
+    fixture.detectChanges();
+
+    query<HTMLButtonElement>('.bell-list__item')!.click();
+    httpMock
+      .expectOne('/api/notifications/3/read')
+      .flush(null, { status: 500, statusText: 'Server Error' });
+    await fixture.whenStable();
+
+    expect(router.url).toBe('/abos');
     httpMock.expectOne('/api/notifications').flush([]);
   });
 
