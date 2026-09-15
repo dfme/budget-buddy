@@ -138,7 +138,9 @@
         Gib zur Bestätigung dein Passwort ein. Alle deine Daten werden danach endgültig gelöscht.
       </p>
 
-      <form [formGroup]="deleteForm" novalidate>
+      <!-- Enter im Passwortfeld bestätigt wie der Button — confirmDelete() prüft selbst
+           deleteDisabled(), ein Enter bei leerem Feld oder laufendem Request bleibt folgenlos. -->
+      <form [formGroup]="deleteForm" (ngSubmit)="confirmDelete()" novalidate>
         <app-field label="Passwort" inputId="deletePasswort">
           <input
             appInput

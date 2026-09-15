@@ -528,6 +528,28 @@ describe('Settings', () => {
     httpMock.expectOne('/api/users/me').flush(null, { status: 204, statusText: 'No Content' });
   });
 
+  it('bestätigt per Enter im Passwortfeld wie über den Button (Review #304)', () => {
+    openDialog('supersecret');
+
+    (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLFormElement>('app-modal form')!
+      .dispatchEvent(new Event('submit'));
+
+    httpMock.expectOne('/api/users/me').flush(null, { status: 204, statusText: 'No Content' });
+  });
+
+  it('löst per Enter bei leerem Passwortfeld keinen Request aus', () => {
+    openDialog();
+
+    // Der Submit-Button ist gesperrt, das Formular selbst aber nicht — der Guard sitzt in
+    // confirmDelete(), sonst käme Enter am gesperrten Button vorbei.
+    (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLFormElement>('app-modal form')!
+      .dispatchEvent(new Event('submit'));
+
+    httpMock.expectNone('/api/users/me');
+  });
+
   // --- AC2: DELETE /api/users/me mit dem Passwort im Body ---
 
   it('ruft DELETE /api/users/me mit dem eingegebenen Passwort im Body', () => {
