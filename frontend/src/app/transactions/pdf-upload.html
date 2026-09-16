@@ -88,9 +88,14 @@
               <span class="imported__details">{{ details }}</span>
             }
           </span>
-          <span class="imported__amount">{{
-            tx.betrag | currency: 'CHF' : 'symbol' : '1.2-2'
-          }}</span>
+          <!--
+            Vorzeichen statt blosser Zahl: Anders als die Kategorie-Übersicht (nur Ausgaben)
+            liefert GET /api/import/{jobId}/transactions den ganzen Import inklusive
+            Gutschriften — ohne + / − wäre eine Rückerstattung hier nicht von einer Belastung
+            zu unterscheiden. <app-amount> trägt das Vorzeichen sichtbar und im aria-label,
+            nicht bloss als Farbe (FE-UI-03).
+          -->
+          <app-amount class="imported__amount" [value]="signedAmount(tx)" [showCurrency]="true" />
           <label class="imported__category">
             <span class="visually-hidden">Kategorie von {{ transactionLabel(tx) }}</span>
             <!--

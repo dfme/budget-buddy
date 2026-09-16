@@ -1,4 +1,4 @@
-import { CurrencyPipe, DatePipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
@@ -10,6 +10,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
+import { Amount } from '../shared/amount/amount';
 import { Button } from '../shared/button/button';
 import { Card } from '../shared/card/card';
 import { CATEGORIES } from '../shared/category';
@@ -113,7 +114,7 @@ export interface ImportProgress {
  */
 @Component({
   selector: 'app-pdf-upload',
-  imports: [Button, Card, CurrencyPipe, DatePipe, Input, Meter, Modal, Notice],
+  imports: [Amount, Button, Card, DatePipe, Input, Meter, Modal, Notice],
   templateUrl: './pdf-upload.html',
   styleUrl: './pdf-upload.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -179,6 +180,19 @@ export class PdfUpload {
 
   /** Meldung, wenn eine Kategorie-Korrektur nicht gespeichert werden konnte. */
   readonly saveErrorMessage = signal<string | null>(null);
+
+  /**
+   * Zähler der Import-Läufe — steigt mit jedem {@link clearImportedTransactions} um eins.
+   *
+   * <p>Er schliesst das Zeitfenster zwischen Anfrage und Antwort: Wählt der Nutzer eine neue
+   * Datei, während `GET /api/import/{jobId}/transactions` des vorigen Jobs noch offen ist, räumt
+   * das Aufräumen die Liste weg — und die verspätete Antwort setzte sie ohne diesen Zähler
+   * danach wieder, unter den Fortschrittsbalken oder die Fehlermeldung des neuen Uploads.
+   *
+   * <p>Der Zähler hängt bewusst am Aufräumen und nicht an der Job-ID: Eine client-seitig
+   * abgelehnte Datei hat gar keine, macht die Liste aber genauso ungültig.
+   */
+  private importRun = 0;
 
   onDragOver(event: DragEvent): void {
     // Ohne preventDefault löst der Browser das drop-Event nicht aus.
@@ -325,14 +339,26 @@ export class PdfUpload {
    * <p>Ein Fehlschlag bleibt bewusst folgenlos für den Ausgang des Imports: {@link importOutcome}
    * steht bereits auf Erfolg und bleibt dort. Die Buchungen sind gespeichert — scheitert nur
    * ihre Anzeige, wäre es eine Lüge, daraus einen gescheiterten Import zu machen.
+   *
+   * <p>Eine Antwort, die erst nach dem nächsten Aufräumen eintrifft, wird verworfen — sie gehört
+   * zu einem Import, den der Nutzer bereits hinter sich gelassen hat ({@link importRun}).
    */
   private loadImportedTransactions(jobId: number): void {
+    const run = this.importRun;
     this.importService
       .importTransactions(jobId)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: (transactions) => this.importedTransactions.set(transactions),
-        error: () => this.listErrorMessage.set(LIST_FAILED_MESSAGE),
+        next: (transactions) => {
+          if (run === this.importRun) {
+            this.importedTransactions.set(transactions);
+          }
+        },
+        error: () => {
+          if (run === this.importRun) {
+            this.listErrorMessage.set(LIST_FAILED_MESSAGE);
+          }
+        },
       });
   }
 
@@ -371,6 +397,8 @@ export class PdfUpload {
 
   /** Räumt die Liste des vorigen Imports samt ihrer beiden Meldungen weg (AC 7). */
   private clearImportedTransactions(): void {
+    // Entwertet jede noch offene Antwort auf die Buchungen des vorigen Jobs.
+    this.importRun++;
     this.importedTransactions.set(null);
     this.listErrorMessage.set(null);
     this.saveErrorMessage.set(null);
@@ -383,6 +411,25 @@ export class PdfUpload {
         ? current
         : current.map((tx) => (tx.id === transactionId ? { ...tx, category } : tx)),
     );
+  }
+
+  /**
+   * Der Betrag mit Vorzeichen, wie ihn {@code <app-amount>} erwartet.
+   *
+   * <p>{@link Transaction.betrag} ist eine positive Magnitude, die Richtung steht in
+   * {@link Transaction.income}. Anders als die Kategorie-Übersicht, die nur Ausgaben zeigt,
+   * listet `GET /api/import/{jobId}/transactions` den ganzen Import inklusive Gutschriften —
+   * ohne Vorzeichen wäre eine Rückerstattung in dieser Liste von einer Belastung nicht zu
+   * unterscheiden. Die gemeinsame Komponente trägt die Richtung im sichtbaren `+`/`−` und im
+   * `aria-label`, nicht bloss in der Farbe.
+   *
+   * <p>{@link Transaction.directionUncertain} bleibt hier ohne Wirkung: Eine bloss angenommene
+   * Richtung (BE-PDF-10) erscheint als das, was das Backend gespeichert hat — eine Belastung.
+   * Korrigiert wird sie weiterhin nur in der Prüfliste der Kategorie-Übersicht; ein zweiter Ort
+   * für dieselbe Entscheidung wäre ein zweiter Ort zum Auseinanderlaufen.
+   */
+  signedAmount(tx: Transaction): number {
+    return tx.income ? tx.betrag : -tx.betrag;
   }
 
   /**

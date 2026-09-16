@@ -114,3 +114,26 @@ bleibt derselbe (AC8). Der Fehlerpfad bleibt unverändert.
       Vermischen mit älteren Buchungen
 - [ ] `e2e/tests/pdf-import.spec.ts` (Happy Path) prüft die importierten Buchungen direkt auf dem
       Import-Screen statt über den Umweg `/categories?month=...`
+
+## Nachtrag — Review zu PR #305
+
+Drei nicht-blockierende Befunde aus dem automatischen und dem interaktiven Review, alle im selben
+PR nachgezogen:
+
+1. **Betrag mit Richtung.** Schritt 6 sah `currency: 'CHF'` ohne Vorzeichen vor — richtig für die
+   Kategorie-Übersicht, die nur Ausgaben zeigt, falsch hier: `GET /api/import/{jobId}/transactions`
+   liefert den ganzen Import inklusive Gutschriften. Statt einer eigenen Darstellung übernimmt die
+   Zeile jetzt die gemeinsame Komponente `<app-amount>` (FE-UI-03) mit `signedAmount(tx)`; sie
+   trägt `+`/`−` sichtbar **und** im `aria-label`, die Richtung hängt also nicht an der Farbe.
+   `CurrencyPipe` fällt damit aus den Imports.
+2. **Verspätete Listen-Antwort.** Zwischen `GET …/transactions` und seiner Antwort konnte der
+   Nutzer eine neue Datei wählen; die eintreffende Liste setzte sich danach unter den
+   Fortschrittsbalken des neuen Uploads. `clearImportedTransactions()` zählt jetzt `importRun`
+   hoch, `loadImportedTransactions` merkt sich den Stand und verwirft eine Antwort aus einem
+   überholten Lauf. Bewusst am Aufräumen und nicht an der Job-ID: Eine client-seitig abgelehnte
+   Datei hat gar keine, entwertet die Liste aber genauso.
+3. **Formatierung von `e2e/tests/pdf-import.spec.ts`.** Die Datei war mit Prettier-Defaults
+   umformatiert (doppelte Anführungszeichen, 80 Zeichen) und blähte den Diff auf rund das Doppelte.
+   Neu formatiert mit `frontend/.prettierrc`, wie die übrigen Dateien in `e2e/`; der Diff gegen
+   `main` schrumpft damit auf die echten 18 Zeilen. Dass `e2e/` gar keine eigene Prettier-Config
+   und kein `format:check` hat, bleibt als #306 (INFRA-43) offen.

@@ -144,9 +144,9 @@
   white-space: pre-line;
 }
 
+// `tabular` und die Farbgebung bringt <app-amount> selbst mit; hier bleibt nur, was die Zeile
+// als Rasterzelle braucht.
 .imported__amount {
-  @include tabular;
-
   text-align: right;
   white-space: nowrap;
 }

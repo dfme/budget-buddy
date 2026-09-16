@@ -569,6 +569,27 @@ describe('PdfUpload', () => {
       expect(rows()[1].querySelector('.imported__details')).toBeNull();
     });
 
+    /**
+     * Die Richtung steht in `income`, nicht im Betrag: `GET /api/import/{jobId}/transactions`
+     * liefert den ganzen Import inklusive Gutschriften, `betrag` aber immer als positive
+     * Magnitude. Ohne Vorzeichen wäre eine Rückerstattung von einer Belastung nicht zu
+     * unterscheiden — und Farbe allein trüge die Information nicht (Review zu #305).
+     */
+    it('distinguishes a credit from a debit by its sign', () => {
+      component.onDrop(dropEvent([pdfFile()]));
+      completeImport(2, {}, [
+        transaction({ id: 11, betrag: 42.5, income: false }),
+        transaction({ id: 12, betrag: 120, income: true }),
+      ]);
+
+      const amounts = fixture.nativeElement.querySelectorAll('.imported__amount');
+      expect(amounts[0].textContent).toContain('−42.50');
+      expect(amounts[1].textContent).toContain('+120.00');
+      // Nicht nur Farbe: Screenreader hören die Richtung als Wort.
+      expect(amounts[0].getAttribute('aria-label')).toBe('minus 42.50 Franken');
+      expect(amounts[1].getAttribute('aria-label')).toBe('plus 120.00 Franken');
+    });
+
     /** AC 6: Der Nullfall zeigt nur die bestehende Meldung — und fragt gar nicht erst nach. */
     it('shows no list and requests no transactions for a zero-transaction import', () => {
       component.onDrop(dropEvent([pdfFile()]));
@@ -735,6 +756,58 @@ describe('PdfUpload', () => {
       expect(component.errorMessage()).toBe('Nur PDF-Dateien werden unterstützt.');
       expect(component.importedTransactions()).toBeNull();
       expect(fixture.nativeElement.querySelector('.imported')).toBeNull();
+    });
+
+    /**
+     * Zwischen Anfrage und Antwort liegt ein Zeitfenster: Wählt der Nutzer darin eine neue Datei,
+     * gehört die eintreffende Liste zu einem Import, den er bereits hinter sich gelassen hat.
+     * Ohne Guard stünde sie danach unter dem Fortschrittsbalken des neuen Uploads (Review zu
+     * #305).
+     */
+    it('discards a transaction list that arrives after the next upload has started', () => {
+      component.onDrop(dropEvent([pdfFile('juni.pdf')]));
+      httpMock.expectOne('/api/import/pdf').flush({ jobId: JOB_ID, total: 1 });
+      vi.advanceTimersByTime(1);
+      httpMock
+        .expectOne(`/api/import/${JOB_ID}/status`)
+        .flush({ status: 'DONE', total: 1, processed: 1, degraded: false });
+      fixture.detectChanges();
+      // Die Buchungen bleiben offen — genau der Zustand, in dem der Nutzer weitermacht.
+      const stale = httpMock.expectOne(`/api/import/${JOB_ID}/transactions`);
+
+      component.onDrop(dropEvent([pdfFile('juli.pdf')]));
+      fixture.detectChanges();
+      stale.flush([transaction({ id: 11 })]);
+      fixture.detectChanges();
+
+      expect(component.importedTransactions()).toBeNull();
+      expect(fixture.nativeElement.querySelector('.imported')).toBeNull();
+
+      // Der neue Import füllt die Liste weiterhin — der Guard sperrt nur die verspätete Antwort.
+      completeImport(2, {}, [transaction({ id: 21 }), transaction({ id: 22 })]);
+      expect(rows()).toHaveLength(2);
+    });
+
+    /** Gleiches Fenster, anderer Ausgang: auch die Fehlermeldung gehört zum alten Import. */
+    it('discards a failed list request that belongs to a superseded import', () => {
+      component.onDrop(dropEvent([pdfFile('juni.pdf')]));
+      httpMock.expectOne('/api/import/pdf').flush({ jobId: JOB_ID, total: 1 });
+      vi.advanceTimersByTime(1);
+      httpMock
+        .expectOne(`/api/import/${JOB_ID}/status`)
+        .flush({ status: 'DONE', total: 1, processed: 1, degraded: false });
+      fixture.detectChanges();
+      const stale = httpMock.expectOne(`/api/import/${JOB_ID}/transactions`);
+
+      component.onDrop(dropEvent([new File(['x'], 'notizen.txt', { type: 'text/plain' })]));
+      fixture.detectChanges();
+      stale.flush(null, { status: 500, statusText: 'Server Error' });
+      fixture.detectChanges();
+
+      expect(component.listErrorMessage()).toBeNull();
+      expect(fixture.nativeElement.textContent).not.toContain(
+        'Die importierten Buchungen konnten nicht geladen werden.',
+      );
     });
 
     it('requests no transactions when the background job failed', () => {
