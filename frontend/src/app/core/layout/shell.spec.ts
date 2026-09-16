@@ -139,7 +139,11 @@ describe('Shell', () => {
 
     const link = query<HTMLAnchorElement>('.nav__settings');
     expect(link?.getAttribute('href')).toBe('/einstellungen');
-    expect(link?.textContent?.trim().replace(/\s+/g, ' ')).toBe('⚙ Einstellungen');
+    // `\uFE0E` ist der Textpräsentations-Selektor am Zahnrad (FE-NOTIF-02, #308). Er steht
+    // hier ausgeschrieben statt als unsichtbares Zeichen im Literal, weil er sonst beim
+    // nächsten Editieren dieser Zeile verlorenginge — und der Test dann grün bliebe, während
+    // das Icon auf manchen Plattformen wieder farbig rendert.
+    expect(link?.textContent?.trim().replace(/\s+/g, ' ')).toBe('⚙\uFE0E Einstellungen');
   });
 
   it('markiert Einstellungen im Sidebar-Konto-Block als aktiv, wenn die Route offen ist', async () => {

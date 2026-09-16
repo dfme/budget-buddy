@@ -27,7 +27,17 @@
 }
 
 .bell__icon {
+  width: 1.125rem;
+  height: 1.125rem;
   line-height: 1;
+
+  // Gleiches Muster wie `.topbar__mark` (shell.scss:51-62): das SVG füllt den Container,
+  // die Grösse steht hier und nicht im Markup.
+  svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
 }
 
 .bell__badge {
@@ -64,6 +74,17 @@
   border: 1px solid $c-line;
   border-radius: $r-md;
   box-shadow: $shadow-card;
+
+  // Auf Desktop sitzt die Glocke im Konto-Block am Fuss der Sidebar (shell.scss:268,
+  // `margin-top: auto` in einer 100dvh hohen Sidebar, shell.scss:220). Nach unten ist dort
+  // kein Platz mehr, und bei 18rem Breite in einer 15rem breiten Sidebar auch nicht nach
+  // links. Die Liste klappt deshalb nach oben auf und nach rechts in den Content hinein.
+  // Die Basis-Regeln oben (`top: 100%`, `right: 0`) bleiben unberührt — mobil sitzt die
+  // Glocke oben rechts in der Topbar, dort stimmt die Richtung.
+  @include desktop {
+    inset: auto auto 100% 0;
+    margin-bottom: $sp-1;
+  }
 }
 
 .bell-list__empty {

@@ -97,6 +97,23 @@ describe('NotificationBell', () => {
     expect(query('.bell__badge')?.textContent?.trim()).toBe('1');
   });
 
+  // FE-NOTIF-02 (#308): Das Icon war ein Emoji (🔔 mit Textselektor) und lief deshalb weder
+  // in Ink-Farbe noch mit Hover und Dark-Theme mit. Die zweite Assertion ist nicht redundant:
+  // ohne sie bliebe der Test auch dann grün, wenn jemand das Emoji neben das SVG stellt.
+  it('rendert das Glocken-Icon als Inline-SVG in currentColor, nicht als Emoji', () => {
+    create();
+    flushInitialLoad([UNREAD]);
+
+    const icon = query('.bell__icon')!;
+    const strokes = Array.from(icon.querySelectorAll('svg path')).map((path) =>
+      path.getAttribute('stroke'),
+    );
+
+    expect(strokes.length).toBeGreaterThan(0);
+    expect(strokes.every((stroke) => stroke === 'currentColor')).toBe(true);
+    expect(icon.textContent?.trim()).toBe('');
+  });
+
   it('ist das Dropdown initial geschlossen', () => {
     create();
     flushInitialLoad([UNREAD]);
