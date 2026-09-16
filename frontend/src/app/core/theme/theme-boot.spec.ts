@@ -1,6 +1,13 @@
 import indexHtml from '../../../index.html';
 
-import { DARK_MEDIA_QUERY, THEME_ATTRIBUTE, THEME_STORAGE_KEY } from './theme';
+import {
+  DARK_MEDIA_QUERY,
+  FAVICON_DARK_HREF,
+  FAVICON_LIGHT_HREF,
+  FAVICON_SELECTOR,
+  THEME_ATTRIBUTE,
+  THEME_STORAGE_KEY,
+} from './theme';
 
 /**
  * Hält das Pre-Paint-Script in `src/index.html` mit {@link Theme} zusammen (AC4).
@@ -35,5 +42,16 @@ describe('Pre-Paint-Theme in index.html', () => {
 
   it('fängt einen gesperrten Storage ab, statt den Seitenaufbau abzubrechen', () => {
     expect(head).toMatch(/try\s*{[\s\S]*localStorage[\s\S]*}\s*catch/);
+  });
+
+  // --- FE-UI-09: Favicon folgt demselben Pre-Paint-Wert wie data-theme ---
+
+  it('trägt denselben hellen Favicon als statischen Default wie der Service', () => {
+    expect(head).toContain(`<link rel="icon" type="image/x-icon" href="${FAVICON_LIGHT_HREF}" />`);
+  });
+
+  it('schreibt den Favicon-href mit demselben Selektor und denselben Dateien wie der Service', () => {
+    expect(head).toContain(`querySelector('${FAVICON_SELECTOR}')`);
+    expect(head).toContain(`'${FAVICON_DARK_HREF}' : '${FAVICON_LIGHT_HREF}'`);
   });
 });
