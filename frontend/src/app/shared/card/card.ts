@@ -12,6 +12,14 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
   templateUrl: './card.html',
   styleUrl: './card.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: {
+    // `title` ist zugleich ein globales HTML-Attribut: schreibt ein Aufrufort ihn statisch
+    // (`title="…"`), setzt Angular den Input *und* lässt das Attribut im DOM stehen. Das gäbe
+    // einen nativen Tooltip über der ganzen Karte und einen Accessible Name auf dem Host, der
+    // die sichtbare Überschrift (`.card__title`) doppelt vorträgt. Hier entfernt (FE-UI-08,
+    // analog zu Notice/Modal aus #181).
+    '[attr.title]': 'null',
+  },
 })
 export class Card {
   /** Optionaler Kartentitel. Ohne Titel und Meta entfällt der Kopf ganz. */
