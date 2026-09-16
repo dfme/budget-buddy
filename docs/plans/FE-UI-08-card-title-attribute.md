@@ -32,12 +32,17 @@ Folge-Issue nötig.
 ## Call-Sites (Ist-Stand, Schritt 2)
 
 Der Issue-Text nennt `dashboard.html:15`, `category-overview.html:22`, `styleguide.html:41`,
-`:125`, `:128` — die Datei hat sich seither weiterentwickelt (u. a. FE-PDF-04). Aktuelle
-Fundstellen mit statischem `title="…"` (`grep -n 'app-card' …`):
+`:125`, `:128` — die Datei hat sich seither weiterentwickelt (u. a. FE-PDF-04). Der ursprüngliche
+Plan hatte den Grep nur auf die im Issue genannten Dateien angewandt und `settings.html` dabei
+übersehen — im Review von PR #312 nachgetragen. Vollständige Fundstellen mit statischem
+`title="…"` (`grep -rn 'app-card' frontend/src --include='*.html'`):
 
 - [dashboard.html:71](../../frontend/src/app/dashboard/dashboard.html#L71)
 - [category-overview.html:39](../../frontend/src/app/transactions/category-overview.html#L39)
 - [category-overview.html:116](../../frontend/src/app/transactions/category-overview.html#L116)
+- [settings.html:4](../../frontend/src/app/settings/settings.html#L4)
+- [settings.html:50](../../frontend/src/app/settings/settings.html#L50)
+- [settings.html:103](../../frontend/src/app/settings/settings.html#L103)
 - [styleguide.html:41](../../frontend/src/app/styleguide/styleguide.html#L41)
 - [styleguide.html:125](../../frontend/src/app/styleguide/styleguide.html#L125)
 - [styleguide.html:128](../../frontend/src/app/styleguide/styleguide.html#L128)
@@ -45,7 +50,7 @@ Fundstellen mit statischem `title="…"` (`grep -n 'app-card' …`):
 (`dashboard.html:157` bindet `[title]="totalsTitle()"` dynamisch — davon nicht betroffen, da kein
 statisches Attribut im Template steht.)
 
-Diese sechs Stellen werden **geprüft, nicht geändert** — der Fix greift am Host-Binding in
+Diese neun Stellen werden **geprüft, nicht geändert** — der Fix greift am Host-Binding in
 `Card`, nicht an den Aufruforten.
 
 ## Implementierungsschritte
@@ -56,7 +61,7 @@ Diese sechs Stellen werden **geprüft, nicht geändert** — der Fix greift am H
    ein Host mit `<app-card title="…">Inhalt</app-card>` rendern und prüfen:
    - `host.hasAttribute('title') === false`
    - `.card__title` zeigt weiterhin den Titeltext
-3. Die sechs Aufruforte manuell/visuell durchgehen (kein Code-Edit dort erwartet).
+3. Die neun Aufruforte manuell/visuell durchgehen (kein Code-Edit dort erwartet).
 
 ## Test-Strategie
 
@@ -75,7 +80,7 @@ Diese sechs Stellen werden **geprüft, nicht geändert** — der Fix greift am H
 - [ ] Ein Regressionstest rendert einen Aufruf-Host mit statischem `title="…"` und prüft
       `hasAttribute('title') === false` sowie den weiterhin gesetzten Input — analog zu
       `notice.spec.ts` aus #181
-- [ ] Die sechs (aktueller Stand, s.o.) bestehenden Aufruforte sind geprüft und bleiben
+- [ ] Die neun (aktueller Stand, s.o.) bestehenden Aufruforte sind geprüft und bleiben
       unverändert bedienbar
 - [ ] Gegenprobe auf weitere Shared-Komponenten mit Inputs, die auf globale HTML-Attribute
       kollidieren: Ergebnis im PR benannt (siehe oben — keine weiteren Funde)
