@@ -145,6 +145,49 @@ describe('Register', () => {
     expect(component.submitting()).toBe(false);
   });
 
+  // FE-AUTH-06 (#264): erste Backend-Passwortregel ohne clientseitiges Gegenstück
+  // (@MaxBcryptBytes, BE-AUTH-10) — der 400 muss die konkrete Backend-Meldung zeigen.
+  it('shows the backend message on 400', () => {
+    component.form.setValue({
+      email: 'lara@example.ch',
+      password: 'supersecret',
+      firstName: '',
+      lastName: '',
+    });
+
+    component.submit();
+
+    httpMock
+      .expectOne('/api/auth/register')
+      .flush(
+        { message: 'Passwort ist zu lang (maximal 72 Bytes).' },
+        { status: 400, statusText: 'Bad Request' },
+      );
+
+    expect(component.errorMessage()).toBe('Passwort ist zu lang (maximal 72 Bytes).');
+    expect(navigate).not.toHaveBeenCalled();
+    expect(component.submitting()).toBe(false);
+  });
+
+  it('falls back to the generic message on 400 without a message body', () => {
+    component.form.setValue({
+      email: 'lara@example.ch',
+      password: 'supersecret',
+      firstName: '',
+      lastName: '',
+    });
+
+    component.submit();
+
+    httpMock
+      .expectOne('/api/auth/register')
+      .flush(null, { status: 400, statusText: 'Bad Request' });
+
+    expect(component.errorMessage()).toBe(
+      'Registrierung fehlgeschlagen. Bitte versuche es später erneut.',
+    );
+  });
+
   // Deckt den gerenderten Fehler ab, nicht nur das Signal: ein Umbau auf eine Komponente
   // mit `role="status"` liesse den Screenreader-Fehler sonst still verschwinden.
   it('kündigt den Formular-Fehler assertiv an (role=alert)', () => {
