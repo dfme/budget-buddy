@@ -87,6 +87,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `FE-AUTH-03` | [FE-AUTH-03 — Register-Component (Reactive Form)](FE-AUTH-03-register-component.md) | [#55](https://github.com/dfme/budget-buddy/issues/55) | US-01 | Sprint 2 |
 | `FE-AUTH-04` | [FE-AUTH-04 — authGuard + 401-Redirect für geschützte Routes](FE-AUTH-04-authguard-401-redirect.md) | [#56](https://github.com/dfme/budget-buddy/issues/56) | US-01 | Sprint 2 |
 | `FE-AUTH-05` | [Logout-Button + Nav-Anbindung](FE-AUTH-05-logout-button.md) | [#57](https://github.com/dfme/budget-buddy/issues/57) | US-01 | Sprint 2 |
+| `FE-AUTH-06` | [Register-Formular zeigt die Backend-Fehlermeldung bei 400 nicht an](FE-AUTH-06-register-400-message.md) | [#264](https://github.com/dfme/budget-buddy/issues/264) | — | Sprint 6 |
 | `FE-CAT-01` | [FE-CAT-01 — Kategorie-Übersicht](FE-CAT-01-kategorie-uebersicht.md) | [#30](https://github.com/dfme/budget-buddy/issues/30) | US-05 | Sprint 3 |
 | `FE-CAT-02` | [Pie-Chart Ausgaben nach Kategorie](FE-CAT-02-kategorie-donut-chart.md) | [#31](https://github.com/dfme/budget-buddy/issues/31) | US-05 | Sprint 4 |
 | `FE-CAT-03` | [Manuelles Korrigieren von Kategorien](FE-CAT-03-kategorie-korrektur.md) | [#32](https://github.com/dfme/budget-buddy/issues/32) | US-05 | Sprint 4 |
