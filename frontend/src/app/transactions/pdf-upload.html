@@ -61,6 +61,72 @@
     }
   }
 
+  <!--
+    Die Buchungen des soeben abgeschlossenen Imports (FE-PDF-04). Sie hängen an der
+    Erfolgsmeldung und nicht am Upload-Zustand: der degradierte Fall (BE-PDF-09) ist ebenfalls ein
+    Erfolg, sein Hinweistext steht in der Meldung darüber und bleibt deshalb ohne Zutun erhalten.
+
+    Der Nullfall hat hier bewusst keinen eigenen Zweig: `importedTransactions` bleibt bei
+    0 erkannten Buchungen `null`, weil `trackJob` gar nicht erst nachfragt — eine leere Liste
+    entsteht nie und muss auch nicht weggeblendet werden.
+  -->
+  @if (importedTransactions(); as transactions) {
+    <ul class="imported">
+      @for (tx of transactions; track tx.id) {
+        <li class="imported__row">
+          <span class="imported__date">{{ tx.buchungsdatum | date: 'dd.MM.yyyy' }}</span>
+          <!--
+            Zwei Zeilen statt einer, wie in der Kategorie-Übersicht: buchungstext trägt bei
+            PostFinance nur die Zahlungsart («LASTSCHRIFT», «TWINT»), die Gegenpartei steht
+            ausschliesslich in buchungsdetails. Ohne sie sähen die Zeilen eines Auszugs
+            untereinander gleich aus — und genau daran entscheidet sich hier die Kategorie.
+            Fehlen die Details, entfällt die zweite Zeile ersatzlos (BE-PDF-07).
+          -->
+          <span class="imported__text">
+            <span class="imported__booking">{{ tx.buchungstext }}</span>
+            @if (tx.buchungsdetails; as details) {
+              <span class="imported__details">{{ details }}</span>
+            }
+          </span>
+          <!--
+            Vorzeichen statt blosser Zahl: Anders als die Kategorie-Übersicht (nur Ausgaben)
+            liefert GET /api/import/{jobId}/transactions den ganzen Import inklusive
+            Gutschriften — ohne + / − wäre eine Rückerstattung hier nicht von einer Belastung
+            zu unterscheiden. <app-amount> trägt das Vorzeichen sichtbar und im aria-label,
+            nicht bloss als Farbe (FE-UI-03).
+          -->
+          <app-amount class="imported__amount" [value]="signedAmount(tx)" [showCurrency]="true" />
+          <label class="imported__category">
+            <span class="visually-hidden">Kategorie von {{ transactionLabel(tx) }}</span>
+            <!--
+              Vorauswahl über [selected] am <option>, nicht über [value] am <select>: der Wert am
+              Elternelement würde gesetzt, bevor die Optionen der @for-Schleife überhaupt
+              existieren, und liefe ins Leere. [selected] trägt auch den Rollback — fällt
+              tx.category nach einem gescheiterten PUT zurück, flippen beide Bindings und
+              schreiben ins DOM. Gleiche Begründung wie in category-overview.html.
+            -->
+            <select appInput (change)="changeCategory(tx, $any($event.target).value)">
+              @for (option of categories; track option.slug) {
+                <option [value]="option.label" [selected]="option.label === tx.category">
+                  {{ option.label }}
+                </option>
+              }
+            </select>
+          </label>
+        </li>
+      }
+    </ul>
+  }
+
+  @if (listErrorMessage(); as message) {
+    <!-- Der Import blieb erfolgreich — nur seine Anzeige fehlt. Die Meldung darüber bleibt stehen. -->
+    <app-notice class="upload__notice" variant="error">{{ message }}</app-notice>
+  }
+
+  @if (saveErrorMessage(); as message) {
+    <app-notice class="upload__notice" variant="error">{{ message }}</app-notice>
+  }
+
   @if (duplicateFile(); as file) {
     <!-- 409 aus dem Backend: statt einer Meldung eine Rückfrage (FE-PDF-03). -->
     <app-modal

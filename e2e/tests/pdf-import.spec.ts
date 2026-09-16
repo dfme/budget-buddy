@@ -7,7 +7,10 @@ import { expect, test } from '../fixtures/auth.fixture';
  *
  * Ein Happy Path und ein Fehlerpfad — die in CLAUDE.md («Testing: Frameworks») vorgeschriebene
  * Menge, und zwar pro Story, nicht pro Issue. US-04 besteht aus acht Issues (#13, #17, #18, #27,
- * #28, #29, #83, #95); die beiden Fälle gehören deshalb hierher und nicht in einen Feature-PR.
+ * #28, #29, #83, #95, #292); die beiden Fälle gehören deshalb hierher und nicht in einen
+ * Feature-PR. Der Happy Path wächst mit der Story mit — FE-PDF-04 (#292) hat ihn von der
+ * Kategorie-Übersicht auf den Import-Screen zurückgeholt, statt dafür ein eigenes E2E-Issue
+ * aufzumachen: Er fasst dieselbe DOM an, und die E2E-Abdeckung wird pro Story erfasst.
  *
  * Einstieg über `authenticatedPage`: `/import` liegt hinter `authGuard` UND `onboardingGuard`,
  * die Fixture erledigt beides über die API (siehe `fixtures/auth.fixture.ts`).
@@ -32,9 +35,6 @@ test.describe('PDF-Import', () => {
   /** Die fünf Buchungen der Fixture — Grundlage der erwarteten Erfolgsmeldung. */
   const FIXTURE_TRANSACTION_COUNT = 5;
 
-  /** Monat der Fixture-Buchungen, als Deep-Link-Parameter der Kategorie-Übersicht (FE-CAT-04). */
-  const FIXTURE_MONTH = '2025-06';
-
   /**
    * Wartezeit auf das Ergebnis-Banner. Seit ADR-14 (BE-PDF-09) läuft die Kategorisierung als
    * Hintergrund-Job, den das Frontend pollt: Der Upload-Request selbst ist nach dem Parsen
@@ -47,7 +47,7 @@ test.describe('PDF-Import', () => {
    */
   const IMPORT_RESULT_TIMEOUT_MS = 60_000;
 
-  test('Happy Path: Upload meldet die Anzahl erkannter Transaktionen', async ({
+  test('Happy Path: Upload meldet die Anzahl und listet die importierten Buchungen', async ({
     authenticatedPage: page,
   }) => {
     await page.goto('/import');
@@ -70,20 +70,20 @@ test.describe('PDF-Import', () => {
     await expect(successText).toHaveText(`${FIXTURE_TRANSACTION_COUNT} Transaktionen erkannt.`);
 
     // Gegenprobe zur Zahl im Banner: die stammt direkt aus der HTTP-Response. Dass die Buchungen
-    // wirklich persistiert sind und über einen zweiten Endpoint wieder herauskommen, zeigt erst
-    // die Kategorie-Übersicht. Der Monat muss in die URL — der Default ist der laufende Monat,
-    // und der ist bei einer Fixture aus Juni 2025 zwangsläufig leer.
-    await page.goto(`/categories?month=${FIXTURE_MONTH}`);
+    // wirklich persistiert sind, zeigt erst ein zweiter Endpoint — seit FE-PDF-04 ist das
+    // `GET /api/import/{jobId}/transactions`, das der Import-Screen selbst abfragt und als Liste
+    // rendert. Der frühere Umweg über `/categories?month=2025-06` hatte genau diesen Zweck und
+    // ist damit hinfällig: Derselbe Beweis steht jetzt auf der Seite, die gerade geprüft wird.
+    const rows = page.locator('.imported__row');
+    await expect(rows).toHaveCount(FIXTURE_TRANSACTION_COUNT);
 
-    // Die sichtbare Tabellenzeile ist der ganze Beweis: `loading`, `errorMessage`, `isEmpty` und
-    // `summary` liegen in gegenseitig ausschliessenden @else-if-Zweigen (`category-overview.html`).
-    // Ist eine Zeile da, kann der Leerzustand «Keine Ausgaben in diesem Monat.» nicht im DOM sein
-    // — eine zusätzliche Negativ-Assertion darauf könnte hier gar nicht mehr fehlschlagen.
-    //
-    // Welche Kategorien in der Zeile stehen, ist bewusst nicht Gegenstand: ohne ANTHROPIC_API_KEY
-    // fällt in der Testinstanz alles Unbekannte auf `Sonstiges` zurück (`AnthropicProperties`),
-    // und der Rest hängt an den Seed-Daten aus Migration V04.
-    await expect(page.locator('tbody tr').first()).toBeVisible();
+    // Jede Zeile trägt das Korrektur-Dropdown mit den 13 Kategorien aus `shared/category.ts`
+    // (FE-CAT-03). Welche Kategorie vorausgewählt ist, ist bewusst nicht Gegenstand: ohne
+    // ANTHROPIC_API_KEY fällt in der Testinstanz alles Unbekannte auf `Sonstiges` zurück
+    // (`AnthropicProperties`), und der Rest hängt an den Seed-Daten aus Migration V04.
+    const firstCategory = rows.first().locator('.imported__category select');
+    await expect(firstCategory).toBeVisible();
+    await expect(firstCategory.locator('option')).toHaveCount(13);
   });
 
   test('Fehlerpfad: unlesbares PDF meldet einen Fehler und keinen Erfolg', async ({
