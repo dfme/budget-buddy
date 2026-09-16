@@ -57,14 +57,14 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `BE-PDF-10` | [Geratene Buchungsrichtung sichtbar machen und korrigierbar](BE-PDF-10-unsichere-buchungsrichtung.md) | [#193](https://github.com/dfme/budget-buddy/issues/193) | US-04 | Sprint 6 |
 | `BE-PDF-11` | [Verwaiste Import-Jobs bleiben nach einem Neustart für immer auf RUNNING](BE-PDF-11-verwaiste-import-jobs.md) | [#197](https://github.com/dfme/budget-buddy/issues/197) | US-04 | Sprint 6 |
 | `BE-PDF-13` | [Gegenpartei-Adresse als einzelne Zeile überlebt DETAIL_NOISE](BE-PDF-13-adresse-detail-noise.md) | [#241](https://github.com/dfme/budget-buddy/issues/241) | US-05 | Sprint 6 |
-| `BE-PDF-14` | [Endpoint: Transaktionen eines Import-Jobs auflisten](BE-PDF-14-import-transactions-endpoint.md) | [#291](https://github.com/dfme/budget-buddy/issues/291) | US-04 | — |
+| `BE-PDF-14` | [Endpoint: Transaktionen eines Import-Jobs auflisten](BE-PDF-14-import-transactions-endpoint.md) | [#291](https://github.com/dfme/budget-buddy/issues/291) | US-04, US-05 | Sprint 6 |
 | `BE-REC-01` | [RecurringExpenseService: Erkennung](BE-REC-01-recurring-expense-detection.md) | [#253](https://github.com/dfme/budget-buddy/issues/253) | US-08 | Sprint 6 |
 | `BE-REC-02` | [REST-Endpoints Abo-Übersicht](BE-REC-02-abo-uebersicht-endpoints.md) | [#254](https://github.com/dfme/budget-buddy/issues/254) | US-08 | Sprint 6 |
 | `BE-STS-01` | [SafeToSpendService](BE-STS-01-safe-to-spend-service.md) | [#21](https://github.com/dfme/budget-buddy/issues/21) | US-06 | Sprint 4 |
 | `BE-STS-02` | [Einkommens-Heuristik](BE-STS-02-einkommens-heuristik.md) | [#22](https://github.com/dfme/budget-buddy/issues/22) | US-06 | Sprint 4 |
 | `BE-STS-03` | [GET /budget/safe-to-spend](BE-STS-03-safe-to-spend-endpoint.md) | [#23](https://github.com/dfme/budget-buddy/issues/23) | US-06 | Sprint 4 |
 | `BE-STS-04` | [Fixkosten werden im Safe-to-Spend doppelt abgezogen](BE-STS-04-fixkosten-doppelabzug.md) | [#154](https://github.com/dfme/budget-buddy/issues/154) | US-06 | Sprint 5 |
-| `BE-STS-05` | [Einkommens-Heuristik über den Absender gruppieren](BE-STS-05-absender-gruppierung.md) | [#208](https://github.com/dfme/budget-buddy/issues/208) | US-06 | Sprint 6 |
+| `BE-STS-05` | [Einkommens-Heuristik über den Absender statt den Buchungstext gruppieren](BE-STS-05-absender-gruppierung.md) | [#208](https://github.com/dfme/budget-buddy/issues/208) | — | Sprint 6 |
 | `BE-STS-06` | [Safe-to-Spend: Monat-Parameter + Abgeschlossen-Status](BE-STS-06-safe-to-spend-monat.md) | [#248](https://github.com/dfme/budget-buddy/issues/248) | US-12 | Sprint 6 |
 | `BE-STS-07` | [Monats-Kennzahlen: Einnahmen, Ausgaben und Differenz pro Monat](BE-STS-07-monats-kennzahlen.md) | [#288](https://github.com/dfme/budget-buddy/issues/288) | US-12 | Sprint 6 |
 | `DB-01` | [DB-01 — Flyway V1: users-Tabelle](DB-01-flyway-users-table.md) | [#4](https://github.com/dfme/budget-buddy/issues/4) | — | Sprint 1 |
@@ -102,7 +102,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `FE-PDF-01` | [Plan: FE-PDF-01 — PDF-Upload Component](FE-PDF-01-pdf-upload-component.md) | [#27](https://github.com/dfme/budget-buddy/issues/27) | US-04 | Sprint 3 |
 | `FE-PDF-02` | [FE-PDF-02 — Ergebnis-Anzeige nach PDF-Import](FE-PDF-02-import-ergebnis-anzeige.md) | [#28](https://github.com/dfme/budget-buddy/issues/28) | US-04 | Sprint 3 |
 | `FE-PDF-03` | [Duplikat-Dialog](FE-PDF-03-duplikat-dialog.md) | [#29](https://github.com/dfme/budget-buddy/issues/29) | US-04 | Sprint 4 |
-| `FE-PDF-04` | [Importierte Transaktionen mit Kategorie direkt im Import-Screen anzeigen und korrigieren](FE-PDF-04-import-transaction-list.md) | [#292](https://github.com/dfme/budget-buddy/issues/292) | US-04 | Sprint 6 |
+| `FE-PDF-04` | [Importierte Transaktionen mit Kategorie direkt im Import-Screen anzeigen und korrigieren](FE-PDF-04-import-transaction-list.md) | [#292](https://github.com/dfme/budget-buddy/issues/292) | US-04, US-05 | — |
 | `FE-SET-01` | [Einstellungen-Screen: Route und Navigation](FE-SET-01-einstellungen-screen.md) | [#177](https://github.com/dfme/budget-buddy/issues/177) | US-14 | Sprint 5 |
 | `FE-SET-02` | [Passwort ändern](FE-SET-02-passwort-aendern.md) | [#178](https://github.com/dfme/budget-buddy/issues/178) | US-14 | Sprint 5 |
 | `FE-SET-03` | [Einkommen manuell erfassen und ändern](FE-SET-03-einkommen-aendern.md) | [#179](https://github.com/dfme/budget-buddy/issues/179) | US-14 | Sprint 5 |
