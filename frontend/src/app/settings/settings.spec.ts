@@ -1,3 +1,4 @@
+import { Location } from '@angular/common';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -59,6 +60,14 @@ describe('Settings', () => {
   let fixture: ComponentFixture<Settings>;
   let component: Settings;
   let httpMock: HttpTestingController;
+  /**
+   * Dieses describe läuft mit `provideRouter([])` — ohne Routen. `confirmDelete` navigiert nach
+   * Erfolg auf `/login`, was hier in einem NG04002 als Unhandled Rejection endete und die
+   * Testumgebung mitriss. Der Spy hält die Navigation an und macht sie zugleich prüfbar; dass
+   * die echte Navigation samt Login-Aktivierung funktioniert, deckt der Integrationstest in
+   * «Route /einstellungen» ab.
+   */
+  let navigate: ReturnType<typeof vi.spyOn>;
 
   beforeEach(async () => {
     localStorage.removeItem(THEME_STORAGE_KEY);
@@ -76,6 +85,8 @@ describe('Settings', () => {
     // bereits ein Einkommen, das Backend liefert für diesen Fall laut SafeToSpendResponse-Doku
     // ohnehin immer `incomeSuggestion: null`. `afterEach`s `httpMock.verify()` deckt einen
     // ungewollten Call auf, falls die Optimierung doch einmal bricht.
+    navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+
     fixture = TestBed.createComponent(Settings);
     component = fixture.componentInstance;
     fixture.detectChanges();
@@ -115,12 +126,14 @@ describe('Settings', () => {
     expect(fixture.nativeElement.querySelector('h1')?.textContent?.trim()).toBe('Einstellungen');
   });
 
-  it('rendert die drei Abschnitte "Passwort", "Einkommen" und "Erscheinungsbild" als Cards', () => {
+  it('rendert die vier Abschnitte "Passwort", "Einkommen", "Erscheinungsbild" und "Konto löschen" als Cards', () => {
     const cardTitles = Array.from(
       (fixture.nativeElement as HTMLElement).querySelectorAll('app-card .card__title'),
     ).map((el) => el.textContent?.trim());
 
-    expect(cardTitles).toEqual(['Passwort', 'Einkommen', 'Erscheinungsbild']);
+    // „Konto löschen" steht bewusst zuletzt (FE-SET-05): die zerstörerische Aktion gehört
+    // ans Ende, nicht zwischen zwei alltägliche Einstellungen.
+    expect(cardTitles).toEqual(['Passwort', 'Einkommen', 'Erscheinungsbild', 'Konto löschen']);
   });
 
   // --- FE-SET-02: Passwort ändern ---
@@ -431,6 +444,232 @@ describe('Settings', () => {
 
     expect(hint?.textContent).toContain('nur in diesem Browser');
   });
+
+  // --- FE-SET-05 / US-02: Konto löschen ---
+
+  /** Der Button der Lösch-Card — nicht der gleichnamige im Dialog. */
+  function openDeleteButton(): HTMLButtonElement {
+    const card = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('app-card'),
+    ).find((el) => el.querySelector('.card__title')?.textContent?.trim() === 'Konto löschen');
+    return card!.querySelector('button')!;
+  }
+
+  /** Ein Button im Aktionsbereich des Dialogs, über seine Beschriftung gesucht. */
+  function dialogButton(label: string): HTMLButtonElement | undefined {
+    return Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>(
+        'app-modal .modal__actions button',
+      ),
+    ).find((btn) => btn.textContent?.trim() === label);
+  }
+
+  function dialog(): HTMLElement | null {
+    return (fixture.nativeElement as HTMLElement).querySelector('app-modal');
+  }
+
+  /** Öffnet den Dialog über den Button der Card und tippt optional ein Passwort ein. */
+  function openDialog(passwort?: string): void {
+    openDeleteButton().click();
+    fixture.detectChanges();
+    if (passwort !== undefined) {
+      component.deleteForm.controls.passwort.setValue(passwort);
+      fixture.detectChanges();
+    }
+  }
+
+  // --- AC1: Aktion öffnet einen Bestätigungsdialog mit Passwort-Eingabe ---
+
+  it('zeigt die Aktion "Konto löschen" und öffnet den Dialog erst auf Klick', () => {
+    expect(openDeleteButton().textContent?.trim()).toBe('Konto löschen');
+    expect(dialog()).toBeNull();
+
+    openDialog();
+
+    expect(dialog()).not.toBeNull();
+    expect(dialog()!.textContent).toContain('Konto endgültig löschen?');
+  });
+
+  it('enthält im Dialog ein Passwortfeld', () => {
+    openDialog();
+
+    const input = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>(
+      'app-modal input#deletePasswort',
+    );
+    expect(input).not.toBeNull();
+    expect(input!.type).toBe('password');
+  });
+
+  it('sperrt den Submit, solange das Passwortfeld leer ist', () => {
+    openDialog();
+
+    expect(component.deleteDisabled()).toBe(true);
+    expect(dialogButton('Konto löschen')!.disabled).toBe(true);
+
+    component.deleteForm.controls.passwort.setValue('supersecret');
+    fixture.detectChanges();
+
+    expect(component.deleteDisabled()).toBe(false);
+    expect(dialogButton('Konto löschen')!.disabled).toBe(false);
+  });
+
+  it('sperrt den Submit, solange der Request läuft', () => {
+    openDialog('supersecret');
+
+    dialogButton('Konto löschen')!.click();
+    fixture.detectChanges();
+
+    expect(component.deleteSubmitting()).toBe(true);
+    expect(dialogButton('Konto löschen')!.disabled).toBe(true);
+
+    // Ein zweiter Klick darf keinen zweiten Request auslösen — `httpMock.verify()` im
+    // afterEach deckte einen unbeantworteten auf.
+    dialogButton('Konto löschen')!.click();
+
+    httpMock.expectOne('/api/users/me').flush(null, { status: 204, statusText: 'No Content' });
+  });
+
+  it('bestätigt per Enter im Passwortfeld wie über den Button (Review #304)', () => {
+    openDialog('supersecret');
+
+    (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLFormElement>('app-modal form')!
+      .dispatchEvent(new Event('submit'));
+
+    httpMock.expectOne('/api/users/me').flush(null, { status: 204, statusText: 'No Content' });
+  });
+
+  it('löst per Enter bei leerem Passwortfeld keinen Request aus', () => {
+    openDialog();
+
+    // Der Submit-Button ist gesperrt, das Formular selbst aber nicht — der Guard sitzt in
+    // confirmDelete(), sonst käme Enter am gesperrten Button vorbei.
+    (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLFormElement>('app-modal form')!
+      .dispatchEvent(new Event('submit'));
+
+    httpMock.expectNone('/api/users/me');
+  });
+
+  // --- AC2: DELETE /api/users/me mit dem Passwort im Body ---
+
+  it('ruft DELETE /api/users/me mit dem eingegebenen Passwort im Body', () => {
+    openDialog('supersecret');
+
+    dialogButton('Konto löschen')!.click();
+
+    const req = httpMock.expectOne('/api/users/me');
+    expect(req.request.method).toBe('DELETE');
+    expect(req.request.body).toEqual({ passwort: 'supersecret' });
+    req.flush(null, { status: 204, statusText: 'No Content' });
+  });
+
+  // --- AC3: Erfolgreiche Löschung navigiert auf /login ---
+
+  it('navigiert nach erfolgreicher Löschung auf /login und meldet die Löschung dorthin', () => {
+    openDialog('supersecret');
+
+    dialogButton('Konto löschen')!.click();
+    httpMock.expectOne('/api/users/me').flush(null, { status: 204, statusText: 'No Content' });
+    fixture.detectChanges();
+
+    expect(navigate).toHaveBeenCalledWith(['/login'], { state: { accountDeleted: true } });
+    // Der Dialog ist weg und der Auth-State geleert — der Service macht das im `tap`.
+    expect(dialog()).toBeNull();
+    expect(TestBed.inject(AuthService).currentUser()).toBeNull();
+  });
+
+  // --- AC4: 400 → "Passwort falsch", User bleibt eingeloggt ---
+
+  it('zeigt "Passwort falsch" im Dialog und hält den User eingeloggt, wenn das Backend 400 liefert', () => {
+    openDialog('falsch');
+
+    dialogButton('Konto löschen')!.click();
+    httpMock
+      .expectOne('/api/users/me')
+      .flush({ message: 'Aktuelles Passwort falsch' }, { status: 400, statusText: 'Bad Request' });
+    fixture.detectChanges();
+
+    // Bewusst der feste Text, nicht die Backend-`message`: im Löschdialog gibt es kein
+    // „neues" Passwort, zu dem „aktuelles" den Gegensatz bildete (AC4).
+    expect(component.deleteErrorMessage()).toBe('Passwort falsch');
+    expect(dialog()!.querySelector('app-notice')?.textContent).toContain('Passwort falsch');
+
+    // Der User bleibt eingeloggt und im Einstellungs-Screen.
+    expect(dialog()).not.toBeNull();
+    expect(navigate).not.toHaveBeenCalled();
+    expect(TestBed.inject(AuthService).currentUser()).toEqual(LARA);
+  });
+
+  it('erlaubt einen zweiten Versuch nach falschem Passwort', () => {
+    openDialog('falsch');
+    dialogButton('Konto löschen')!.click();
+    httpMock
+      .expectOne('/api/users/me')
+      .flush({ message: 'Aktuelles Passwort falsch' }, { status: 400, statusText: 'Bad Request' });
+    fixture.detectChanges();
+
+    expect(component.deleteSubmitting()).toBe(false);
+    expect(dialogButton('Konto löschen')!.disabled).toBe(false);
+
+    component.deleteForm.controls.passwort.setValue('supersecret');
+    fixture.detectChanges();
+    dialogButton('Konto löschen')!.click();
+
+    const req = httpMock.expectOne('/api/users/me');
+    expect(req.request.body).toEqual({ passwort: 'supersecret' });
+    req.flush(null, { status: 204, statusText: 'No Content' });
+  });
+
+  // --- Abbrechen ---
+
+  it('schliesst den Dialog per Abbrechen und leert das Passwortfeld', () => {
+    openDialog('supersecret');
+
+    dialogButton('Abbrechen')!.click();
+    fixture.detectChanges();
+
+    expect(dialog()).toBeNull();
+    expect(component.deleteForm.controls.passwort.value).toBe('');
+    httpMock.expectNone('/api/users/me');
+  });
+
+  it('ignoriert Abbrechen, solange der Request läuft', () => {
+    openDialog('supersecret');
+    dialogButton('Konto löschen')!.click();
+    fixture.detectChanges();
+
+    // Das DELETE liesse sich nicht mehr zurücknehmen — ein geschlossener Dialog täuschte
+    // einen Abbruch vor, den es nicht gibt.
+    dialogButton('Abbrechen')!.click();
+    fixture.detectChanges();
+
+    expect(dialog()).not.toBeNull();
+    httpMock.expectOne('/api/users/me').flush(null, { status: 204, statusText: 'No Content' });
+  });
+
+  // --- AC5: Das Passwort erreicht keinen Browser-Speicher ---
+
+  it('schreibt das Passwort weder in localStorage noch in sessionStorage (ADR-7)', () => {
+    const localSetItem = vi.spyOn(Storage.prototype, 'setItem');
+
+    openDialog('supersecret');
+    dialogButton('Konto löschen')!.click();
+    httpMock.expectOne('/api/users/me').flush(null, { status: 204, statusText: 'No Content' });
+    fixture.detectChanges();
+
+    // Der Spy fängt beide Storages ab — `localStorage` und `sessionStorage` teilen sich
+    // `Storage.prototype`. Geprüft wird jeder Aufruf, nicht nur die Summe: der Theme-Service
+    // darf schreiben, das Passwort darf in keinem Wert vorkommen.
+    for (const [key, value] of localSetItem.mock.calls) {
+      expect(String(key)).not.toContain('supersecret');
+      expect(String(value)).not.toContain('supersecret');
+    }
+    expect(localStorage.getItem('deletePasswort')).toBeNull();
+    expect(sessionStorage.length).toBe(0);
+
+    localSetItem.mockRestore();
+  });
 });
 
 describe('Einkommen-Formular ohne erfasstes Einkommen', () => {
@@ -622,5 +861,67 @@ describe('Route /einstellungen', () => {
       .componentInstance as Dashboard;
     expect(dashboard.data()?.amount).toBe(650);
     expect((root.nativeElement as HTMLElement).textContent).not.toContain('Kein Betrag verfügbar');
+  });
+
+  // --- FE-SET-05 / AC3: Löschen landet auf /login samt Bestätigung ---
+
+  it('landet nach dem Löschen auf /login und zeigt dort die Bestätigung — ohne Reload', async () => {
+    const root = TestBed.createComponent(App);
+    root.detectChanges();
+
+    const firstNavigation = router.navigateByUrl('/einstellungen');
+    await answerProfile(LARA);
+    await firstNavigation;
+    root.detectChanges();
+    httpMock.expectOne('/api/notifications').flush([]);
+
+    const settings = root.debugElement.query(By.directive(Settings)).componentInstance as Settings;
+    settings.deleteForm.controls.passwort.setValue('supersecret');
+    settings.confirmDelete();
+    httpMock.expectOne('/api/users/me').flush(null, { status: 204, statusText: 'No Content' });
+
+    // Echte Router-Navigation statt eines Spies: nur so wird Login tatsächlich aktiviert und
+    // liest den Navigation-State, den confirmDelete mitgibt.
+    await root.whenStable();
+    root.detectChanges();
+
+    // FE-NOTIF-01: Die Glocke lädt bei jedem NavigationEnd neu (`notification-bell.ts:55`) —
+    // auch bei dieser letzten Navigation, genau wie beim Logout. Ob sie noch dazu kommt, hängt
+    // davon ab, ob sie vor oder nach dem Kippen von isAuthenticated() zerstört wird; `match`
+    // nimmt beide Fälle, `expectOne` nur einen und liesse `verify()` sonst stolpern.
+    httpMock.match('/api/notifications').forEach((req) => req.flush([]));
+
+    expect(router.url).toBe('/login');
+    expect((root.nativeElement as HTMLElement).textContent).toContain('Dein Konto wurde gelöscht');
+    // Der authGuard hat die Navigation nicht zurückgedreht — der Auth-State ist leer.
+    expect(TestBed.inject(AuthService).currentUser()).toBeNull();
+  });
+
+  // --- FE-SET-05 / AC3: Ein Reload nach der Löschung zeigt die Bestätigung nicht erneut ---
+
+  it('löscht den Navigation-State aus der History, damit ein Reload die Bestätigung nicht wiederholt', async () => {
+    const root = TestBed.createComponent(App);
+    root.detectChanges();
+
+    const firstNavigation = router.navigateByUrl('/einstellungen');
+    await answerProfile(LARA);
+    await firstNavigation;
+    root.detectChanges();
+    httpMock.expectOne('/api/notifications').flush([]);
+
+    const settings = root.debugElement.query(By.directive(Settings)).componentInstance as Settings;
+    settings.deleteForm.controls.passwort.setValue('supersecret');
+    settings.confirmDelete();
+    httpMock.expectOne('/api/users/me').flush(null, { status: 204, statusText: 'No Content' });
+
+    await root.whenStable();
+    root.detectChanges();
+    httpMock.match('/api/notifications').forEach((req) => req.flush([]));
+
+    // `Location.getState()` ist genau das, was ein Reload restaurieren würde (siehe login.ts,
+    // readAccountDeleted): bliebe `accountDeleted` hier stehen, käme die Bestätigung nach F5
+    // zurück — das war der in Review #304 gefundene Defekt.
+    const state = TestBed.inject(Location).getState() as Record<string, unknown> | null;
+    expect(state?.['accountDeleted']).toBeUndefined();
   });
 });
