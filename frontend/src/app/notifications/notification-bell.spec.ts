@@ -201,7 +201,7 @@ describe('NotificationBell', () => {
   });
 
   // FE-REC-01: die Antwort auf «Netflix wurde als Abo erkannt» ist die Abo-Übersicht.
-  it('führt bei einer Abo-Benachrichtigung in die Abo-Übersicht und schliesst das Dropdown', async () => {
+  it('führt bei einer Abo-Benachrichtigung sofort in die Abo-Übersicht und schliesst das Dropdown', async () => {
     create();
     flushInitialLoad([RECURRING_UNREAD]);
     bellButton().click();
@@ -209,18 +209,17 @@ describe('NotificationBell', () => {
 
     query<HTMLButtonElement>('.bell-list__item')!.click();
     await fixture.whenStable();
-
-    // Noch nicht navigiert: erst muss der Gelesen-Call durch sein, sonst hinge das «Neu»-Label
-    // in der Übersicht vom Race zwischen beiden Requests ab.
-    expect(router.url).toBe('/');
-    httpMock.expectOne('/api/notifications/3/read').flush({ ...RECURRING_UNREAD, read: true });
-    await fixture.whenStable();
     fixture.detectChanges();
 
+    // Sofort navigiert, nicht erst nach dem Gelesen-Call: Käme die Übersicht erst nach dessen
+    // Abschluss an, stünde der Eintrag dort bereits als gelesen und das «Neu»-Label liefe leer
+    // (US-08 AC2).
     expect(router.url).toBe('/abos');
     expect(query('.bell-list')).toBeNull();
     // Die Navigation löst den üblichen Reload aus.
     httpMock.expectOne('/api/notifications').flush([]);
+
+    httpMock.expectOne('/api/notifications/3/read').flush({ ...RECURRING_UNREAD, read: true });
   });
 
   it('führt auch dann in die Abo-Übersicht, wenn das Gelesen-Markieren fehlschlägt', async () => {
@@ -230,13 +229,15 @@ describe('NotificationBell', () => {
     fixture.detectChanges();
 
     query<HTMLButtonElement>('.bell-list__item')!.click();
-    httpMock
-      .expectOne('/api/notifications/3/read')
-      .flush(null, { status: 500, statusText: 'Server Error' });
     await fixture.whenStable();
+    fixture.detectChanges();
 
     expect(router.url).toBe('/abos');
     httpMock.expectOne('/api/notifications').flush([]);
+
+    httpMock
+      .expectOne('/api/notifications/3/read')
+      .flush(null, { status: 500, statusText: 'Server Error' });
   });
 
   it('navigiert bei einer Benachrichtigung anderen Typs nicht', async () => {

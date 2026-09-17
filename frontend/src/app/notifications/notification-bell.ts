@@ -101,30 +101,26 @@ export class NotificationBell {
    * <p><strong>Abo-Benachrichtigung (FE-REC-01).</strong> Trägt sie den Typ
    * {@link RECURRING_EXPENSE_DETECTED}, führt der Klick zusätzlich in die Abo-Übersicht und
    * schliesst das Dropdown — dort steht der Eintrag, und das ist die Antwort auf die Meldung.
-   * Navigiert wird erst, wenn der Gelesen-Call abgeschlossen ist, mit Erfolg oder Fehler: die
-   * Übersicht leitet ihr «Neu»-Label aus genau dieser Benachrichtigung ab (BE-REC-02), und
-   * liefen beide Requests parallel, hinge es vom Zufall ab, ob der Eintrag dort noch als neu
-   * steht. Der Fehlerfall navigiert trotzdem — der Nutzer wollte hin, ein fehlgeschlagener
-   * Nebeneffekt hält ihn nicht auf.
+   * Navigiert wird sofort, der Gelesen-Call läuft parallel im Hintergrund weiter: Die Übersicht
+   * leitet ihr «Neu»-Label aus genau dieser Benachrichtigung ab (BE-REC-02) — würde erst auf den
+   * Abschluss des Gelesen-Calls gewartet, wäre der Eintrag beim Eintreffen in der Übersicht
+   * bereits als gelesen markiert und das Label liefe leer, obwohl US-08 AC2 es genau für diesen
+   * Weg verlangt. Die Glocke selbst markiert trotzdem als gelesen — der Klick ist die
+   * Kenntnisnahme der Benachrichtigung, nicht der Grund, warum der Eintrag in der Übersicht sein
+   * «Neu» behält.
    */
   protected select(notification: NotificationResponse): void {
-    const navigate =
-      notification.type === RECURRING_EXPENSE_DETECTED
-        ? () => {
-            this.close();
-            void this.router.navigate(['/abos']);
-          }
-        : () => undefined;
+    if (notification.type === RECURRING_EXPENSE_DETECTED) {
+      this.close();
+      void this.router.navigate(['/abos']);
+    }
 
     if (notification.read) {
-      navigate();
       return;
     }
     this.notificationService.markAsRead(notification.id).subscribe({
-      next: navigate,
       error: (_err: HttpErrorResponse) => {
-        // Siehe Methoden-Doc: bewusst ohne Meldung — aber mit Navigation.
-        navigate();
+        // Siehe Methoden-Doc: bewusst ohne Meldung.
       },
     });
   }
