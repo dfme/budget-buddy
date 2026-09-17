@@ -353,7 +353,9 @@ export class Settings {
    * <p>Die Bestätigung auf der Login-Seite reist im Navigation-State, nicht als Query-Parameter:
    * ein `?deleted=1` wäre bookmarkbar und überlebte einen Reload, „Konto gelöscht" stünde dann
    * über einem frisch aufgerufenen Login. Der State trägt ausschliesslich das Boolean — das
-   * Passwort verlässt dieses Formular nur als Request-Body (ADR-7, AC5).
+   * Passwort verlässt dieses Formular nur als Request-Body (ADR-7, AC5). Der Navigation-State
+   * selbst überlebt einen Reload ebenso; `Login` löscht ihn deshalb nach dem einmaligen Lesen
+   * explizit aus der History (siehe `login.ts`, `readAccountDeleted`).
    */
   confirmDelete(): void {
     if (this.deleteDisabled()) {

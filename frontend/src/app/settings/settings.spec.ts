@@ -1,3 +1,4 @@
+import { Location } from '@angular/common';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -894,5 +895,33 @@ describe('Route /einstellungen', () => {
     expect((root.nativeElement as HTMLElement).textContent).toContain('Dein Konto wurde gelöscht');
     // Der authGuard hat die Navigation nicht zurückgedreht — der Auth-State ist leer.
     expect(TestBed.inject(AuthService).currentUser()).toBeNull();
+  });
+
+  // --- FE-SET-05 / AC3: Ein Reload nach der Löschung zeigt die Bestätigung nicht erneut ---
+
+  it('löscht den Navigation-State aus der History, damit ein Reload die Bestätigung nicht wiederholt', async () => {
+    const root = TestBed.createComponent(App);
+    root.detectChanges();
+
+    const firstNavigation = router.navigateByUrl('/einstellungen');
+    await answerProfile(LARA);
+    await firstNavigation;
+    root.detectChanges();
+    httpMock.expectOne('/api/notifications').flush([]);
+
+    const settings = root.debugElement.query(By.directive(Settings)).componentInstance as Settings;
+    settings.deleteForm.controls.passwort.setValue('supersecret');
+    settings.confirmDelete();
+    httpMock.expectOne('/api/users/me').flush(null, { status: 204, statusText: 'No Content' });
+
+    await root.whenStable();
+    root.detectChanges();
+    httpMock.match('/api/notifications').forEach((req) => req.flush([]));
+
+    // `Location.getState()` ist genau das, was ein Reload restaurieren würde (siehe login.ts,
+    // readAccountDeleted): bliebe `accountDeleted` hier stehen, käme die Bestätigung nach F5
+    // zurück — das war der in Review #304 gefundene Defekt.
+    const state = TestBed.inject(Location).getState() as Record<string, unknown> | null;
+    expect(state?.['accountDeleted']).toBeUndefined();
   });
 });
