@@ -95,8 +95,12 @@ export class Login {
     const deleted = this.router.getCurrentNavigation()?.extras.state?.['accountDeleted'] === true;
     if (deleted) {
       // Sonst zeigt ein Reload die Bestätigung erneut: der State liegt in history.state und
-      // wird bei der initialen Navigation restauriert (siehe Doku an `accountDeleted`).
-      this.location.replaceState(this.location.path(), '', {});
+      // wird bei der initialen Navigation restauriert (siehe Doku an `accountDeleted`). Nur den
+      // einen Schlüssel entfernen, nicht den ganzen State — der Router legt hier auch eigenes
+      // Bookkeeping ab (navigationId, ɵrouterPageId).
+      const { accountDeleted: _, ...rest } =
+        (this.location.getState() as Record<string, unknown>) ?? {};
+      this.location.replaceState(this.location.path(), '', rest);
     }
     return deleted;
   }
