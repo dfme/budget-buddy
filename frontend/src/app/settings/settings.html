@@ -111,4 +111,51 @@
       „System" folgt der Einstellung deines Geräts. Die Wahl gilt nur in diesem Browser.
     </p>
   </app-card>
+
+  <app-card title="Konto löschen">
+    <p class="settings__hint settings__hint--danger">
+      Löscht dein Profil, alle importierten Transaktionen, Fixkosten und Benachrichtigungen
+      endgültig. Das lässt sich nicht rückgängig machen, und ein späterer Login mit denselben
+      Zugangsdaten schlägt fehl.
+    </p>
+
+    <button appButton block variant="ghost" type="button" (click)="openDeleteDialog()">
+      Konto löschen
+    </button>
+  </app-card>
+
+  @if (deleteDialogOpen()) {
+    <!-- Der Dialog hält keinen eigenen Offen-Zustand (siehe modal.ts) — @if ist der Schalter. -->
+    <app-modal
+      title="Konto endgültig löschen?"
+      confirmLabel="Konto löschen"
+      cancelLabel="Abbrechen"
+      [confirmDisabled]="deleteDisabled()"
+      (confirm)="confirmDelete()"
+      (cancel)="cancelDeleteDialog()"
+    >
+      <p>
+        Gib zur Bestätigung dein Passwort ein. Alle deine Daten werden danach endgültig gelöscht.
+      </p>
+
+      <!-- Enter im Passwortfeld bestätigt wie der Button — confirmDelete() prüft selbst
+           deleteDisabled(), ein Enter bei leerem Feld oder laufendem Request bleibt folgenlos. -->
+      <form [formGroup]="deleteForm" (ngSubmit)="confirmDelete()" novalidate>
+        <app-field label="Passwort" inputId="deletePasswort">
+          <input
+            appInput
+            id="deletePasswort"
+            type="password"
+            formControlName="passwort"
+            autocomplete="current-password"
+            required
+          />
+        </app-field>
+      </form>
+
+      @if (deleteErrorMessage(); as message) {
+        <app-notice variant="error">{{ message }}</app-notice>
+      }
+    </app-modal>
+  }
 </section>

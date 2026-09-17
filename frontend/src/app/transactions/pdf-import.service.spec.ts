@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ImportJobStatusResponse, ImportStartedResponse } from './import-response.model';
 import { ImportPollTimeoutError, PdfImportService } from './pdf-import.service';
+import { Transaction } from './transaction.model';
 
 /** Antwort des Status-Endpoints mit sinnvollen Defaults. */
 function jobStatus(patch: Partial<ImportJobStatusResponse> = {}): ImportJobStatusResponse {
@@ -62,6 +63,29 @@ describe('PdfImportService', () => {
     expect(req.request.params.get('force')).toBe('true');
     expect((req.request.body as FormData).get('file')).toBe(file);
     req.flush({ jobId: 7, total: 42 });
+  });
+
+  it('fetches the imported transactions of a finished job', () => {
+    const imported: Transaction[] = [
+      {
+        id: 11,
+        buchungsdatum: '2025-06-14',
+        buchungstext: 'LASTSCHRIFT',
+        buchungsdetails: 'ZALANDO SE',
+        betrag: 42.5,
+        income: false,
+        directionUncertain: false,
+        category: 'Shopping',
+      },
+    ];
+    let received: Transaction[] | undefined;
+    service.importTransactions(7).subscribe((transactions) => (received = transactions));
+
+    const req = httpMock.expectOne('/api/import/7/transactions');
+    expect(req.request.method).toBe('GET');
+    req.flush(imported);
+
+    expect(received).toEqual(imported);
   });
 
   it('polls the job status until it reaches a terminal state', () => {

@@ -5,9 +5,31 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ImportJobStatusResponse } from './import-response.model';
 import { PdfUpload } from './pdf-upload';
+import { Transaction } from './transaction.model';
 
 /** Job-ID, die das Backend-Double in allen Tests zurückgibt. */
 const JOB_ID = 7;
+
+/**
+ * Eine Buchung, wie sie `GET /api/import/{jobId}/transactions` liefert (BE-PDF-14).
+ *
+ * <p>`category` ist hier nie `null`: Das Backend löst eine fehlende Zuordnung bereits zu
+ * `"Sonstiges"` auf (`TransactionResponse.fromResolvingCategory`) — genau deshalb braucht das
+ * Dropdown im Frontend keinen Sonderfall für die Vorauswahl.
+ */
+function transaction(patch: Partial<Transaction> = {}): Transaction {
+  return {
+    id: 1,
+    buchungsdatum: '2025-06-14',
+    buchungstext: 'LASTSCHRIFT',
+    buchungsdetails: null,
+    betrag: 42.5,
+    income: false,
+    directionUncertain: false,
+    category: 'Sonstiges',
+    ...patch,
+  };
+}
 
 function pdfFile(name = 'kontoauszug.pdf'): File {
   return new File(['%PDF-1.4'], name, { type: 'application/pdf' });
@@ -38,11 +60,28 @@ describe('PdfUpload', () => {
   }
 
   /**
-   * Beantwortet den Upload und danach den ersten Status-Poll — der vollständige zweistufige
-   * Import (ADR-14). Ohne den zweiten Schritt bliebe die Komponente im Fortschrittszustand
-   * stehen, denn `POST /api/import/pdf` meldet seit BE-PDF-09 nur noch den Start.
+   * Beantwortet die Abfrage der importierten Buchungen, die seit FE-PDF-04 auf jedes `DONE`
+   * folgt. Ohne sie bliebe der Request offen und `httpMock.verify()` liesse den Test scheitern.
    */
-  function completeImport(total: number, patch: Partial<ImportJobStatusResponse> = {}): void {
+  function flushImportedTransactions(transactions: Transaction[] = []): void {
+    httpMock.expectOne(`/api/import/${JOB_ID}/transactions`).flush(transactions);
+    fixture.detectChanges();
+  }
+
+  /**
+   * Beantwortet den Upload, den ersten Status-Poll und — seit FE-PDF-04 — die Abfrage der
+   * importierten Buchungen: der vollständige Import (ADR-14). Ohne den zweiten Schritt bliebe
+   * die Komponente im Fortschrittszustand stehen, denn `POST /api/import/pdf` meldet seit
+   * BE-PDF-09 nur noch den Start.
+   *
+   * <p>`transactions` ist per Default leer: Die meisten Tests hier prüfen den Ausgang des
+   * Imports, nicht die Liste. Wer sie prüft, gibt die Buchungen mit.
+   */
+  function completeImport(
+    total: number,
+    patch: Partial<ImportJobStatusResponse> = {},
+    transactions: Transaction[] = [],
+  ): void {
     httpMock.expectOne('/api/import/pdf').flush({ jobId: JOB_ID, total });
     if (total === 0) {
       // Erkannter Auszug ohne Buchungen: Es gibt keinen Lauf zu verfolgen (BE-PDF-05).
@@ -51,14 +90,19 @@ describe('PdfUpload', () => {
     }
     // Unter Faketimern braucht auch die 0-Verzögerung des ersten Polls einen Tick.
     vi.advanceTimersByTime(1);
-    httpMock.expectOne(`/api/import/${JOB_ID}/status`).flush({
+    const status: ImportJobStatusResponse = {
       status: 'DONE',
       total,
       processed: total,
       degraded: false,
       ...patch,
-    });
+    };
+    httpMock.expectOne(`/api/import/${JOB_ID}/status`).flush(status);
     fixture.detectChanges();
+    // Nur ein abgeschlossener Job liefert Buchungen — nach FAILED fragt die Komponente nicht.
+    if (status.status === 'DONE') {
+      flushImportedTransactions(transactions);
+    }
   }
 
   beforeEach(async () => {
@@ -121,6 +165,8 @@ describe('PdfUpload', () => {
       degraded: false,
     });
     fixture.detectChanges();
+
+    flushImportedTransactions();
 
     expect(component.uploading()).toBe(false);
     expect(component.importOutcome()).toEqual({ kind: 'success', count: 42, degraded: false });
@@ -426,6 +472,7 @@ describe('PdfUpload', () => {
       degraded: false,
     });
     fixture.detectChanges();
+    flushImportedTransactions();
 
     expect(component.importOutcome()).toEqual({ kind: 'success', count: 28, degraded: false });
     expect(fixture.nativeElement.querySelector('app-modal')).toBeNull();
@@ -452,6 +499,324 @@ describe('PdfUpload', () => {
 
     completeImport(1);
     expect(component.importOutcome()).toEqual({ kind: 'success', count: 1, degraded: false });
+  });
+
+  /**
+   * Die Liste der importierten Buchungen (FE-PDF-04). Sie löst den Umweg über die
+   * Kategorie-Übersicht ab: Wer soeben importiert hat, sieht hier, wie kategorisiert wurde, und
+   * kann es an Ort und Stelle richtigstellen.
+   */
+  describe('imported transaction list', () => {
+    /** Öffnet das Kategorie-Dropdown der n-ten Zeile. */
+    function categorySelect(index = 0): HTMLSelectElement {
+      const selects = Array.from<HTMLSelectElement>(
+        fixture.nativeElement.querySelectorAll('.imported__category select'),
+      );
+      const select = selects[index];
+      if (!select) {
+        throw new Error(`Keine Zeile mit Index ${index} — gefunden: ${selects.length}`);
+      }
+      return select;
+    }
+
+    /** Löst ein change-Event auf dem Dropdown aus, wie es der Browser bei einer Auswahl täte. */
+    function chooseCategory(select: HTMLSelectElement, label: string): void {
+      select.value = label;
+      select.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+    }
+
+    function rows(): NodeListOf<HTMLElement> {
+      return fixture.nativeElement.querySelectorAll('.imported__row');
+    }
+
+    it('shows one row per imported transaction with date, text, amount and category', () => {
+      component.onDrop(dropEvent([pdfFile()]));
+      completeImport(2, {}, [
+        transaction({ id: 11, buchungsdatum: '2025-06-14', betrag: 42.5, category: 'Sonstiges' }),
+        transaction({
+          id: 12,
+          buchungsdatum: '2025-06-02',
+          buchungstext: 'TWINT',
+          betrag: 18,
+          category: 'Restaurant',
+        }),
+      ]);
+
+      expect(rows()).toHaveLength(2);
+      const first = rows()[0].textContent ?? '';
+      expect(first).toContain('14.06.2025');
+      expect(first).toContain('LASTSCHRIFT');
+      expect(first).toContain('42.50');
+      expect(categorySelect(0).value).toBe('Sonstiges');
+      expect(categorySelect(1).value).toBe('Restaurant');
+    });
+
+    /**
+     * Die zweite Zeile ist der Grund, warum die Liste überhaupt brauchbar ist: `buchungstext`
+     * trägt bei PostFinance nur die Zahlungsart, die Gegenpartei steht in `buchungsdetails`
+     * (BE-PDF-07). Ohne Details entfällt sie ersatzlos — ein Platzhalter behauptete, es gebe
+     * keine Gegenpartei.
+     */
+    it('renders the counterparty as a second line and omits it when absent', () => {
+      component.onDrop(dropEvent([pdfFile()]));
+      completeImport(2, {}, [
+        transaction({ id: 11, buchungsdetails: 'ZALANDO SE\nRECHNUNG 4711' }),
+        transaction({ id: 12, buchungsdetails: null }),
+      ]);
+
+      expect(rows()[0].querySelector('.imported__details')?.textContent).toContain('ZALANDO SE');
+      expect(rows()[1].querySelector('.imported__details')).toBeNull();
+    });
+
+    /**
+     * Die Richtung steht in `income`, nicht im Betrag: `GET /api/import/{jobId}/transactions`
+     * liefert den ganzen Import inklusive Gutschriften, `betrag` aber immer als positive
+     * Magnitude. Ohne Vorzeichen wäre eine Rückerstattung von einer Belastung nicht zu
+     * unterscheiden — und Farbe allein trüge die Information nicht (Review zu #305).
+     */
+    it('distinguishes a credit from a debit by its sign', () => {
+      component.onDrop(dropEvent([pdfFile()]));
+      completeImport(2, {}, [
+        transaction({ id: 11, betrag: 42.5, income: false }),
+        transaction({ id: 12, betrag: 120, income: true }),
+      ]);
+
+      const amounts = fixture.nativeElement.querySelectorAll('.imported__amount');
+      expect(amounts[0].textContent).toContain('−42.50');
+      expect(amounts[1].textContent).toContain('+120.00');
+      // Nicht nur Farbe: Screenreader hören die Richtung als Wort.
+      expect(amounts[0].getAttribute('aria-label')).toBe('minus 42.50 Franken');
+      expect(amounts[1].getAttribute('aria-label')).toBe('plus 120.00 Franken');
+    });
+
+    /** AC 6: Der Nullfall zeigt nur die bestehende Meldung — und fragt gar nicht erst nach. */
+    it('shows no list and requests no transactions for a zero-transaction import', () => {
+      component.onDrop(dropEvent([pdfFile()]));
+      completeImport(0);
+
+      expect(fixture.nativeElement.querySelector('.imported')).toBeNull();
+      expect(component.importedTransactions()).toBeNull();
+      // `completeImport` beantwortet für total === 0 weder Status noch Buchungen; ein trotzdem
+      // abgesetzter Request bliebe offen und liesse `httpMock.verify()` scheitern.
+    });
+
+    /** AC 5: Der degradierte Fall behält seinen Hinweis — die Liste kommt dazu, nicht dafür. */
+    it('keeps the degraded hint next to the list', () => {
+      component.onDrop(dropEvent([pdfFile()]));
+      completeImport(108, { degraded: true }, [transaction({ id: 11 })]);
+
+      expect(fixture.nativeElement.textContent).toContain('108 Transaktionen erkannt.');
+      expect(fixture.nativeElement.textContent).toContain(
+        'konnte nicht automatisch kategorisiert werden',
+      );
+      expect(rows()).toHaveLength(1);
+    });
+
+    /** AC 2 und 4: dieselben 13 Kategorien wie in FE-CAT-03, «Sonstiges» vorausgewählt. */
+    it('offers the 13 categories with Sonstiges preselected for an unassigned booking', () => {
+      component.onDrop(dropEvent([pdfFile()]));
+      completeImport(1, {}, [transaction({ id: 11, category: 'Sonstiges' })]);
+
+      const options = Array.from(categorySelect().options).map((o) => o.value);
+      expect(options).toHaveLength(13);
+      expect(options).toContain('Lebensmittel');
+      expect(categorySelect().value).toBe('Sonstiges');
+    });
+
+    /** AC 3, Erfolgsfall: der neue Wert steht sofort da, der PUT bestätigt ihn nur. */
+    it('saves a category correction via PUT and keeps the new value', () => {
+      component.onDrop(dropEvent([pdfFile()]));
+      completeImport(1, {}, [transaction({ id: 11, category: 'Sonstiges' })]);
+
+      chooseCategory(categorySelect(), 'Lebensmittel');
+
+      // Optimistisch: Der Wert steht im DOM, bevor der Server geantwortet hat.
+      expect(categorySelect().value).toBe('Lebensmittel');
+
+      const req = httpMock.expectOne('/api/transactions/11/category');
+      expect(req.request.method).toBe('PUT');
+      expect(req.request.body).toEqual({ category: 'Lebensmittel' });
+      req.flush(transaction({ id: 11, category: 'Lebensmittel' }));
+      fixture.detectChanges();
+
+      expect(categorySelect().value).toBe('Lebensmittel');
+      expect(component.saveErrorMessage()).toBeNull();
+    });
+
+    /** AC 3, Fehlerfall: Die Anzeige behauptet nie einen Stand, den der Server nicht hat. */
+    it('rolls the category back and reports the failure when the PUT fails', () => {
+      component.onDrop(dropEvent([pdfFile()]));
+      completeImport(1, {}, [transaction({ id: 11, category: 'Sonstiges' })]);
+
+      chooseCategory(categorySelect(), 'Lebensmittel');
+      httpMock
+        .expectOne('/api/transactions/11/category')
+        .flush(null, { status: 500, statusText: 'Server Error' });
+      fixture.detectChanges();
+
+      expect(categorySelect().value).toBe('Sonstiges');
+      expect(component.importedTransactions()?.[0].category).toBe('Sonstiges');
+      expect(fixture.nativeElement.textContent).toContain(
+        'Die Kategorie konnte nicht gespeichert werden.',
+      );
+    });
+
+    it('sends no request when the chosen category is the current one', () => {
+      component.onDrop(dropEvent([pdfFile()]));
+      completeImport(1, {}, [transaction({ id: 11, category: 'Sonstiges' })]);
+
+      chooseCategory(categorySelect(), 'Sonstiges');
+
+      httpMock.expectNone('/api/transactions/11/category');
+    });
+
+    /**
+     * Ein gescheiterter Listen-Request ist kein gescheiterter Import: Die Buchungen sind
+     * gespeichert, nur ihre Anzeige fehlt. Die Erfolgsmeldung bleibt deshalb stehen.
+     */
+    it('reports a failed list request without retracting the success message', () => {
+      component.onDrop(dropEvent([pdfFile()]));
+      httpMock.expectOne('/api/import/pdf').flush({ jobId: JOB_ID, total: 3 });
+      vi.advanceTimersByTime(1);
+      httpMock
+        .expectOne(`/api/import/${JOB_ID}/status`)
+        .flush({ status: 'DONE', total: 3, processed: 3, degraded: false });
+      fixture.detectChanges();
+      httpMock
+        .expectOne(`/api/import/${JOB_ID}/transactions`)
+        .flush(null, { status: 500, statusText: 'Server Error' });
+      fixture.detectChanges();
+
+      expect(component.importOutcome()).toEqual({ kind: 'success', count: 3, degraded: false });
+      expect(fixture.nativeElement.textContent).toContain('3 Transaktionen erkannt.');
+      expect(fixture.nativeElement.textContent).toContain(
+        'Die importierten Buchungen konnten nicht geladen werden.',
+      );
+      expect(fixture.nativeElement.querySelector('.imported')).toBeNull();
+    });
+
+    /** AC 7: Die Liste des vorigen Imports gehört zu einem anderen Job und verschwindet. */
+    it('clears the previous list when the next upload starts', () => {
+      component.onDrop(dropEvent([pdfFile('juni.pdf')]));
+      completeImport(1, {}, [transaction({ id: 11 })]);
+      expect(rows()).toHaveLength(1);
+
+      component.onDrop(dropEvent([pdfFile('juli.pdf')]));
+      fixture.detectChanges();
+
+      expect(component.importedTransactions()).toBeNull();
+      expect(fixture.nativeElement.querySelector('.imported')).toBeNull();
+
+      completeImport(2, {}, [transaction({ id: 21 }), transaction({ id: 22 })]);
+      expect(rows()).toHaveLength(2);
+    });
+
+    /**
+     * Der Force-Pfad läuft an `selectFile` vorbei — `confirmDuplicateImport` springt direkt in
+     * `upload()`. Das Aufräumen sitzt deshalb dort und nicht in der Dateiauswahl.
+     */
+    it('clears the previous list on a forced re-import as well', () => {
+      component.onDrop(dropEvent([pdfFile()]));
+      completeImport(1, {}, [transaction({ id: 11 })]);
+      expect(rows()).toHaveLength(1);
+
+      component.onDrop(dropEvent([pdfFile()]));
+      httpMock.expectOne('/api/import/pdf').flush(null, { status: 409, statusText: 'Conflict' });
+      fixture.detectChanges();
+      clickModalButton('Trotzdem importieren');
+      fixture.detectChanges();
+
+      expect(component.importedTransactions()).toBeNull();
+
+      httpMock.expectOne((r) => r.url === '/api/import/pdf').flush({ jobId: JOB_ID, total: 1 });
+      vi.advanceTimersByTime(1);
+      httpMock
+        .expectOne(`/api/import/${JOB_ID}/status`)
+        .flush({ status: 'DONE', total: 1, processed: 1, degraded: false });
+      fixture.detectChanges();
+      flushImportedTransactions([transaction({ id: 31 })]);
+
+      expect(rows()).toHaveLength(1);
+    });
+
+    /**
+     * Eine client-seitig abgelehnte Datei erreicht `upload()` nie. Die Liste muss trotzdem weg:
+     * Die Erfolgsmeldung darüber verschwindet in `selectFile`, und eine Liste ohne ihre Meldung
+     * sähe aus, als gehörte sie zu der eben zurückgewiesenen Datei.
+     */
+    it('clears the previous list when the next file is rejected client-side', () => {
+      component.onDrop(dropEvent([pdfFile()]));
+      completeImport(1, {}, [transaction({ id: 11 })]);
+      expect(rows()).toHaveLength(1);
+
+      component.onDrop(dropEvent([new File(['x'], 'notizen.txt', { type: 'text/plain' })]));
+      fixture.detectChanges();
+
+      expect(component.errorMessage()).toBe('Nur PDF-Dateien werden unterstützt.');
+      expect(component.importedTransactions()).toBeNull();
+      expect(fixture.nativeElement.querySelector('.imported')).toBeNull();
+    });
+
+    /**
+     * Zwischen Anfrage und Antwort liegt ein Zeitfenster: Wählt der Nutzer darin eine neue Datei,
+     * gehört die eintreffende Liste zu einem Import, den er bereits hinter sich gelassen hat.
+     * Ohne Guard stünde sie danach unter dem Fortschrittsbalken des neuen Uploads (Review zu
+     * #305).
+     */
+    it('discards a transaction list that arrives after the next upload has started', () => {
+      component.onDrop(dropEvent([pdfFile('juni.pdf')]));
+      httpMock.expectOne('/api/import/pdf').flush({ jobId: JOB_ID, total: 1 });
+      vi.advanceTimersByTime(1);
+      httpMock
+        .expectOne(`/api/import/${JOB_ID}/status`)
+        .flush({ status: 'DONE', total: 1, processed: 1, degraded: false });
+      fixture.detectChanges();
+      // Die Buchungen bleiben offen — genau der Zustand, in dem der Nutzer weitermacht.
+      const stale = httpMock.expectOne(`/api/import/${JOB_ID}/transactions`);
+
+      component.onDrop(dropEvent([pdfFile('juli.pdf')]));
+      fixture.detectChanges();
+      stale.flush([transaction({ id: 11 })]);
+      fixture.detectChanges();
+
+      expect(component.importedTransactions()).toBeNull();
+      expect(fixture.nativeElement.querySelector('.imported')).toBeNull();
+
+      // Der neue Import füllt die Liste weiterhin — der Guard sperrt nur die verspätete Antwort.
+      completeImport(2, {}, [transaction({ id: 21 }), transaction({ id: 22 })]);
+      expect(rows()).toHaveLength(2);
+    });
+
+    /** Gleiches Fenster, anderer Ausgang: auch die Fehlermeldung gehört zum alten Import. */
+    it('discards a failed list request that belongs to a superseded import', () => {
+      component.onDrop(dropEvent([pdfFile('juni.pdf')]));
+      httpMock.expectOne('/api/import/pdf').flush({ jobId: JOB_ID, total: 1 });
+      vi.advanceTimersByTime(1);
+      httpMock
+        .expectOne(`/api/import/${JOB_ID}/status`)
+        .flush({ status: 'DONE', total: 1, processed: 1, degraded: false });
+      fixture.detectChanges();
+      const stale = httpMock.expectOne(`/api/import/${JOB_ID}/transactions`);
+
+      component.onDrop(dropEvent([new File(['x'], 'notizen.txt', { type: 'text/plain' })]));
+      fixture.detectChanges();
+      stale.flush(null, { status: 500, statusText: 'Server Error' });
+      fixture.detectChanges();
+
+      expect(component.listErrorMessage()).toBeNull();
+      expect(fixture.nativeElement.textContent).not.toContain(
+        'Die importierten Buchungen konnten nicht geladen werden.',
+      );
+    });
+
+    it('requests no transactions when the background job failed', () => {
+      component.onDrop(dropEvent([pdfFile()]));
+      completeImport(12, { status: 'FAILED', processed: 5 });
+
+      expect(component.importedTransactions()).toBeNull();
+      expect(fixture.nativeElement.querySelector('.imported')).toBeNull();
+    });
   });
 
   it('marks the dropzone while a file hovers over it and clears the mark on leave', () => {

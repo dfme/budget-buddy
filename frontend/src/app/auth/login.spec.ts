@@ -103,4 +103,15 @@ describe('Login', () => {
     );
     expect(notice.getAttribute('role')).toBe('alert');
   });
+
+  // --- FE-SET-05: Bestätigung nach Kontolöschung ---
+
+  it('zeigt ohne Navigation-State keine Löschbestätigung', () => {
+    // Regressionsschutz: Direktaufruf, Reload, Logout und Guard-Redirect erreichen /login
+    // ohne `accountDeleted` — die Bestätigung darf dort nicht auftauchen.
+    expect(fixture.componentInstance.accountDeleted()).toBe(false);
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain(
+      'Dein Konto wurde gelöscht',
+    );
+  });
 });

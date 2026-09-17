@@ -4,6 +4,7 @@ import { Observable, throwError, timer } from 'rxjs';
 import { switchMap, takeWhile } from 'rxjs/operators';
 
 import { ImportJobStatusResponse, ImportStartedResponse } from './import-response.model';
+import { Transaction } from './transaction.model';
 
 /**
  * Abstand zwischen zwei Status-Abfragen.
@@ -47,8 +48,9 @@ export class ImportPollTimeoutError extends Error {
 }
 
 /**
- * Kapselt den Upload an `POST /api/import/pdf` und die Fortschrittsabfrage an
- * `GET /api/import/{jobId}/status` (BE-PDF-09, US-04).
+ * Kapselt den Upload an `POST /api/import/pdf`, die Fortschrittsabfrage an
+ * `GET /api/import/{jobId}/status` (BE-PDF-09, US-04) und das Ergebnis an
+ * `GET /api/import/{jobId}/transactions` (BE-PDF-14, FE-PDF-04).
  *
  * <p>Bewusst zustandslos: der UI-State (Fortschritt/Fehler/Ergebnis) liegt in der
  * {@link PdfUpload}-Komponente als Signals — analog zum Muster von `CategoryOverview` +
@@ -84,6 +86,24 @@ export class PdfImportService {
   /** Einmalige Statusabfrage — für Tests und gezielte Nachfragen. */
   jobStatus(jobId: number): Observable<ImportJobStatusResponse> {
     return this.http.get<ImportJobStatusResponse>(`/api/import/${jobId}/status`);
+  }
+
+  /**
+   * Lädt die Buchungen, die ein abgeschlossener Import angelegt hat (BE-PDF-14, FE-PDF-04).
+   *
+   * <p>Eingabe der Liste, die der Import-Screen nach dem Upload zeigt. Die Buchungen kommen im
+   * selben Format wie aus `GET /api/transactions` — insbesondere mit der serverseitig bereits
+   * aufgelösten Kategorie (`null` → `"Sonstiges"`, `TransactionResponse.fromResolvingCategory`),
+   * sodass das Dropdown ohne Sonderfall eine Vorauswahl hat.
+   *
+   * <p>Nicht seitenweise und ohne Polling: Die Antwort umfasst genau einen Kontoauszug, und der
+   * Aufruf erfolgt erst, nachdem {@link pollJob} den Job als `DONE` gemeldet hat — der 409 des
+   * Endpoints («Job noch nicht abgeschlossen») ist auf diesem Weg gar nicht erreichbar.
+   *
+   * @param jobId Job-ID aus der Upload-Antwort.
+   */
+  importTransactions(jobId: number): Observable<Transaction[]> {
+    return this.http.get<Transaction[]>(`/api/import/${jobId}/transactions`);
   }
 
   /**

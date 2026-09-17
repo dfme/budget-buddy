@@ -89,3 +89,75 @@
     animation-duration: 2.4s;
   }
 }
+
+// Die Buchungen des soeben abgeschlossenen Imports (FE-PDF-04). Bewusst eigene Klassen statt der
+// `.transaction*` aus der Kategorie-Übersicht: dort sitzen die Zeilen in einem Tabellen-Drilldown
+// über die volle Seitenbreite, hier in einer Spalte von 40rem (`.upload`). Dieselben Spalten
+// hätten hier kein Auskommen — insbesondere nicht Dropdown und Betrag nebeneinander.
+.imported {
+  margin: $sp-4 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid $c-line;
+}
+
+.imported__row {
+  display: grid;
+  // Zwei Zeilen auf schmaler Spalte: Datum, Text und Betrag oben, das Dropdown darunter über
+  // die volle Breite. Ein vierspaltiges Raster wie in der Übersicht drückte den Buchungstext
+  // bei 40rem auf wenige Zeichen zusammen.
+  grid-template-columns: auto 1fr auto;
+  gap: $sp-1 $sp-3;
+  align-items: baseline;
+  padding: $sp-3 0;
+  border-bottom: 1px solid $c-line;
+  font-size: $fs-sm;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.imported__date {
+  @include tabular;
+
+  color: $c-ink-2;
+  font-size: $fs-xs;
+}
+
+// Container der beiden Textzeilen (BE-PDF-07). Beide tragen dieselbe Schrift: buchungstext ist
+// die Zahlungsart («LASTSCHRIFT»), die Detailzeile die Gegenpartei («ZALANDO SE») — keine von
+// beiden ist die Überschrift der anderen. Dieselbe Begründung wie in category-overview.scss.
+.imported__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: $c-ink-2;
+  font-size: $fs-xs;
+}
+
+// Zweite Zeile: Gegenpartei und Verwendungszweck. pre-line, weil die Zeilen mit \n verbunden aus
+// der API kommen — ohne dies liefen sie zu einer durchgehenden Zeile zusammen.
+.imported__details {
+  white-space: pre-line;
+}
+
+// `tabular` und die Farbgebung bringt <app-amount> selbst mit; hier bleibt nur, was die Zeile
+// als Rasterzelle braucht.
+.imported__amount {
+  text-align: right;
+  white-space: nowrap;
+}
+
+// Eigene Zeile über die volle Rasterbreite: Das Dropdown ist die einzige Aktion der Zeile und
+// bleibt so auch auf einem Telefon bedienbar breit.
+.imported__category {
+  grid-column: 1 / -1;
+
+  select {
+    width: 100%;
+    font-size: $fs-sm;
+  }
+}
