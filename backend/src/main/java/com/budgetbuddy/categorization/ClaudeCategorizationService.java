@@ -33,6 +33,14 @@ import org.springframework.stereotype.Service;
  * darf den Import nie blockieren (Churn-Risiko #1). {@link Optional#empty()} kommt nur bei leerer
  * Eingabe zurück, wo es nichts zu kategorisieren gibt.
  *
+ * <p><strong>Ein solches Ersatz-{@code Sonstiges} ist am Ergebnis erkennbar</strong> (BE-CAT-11):
+ * Es trägt {@link CategorizationResult.Source#CLAUDE_FALLBACK}, wenn ein Request hinausging, und
+ * {@link CategorizationResult.Source#CLAUDE_SKIPPED}, wenn nicht — {@link
+ * CategorizationResult.Source#CLAUDE} bleibt den Transaktionen vorbehalten, die das Modell
+ * wirklich beantwortet hat. Der Lerneffekt in {@link HybridCategorizationService} hängt daran:
+ * Ohne die Unterscheidung schriebe ein Netzwerkfehler einen Händler dauerhaft als
+ * {@code Sonstiges} in die Lookup-Tabelle.
+ *
  * <p><strong>Gebündelt statt einzeln</strong> (ADR-14, BE-PDF-09): Bis zu
  * {@link #MAX_BATCH_SIZE} Transaktionen gehen in <em>einem</em> Request hinaus. Die Laufzeit
  * eines Calls steckt fast vollständig im Fixkostenanteil pro Request — der Prompt ist ~100 Tokens
@@ -226,8 +234,7 @@ public class ClaudeCategorizationService implements CategorizationPort {
             // Fremdstring aus dem SDK, und die Transaktionstexte gingen als Prompt hinaus.
             log.warn("Claude-Call für ein Bündel von {} Transaktion(en) fehlgeschlagen ({}) — "
                     + "Fallback 'Sonstiges'.", batch.size(), LogRedaction.describe(e));
-            batch.forEach(
-                    index -> results.set(index, Optional.of(claudeResult(Category.SONSTIGES))));
+            batch.forEach(index -> results.set(index, Optional.of(fallbackResult())));
             return;
         }
 
@@ -246,13 +253,18 @@ public class ClaudeCategorizationService implements CategorizationPort {
      * Eintrag der Antwort seine Position. Damit kostet eine unvollständige Antwort genau die
      * fehlenden Transaktionen und nicht das ganze Bündel — der Preis der Bündelung wird so klein
      * wie möglich gehalten.
+     *
+     * <p>Die Vorbelegung ist {@link #fallbackResult()}, die Überschreibung {@link #claudeResult}.
+     * Daraus folgt beides auf einmal (BE-CAT-11): Was das Modell beantwortet hat, trägt
+     * {@code CLAUDE}; was stehen bleibt — unlesbare Antwort, keine Textantwort, im Bündel
+     * ausgelassene Nummer — trägt {@code CLAUDE_FALLBACK} und wird nicht gelernt.
      */
     private void applyResponse(
             StructuredMessage<BatchCategorization> response,
             List<Integer> batch,
             List<Optional<CategorizationResult>> results) {
 
-        batch.forEach(index -> results.set(index, Optional.of(claudeResult(Category.SONSTIGES))));
+        batch.forEach(index -> results.set(index, Optional.of(fallbackResult())));
 
         BatchCategorization parsed;
         try {
@@ -369,8 +381,22 @@ public class ClaudeCategorizationService implements CategorizationPort {
         return !cached && standardTier;
     }
 
+    /**
+     * Ein echtes Modell-Ergebnis: Der Request ging hinaus, die Antwort war lesbar und enthielt
+     * einen gültigen Eintrag für genau diese Transaktion. Nur hieraus wird gelernt (BE-CAT-11).
+     */
     private static CategorizationResult claudeResult(Category category) {
         return new CategorizationResult(category, CategorizationResult.Source.CLAUDE);
+    }
+
+    /**
+     * Request ging hinaus, brauchbares Ergebnis kam keines zurück — siehe {@code Source}. Getrennt
+     * von {@link #claudeResult}, damit der Lerneffekt einen Netzwerkfehler nicht als
+     * {@code Sonstiges} in die Lookup-Tabelle schreibt (BE-CAT-11).
+     */
+    private static CategorizationResult fallbackResult() {
+        return new CategorizationResult(
+                Category.SONSTIGES, CategorizationResult.Source.CLAUDE_FALLBACK);
     }
 
     /** Claude-Stufe erreicht, aber ohne HTTP-Request beantwortet — siehe {@code Source}. */

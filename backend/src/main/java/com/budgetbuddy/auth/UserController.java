@@ -113,9 +113,10 @@ public class UserController {
                     + "kann nicht rückgängig gemacht werden; ein erneuter Login mit denselben "
                     + "Zugangsdaten schlägt danach fehl. Verlangt das aktuelle Passwort als "
                     + "Bestätigung im Body. Die Antwort löscht das JWT-Cookie (Max-Age=0). Eine "
-                    + "bekannte Lücke bleibt offen (#290): manuelle Kategorie-Korrekturen in "
+                    + "bekannte Lücke bleibt offen (#290): gelernte Händler-Patterns in "
                     + "category_lookup überleben die Löschung (Tabelle ohne user_id, eigenes "
-                    + "Issue).")
+                    + "Issue). Betroffen sind sowohl manuelle Kategorie-Korrekturen als auch die "
+                    + "beim Import automatisch gelernten Händler.")
     @ApiResponses({
         @ApiResponse(responseCode = "204", description = "Konto gelöscht, JWT-Cookie gelöscht",
                 content = {}),

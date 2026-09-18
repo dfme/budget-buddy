@@ -151,6 +151,30 @@ public class Transaction {
         return buchungsdetails;
     }
 
+    /**
+     * Buchungstext und Detailzeilen als ein String — der Schlüssel, unter dem diese Buchung in
+     * {@code category_lookup} gelernt wird (ADR-6, Schritt 4).
+     *
+     * <p><strong>Muss zeichengleich zu {@link ParsedTransaction#fullText()} bleiben.</strong> Beide
+     * Lernquellen schreiben in dieselbe Tabelle, deren Primärschlüssel das Pattern selbst ist: Die
+     * Claude-Stufe lernt beim Import über {@code ParsedTransaction.fullText()} (BE-CAT-11,
+     * {@code ImportJobRunner:153}), die manuelle Korrektur über diese Methode (BE-CAT-04). Driften
+     * die beiden auseinander, greift der Upsert nicht mehr — es entstehen zwei Zeilen für
+     * denselben Händler, und welche gewinnt, entscheidet die Längensortierung in
+     * {@code CategoryLookupRepository#findMatching} statt der Korrektur des Users. Genau das war
+     * der Fall, solange hier nur {@code buchungstext} gelernt wurde: Bei jedem Layout mit
+     * Detailzeilen schlug der längere Claude-Eintrag die kürzere User-Korrektur.
+     *
+     * <p>{@code \n} → Leerzeichen, weil {@link ParsedTransaction#detailsAsText()} die Zeilen mit
+     * {@code \n} verbindet und {@code fullText()} mit einem Leerzeichen. Detailzeilen enthalten
+     * konstruktionsbedingt keinen Zeilenumbruch, die Rückrechnung ist deshalb verlustfrei.
+     */
+    public String fullText() {
+        return buchungsdetails == null || buchungsdetails.isBlank()
+                ? buchungstext
+                : buchungstext + " " + buchungsdetails.replace('\n', ' ');
+    }
+
     /** Positive Magnitude des Betrags (Skala 2). Richtung siehe {@link #isIncome()}. */
     public BigDecimal getBetrag() {
         return betrag;
