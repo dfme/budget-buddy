@@ -146,6 +146,23 @@ describe('Shell', () => {
     expect(link?.textContent?.trim().replace(/\s+/g, ' ')).toBe('⚙\uFE0E Einstellungen');
   });
 
+  // Der Test oben deckt nur `.nav__settings` ab. U+FE0E steht aber an vier Stellen —
+  // Zahnrad und Logout je im mobilen Konto-Popover und am Fuss der Desktop-Sidebar — und
+  // ist genau das Zeichen, das beim nächsten Editieren still verlorengeht, weil es unsichtbar
+  // ist. Die übrigen Assertions auf diese Buttons (`toContain('Abmelden')`) blieben dabei
+  // grün. Deshalb hier alle vier auf einmal, inklusive ihrer Anzahl (FE-NOTIF-02, #308).
+  it('hängt an jedes Zahnrad- und Logout-Icon den Textpräsentations-Selektor', () => {
+    login();
+    avatarButton().click();
+    fixture.detectChanges();
+
+    const icons = Array.from(el().querySelectorAll<HTMLElement>('.nav__icon'))
+      .map((span) => span.textContent ?? '')
+      .filter((text) => text.includes('\u2699') || text.includes('\u23FB'));
+
+    expect(icons).toEqual(['⚙\uFE0E', '⏻\uFE0E', '⚙\uFE0E', '⏻\uFE0E']);
+  });
+
   it('markiert Einstellungen im Sidebar-Konto-Block als aktiv, wenn die Route offen ist', async () => {
     login();
 

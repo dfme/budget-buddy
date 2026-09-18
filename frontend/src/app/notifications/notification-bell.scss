@@ -18,7 +18,6 @@
   border-radius: $r-pill;
   background: transparent;
   color: $c-ink-2;
-  font-size: $fs-md;
 
   &:hover {
     background: $c-bg-subtle;
@@ -81,9 +80,18 @@
   // links. Die Liste klappt deshalb nach oben auf und nach rechts in den Content hinein.
   // Die Basis-Regeln oben (`top: 100%`, `right: 0`) bleiben unberührt — mobil sitzt die
   // Glocke oben rechts in der Topbar, dort stimmt die Richtung.
+  // Die Höhe muss nach oben mitwachsen können: die Glocke sitzt rund 215px über der
+  // Viewport-Unterkante, darüber ist bei einem kurz gezogenen Fenster (< ~541px Höhe)
+  // kein Platz mehr für die vollen 20rem. Der abgeschnittene Teil wäre unerreichbar —
+  // die Liste ist `position: absolute` in einer nicht scrollenden Sidebar, und
+  // `overflow-y` schiebt den Inhalt weiter aus dem Sichtbaren heraus statt hinein.
+  // Die 15rem sind bewusst grosszügiger als die gemessenen 219px, damit die Regel nicht
+  // bei jeder Änderung am Konto-Block nachgezogen werden muss; ab 600px Fensterhöhe
+  // bleibt die Liste unverändert 20rem hoch.
   @include desktop {
     inset: auto auto 100% 0;
     margin-bottom: $sp-1;
+    max-height: min(20rem, calc(100dvh - 15rem));
   }
 }
 
