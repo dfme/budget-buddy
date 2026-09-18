@@ -96,10 +96,13 @@ export class Register {
       },
       error: (err: HttpErrorResponse) => {
         this.submitting.set(false);
+        // Bei 400 reicht das Backend eine konkrete Meldung durch (z. B. @MaxBcryptBytes,
+        // BE-AUTH-10) — analog settings.ts submitPassword/submitIncome.
+        const message = err.status === 400 ? (err.error?.message as string | undefined) : undefined;
         this.errorMessage.set(
           err.status === 409
             ? 'E-Mail bereits vergeben'
-            : 'Registrierung fehlgeschlagen. Bitte versuche es später erneut.',
+            : (message ?? 'Registrierung fehlgeschlagen. Bitte versuche es später erneut.'),
         );
       },
     });
