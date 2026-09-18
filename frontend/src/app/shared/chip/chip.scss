@@ -10,6 +10,15 @@
   font-size: $fs-xs;
 }
 
+// Kategorie-Icon (BE-CAT-10), nur vorhanden wenn ein Slug gesetzt ist. Der Abstand sitzt am
+// Icon statt als `gap` am Host: Ein `gap` griffe auch zwischen den Textknoten eines Chips ohne
+// Icon und verschöbe damit jede bestehende Verwendung.
+.chip__icon {
+  margin-right: $sp-2;
+  font-size: $fs-sm;
+  line-height: 1;
+}
+
 :host(.chip--selected) {
   border-color: $c-accent;
   background: $c-accent-soft;

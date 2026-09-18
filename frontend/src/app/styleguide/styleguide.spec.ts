@@ -29,9 +29,9 @@ describe('Styleguide', () => {
     document.documentElement.removeAttribute('data-theme');
   });
 
-  it('rendert alle 13 Kategorie-Badges', () => {
+  it('rendert alle 17 Kategorie-Badges', () => {
     const badges = fixture.nativeElement.querySelectorAll('app-badge');
-    expect(badges.length).toBe(13);
+    expect(badges.length).toBe(17);
   });
 
   // Seit FE-SET-04 geht der Toggle über den Theme-Service statt selbst aufs Attribut: zwei
