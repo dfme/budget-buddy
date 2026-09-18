@@ -133,6 +133,36 @@ class NotificationRepositoryIntegrationTest {
         assertThat(repository.findByIdAndUserId(larasEntry.getId(), marc)).isEmpty();
     }
 
+    @Test
+    void findByUserIdAndTypeAndReferenceIdAndReadAtIsNullDoesNotLeakAForeignEntry() {
+        Long lara = insertUser("lara-reference@example.com");
+        Long marc = insertUser("marc-reference@example.com");
+        // Dieselbe referenceId bei beiden — sie ist eine Row-ID des aufrufenden Moduls und global
+        // eindeutig, im Test aber frei wählbar (FK-loser Verweis, V10). Genau dieser Fall muss
+        // über userId getrennt bleiben.
+        repository.save(new Notification(lara, "A", 200L, "Laras Meldung", Instant.now()));
+        repository.save(new Notification(marc, "A", 200L, "Marcs Meldung", Instant.now()));
+
+        assertThat(repository.findByUserIdAndTypeAndReferenceIdAndReadAtIsNull(lara, "A", 200L))
+                .extracting(Notification::getMessage)
+                .containsExactly("Laras Meldung");
+    }
+
+    @Test
+    void findByUserIdAndTypeAndReferenceIdAndReadAtIsNullSkipsReadEntriesAndOtherTypes() {
+        Long lara = insertUser("lara-filter@example.com");
+        Notification read = new Notification(lara, "A", 200L, "Gelesen", Instant.now());
+        read.markRead(Instant.now());
+        repository.save(read);
+        repository.save(new Notification(lara, "B", 200L, "Anderer Typ", Instant.now()));
+        repository.save(new Notification(lara, "A", 201L, "Andere Referenz", Instant.now()));
+        repository.save(new Notification(lara, "A", 200L, "Treffer", Instant.now()));
+
+        assertThat(repository.findByUserIdAndTypeAndReferenceIdAndReadAtIsNull(lara, "A", 200L))
+                .extracting(Notification::getMessage)
+                .containsExactly("Treffer");
+    }
+
     // deleteAllByUserId (@Modifying, ohne eigenes @Transactional — Begründung in
     // NotificationRepository) braucht eine Transaktion des Aufrufers und lässt sich deshalb nicht
     // direkt aus einem Testmethoden-Body aufrufen (gleiche Einschränkung wie bei
