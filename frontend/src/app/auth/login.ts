@@ -1,3 +1,4 @@
+import { Location } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -17,6 +18,13 @@ import { AuthService } from './auth.service';
  * `onboardingGuard`-Redirect (FE-FC-02). Bei falschen Credentials (401) eine bewusst
  * unspezifische Meldung, die nicht verrät, ob die E-Mail existiert.
  *
+ * <p>Ist der User gerade von hier weg gelöscht worden (FE-SET-05, US-02), steht über dem
+ * Formular eine Bestätigung. Sie kommt aus dem Navigation-State, den `Settings.confirmDelete`
+ * mitgibt — nicht aus einem Query-Parameter, der bookmarkbar wäre und einen Reload überlebte.
+ * Der Navigation-State selbst überlebt einen Reload ebenso (er liegt in `history.state` und wird
+ * vom Router bei der initialen Navigation restauriert) — deshalb löscht {@link readAccountDeleted}
+ * ihn nach dem einmaligen Lesen explizit über `Location.replaceState`.
+ *
  * <p>Kein Token-/Header-Code: das httpOnly-JWT-Cookie wird durch den
  * `credentialsInterceptor` automatisch mitgesendet (ADR-7).
  */
@@ -31,9 +39,25 @@ export class Login {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly location = inject(Location);
 
   /** Fehlermeldung unterhalb des Formulars oder `null`, wenn kein Fehler vorliegt. */
   readonly errorMessage = signal<string | null>(null);
+
+  /**
+   * `true`, wenn diese Seite direkt aus einer Kontolöschung heraus betreten wurde (FE-SET-05).
+   *
+   * <p>Der Wert wird genau einmal beim Erstellen der Komponente gelesen. `getCurrentNavigation()`
+   * liefert die laufende Navigation und ist damit nur während der Aktivierung der Route gefüllt
+   * — genau dann, wenn der Router diese Komponente erzeugt. Bei jedem anderen Weg auf `/login`
+   * (Direktaufruf, Logout, Guard-Redirect) ist er `null`, und die Bestätigung bleibt weg.
+   *
+   * <p>Ein Reload wäre ohne {@link readAccountDeleted}s `replaceState`-Aufruf **kein** solcher
+   * anderer Weg: `history.state` überlebt ihn, und der Router restauriert daraus bei der
+   * initialen Navigation exakt dasselbe `accountDeleted`. Deshalb wird der State dort sofort
+   * nach dem Lesen aus der History entfernt.
+   */
+  readonly accountDeleted = signal(this.readAccountDeleted());
 
   /** `true`, solange ein Login-Request läuft — sperrt den Submit-Button. */
   readonly submitting = signal(false);
@@ -65,6 +89,20 @@ export class Login {
       return null;
     }
     return 'Passwort ist erforderlich.';
+  }
+
+  private readAccountDeleted(): boolean {
+    const deleted = this.router.getCurrentNavigation()?.extras.state?.['accountDeleted'] === true;
+    if (deleted) {
+      // Sonst zeigt ein Reload die Bestätigung erneut: der State liegt in history.state und
+      // wird bei der initialen Navigation restauriert (siehe Doku an `accountDeleted`). Nur den
+      // einen Schlüssel entfernen, nicht den ganzen State — der Router legt hier auch eigenes
+      // Bookkeeping ab (navigationId, ɵrouterPageId).
+      const { accountDeleted: _, ...rest } =
+        (this.location.getState() as Record<string, unknown>) ?? {};
+      this.location.replaceState(this.location.path(), '', rest);
+    }
+    return deleted;
   }
 
   submit(): void {
