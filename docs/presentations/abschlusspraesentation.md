@@ -113,7 +113,7 @@ laufen lassen, schlägt die Live-Registrierung in B30 mit `409` fehl, weil die E
 | --- | --- | ---- | ----- |
 | B30 | 0–2 | Registrierung + Onboarding als Lara (`lara@demo.bb`) | Registrierung (Auto-Login) → Fixkosten-Wizard (US-03) mit Laras echten Werten (Tabelle oben) → Dashboard zeigt den No-Income-Banner „Bitte erfasse dein Monatseinkommen in den Einstellungen" → Einkommen (1'900.–) dort setzen (US-06/US-14). Zeigt den echten Erstnutzer-Flow mit derselben Person, die danach weiterläuft |
 | B31 | 2–4 | PDF-Import eines Kontoauszugs | Upload → asynchrone Verarbeitung mit Fortschrittsanzeige (Polling) → Ergebnis |
-| B32 | 4–6 | Kategorisierung im Import-Screen | Automatische Kategorien (Lookup + Claude) direkt sichtbar; gezielt eine als **„Sonstiges"** kategorisierte Transaktion von Hand korrigieren — zeigt den Fallback-Fall konkret und den Lerneffekt für zukünftige Importe (aktuell nur bei manueller Korrektur, siehe B14/Issue #314) |
+| B32 | 4–6 | Kategorisierung im Import-Screen | Automatische Kategorien (Lookup + Claude) direkt sichtbar; gezielt eine als **„Sonstiges"** kategorisierte Transaktion von Hand korrigieren — zeigt den Fallback-Fall konkret und den Lerneffekt für zukünftige Importe, siehe B14 (derselbe angenommene Merge-Zustand, siehe „Offene Punkte") |
 | B33 | 6–7 | Safe-to-Spend-Widget | Der Kernwert der App: wöchentlicher Betrag kurz herleiten — Fixkosten und Einkommen wurden bereits in B30 live gezeigt, hier nur noch referenzieren („genau das fliesst jetzt hier ein") statt erneut zu erklären |
 | B34 | 7–9 | Konto löschen (Einstellungen) | Datenschutz-Feature (US-02, BE-AUTH-14/FE-SET-05): Bestätigungsdialog mit Passwort, danach Logout und Login schlägt fehl — zeigt nDSG-Ernsthaftigkeit, nicht nur den Safe-to-Spend-Wert |
 
