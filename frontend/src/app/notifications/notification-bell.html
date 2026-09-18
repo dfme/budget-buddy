@@ -6,7 +6,26 @@
   [attr.aria-expanded]="open()"
   (click)="toggle()"
 >
-  <span class="bell__icon" aria-hidden="true">🔔︎</span>
+  <!-- Inline-SVG statt Emoji (FE-NOTIF-02, #308): 🔔 hat Emoji_Presentation=Yes, der
+       Textselektor U+FE0E wird von vielen Fonts ignoriert und das Zeichen rendert farbig —
+       damit lief es weder in Ink-Farbe noch mit Hover und Dark-Theme mit. Machart wie die
+       Wortmarke in shell.html, nur schlankerer Strich, weil das Icon kleiner sitzt. -->
+  <span class="bell__icon" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none">
+      <path
+        d="M18 9a6 6 0 0 0-12 0c0 4.6-1.4 6-2.4 6.9-.5.4-.2 1.1.4 1.1h16c.6 0 .9-.7.4-1.1C19.4 15 18 13.6 18 9Z"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M10 20a2.2 2.2 0 0 0 4 0"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+      />
+    </svg>
+  </span>
   @if (unreadCount() > 0) {
     <span class="bell__badge">{{ unreadCount() }}</span>
   }

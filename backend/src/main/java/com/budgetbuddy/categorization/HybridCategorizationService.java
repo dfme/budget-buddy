@@ -2,8 +2,10 @@ package com.budgetbuddy.categorization;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Primary;
@@ -28,6 +30,16 @@ import org.springframework.stereotype.Service;
  *
  * <p>Als letzte Stufe der Kette liefert dieser Service für jede nicht-leere Eingabe eine Kategorie;
  * {@link Optional#empty()} kommt nur bei leerer Eingabe zurück, wo es nichts zu kategorisieren gibt.
+ *
+ * <p><strong>Der Lerneffekt setzt hier an, nicht erst bei der manuellen Korrektur</strong>
+ * (BE-CAT-11, ADR-6 Schritt 4): Was Claude erfolgreich kategorisiert hat, geht über den
+ * {@link CategoryLearningPort} zurück in die {@code category_lookup}-Tabelle. Ohne das löste
+ * derselbe Händler bei jedem Import wieder einen Call aus, obwohl seine Kategorie längst einmal
+ * ermittelt war — ein von Claude korrekt eingestufter, aber nie korrigierter Händler lernte nie.
+ * Diese Stelle ist die richtige, weil hier beides vorliegt: der <em>rohe</em> Transaktionstext, an
+ * dem die Lookup-Stufe später matcht, und die {@link CategorizationResult.Source}, an der ein
+ * echtes Modell-Ergebnis von einem Ersatz-{@code Sonstiges} zu unterscheiden ist. Siehe
+ * {@link #learnFromClaude} für die Frage, was <em>nicht</em> gelernt wird.
  */
 @Service
 @Primary
@@ -37,12 +49,15 @@ public class HybridCategorizationService implements CategorizationPort {
 
     private final LookupTableService lookupTableService;
     private final ClaudeCategorizationService claudeCategorizationService;
+    private final CategoryLearningPort categoryLearningPort;
 
     public HybridCategorizationService(
             LookupTableService lookupTableService,
-            ClaudeCategorizationService claudeCategorizationService) {
+            ClaudeCategorizationService claudeCategorizationService,
+            CategoryLearningPort categoryLearningPort) {
         this.lookupTableService = lookupTableService;
         this.claudeCategorizationService = claudeCategorizationService;
+        this.categoryLearningPort = categoryLearningPort;
     }
 
     @Override
@@ -83,11 +98,92 @@ public class HybridCategorizationService implements CategorizationPort {
         for (int position = 0; position < unknown.size(); position++) {
             results.set(
                     unknown.get(position),
+                    // Der Fallback hier deckt den Catch in categorizeWithClaude ab: ein Request
+                    // ging hinaus (oder wurde versucht), nur kam nichts Brauchbares zurück —
+                    // CLAUDE_FALLBACK, damit er nicht gelernt wird (BE-CAT-11).
                     Optional.of(fromClaude.get(position).orElse(
                             new CategorizationResult(
-                                    Category.SONSTIGES, CategorizationResult.Source.CLAUDE))));
+                                    Category.SONSTIGES,
+                                    CategorizationResult.Source.CLAUDE_FALLBACK))));
         }
+
+        // Stufe 3: was Claude wirklich beantwortet hat, wandert in die Lookup-Tabelle.
+        learnFromClaude(transactionTexts, results, unknown);
         return results;
+    }
+
+    /**
+     * Schreibt die erfolgreich von Claude kategorisierten Händler in die
+     * {@code category_lookup}-Tabelle (BE-CAT-11, ADR-6 Schritt 4).
+     *
+     * <p><strong>Gelernt wird nur {@link CategorizationResult.Source#CLAUDE}</strong> — die
+     * Transaktionen, für die ein Request hinausging <em>und</em> eine lesbare Antwort einen
+     * gültigen Eintrag enthielt. Ein Ersatz-{@code Sonstiges} ({@code CLAUDE_FALLBACK},
+     * {@code CLAUDE_SKIPPED}) bleibt draussen, und das ist der eigentliche Punkt dieses Tasks:
+     * Würde es gelernt, fröre ein Netzwerkfehler oder ein offener Circuit Breaker den Händler
+     * dauerhaft auf {@code Sonstiges} ein — die Lookup-Stufe fängt ihn ab dem nächsten Import vor
+     * Claude ab, und er käme nie wieder zur Bewertung.
+     *
+     * <p><strong>Ein echtes {@code Sonstiges} vom Modell wird ebenfalls nicht gelernt.</strong>
+     * Seine Einfrier-Wirkung ist dieselbe, nur ohne Fehler als Ursache, und es ist kein
+     * Wissensgewinn gegenüber dem Fallback, den es für unbekannte Händler ohnehin gibt. Der Preis
+     * ist ein Call pro unklarem Händler und Import — bewusst gezahlt, damit ein später besseres
+     * Modell den Händler noch einmal sehen kann.
+     *
+     * <p>Gelernt wird der <strong>rohe</strong> Text, nicht die von {@link PromptSanitizer}
+     * maskierte Fassung: Die Lookup-Stufe matcht gegen den rohen Text, und die Patterns aus der
+     * manuellen Korrektur (BE-CAT-04) sind ebenfalls roh. Datenschutzfolge: Seit BE-CAT-11 landet
+     * nicht mehr nur ein aktiv korrigierter, sondern jeder von Claude eingestufte Händlertext in
+     * dieser Tabelle — sie hat keine {@code user_id} und überlebt die Kontolöschung (offene Lücke
+     * #290, siehe {@code UserService#deleteUser}).
+     *
+     * <p><strong>Ein Fehler hier darf die Kategorisierung nicht kosten.</strong> Die Ergebnisse
+     * stehen zu diesem Zeitpunkt vollständig in {@code results}; eine nicht erreichbare Datenbank
+     * macht den Import nicht falsch, sondern nur den Lerneffekt wirkungslos — und der greift beim
+     * nächsten Import erneut. Gezählt statt pro Eintrag geloggt: Fällt die DB aus, ist der Grund
+     * für alle Einträge derselbe, und 20 identische Warnungen pro Bündel verdecken nur den Rest
+     * des Import-Logs.
+     *
+     * @param positions Indizes in {@code texts}, die an Claude gingen — nur sie kommen infrage.
+     */
+    private void learnFromClaude(
+            List<String> texts,
+            List<Optional<CategorizationResult>> results,
+            List<Integer> positions) {
+
+        // Derselbe Händler steht auf einem Auszug oft mehrfach. Ohne diese Menge liefe pro
+        // Vorkommen ein eigener Upsert auf denselben Primärschlüssel.
+        Set<String> alreadyLearned = new HashSet<>();
+        int failed = 0;
+        RuntimeException lastFailure = null;
+
+        for (int index : positions) {
+            CategorizationResult result = results.get(index).orElse(null);
+            if (result == null
+                    || result.source() != CategorizationResult.Source.CLAUDE
+                    || result.category() == Category.SONSTIGES) {
+                continue;
+            }
+            String text = texts.get(index);
+            if (!alreadyLearned.add(text)) {
+                continue;
+            }
+            try {
+                categoryLearningPort.learn(text, result.category());
+            } catch (RuntimeException e) {
+                failed++;
+                lastFailure = e;
+            }
+        }
+
+        if (lastFailure != null) {
+            // Ohne Wortlaut der Exception (BE-PDF-06): Eine DB-Meldung kann das Pattern und damit
+            // den Transaktionstext enthalten.
+            log.warn("{} von Claude kategorisierte Händler konnten nicht in die Lookup-Tabelle "
+                            + "geschrieben werden ({}) — die Kategorisierung selbst ist davon "
+                            + "unberührt, der Lerneffekt greift beim nächsten Import erneut.",
+                    failed, LogRedaction.describe(lastFailure));
+        }
     }
 
     /**

@@ -7,8 +7,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Implementierung des {@link CategoryLearningPort} (ADR-6, Schritt 3): schreibt user-bestätigte
- * Zuordnungen in die {@code category_lookup}-Tabelle.
+ * Implementierung des {@link CategoryLearningPort} (ADR-6, Schritt 4): schreibt gelernte
+ * Zuordnungen in die {@code category_lookup}-Tabelle — aus manuellen Korrekturen (BE-CAT-04) wie
+ * aus erfolgreichen Claude-Kategorisierungen (BE-CAT-11). Dieser Service unterscheidet die beiden
+ * Quellen nicht; welche Ergebnisse überhaupt lernwürdig sind, entscheiden die Aufrufer.
  *
  * <p>{@code empfaenger_pattern} ist der Primärschlüssel — {@code save} wirkt daher als Upsert:
  * Ein neues Pattern wird eingefügt, ein bereits vorhandenes in seiner Kategorie aktualisiert.
