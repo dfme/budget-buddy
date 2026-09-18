@@ -186,6 +186,8 @@ describe('Register', () => {
     expect(component.errorMessage()).toBe(
       'Registrierung fehlgeschlagen. Bitte versuche es später erneut.',
     );
+    expect(navigate).not.toHaveBeenCalled();
+    expect(component.submitting()).toBe(false);
   });
 
   // Deckt den gerenderten Fehler ab, nicht nur das Signal: ein Umbau auf eine Komponente
