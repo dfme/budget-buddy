@@ -20,6 +20,14 @@ package com.budgetbuddy.categorization;
  *
  * <p>Die Reihenfolge entscheidet, und das ist so gewollt: Eine manuelle Korrektur, die nach einer
  * Claude-Einstufung kommt, überschreibt sie. Der User hat in dieser Tabelle das letzte Wort.
+ *
+ * <p><strong>Das setzt voraus, dass beide Quellen denselben Schlüssel schreiben</strong> —
+ * Buchungstext samt Detailzeilen, mit Leerzeichen verbunden. Der Primärschlüssel dieser Tabelle
+ * ist das Pattern selbst; schreiben die Quellen verschiedene Schlüssel, greift kein Upsert,
+ * sondern es entstehen zwei Zeilen, und die Längensortierung in
+ * {@link CategoryLookupRepository#findMatching} lässt den längeren Claude-Eintrag über die
+ * User-Korrektur gewinnen. Auf beiden Seiten liefert {@code fullText()} den Schlüssel
+ * ({@code ParsedTransaction} beim Import, {@code Transaction} bei der Korrektur).
  */
 public interface CategoryLearningPort {
 
@@ -29,9 +37,9 @@ public interface CategoryLearningPort {
      * Kategorie überschrieben (Upsert) — der jüngste Aufruf gewinnt.
      *
      * @param merchantPattern Händler-Pattern, das (case-insensitiv, als Substring) im
-     *     Transaktionstext gematcht wird. Bei BE-CAT-04 der {@code buchungstext} der korrigierten
-     *     Transaktion, bei BE-CAT-11 der rohe Transaktionstext, den die Claude-Stufe eingestuft
-     *     hat.
+     *     Transaktionstext gematcht wird — bei beiden Quellen der volle Transaktionstext aus
+     *     Buchungstext und Detailzeilen ({@code fullText()}), bei BE-CAT-04 der der korrigierten
+     *     Transaktion, bei BE-CAT-11 der, den die Claude-Stufe eingestuft hat.
      * @param category die Zielkategorie — vom User bestätigt (BE-CAT-04) oder von Claude ermittelt
      *     (BE-CAT-11).
      */

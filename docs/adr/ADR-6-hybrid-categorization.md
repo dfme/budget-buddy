@@ -47,6 +47,15 @@ hat (`CategorizationResult.Source.CLAUDE`). Aussen vor bleiben:
 Beide Quellen schreiben mit Upsert-Semantik in dieselbe Tabelle. Kommt eine manuelle Korrektur
 nach einer Claude-Einstufung, überschreibt sie diese — der User hat das letzte Wort.
 
+**Der Schlüssel ist auf beiden Seiten derselbe:** Buchungstext samt Detailzeilen, mit Leerzeichen
+verbunden — `ParsedTransaction.fullText()` beim Import, `Transaction.fullText()` bei der Korrektur.
+Das ist Bedingung, keine Kosmetik: Primärschlüssel der Tabelle ist das Pattern selbst. Schreiben
+die Quellen verschiedene Schlüssel, greift kein Upsert, es entstehen zwei Zeilen, und die
+Sortierung nach Pattern-Länge in `findMatching` lässt den längeren Claude-Eintrag über die
+User-Korrektur gewinnen — das Gegenteil des letzten Wortes. Bei Layouts mit Detailzeilen
+(PostFinance, UBS, Kreditkarte) war genau das der Fall, solange die Korrektur nur den
+`buchungstext` lernte.
+
 **PII-Policy für MVP:** Der rohe Transaktionstext (z.B. `"DIGITEC GALAXUS AG 044 913 2323"`) wird ohne Pseudonymisierung an die Anthropic API gesendet. Das ist eine Datenübermittlung an einen US-Dienstleister und fällt unter nDSG Art. 16 (Bekanntgabe ins Ausland).
 
 **Dieser Compliance-Gap wird für das MVP bewusst akzeptiert.** Begründung: Es handelt sich um ein Kurs-Projekt ohne echte Produktionsdaten; ein Data Processing Agreement (DPA) mit Anthropic sowie eine explizite Erwähnung in den Nutzungsbedingungen sind für den Produktionsbetrieb nachzuholen.
