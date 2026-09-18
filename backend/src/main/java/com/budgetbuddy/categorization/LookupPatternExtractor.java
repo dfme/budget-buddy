@@ -15,7 +15,8 @@ import java.util.regex.Pattern;
  * M BERN WANKDORF BERN (CH)} sieht jeden Monat gleich aus). Für Überweisungen mit Mitteilung
  * nicht: {@code GIRO POST MUSTER IMMOBILIEN AG MIETE JANUAR 2025} trifft {@code … MIETE FEBRUAR
  * 2025} nie — pro Monat ein Claude-Call <em>und</em> eine Zeile, die nie wieder trifft. Im
- * 240er-Fixture entfallen von 51 gelernten Zeilen 36 auf drei Gegenparteien.
+ * 240er-Fixture erzeugen die 96 Claude-Fälle 43 verschiedene Zeilen, davon 27 für nur drei
+ * Gegenparteien (Miete 12, Lohn 12, Steuerrückerstattung 3); mit dem Schnitt sind es 19.
  *
  * <p><strong>Präfix-Schnitt statt Maskierung.</strong> {@link CategoryLookupRepository#findMatching}
  * matcht per {@code LIKE '%pattern%'}: Das Pattern muss ein zusammenhängender Substring jedes
@@ -119,7 +120,7 @@ final class LookupPatternExtractor {
                     + "|(?:19|20)\\d{2}-\\d{1,2}(?:-\\d{1,2})?"); // 2025-08, 2025-08-15
 
     /** Referenz, Rechnungsnummer, kompakte IBAN — alles mit fünf Ziffern am Stück. */
-    private static final Pattern LONG_DIGIT_RUN = Pattern.compile(".*\\d{5}.*");
+    private static final Pattern LONG_DIGIT_RUN = Pattern.compile("\\d{5}");
 
     /** Erster Block einer gespreizten IBAN: Länderkennung plus Prüfziffer. */
     private static final Pattern IBAN_START = Pattern.compile("[A-Z]{2}\\d{2}");
@@ -168,7 +169,7 @@ final class LookupPatternExtractor {
             }
             if (STANDALONE_YEAR.matcher(word).matches()
                     || NUMERIC_DATE.matcher(word).matches()
-                    || LONG_DIGIT_RUN.matcher(word).matches()
+                    || LONG_DIGIT_RUN.matcher(word).find()
                     || IBAN_START.matcher(word).matches()) {
                 return i;
             }

@@ -14,7 +14,7 @@ von `fullText()` — `GIRO POST MUSTER IMMOBILIEN AG MIETE JANUAR 2025`, `LASTSC
 (SCHWEIZ) AG RECHNUNG 12-2025`, `GUTSCHRIFT MUSTER CONSULTING GMBH LOHN JULI 2026 SOWIE SPE
 SENVERGUETUNG`, `… Reg. Nr 10000001`. Kartenzahlungen (Raiffeisen, UBS, Viseca, PostFinance
 `KAUF/DIENSTLEISTUNG …`) haben keinen variablen Teil. Im 240er-Auszug erzeugen die 96 Claude-Fälle
-51 verschiedene Zeilen, davon 36 allein für Miete (12), Lohn (12) und Swisscom (12).
+43 verschiedene Zeilen, davon 27 allein für Miete (12), Lohn (12) und Steuerrückerstattung (3).
 
 Die Extraktion muss in `CategoryLearningService.learn()` sitzen, nicht im
 `HybridCategorizationService`: Sonst schreibt die manuelle Korrektur (BE-CAT-04) weiterhin den
