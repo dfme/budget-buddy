@@ -43,6 +43,8 @@ Plan hatte den Grep nur auf die im Issue genannten Dateien angewandt und `settin
 - [settings.html:4](../../frontend/src/app/settings/settings.html#L4)
 - [settings.html:50](../../frontend/src/app/settings/settings.html#L50)
 - [settings.html:103](../../frontend/src/app/settings/settings.html#L103)
+- [settings.html:115](../../frontend/src/app/settings/settings.html#L115) — durch FE-SET-05 (#304)
+  auf `main` hinzugekommen, nach dem Merge von `main` in diesen Branch nachgetragen
 - [styleguide.html:41](../../frontend/src/app/styleguide/styleguide.html#L41)
 - [styleguide.html:125](../../frontend/src/app/styleguide/styleguide.html#L125)
 - [styleguide.html:128](../../frontend/src/app/styleguide/styleguide.html#L128)
@@ -50,7 +52,7 @@ Plan hatte den Grep nur auf die im Issue genannten Dateien angewandt und `settin
 (`dashboard.html:157` bindet `[title]="totalsTitle()"` dynamisch — davon nicht betroffen, da kein
 statisches Attribut im Template steht.)
 
-Diese neun Stellen werden **geprüft, nicht geändert** — der Fix greift am Host-Binding in
+Diese zehn Stellen werden **geprüft, nicht geändert** — der Fix greift am Host-Binding in
 `Card`, nicht an den Aufruforten.
 
 ## Implementierungsschritte
@@ -61,7 +63,7 @@ Diese neun Stellen werden **geprüft, nicht geändert** — der Fix greift am Ho
    ein Host mit `<app-card title="…">Inhalt</app-card>` rendern und prüfen:
    - `host.hasAttribute('title') === false`
    - `.card__title` zeigt weiterhin den Titeltext
-3. Die neun Aufruforte manuell/visuell durchgehen (kein Code-Edit dort erwartet).
+3. Die zehn Aufruforte manuell/visuell durchgehen (kein Code-Edit dort erwartet).
 
 ## Test-Strategie
 
@@ -80,7 +82,7 @@ Diese neun Stellen werden **geprüft, nicht geändert** — der Fix greift am Ho
 - [ ] Ein Regressionstest rendert einen Aufruf-Host mit statischem `title="…"` und prüft
       `hasAttribute('title') === false` sowie den weiterhin gesetzten Input — analog zu
       `notice.spec.ts` aus #181
-- [ ] Die neun (aktueller Stand, s.o.) bestehenden Aufruforte sind geprüft und bleiben
+- [ ] Die zehn (aktueller Stand, s.o.) bestehenden Aufruforte sind geprüft und bleiben
       unverändert bedienbar
 - [ ] Gegenprobe auf weitere Shared-Komponenten mit Inputs, die auf globale HTML-Attribute
       kollidieren: Ergebnis im PR benannt (siehe oben — keine weiteren Funde)
