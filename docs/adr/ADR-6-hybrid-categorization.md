@@ -90,7 +90,8 @@ User-Korrektur gewinnen — das Gegenteil des letzten Wortes. Bei Layouts mit De
   `category_lookup` und überlebten die Kontolöschung (#319) — seit BE-CAT-11 zudem für jeden von
   Claude eingestuften Händler, nicht nur für aktive Korrekturen. Seit ADR-15 liegen sie pro Nutzer
   in `user_category_lookup` und gehen mit dem Konto; die vor V12 gelernten Altzeilen bleiben auf
-  Teamentscheid global (ADR-15, «Altdaten»)
+  Teamentscheid global (ADR-15, «Altdaten»). Roh bleiben sie bewusst — eine per `PromptSanitizer`
+  maskierte Fassung wäre beim nächsten Import kein Substring des rohen Texts mehr (ADR-15, Punkt 6)
 - **PII-Transfer zu Anthropic (akzeptiertes Risiko):** Roher Transaktionstext verlässt die eigene Vertrauenszone; nDSG Art. 16 formal nicht vollständig erfüllt
   - Mitigation MVP: Kein Produktionsbetrieb mit echten Nutzerdaten ohne DPA + AGB-Anpassung
   - Mitigation langfristig: Lokales LLM via Ollama ersetzt Claude für die Kategorisierung (siehe Alternatives)

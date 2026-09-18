@@ -53,10 +53,22 @@ oder pro Nutzer gelten?**
    `ClaudeCategorizationService` bleibt hinter dem Port (CLAUDE.md-Konvention), ignoriert die ID
    und behält seine textbasierten Methoden als eigentliche Implementierung — für die Einstufung
    ist ohne Belang, wer importiert hat.
-5. **Kontolöschung:** `CategoryLookupCleanupPort` hängt als sechster Port in
+5. **Kontolöschung:** `CategoryLookupCleanupPort` hängt als fünfter Port in
    `UserService.deleteUser`, in derselben Bauart wie die übrigen. `UserDeletionIntegrationTest`
    zählt danach 0 Zeilen für den gelöschten Nutzer und 1 für einen zweiten — geräumt wird
    mandantenweise, nicht die Tabelle.
+6. **Der gespeicherte Schlüssel bleibt roh — bewusst, nicht aus Versehen.** Er wird nicht durch
+   `PromptSanitizer` (BE-CAT-06) geführt, obwohl er dieselbe Datenklasse enthält wie der
+   versendete Prompt. Der Grund ist die Matching-Semantik: `findMatching` prüft per
+   `LIKE '%pattern%'`, ob das gelernte Pattern als Substring im rohen Text des nächsten Imports
+   vorkommt. Eine maskierte Fassung (`KAUF/DIENSTLEISTUNG <NAME> KARTE <KARTE>`) ist in keinem
+   rohen Buchungstext enthalten — der Lerneffekt liefe damit für genau die Zeilen ins Leere, die
+   er entschärfen sollte. Umgekehrt den Import-Text zu maskieren, bevor er gegen die Tabelle
+   läuft, wäre möglich, kostete aber die Seeds und alle bisher gelernten Zeilen ihre Treffer und
+   liesse die Frage «was heisst das für bereits gelernte Zeilen» mit «neu lernen» beantworten.
+   Der Schutz der Zeilen kommt deshalb nicht aus der Maskierung, sondern aus Punkt 2 und 5:
+   Mandantenbindung und Löschung mit dem Konto. Die verbleibende Exposition steht unten unter
+   Negative.
 
 **Altdaten.** Die vor V12 gelernten Zeilen in `category_lookup` lassen sich keinem Nutzer mehr
 zuordnen. Sie bleiben auf Teamentscheid als globale Patterns stehen; V12 räumt `category_lookup`
@@ -87,6 +99,14 @@ in einer späteren Migration alles, was nicht zu den 18 Seeds aus V04 gehört.
 - **Zwei Queries pro Lookup** statt einer. Beide sind Substring-Scans auf kleinen Tabellen; die
   Laufzeit des Imports hängt an den Claude-Calls (ADR-14), nicht hier.
 - **Altdaten bleiben global** (siehe oben) — eine dokumentierte, nicht eine stille Ausnahme.
+- **Rohe Buchungstexte liegen unmaskiert in `user_category_lookup`** (Punkt 6), darunter Namen
+  natürlicher Personen aus Überweisungen (`MUSTER, ANNA`, `SACKGELD LEA` aus dem Korpus des
+  `PromptSanitizerTest`) — dieselbe Restexposition, die BE-CAT-08
+  ([#233](https://github.com/dfme/budget-buddy/issues/233)) für den Prompt-Pfad festhält, hier
+  für die Ablage. Sie ist kleiner als vor BE-CAT-12 (kein anderer Nutzer sieht die Zeile, die
+  Kontolöschung räumt sie), aber nicht null: Wer die Datenbank liest, liest diese Texte. Das gilt
+  für `transactions` genauso — die Lookup-Tabelle vergrössert die Angriffsfläche nicht um eine
+  neue Datenklasse, sondern um eine zweite Kopie derselben.
 
 ## Alternatives
 
