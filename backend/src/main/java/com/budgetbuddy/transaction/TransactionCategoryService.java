@@ -56,10 +56,10 @@ public class TransactionCategoryService {
         transaction.setCategory(category.getLabel());
         transactionRepository.save(transaction);
 
-        // Lerneffekt: derselbe Schlüssel wie bei BE-CAT-11 (Buchungstext + Detailzeilen) — seit
-        // DB-05/ADR-12 beim Speichern auf Grossschreibung normalisiert, weil PostgreSQL kein
-        // COLLATE NOCASE kennt. In category_lookup steht deshalb COOP PRONTO BERN, nicht
-        // "Coop Pronto Bern".
+        // Lerneffekt: derselbe Text wie bei BE-CAT-11 (Buchungstext + Detailzeilen). Gespeichert
+        // wird davon das grossgeschriebene, um die variable Mitteilung gekürzte Präfix (DB-05,
+        // BE-CAT-13): In category_lookup steht COOP PRONTO BERN, nicht "Coop Pronto Bern", und
+        // GIRO POST MUSTER IMMOBILIEN AG MIETE ohne den Monat.
         categoryLearningPort.learn(transaction.fullText(), category);
 
         return TransactionResponse.from(transaction);

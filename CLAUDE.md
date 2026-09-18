@@ -33,6 +33,16 @@ echten Transaktionsdaten, nicht aus manueller Eingabe.
 `Sonstiges` vom Modell bleiben draussen. Sonst friert ein einzelner Netzwerkfehler einen Händler
 dauerhaft auf `Sonstiges` ein, weil Stufe 1 ihn künftig vor Claude abfängt.
 
+**Gelernt wird das stabile Präfix (BE-CAT-13):** `CategoryLearningService` schneidet den Text vor
+dem ersten variablen Token ab — Monat mit Jahr, Jahr, Datum, Referenz ab fünf Ziffern, IBAN
+(`LookupPatternExtractor`). Aus `GIRO POST MUSTER IMMOBILIEN AG MIETE JANUAR 2025` wird
+`GIRO POST MUSTER IMMOBILIEN AG MIETE`, und die Februar-Miete trifft ohne Claude-Call. Ein Präfix,
+kein Herausschneiden, weil `findMatching` per `LIKE '%pattern%'` einen Substring braucht. Guard:
+Das Präfix muss mindestens drei Tokens und die Hälfte des Textes behalten, sonst wird der volle
+Text gelernt — ein zu kurzes Pattern (`TWINT KAUF/DIENSTLEISTUNG VOM`) zwänge sonst jede
+TWINT-Zahlung in eine Kategorie. Der Schnitt sitzt im Service, damit **beide** Lernquellen
+denselben Schlüssel schreiben und der Upsert der User-Korrektur greift.
+
 **Bündelung (ADR-14):** Bis zu 20 Transaktionen gehen in *einem* Request hinaus. Der Prompt ist
 eine nummerierte Liste; die Kategorienliste steht **nicht** darin, sondern als `enum`-Constraint
 im Structured-Output-Schema, das aus dem `Category`-Enum abgeleitet wird — eine Kategorie
