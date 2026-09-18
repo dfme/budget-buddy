@@ -7,6 +7,7 @@ import { Router, provideRouter } from '@angular/router';
 import { AuthService } from '../../auth/auth.service';
 import { User } from '../../auth/user.model';
 import { NotificationService } from '../../notifications/notification.service';
+import { RecurringExpenseService } from '../../recurring/recurring-expense.service';
 import { Shell } from './shell';
 
 const LARA: User = {
@@ -416,6 +417,30 @@ describe('Shell', () => {
       httpMock.expectOne('/api/auth/logout').flush(null);
 
       expect(notifications.notifications()).toEqual([]);
+    });
+
+    // FE-REC-01: dieselbe Regression für die Zahl in der Abo-Teaser-Card des Dashboards.
+    it('leert den Abo-State beim Abmelden', () => {
+      login(LARA);
+      const recurringExpenses = TestBed.inject(RecurringExpenseService);
+      recurringExpenses.load().subscribe();
+      httpMock.expectOne('/api/recurring-expenses').flush([
+        {
+          id: 1,
+          payeeKey: 'NETFLIX',
+          amount: 17.9,
+          status: 'DETECTED',
+          firstDetectedMonth: '2026-07',
+          createdAt: '2026-09-08T10:15:00Z',
+          isNew: true,
+        },
+      ]);
+      expect(recurringExpenses.count()).toBe(1);
+
+      query<HTMLButtonElement>('.nav__logout')!.click();
+      httpMock.expectOne('/api/auth/logout').flush(null);
+
+      expect(recurringExpenses.count()).toBe(0);
     });
 
     it('leert den Notification-State auch, wenn der Logout-Call fehlschlägt', () => {

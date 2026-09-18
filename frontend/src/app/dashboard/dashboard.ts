@@ -5,6 +5,7 @@ import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
 
 import { AuthService } from '../auth/auth.service';
+import { RecurringExpenseService } from '../recurring/recurring-expense.service';
 import { Amount } from '../shared/amount/amount';
 import { Button } from '../shared/button/button';
 import { Card } from '../shared/card/card';
@@ -71,6 +72,7 @@ export class Dashboard {
   private readonly monthlyTotalsService = inject(MonthlyTotalsService);
   private readonly authService = inject(AuthService);
   private readonly transactionService = inject(TransactionService);
+  private readonly recurringExpenses = inject(RecurringExpenseService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
@@ -302,6 +304,21 @@ export class Dashboard {
   });
 
   /**
+   * Der Text der Abo-Teaser-Card (FE-REC-01, US-08), z. B. `"3 Abos erkannt"`.
+   *
+   * <p>Die Card steht auch bei 0 Einträgen da: sie ist der einzige Einstieg in die Abo-Übersicht
+   * (kein Eintrag in der Hauptnavigation), und wer sie bei 0 versteckte, nähme dem Nutzer den Weg
+   * dorthin genau dann, wenn er nachsehen will, warum nichts erkannt wurde.
+   */
+  readonly recurringTeaserText = computed(() => {
+    const count = this.recurringExpenses.count();
+    if (count === 0) {
+      return 'Keine Abos erkannt';
+    }
+    return count === 1 ? '1 Abo erkannt' : `${count} Abos erkannt`;
+  });
+
+  /**
    * `false`, bis die erste URL-Auswertung gelaufen ist. Ohne diese Unterscheidung würde die
    * Gleichheits-Wache in {@link syncFromUrl} das Erstladen verschlucken, sobald die URL keinen
    * Parameter trägt — der ausgelesene Monat ist dann von Anfang an derselbe wie der angezeigte.
@@ -350,6 +367,7 @@ export class Dashboard {
       .pipe(takeUntilDestroyed())
       .subscribe((params) => this.syncFromUrl(params));
     this.loadAvailableMonths();
+    this.loadRecurringExpenses();
   }
 
   /** Einen Monat zurück. */
@@ -476,6 +494,26 @@ export class Dashboard {
         // Keine-Daten-Hinweis bleibt weg, statt etwas zu behaupten. Safe-to-Spend selbst
         // funktioniert unverändert — er hängt nicht an dieser Liste — und eine rote Meldung
         // stünde in keinem Verhältnis zur Einschränkung.
+      },
+    });
+  }
+
+  /**
+   * Lädt die Abo-Übersicht für die Teaser-Card (FE-REC-01, US-08).
+   *
+   * <p>Einmal beim Aufbau der Seite und unabhängig vom Monat: erkannte Abos sind keine
+   * Monatsgrösse, und die Liste ändert sich nur durch einen Import oder ein «Kein Abo» — beides
+   * führt über eine andere Seite hierher zurück.
+   *
+   * <p>Ein Fehler bleibt bewusst still: die Card zeigt dann «Keine Abos erkannt» und verlinkt
+   * weiterhin in die Übersicht, die ihren Fehler selbst meldet. Eine rote Meldung für einen
+   * ausgefallenen Teaser stünde in keinem Verhältnis — dieselbe Abwägung wie bei
+   * {@link #loadUncertainCount}.
+   */
+  private loadRecurringExpenses(): void {
+    this.recurringExpenses.load().subscribe({
+      error: (_err: HttpErrorResponse) => {
+        // Siehe Javadoc: bewusst ohne Meldung.
       },
     });
   }

@@ -866,6 +866,8 @@ describe('Route /einstellungen', () => {
     httpMock.expectOne('/api/notifications').flush([]);
     // FE-STS-04: Dasselbe für die Drei-Monats-Übersicht (BE-STS-07).
     httpMock.expectOne((r) => r.url === '/api/transactions/monthly-totals').flush([]);
+    // FE-REC-01: Und die Abo-Übersicht für die Teaser-Card.
+    httpMock.expectOne('/api/recurring-expenses').flush([]);
     root.detectChanges();
 
     const dashboard = root.debugElement.query(By.directive(Dashboard))

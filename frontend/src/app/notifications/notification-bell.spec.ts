@@ -11,22 +11,36 @@ import { NotificationBell } from './notification-bell';
 
 registerLocaleData(localeDeCh);
 
+/**
+ * Ungelesen, mit einem Typ, den das Frontend nicht interpretiert — die Klick-Tests unten prüfen
+ * damit allein das Gelesen-Markieren. Die Abo-Benachrichtigung hat ihren eigenen Fall.
+ */
 const UNREAD: NotificationResponse = {
   id: 1,
-  type: 'RECURRING_EXPENSE_DETECTED',
+  type: 'MONTHLY_REPORT_READY',
   referenceId: 42,
-  message: 'Netflix wurde als Abo erkannt',
+  message: 'Dein Monatsbericht ist bereit',
   read: false,
   createdAt: '2026-09-08T10:15:00Z',
 };
 
 const READ: NotificationResponse = {
   id: 2,
-  type: 'RECURRING_EXPENSE_DETECTED',
+  type: 'MONTHLY_REPORT_READY',
   referenceId: null,
-  message: 'Spotify wurde als Abo erkannt',
+  message: 'Dein Monatsbericht ist bereit',
   read: true,
   createdAt: '2026-09-01T08:00:00Z',
+};
+
+/** Neu erkanntes Abo (BE-REC-01) — die Glocke führt bei diesem Typ in die Abo-Übersicht. */
+const RECURRING_UNREAD: NotificationResponse = {
+  id: 3,
+  type: 'RECURRING_EXPENSE_DETECTED',
+  referenceId: 42,
+  message: 'Netflix wurde als Abo erkannt',
+  read: false,
+  createdAt: '2026-09-08T10:15:00Z',
 };
 
 /** Navigationsziel für den NavigationEnd-Test. */
@@ -44,7 +58,10 @@ describe('NotificationBell', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
-        provideRouter([{ path: 'dashboard', component: RouteStub }]),
+        provideRouter([
+          { path: 'dashboard', component: RouteStub },
+          { path: 'abos', component: RouteStub },
+        ]),
         { provide: LOCALE_ID, useValue: 'de-CH' },
       ],
     }).compileComponents();
@@ -198,6 +215,59 @@ describe('NotificationBell', () => {
     query<HTMLButtonElement>('.bell-list__item')!.click();
 
     httpMock.expectNone('/api/notifications/2/read');
+  });
+
+  // FE-REC-01: die Antwort auf «Netflix wurde als Abo erkannt» ist die Abo-Übersicht.
+  it('führt bei einer Abo-Benachrichtigung sofort in die Abo-Übersicht und schliesst das Dropdown', async () => {
+    create();
+    flushInitialLoad([RECURRING_UNREAD]);
+    bellButton().click();
+    fixture.detectChanges();
+
+    query<HTMLButtonElement>('.bell-list__item')!.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    // Sofort navigiert, nicht erst nach dem Gelesen-Call: Käme die Übersicht erst nach dessen
+    // Abschluss an, stünde der Eintrag dort bereits als gelesen und das «Neu»-Label liefe leer
+    // (US-08 AC2).
+    expect(router.url).toBe('/abos');
+    expect(query('.bell-list')).toBeNull();
+    // Die Navigation löst den üblichen Reload aus.
+    httpMock.expectOne('/api/notifications').flush([]);
+
+    httpMock.expectOne('/api/notifications/3/read').flush({ ...RECURRING_UNREAD, read: true });
+  });
+
+  it('führt auch dann in die Abo-Übersicht, wenn das Gelesen-Markieren fehlschlägt', async () => {
+    create();
+    flushInitialLoad([RECURRING_UNREAD]);
+    bellButton().click();
+    fixture.detectChanges();
+
+    query<HTMLButtonElement>('.bell-list__item')!.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(router.url).toBe('/abos');
+    httpMock.expectOne('/api/notifications').flush([]);
+
+    httpMock
+      .expectOne('/api/notifications/3/read')
+      .flush(null, { status: 500, statusText: 'Server Error' });
+  });
+
+  it('navigiert bei einer Benachrichtigung anderen Typs nicht', async () => {
+    create();
+    flushInitialLoad([READ]);
+    bellButton().click();
+    fixture.detectChanges();
+
+    query<HTMLButtonElement>('.bell-list__item')!.click();
+    await fixture.whenStable();
+
+    expect(router.url).toBe('/');
+    expect(query('.bell-list')).not.toBeNull();
   });
 
   it('lädt bei einer Navigation erneut (kein Polling, aber Reload bei Navigation)', async () => {

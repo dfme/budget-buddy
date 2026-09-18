@@ -168,3 +168,33 @@
     box-shadow: inset 3px 0 0 $c-accent;
   }
 }
+
+// --- Abo-Teaser (FE-REC-01) ---
+
+// Dieselbe Spalte wie die Übersicht darüber. Der Link umschliesst die ganze Card; die Farbe
+// des Fliesstexts bleibt Ink, nur der CTA trägt die Linkfarbe — sonst läse sich die ganze Card
+// wie ein Absatz aus Links.
+.recurring-teaser {
+  display: block;
+  max-width: 28rem;
+  margin: $sp-5 auto 0;
+  color: inherit;
+  text-decoration: none;
+
+  &:hover .recurring-teaser__cta,
+  &:focus-visible .recurring-teaser__cta {
+    text-decoration: underline;
+  }
+}
+
+.recurring-teaser__text {
+  margin: 0 0 $sp-2;
+  font-size: $fs-lg;
+  font-weight: 600;
+}
+
+.recurring-teaser__cta {
+  color: $c-accent;
+  font-size: $fs-sm;
+  font-weight: 500;
+}
