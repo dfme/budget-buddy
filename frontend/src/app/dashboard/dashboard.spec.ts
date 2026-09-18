@@ -141,6 +141,9 @@ describe('Dashboard', () => {
       .match((req) => req.url === '/api/transactions/monthly-totals')
       .filter((req) => !req.cancelled)
       .forEach((req) => req.flush([]));
+    // FE-REC-01: Beim Aufbau wird ausserdem die Abo-Übersicht für die Teaser-Card geladen —
+    // einmal, unabhängig vom Monat. Wer den Teaser selbst prüft, holt den Request vorher ab.
+    httpMock.match('/api/recurring-expenses').forEach((req) => req.flush([]));
     httpMock.verify();
   });
 
@@ -532,6 +535,7 @@ describe('Dashboard', () => {
         .match((req) => req.url === '/api/transactions/monthly-totals')
         .filter((req) => !req.cancelled)
         .forEach((req) => req.flush([]));
+      httpMock.match('/api/recurring-expenses').forEach((req) => req.flush([]));
       fixture.destroy();
       await TestBed.inject(Router).navigate([], { queryParams });
       fixture = TestBed.createComponent(Dashboard);
@@ -1045,6 +1049,77 @@ describe('Dashboard', () => {
       fixture.detectChanges();
 
       expect(cells(rows()[0])[0].textContent).toContain(formatMonth(PREVIOUS_MONTH));
+    });
+  });
+
+  describe('Abo-Teaser (FE-REC-01, US-08)', () => {
+    /** Ein erkanntes Abo — nur die Felder, die der Teaser zählt, sind hier von Belang. */
+    function recurringExpense(id: number) {
+      return {
+        id,
+        payeeKey: `PAYEE ${id}`,
+        amount: 10,
+        status: 'DETECTED',
+        firstDetectedMonth: PREVIOUS_MONTH,
+        createdAt: '2026-09-08T10:15:00Z',
+        isNew: false,
+      };
+    }
+
+    function teaser(): HTMLAnchorElement {
+      return fixture.nativeElement.querySelector('.recurring-teaser');
+    }
+
+    it('loads the recurring expenses once on setup, independent of the month', () => {
+      expectSafeToSpendRequest(httpMock).flush(NORMAL);
+      fixture.detectChanges();
+
+      expect(httpMock.match('/api/recurring-expenses')).toHaveLength(1);
+    });
+
+    it('links to the recurring-expense overview and names the detected count', () => {
+      httpMock
+        .expectOne('/api/recurring-expenses')
+        .flush([recurringExpense(1), recurringExpense(2), recurringExpense(3)]);
+      expectSafeToSpendRequest(httpMock).flush(NORMAL);
+      fixture.detectChanges();
+
+      expect(teaser().getAttribute('href')).toBe('/abos');
+      expect(teaser().querySelector('.recurring-teaser__text')?.textContent).toBe('3 Abos erkannt');
+    });
+
+    it('uses the singular for exactly one recurring expense', () => {
+      httpMock.expectOne('/api/recurring-expenses').flush([recurringExpense(1)]);
+      expectSafeToSpendRequest(httpMock).flush(NORMAL);
+      fixture.detectChanges();
+
+      expect(teaser().querySelector('.recurring-teaser__text')?.textContent).toBe('1 Abo erkannt');
+    });
+
+    it('stays visible with a neutral text when nothing was detected', () => {
+      httpMock.expectOne('/api/recurring-expenses').flush([]);
+      expectSafeToSpendRequest(httpMock).flush(NORMAL);
+      fixture.detectChanges();
+
+      expect(teaser().getAttribute('href')).toBe('/abos');
+      expect(teaser().querySelector('.recurring-teaser__text')?.textContent).toBe(
+        'Keine Abos erkannt',
+      );
+    });
+
+    it('stays silent when the recurring-expense request fails', () => {
+      httpMock
+        .expectOne('/api/recurring-expenses')
+        .flush(null, { status: 500, statusText: 'Server Error' });
+      expectSafeToSpendRequest(httpMock).flush(NORMAL);
+      fixture.detectChanges();
+
+      // Kein Fehler-Notice für den Teaser; der Safe-to-Spend daneben ist unberührt.
+      expect(teaser().querySelector('.recurring-teaser__text')?.textContent).toBe(
+        'Keine Abos erkannt',
+      );
+      expect(fixture.nativeElement.querySelector('.notice--error')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.safe-to-spend')).not.toBeNull();
     });
   });
 });

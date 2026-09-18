@@ -5,7 +5,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router } from '@angular/router';
 import { filter } from 'rxjs';
 
-import { NotificationResponse } from './notification.model';
+import { NotificationResponse, RECURRING_EXPENSE_DETECTED } from './notification.model';
 import { NotificationService } from './notification.service';
 
 let nextId = 0;
@@ -97,14 +97,31 @@ export class NotificationBell {
    *
    * <p>Ein Fehler bleibt bewusst still: die Benachrichtigung zeigt dann weiterhin als ungelesen
    * — der sichere Fallback, ein erneuter Klick versucht es wieder.
+   *
+   * <p><strong>Abo-Benachrichtigung (FE-REC-01).</strong> Trägt sie den Typ
+   * {@link RECURRING_EXPENSE_DETECTED}, führt der Klick zusätzlich in die Abo-Übersicht und
+   * schliesst das Dropdown — dort steht der Eintrag, und das ist die Antwort auf die Meldung.
+   * Navigiert wird sofort, der Gelesen-Call läuft parallel im Hintergrund weiter: Die Übersicht
+   * leitet ihr «Neu»-Label aus genau dieser Benachrichtigung ab (BE-REC-02) — würde erst auf den
+   * Abschluss des Gelesen-Calls gewartet, wäre der Eintrag beim Eintreffen in der Übersicht
+   * bereits als gelesen markiert und das Label liefe leer, obwohl US-08 AC2 es genau für diesen
+   * Weg verlangt. Die Glocke selbst markiert trotzdem als gelesen — der Klick ist die
+   * Kenntnisnahme der Benachrichtigung, nicht der Grund, warum der Eintrag in der Übersicht sein
+   * «Neu» behält.
    */
   protected select(notification: NotificationResponse): void {
-    if (!notification.read) {
-      this.notificationService.markAsRead(notification.id).subscribe({
-        error: (_err: HttpErrorResponse) => {
-          // Siehe Methoden-Doc: bewusst ohne Meldung.
-        },
-      });
+    if (notification.type === RECURRING_EXPENSE_DETECTED) {
+      this.close();
+      void this.router.navigate(['/abos']);
     }
+
+    if (notification.read) {
+      return;
+    }
+    this.notificationService.markAsRead(notification.id).subscribe({
+      error: (_err: HttpErrorResponse) => {
+        // Siehe Methoden-Doc: bewusst ohne Meldung.
+      },
+    });
   }
 }

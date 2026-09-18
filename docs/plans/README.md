@@ -42,6 +42,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `BE-CAT-07` | [AnthropicStartupHealthCheckTest ist ordnungsabhängig und macht einen echten Netzwerk-Call](BE-CAT-07-healthcheck-test-isolation.md) | [#162](https://github.com/dfme/budget-buddy/issues/162) | — | Sprint 5 |
 | `BE-CAT-09` | [Token-Verbrauch und Kosten der Claude-Kategorisierung loggen](BE-CAT-09-token-usage-logging.md) | [#243](https://github.com/dfme/budget-buddy/issues/243) | — | Sprint 6 |
 | `BE-CAT-10` | [Vier neue Kategorien (Persönliches, Steuern, Bargeldbezug, Reisen) plus ein Icon je Kategorie](BE-CAT-10-kategorien-icons.md) | [#266](https://github.com/dfme/budget-buddy/issues/266) | US-05 | Sprint 7 |
+| `BE-CAT-11` | [Lerneffekt bereits bei erfolgreicher Claude-Kategorisierung, nicht erst bei manueller Korrektur](BE-CAT-11-lerneffekt-claude-erfolg.md) | [#314](https://github.com/dfme/budget-buddy/issues/314) | US-05 | Sprint 7 |
 | `BE-FC-01` | [FixedCost Entity und Repository](BE-FC-01-fixedcost-entity.md) | [#10](https://github.com/dfme/budget-buddy/issues/10) | US-03 | Sprint 4 |
 | `BE-FC-02` | [FixedCostService: CRUD und Normalisierung](BE-FC-02-fixedcost-service.md) | [#11](https://github.com/dfme/budget-buddy/issues/11) | US-03 | Sprint 4 |
 | `BE-FC-03` | [REST-Endpoints für Fixkosten](BE-FC-03-fixed-costs-endpoints.md) | [#12](https://github.com/dfme/budget-buddy/issues/12) | US-03 | Sprint 4 |
@@ -102,10 +103,12 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `FE-FC-03` | [Fixkosten-Liste](FE-FC-03-fixkosten-liste.md) | [#26](https://github.com/dfme/budget-buddy/issues/26) | US-03 | Sprint 4 |
 | `FE-FC-04` | [Fixkosten-Tabelle läuft auf schmalen Viewports über die Card hinaus](FE-FC-04-tabelle-overflow.md) | [#172](https://github.com/dfme/budget-buddy/issues/172) | — | Sprint 5 |
 | `FE-NOTIF-01` | [Notification-Glocke in der App-Shell](FE-NOTIF-01-notification-bell.md) | [#247](https://github.com/dfme/budget-buddy/issues/247) | US-08 | Sprint 6 |
+| `FE-NOTIF-02` | [Glocke: Dropdown auf Desktop ausserhalb des Viewports, Icon passt nicht zum Design](FE-NOTIF-02-bell-dropdown-icon.md) | [#308](https://github.com/dfme/budget-buddy/issues/308) | US-08 | Sprint 7 |
 | `FE-PDF-01` | [Plan: FE-PDF-01 — PDF-Upload Component](FE-PDF-01-pdf-upload-component.md) | [#27](https://github.com/dfme/budget-buddy/issues/27) | US-04 | Sprint 3 |
 | `FE-PDF-02` | [FE-PDF-02 — Ergebnis-Anzeige nach PDF-Import](FE-PDF-02-import-ergebnis-anzeige.md) | [#28](https://github.com/dfme/budget-buddy/issues/28) | US-04 | Sprint 3 |
 | `FE-PDF-03` | [Duplikat-Dialog](FE-PDF-03-duplikat-dialog.md) | [#29](https://github.com/dfme/budget-buddy/issues/29) | US-04 | Sprint 4 |
 | `FE-PDF-04` | [Importierte Transaktionen mit Kategorie direkt im Import-Screen anzeigen und korrigieren](FE-PDF-04-import-transaction-list.md) | [#292](https://github.com/dfme/budget-buddy/issues/292) | US-04, US-05 | Sprint 6 |
+| `FE-REC-01` | [Abo-Übersicht-Screen](FE-REC-01-abo-uebersicht.md) | [#255](https://github.com/dfme/budget-buddy/issues/255) | US-08 | Sprint 6 |
 | `FE-SET-01` | [Einstellungen-Screen: Route und Navigation](FE-SET-01-einstellungen-screen.md) | [#177](https://github.com/dfme/budget-buddy/issues/177) | US-14 | Sprint 5 |
 | `FE-SET-02` | [Passwort ändern](FE-SET-02-passwort-aendern.md) | [#178](https://github.com/dfme/budget-buddy/issues/178) | US-14 | Sprint 5 |
 | `FE-SET-03` | [Einkommen manuell erfassen und ändern](FE-SET-03-einkommen-aendern.md) | [#179](https://github.com/dfme/budget-buddy/issues/179) | US-14 | Sprint 5 |
@@ -122,6 +125,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `FE-UI-05` | [Chart-Integration: ng2-charts + Donut/Bar-Basiskomponenten (Variante A)](FE-UI-05-chart-integration.md) | [#102](https://github.com/dfme/budget-buddy/issues/102) | US-06 | Sprint 3 |
 | `FE-UI-06` | [Bestehende Screens auf Variante-A-Fundament migrieren](FE-UI-06-variante-a-migration.md) | [#104](https://github.com/dfme/budget-buddy/issues/104) | US-01, US-05 | Sprint 3 |
 | `FE-UI-07` | [Notice-Komponente: Icon und optionaler Titel](FE-UI-07-notice-icon-titel.md) | [#181](https://github.com/dfme/budget-buddy/issues/181) | — | Sprint 5 |
+| `FE-UI-08` | [app-card lässt das globale title-Attribut am Host stehen](FE-UI-08-card-title-attribute.md) | [#194](https://github.com/dfme/budget-buddy/issues/194) | — | Sprint 7 |
 | `FE-UI-09` | [Favicon austauschen](FE-UI-09-favicon-theme.md) | [#316](https://github.com/dfme/budget-buddy/issues/316) | — | Sprint 7 |
 | `INFRA-01` | [Plan: [INFRA-01] Spring Boot Skeleton anlegen](INFRA-01-spring-boot-skeleton.md) | [#1](https://github.com/dfme/budget-buddy/issues/1) | — | Sprint 1 |
 | `INFRA-02` | [Angular Skeleton anlegen](INFRA-02-angular-skeleton.md) | [#2](https://github.com/dfme/budget-buddy/issues/2) | — | Sprint 1 |

@@ -189,10 +189,15 @@ public class UserService implements UserIncomePort {
      *
      * <p><strong>Eine bekannte Lücke, die diese Methode nicht schliesst</strong> (#290) — US-02
      * gilt erst als erfüllt, wenn sie geschlossen ist: {@code category_lookup} überlebt die
-     * Löschung. Manuelle Kategorie-Korrekturen schreiben den rohen Buchungstext als
-     * Primärschlüssel in eine Tabelle ohne {@code user_id} ({@code TransactionCategoryService} →
-     * {@code CategoryLearningService.learn}, V04). Ohne {@code user_id} lässt sie sich nicht
-     * mandantenweise räumen — eigenes Issue.
+     * Löschung. Der rohe Buchungstext steht dort als Primärschlüssel in einer Tabelle ohne
+     * {@code user_id} (V04), und ohne {@code user_id} lässt sie sich nicht mandantenweise räumen
+     * — eigenes Issue.
+     *
+     * <p><strong>Seit BE-CAT-11 ist die Lücke breiter</strong>, als sie war: Bis dahin landete dort
+     * nur, was ein User aktiv korrigiert hatte ({@code TransactionCategoryService} →
+     * {@code CategoryLearningService.learn}). Inzwischen schreibt auch der
+     * {@code HybridCategorizationService} jeden Händlertext hinein, den die Claude-Stufe
+     * erfolgreich kategorisiert hat — ohne Zutun des Users und für jeden importierten Auszug.
      *
      * @throws UserNotFoundException wenn kein User mit dieser ID existiert.
      * @throws InvalidCurrentPasswordException wenn {@code currentPassword} nicht mit dem

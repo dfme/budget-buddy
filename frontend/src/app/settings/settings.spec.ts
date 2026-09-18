@@ -136,6 +136,17 @@ describe('Settings', () => {
     expect(cardTitles).toEqual(['Passwort', 'Einkommen', 'Erscheinungsbild', 'Konto löschen']);
   });
 
+  it('lässt an keiner Card das globale title-Attribut am Host stehen (FE-UI-08)', () => {
+    // Alle app-card-Aufrufe in settings.html schreiben `title="…"` statisch — genau die
+    // Konstellation, die Angular ohne das Host-Binding in `Card` zusätzlich als DOM-Attribut
+    // stehen liesse. Die Anzahl der Cards sichert der Test „rendert die vier Abschnitte …"
+    // bereits ab; hier geht es nur um das Attribut, nicht um den Zähler.
+    const hosts = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('app-card'));
+
+    expect(hosts.length).toBeGreaterThan(0);
+    expect(hosts.every((host) => !host.hasAttribute('title'))).toBe(true);
+  });
+
   // --- FE-SET-02: Passwort ändern ---
 
   it('sperrt den Submit-Button, solange das Formular ungültig ist', () => {
@@ -855,6 +866,8 @@ describe('Route /einstellungen', () => {
     httpMock.expectOne('/api/notifications').flush([]);
     // FE-STS-04: Dasselbe für die Drei-Monats-Übersicht (BE-STS-07).
     httpMock.expectOne((r) => r.url === '/api/transactions/monthly-totals').flush([]);
+    // FE-REC-01: Und die Abo-Übersicht für die Teaser-Card.
+    httpMock.expectOne('/api/recurring-expenses').flush([]);
     root.detectChanges();
 
     const dashboard = root.debugElement.query(By.directive(Dashboard))

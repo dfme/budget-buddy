@@ -9,6 +9,7 @@ import com.budgetbuddy.support.PostgresTestDatabase;
 import com.budgetbuddy.auth.JwtService;
 import com.budgetbuddy.categorization.CategorizationResult;
 import com.budgetbuddy.categorization.Category;
+import com.budgetbuddy.categorization.CategoryLearningPort;
 import com.budgetbuddy.categorization.LookupTableService;
 import jakarta.servlet.http.Cookie;
 import java.math.BigDecimal;
@@ -49,17 +50,27 @@ class TransactionCategoryControllerIntegrationTest {
     @Autowired private JdbcTemplate jdbcTemplate;
     @Autowired private TransactionRepository transactionRepository;
     @Autowired private LookupTableService lookupTableService;
+    @Autowired private CategoryLearningPort learningPort;
+
+    /**
+     * Der Schlüssel, unter dem die Claude-Stufe die Buchung mit Detailzeilen lernen würde —
+     * {@code ParsedTransaction.fullText()} derselben Buchung ({@code ImportJobRunner:153}).
+     */
+    private static final String CLAUDE_LEARNED_PATTERN =
+            "KAUF/DIENSTLEISTUNG BAECKEREI HUBER BERN KARTE 1234";
 
     private long userId;
     private long otherUserId;
     private long transactionId;
+    private long detailedTransactionId;
 
     @BeforeEach
     void seed() {
         transactionRepository.deleteAll();
         jdbcTemplate.update("DELETE FROM users");
         // Gelernte Patterns aus vorherigen Tests entfernen, Seed-Daten bleiben unberührt.
-        jdbcTemplate.update("DELETE FROM category_lookup WHERE empfaenger_pattern = 'BAECKEREI MUELLER'");
+        jdbcTemplate.update("DELETE FROM category_lookup WHERE empfaenger_pattern IN (?, ?, ?)",
+                "BAECKEREI MUELLER", CLAUDE_LEARNED_PATTERN, "KAUF/DIENSTLEISTUNG");
 
         userId = insertUser("lara@example.ch");
         otherUserId = insertUser("marc@example.ch");
@@ -68,6 +79,12 @@ class TransactionCategoryControllerIntegrationTest {
         transactionId = transactionRepository.save(new Transaction(
                 userId, LocalDate.of(2026, 7, 3), "BAECKEREI MUELLER", null,
                 new BigDecimal("12.50"), false, "Sonstiges", null)).getId();
+
+        // Layout mit Detailzeilen (PostFinance): buchungstext trägt nur die Zahlungsart.
+        detailedTransactionId = transactionRepository.save(new Transaction(
+                userId, LocalDate.of(2026, 7, 4), "KAUF/DIENSTLEISTUNG",
+                "BAECKEREI HUBER BERN\nKARTE 1234", new BigDecimal("8.20"), false,
+                "Sonstiges", null)).getId();
     }
 
     private long insertUser(String email) {
@@ -155,5 +172,58 @@ class TransactionCategoryControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("Lebensmittel")))
                 .andExpect(status().isUnauthorized());
+    }
+
+    /**
+     * AC 3, die «überschreibt»-Hälfte — und der Regressionstest zum blockierenden Befund aus
+     * PR #320.
+     *
+     * <p>Bewusst gegen die echte Query statt gegen eine {@code Map}: Der Fehler bestand nicht
+     * darin, dass ein falscher Wert geschrieben wurde, sondern darin, dass <em>zwei</em> Zeilen
+     * entstanden — eine von Claude unter dem vollen Text, eine von der Korrektur unter dem blossen
+     * {@code buchungstext}. Ein Map-Stub mit exaktem Schlüssel kann das nicht zeigen; es braucht
+     * die LIKE-Substring-Semantik und die Sortierung nach Pattern-Länge aus
+     * {@code CategoryLookupRepository#findMatching}, weil genau sie den längeren Claude-Eintrag
+     * gewinnen liess.
+     */
+    @Test
+    void manualCorrectionOverwritesWhatClaudeLearnedForTheSameTransaction() throws Exception {
+        // Import im Juli: Claude stuft den Händler ein und lernt ihn unter dem vollen Text.
+        learningPort.learn(CLAUDE_LEARNED_PATTERN, Category.RESTAURANT);
+        assertThat(lookupTableService.categorize(CLAUDE_LEARNED_PATTERN))
+                .contains(new CategorizationResult(
+                        Category.RESTAURANT, CategorizationResult.Source.LOOKUP));
+
+        // Der User widerspricht: es ist eine Bäckerei, keine Restaurantrechnung.
+        mockMvc.perform(put("/api/transactions/" + detailedTransactionId + "/category")
+                        .cookie(jwtCookie(userId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body("Lebensmittel")))
+                .andExpect(status().isOk());
+
+        // Upsert statt zweiter Zeile: derselbe Primärschlüssel, keine Konkurrenz um die Länge.
+        assertThat(countLookupRowsContaining("BAECKEREI HUBER")).isEqualTo(1);
+
+        // Import im August, derselbe Text: die Korrektur des Users gewinnt.
+        assertThat(lookupTableService.categorize(CLAUDE_LEARNED_PATTERN))
+                .contains(new CategorizationResult(
+                        Category.LEBENSMITTEL, CategorizationResult.Source.LOOKUP));
+
+        // Und der generische Buchungstext wurde nicht als eigenes Pattern gelernt — sonst
+        // kategorisierte er jeden Kartenkauf des Kontos als Lebensmittel.
+        assertThat(countLookupRowsFor("KAUF/DIENSTLEISTUNG")).isZero();
+    }
+
+    /** Wie viele Zeilen den Händler überhaupt tragen — eine zweite wäre der Befund aus #320. */
+    private Integer countLookupRowsContaining(String patternFragment) {
+        return jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM category_lookup WHERE empfaenger_pattern LIKE ?",
+                Integer.class, "%" + patternFragment + "%");
+    }
+
+    private Integer countLookupRowsFor(String pattern) {
+        return jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM category_lookup WHERE empfaenger_pattern = ?",
+                Integer.class, pattern);
     }
 }

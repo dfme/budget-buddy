@@ -1,0 +1,64 @@
+<section class="recurring-expense-list">
+  <h1>Abos</h1>
+  <p class="intro">
+    Wiederkehrende Ausgaben, die in mindestens zwei aufeinanderfolgenden Monaten mit demselben
+    Betrag beim selben Empfänger erkannt wurden.
+  </p>
+
+  @if (loading()) {
+    <p class="status">Lädt …</p>
+  } @else if (errorMessage()) {
+    <app-notice variant="error">{{ errorMessage() }}</app-notice>
+  } @else {
+    @if (dismissErrorMessage(); as message) {
+      <app-notice variant="error" class="dismiss-error">{{ message }}</app-notice>
+    }
+
+    <app-card>
+      @if (rows().length === 0) {
+        <p class="status empty">
+          Keine Abos erkannt. Abos erscheinen hier, sobald ein Empfänger in zwei
+          aufeinanderfolgenden Monaten mit demselben Betrag auftaucht —
+          <a routerLink="/import">PDF hochladen?</a>
+        </p>
+      } @else {
+        <ul class="expenses">
+          @for (row of rows(); track row.id) {
+            <li class="expense" [class.expense--new]="row.isNew">
+              <div class="expense__main">
+                <span class="expense__payee">
+                  {{ row.payeeKey }}
+                  <!--
+                    «Neu» solange die zugehörige Benachrichtigung ungelesen ist (BE-REC-02).
+                    Als Text, nicht nur als Farbe — die Aussage muss auch ohne Akzentfarbe
+                    lesbar sein.
+                  -->
+                  @if (row.isNew) {
+                    <span class="expense__new">Neu</span>
+                  }
+                </span>
+                <span class="expense__since">{{ row.sinceLabel }}</span>
+              </div>
+              <!--
+                Ohne «+»: das ist ein Betrag, keine Veränderung — wie beim Safe-to-Spend. Das
+                Backend liefert die Belastung als positiven Betrag (BE-REC-01).
+              -->
+              <app-amount class="expense__amount" [value]="row.amount" [hidePositiveSign]="true" />
+              <button
+                appButton
+                variant="ghost"
+                type="button"
+                class="expense__dismiss"
+                [disabled]="dismissingId() !== null"
+                [attr.aria-label]="'Kein Abo: ' + row.payeeKey"
+                (click)="dismiss(row)"
+              >
+                {{ dismissingId() === row.id ? 'Wird entfernt …' : 'Kein Abo' }}
+              </button>
+            </li>
+          }
+        </ul>
+      }
+    </app-card>
+  }
+</section>

@@ -46,8 +46,27 @@ class TransactionCategoryServiceTest {
         assertThat(tx.getCategory()).isEqualTo("Lebensmittel");
         assertThat(response.category()).isEqualTo("Lebensmittel");
         verify(repository).save(tx);
-        // Lerneffekt: buchungstext verbatim → Kategorie.
+        // Ohne Detailzeilen ist fullText() der Buchungstext — unverändert zu BE-CAT-04.
         verify(learningPort).learn("MIGROS BERN", Category.LEBENSMITTEL);
+    }
+
+    /**
+     * Der Regressionstest zum blockierenden Befund aus PR #320: Gelernt wird Buchungstext
+     * <em>plus</em> Detailzeilen — derselbe Schlüssel, den die Claude-Stufe beim Import schreibt.
+     * Mit dem blossen {@code buchungstext} wäre das Pattern bei PostFinance {@code GIRO POST}:
+     * eine zweite Zeile neben dem Claude-Eintrag, die ausserdem jede Überweisung des Kontos
+     * gematcht hätte.
+     */
+    @Test
+    void learnsBuchungstextAndDetailsAsOnePattern() {
+        Transaction tx = new Transaction(USER_ID, LocalDate.of(2026, 7, 3), "GIRO POST",
+                "MUSTER IMMOBILIEN AG\nMIETE JULI", new BigDecimal("1450.00"), false,
+                "Sonstiges", "sha");
+        when(repository.findById(TX_ID)).thenReturn(Optional.of(tx));
+
+        service.updateCategory(USER_ID, TX_ID, "Wohnen");
+
+        verify(learningPort).learn("GIRO POST MUSTER IMMOBILIEN AG MIETE JULI", Category.WOHNEN);
     }
 
     @Test

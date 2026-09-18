@@ -2,6 +2,7 @@ package com.budgetbuddy.categorization;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -192,7 +193,9 @@ class CategorizationLogRedactionTest {
     void hybridPathsNeverLogTransactionTextInPlaintext() {
         LookupTableService lookup = mock(LookupTableService.class);
         ClaudeCategorizationService claude = mock(ClaudeCategorizationService.class);
-        HybridCategorizationService hybrid = new HybridCategorizationService(lookup, claude);
+        CategoryLearningPort learningPort = mock(CategoryLearningPort.class);
+        HybridCategorizationService hybrid =
+                new HybridCategorizationService(lookup, claude, learningPort);
 
         // DEBUG-Pfad «via Lookup-Tabelle kategorisiert».
         when(lookup.categorize(TRANSACTION)).thenReturn(Optional.of(
@@ -206,6 +209,35 @@ class CategorizationLogRedactionTest {
         hybrid.categorize(TRANSACTION);
 
         assertRedacted();
+    }
+
+    /**
+     * Der Lerneffekt aus der Claude-Stufe (BE-CAT-11) hat einen eigenen WARN-Pfad, und sein
+     * Auslöser ist eine Exception aus der Persistenzschicht. Eine DB-Meldung kann den
+     * Primärschlüssel zitieren — und der Primärschlüssel <em>ist</em> hier der Transaktionstext.
+     */
+    @Test
+    void failedLearningNeverLogsTransactionTextInPlaintext() {
+        LookupTableService lookup = mock(LookupTableService.class);
+        ClaudeCategorizationService claude = mock(ClaudeCategorizationService.class);
+        CategoryLearningPort learningPort = mock(CategoryLearningPort.class);
+        HybridCategorizationService hybrid =
+                new HybridCategorizationService(lookup, claude, learningPort);
+
+        when(lookup.categorize(TRANSACTION)).thenReturn(Optional.empty());
+        when(claude.categorizeAll(List.of(TRANSACTION))).thenReturn(List.of(Optional.of(
+                new CategorizationResult(
+                        Category.GESUNDHEIT, CategorizationResult.Source.CLAUDE))));
+        doThrow(new IllegalStateException(
+                        "duplicate key value violates unique constraint: " + TRANSACTION))
+                .when(learningPort).learn(any(), any());
+
+        hybrid.categorize(TRANSACTION);
+
+        assertRedacted();
+        assertThat(appender.list)
+                .anySatisfy(event -> assertThat(event.getFormattedMessage())
+                        .contains("IllegalStateException"));
     }
 
     @Test

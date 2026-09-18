@@ -7,6 +7,7 @@ import { Router, provideRouter } from '@angular/router';
 import { AuthService } from '../../auth/auth.service';
 import { User } from '../../auth/user.model';
 import { NotificationService } from '../../notifications/notification.service';
+import { RecurringExpenseService } from '../../recurring/recurring-expense.service';
 import { Shell } from './shell';
 
 const LARA: User = {
@@ -139,7 +140,28 @@ describe('Shell', () => {
 
     const link = query<HTMLAnchorElement>('.nav__settings');
     expect(link?.getAttribute('href')).toBe('/einstellungen');
-    expect(link?.textContent?.trim().replace(/\s+/g, ' ')).toBe('⚙ Einstellungen');
+    // `\uFE0E` ist der Textpräsentations-Selektor am Zahnrad (FE-NOTIF-02, #308). Er steht
+    // hier ausgeschrieben statt als unsichtbares Zeichen im Literal, weil er sonst beim
+    // nächsten Editieren dieser Zeile verlorenginge — und der Test dann grün bliebe, während
+    // das Icon auf manchen Plattformen wieder farbig rendert.
+    expect(link?.textContent?.trim().replace(/\s+/g, ' ')).toBe('⚙\uFE0E Einstellungen');
+  });
+
+  // Der Test oben deckt nur `.nav__settings` ab. U+FE0E steht aber an vier Stellen —
+  // Zahnrad und Logout je im mobilen Konto-Popover und am Fuss der Desktop-Sidebar — und
+  // ist genau das Zeichen, das beim nächsten Editieren still verlorengeht, weil es unsichtbar
+  // ist. Die übrigen Assertions auf diese Buttons (`toContain('Abmelden')`) blieben dabei
+  // grün. Deshalb hier alle vier auf einmal, inklusive ihrer Anzahl (FE-NOTIF-02, #308).
+  it('hängt an jedes Zahnrad- und Logout-Icon den Textpräsentations-Selektor', () => {
+    login();
+    avatarButton().click();
+    fixture.detectChanges();
+
+    const icons = Array.from(el().querySelectorAll<HTMLElement>('.nav__icon'))
+      .map((span) => span.textContent ?? '')
+      .filter((text) => text.includes('\u2699') || text.includes('\u23FB'));
+
+    expect(icons).toEqual(['⚙\uFE0E', '⏻\uFE0E', '⚙\uFE0E', '⏻\uFE0E']);
   });
 
   it('markiert Einstellungen im Sidebar-Konto-Block als aktiv, wenn die Route offen ist', async () => {
@@ -395,6 +417,30 @@ describe('Shell', () => {
       httpMock.expectOne('/api/auth/logout').flush(null);
 
       expect(notifications.notifications()).toEqual([]);
+    });
+
+    // FE-REC-01: dieselbe Regression für die Zahl in der Abo-Teaser-Card des Dashboards.
+    it('leert den Abo-State beim Abmelden', () => {
+      login(LARA);
+      const recurringExpenses = TestBed.inject(RecurringExpenseService);
+      recurringExpenses.load().subscribe();
+      httpMock.expectOne('/api/recurring-expenses').flush([
+        {
+          id: 1,
+          payeeKey: 'NETFLIX',
+          amount: 17.9,
+          status: 'DETECTED',
+          firstDetectedMonth: '2026-07',
+          createdAt: '2026-09-08T10:15:00Z',
+          isNew: true,
+        },
+      ]);
+      expect(recurringExpenses.count()).toBe(1);
+
+      query<HTMLButtonElement>('.nav__logout')!.click();
+      httpMock.expectOne('/api/auth/logout').flush(null);
+
+      expect(recurringExpenses.count()).toBe(0);
     });
 
     it('leert den Notification-State auch, wenn der Logout-Call fehlschlägt', () => {
