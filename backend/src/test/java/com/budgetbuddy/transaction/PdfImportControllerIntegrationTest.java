@@ -109,9 +109,10 @@ class PdfImportControllerIntegrationTest {
         userId = jdbcTemplate.queryForObject(
                 "SELECT id FROM users WHERE email = 'lara@example.ch'", Long.class);
         // Seit ADR-14 fragt der Import gebündelt ab: categorizeAll, nicht categorize.
-        when(categorizationPort.categorizeAll(org.mockito.ArgumentMatchers.any()))
+        when(categorizationPort.categorizeAll(org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.any()))
                 .thenAnswer(invocation -> {
-                    List<String> texts = invocation.getArgument(0);
+                    List<String> texts = invocation.getArgument(1);
                     return java.util.Collections.nCopies(texts.size(),
                             Optional.of(new CategorizationResult(
                                     Category.LEBENSMITTEL, CategorizationResult.Source.LOOKUP)));

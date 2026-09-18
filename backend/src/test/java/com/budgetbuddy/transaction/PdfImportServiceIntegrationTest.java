@@ -3,6 +3,7 @@ package com.budgetbuddy.transaction;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
@@ -91,8 +92,8 @@ class PdfImportServiceIntegrationTest {
         userId = jdbcTemplate.queryForObject(
                 "SELECT id FROM users WHERE email = 'peter.muster@example.ch'", Long.class);
         // Seit ADR-14 fragt der Import gebündelt ab: categorizeAll, nicht categorize.
-        when(categorizationPort.categorizeAll(any())).thenAnswer(invocation -> {
-            List<String> texts = invocation.getArgument(0);
+        when(categorizationPort.categorizeAll(anyLong(), any())).thenAnswer(invocation -> {
+            List<String> texts = invocation.getArgument(1);
             return Collections.nCopies(texts.size(), Optional.of(new CategorizationResult(
                     Category.LEBENSMITTEL, CategorizationResult.Source.LOOKUP)));
         });
@@ -215,10 +216,10 @@ class PdfImportServiceIntegrationTest {
         org.mockito.Mockito.doAnswer(invocation -> {
             reached.countDown();
             release.await(30, TimeUnit.SECONDS);
-            List<String> texts = invocation.getArgument(0);
+            List<String> texts = invocation.getArgument(1);
             return Collections.nCopies(texts.size(), Optional.of(new CategorizationResult(
                     Category.LEBENSMITTEL, CategorizationResult.Source.LOOKUP)));
-        }).when(categorizationPort).categorizeAll(any());
+        }).when(categorizationPort).categorizeAll(anyLong(), any());
 
         ImportJob started = pdfImportService.startImport(userId, fixture(), false);
 

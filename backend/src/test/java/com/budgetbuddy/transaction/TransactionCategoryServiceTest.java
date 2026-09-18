@@ -46,8 +46,9 @@ class TransactionCategoryServiceTest {
         assertThat(tx.getCategory()).isEqualTo("Lebensmittel");
         assertThat(response.category()).isEqualTo("Lebensmittel");
         verify(repository).save(tx);
-        // Ohne Detailzeilen ist fullText() der Buchungstext — unverändert zu BE-CAT-04.
-        verify(learningPort).learn("MIGROS BERN", Category.LEBENSMITTEL);
+        // Ohne Detailzeilen ist fullText() der Buchungstext — unverändert zu BE-CAT-04. Gelernt
+        // wird für den korrigierenden User (BE-CAT-12), nicht global.
+        verify(learningPort).learn(USER_ID, "MIGROS BERN", Category.LEBENSMITTEL);
     }
 
     /**
@@ -66,7 +67,7 @@ class TransactionCategoryServiceTest {
 
         service.updateCategory(USER_ID, TX_ID, "Wohnen");
 
-        verify(learningPort).learn("GIRO POST MUSTER IMMOBILIEN AG MIETE JULI", Category.WOHNEN);
+        verify(learningPort).learn(USER_ID, "GIRO POST MUSTER IMMOBILIEN AG MIETE JULI", Category.WOHNEN);
     }
 
     @Test

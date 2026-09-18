@@ -1,6 +1,7 @@
 package com.budgetbuddy.transaction;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -68,7 +69,7 @@ class ImportJobRunnerTimingTest {
     private static Answer<List<Optional<CategorizationResult>>> slowClaudeCall(Duration delay) {
         return invocation -> {
             Thread.sleep(delay.toMillis());
-            List<String> texts = invocation.getArgument(0);
+            List<String> texts = invocation.getArgument(1);
             return Collections.nCopies(texts.size(), Optional.of(new CategorizationResult(
                     Category.SONSTIGES, CategorizationResult.Source.CLAUDE)));
         };
@@ -85,7 +86,7 @@ class ImportJobRunnerTimingTest {
         Duration perCallDelay = Duration.ofMillis(150);
         when(importJobRepository.save(any(ImportJob.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
-        when(categorizationPort.categorizeAll(any())).thenAnswer(slowClaudeCall(perCallDelay));
+        when(categorizationPort.categorizeAll(anyLong(), any())).thenAnswer(slowClaudeCall(perCallDelay));
 
         Instant start = Instant.now();
         runner.run(new ImportJob(USER_ID, "sha-fixture", count, Instant.now()),
@@ -95,7 +96,7 @@ class ImportJobRunnerTimingTest {
         // 2 Bündel × 150 ms ≈ 300 ms. Sequenziell wären es 40 × 150 ms = 6 s — die Grenze liegt
         // bewusst weit dazwischen, damit der Test die Aussage trägt, ohne an Jitter zu scheitern.
         assertThat(elapsed).isLessThan(perCallDelay.multipliedBy(count / 2));
-        verify(categorizationPort, org.mockito.Mockito.times(2)).categorizeAll(any());
+        verify(categorizationPort, org.mockito.Mockito.times(2)).categorizeAll(anyLong(), any());
     }
 
     /**
@@ -107,12 +108,13 @@ class ImportJobRunnerTimingTest {
     void categorizationPortIsCalledWithWholeBatches() {
         when(importJobRepository.save(any(ImportJob.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
-        when(categorizationPort.categorizeAll(any())).thenAnswer(slowClaudeCall(Duration.ZERO));
+        when(categorizationPort.categorizeAll(anyLong(), any())).thenAnswer(slowClaudeCall(Duration.ZERO));
 
         runner.run(new ImportJob(USER_ID, "sha-fixture", BATCH_SIZE, Instant.now()),
                 unknownTransactions(BATCH_SIZE), SHA, false);
 
         verify(categorizationPort).categorizeAll(
+                anyLong(),
                 org.mockito.ArgumentMatchers.argThat(texts -> texts.size() == BATCH_SIZE));
     }
 }

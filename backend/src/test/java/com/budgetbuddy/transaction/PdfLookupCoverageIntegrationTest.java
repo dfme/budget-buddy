@@ -70,6 +70,13 @@ class PdfLookupCoverageIntegrationTest {
     /** {@code budgetbuddy.import.batch-size} — hier gespiegelt wie im ImportJobRunner (ADR-14). */
     private static final int BATCH_SIZE = 20;
 
+    /**
+     * Beliebiger User (BE-CAT-12): Die Quote misst nur die globalen Seeds; gelernte Patterns hat
+     * dieser User keine, und die Claude-Attrappe liefert {@code Sonstiges}, das nie gelernt wird —
+     * die Tabelle {@code user_category_lookup} bleibt in diesem Test leer.
+     */
+    private static final long USER_ID = 1L;
+
     @DynamicPropertySource
     static void datasourceProperties(DynamicPropertyRegistry registry) {
         PostgresTestDatabase.register(registry, "pdf_lookup_coverage");
@@ -87,7 +94,7 @@ class PdfLookupCoverageIntegrationTest {
         List<String> texts = fullTexts();
 
         assertThat(texts).hasSize(TRANSACTION_COUNT);
-        long hits = texts.stream().filter(t -> lookupTableService.categorize(t).isPresent()).count();
+        long hits = texts.stream().filter(t -> lookupTableService.categorize(USER_ID, t).isPresent()).count();
 
         assertThat(hits).isEqualTo(EXPECTED_LOOKUP_HITS);
         assertThat((double) hits / TRANSACTION_COUNT).isEqualTo(POST_YEAR_LOOKUP_SHARE);
@@ -97,22 +104,22 @@ class PdfLookupCoverageIntegrationTest {
     void knownMerchantsHit_transferAndSalaryBookingsDoNot() {
         // Die beiden Seiten der Quote an Beispielen — sonst sagt «144» nicht, ob die richtigen
         // Buchungen getroffen wurden.
-        assertThat(lookupTableService.categorize("KAUF/DIENSTLEISTUNG MIGROS M BERN WANKDORF"))
+        assertThat(lookupTableService.categorize(USER_ID, "KAUF/DIENSTLEISTUNG MIGROS M BERN WANKDORF"))
                 .map(CategorizationResult::category)
                 .contains(Category.LEBENSMITTEL);
-        assertThat(lookupTableService.categorize("LASTSCHRIFT CSS VERSICHERUNG AG PRAEMIE MAI 2025"))
+        assertThat(lookupTableService.categorize(USER_ID, "LASTSCHRIFT CSS VERSICHERUNG AG PRAEMIE MAI 2025"))
                 .map(CategorizationResult::category)
                 .contains(Category.VERSICHERUNG);
-        assertThat(lookupTableService.categorize("LASTSCHRIFT SALT MOBILE SA"))
+        assertThat(lookupTableService.categorize(USER_ID, "LASTSCHRIFT SALT MOBILE SA"))
                 .map(CategorizationResult::category)
                 .contains(Category.TELEKOM);
 
         // Genau die Buchungen, für die es die zweite Stufe gibt: Lohn, Miete, Strom, Gebühren —
         // in der Lookup-Tabelle steht kein Pattern, das darauf passt.
-        assertThat(lookupTableService.categorize("GUTSCHRIFT LOHN MAI Muster Consulting GmbH")).isEmpty();
-        assertThat(lookupTableService.categorize("GIRO POST Muster Immobilien AG MIETE MAI 2025")).isEmpty();
-        assertThat(lookupTableService.categorize("ESR Stadtwerke Bern")).isEmpty();
-        assertThat(lookupTableService.categorize("LASTSCHRIFT SERAFE AG RADIO UND TV")).isEmpty();
+        assertThat(lookupTableService.categorize(USER_ID, "GUTSCHRIFT LOHN MAI Muster Consulting GmbH")).isEmpty();
+        assertThat(lookupTableService.categorize(USER_ID, "GIRO POST Muster Immobilien AG MIETE MAI 2025")).isEmpty();
+        assertThat(lookupTableService.categorize(USER_ID, "ESR Stadtwerke Bern")).isEmpty();
+        assertThat(lookupTableService.categorize(USER_ID, "LASTSCHRIFT SERAFE AG RADIO UND TV")).isEmpty();
     }
 
     @Test
@@ -128,7 +135,7 @@ class PdfLookupCoverageIntegrationTest {
         List<Optional<CategorizationResult>> results = new ArrayList<>();
         for (int from = 0; from < texts.size(); from += BATCH_SIZE) {
             int to = Math.min(from + BATCH_SIZE, texts.size());
-            results.addAll(hybridCategorizationService.categorizeAll(texts.subList(from, to)));
+            results.addAll(hybridCategorizationService.categorizeAll(USER_ID, texts.subList(from, to)));
         }
 
         assertThat(results).hasSize(TRANSACTION_COUNT);
@@ -143,7 +150,7 @@ class PdfLookupCoverageIntegrationTest {
         // Kein Bündel überschreitet die Bündelgrösse — die Grenze, an der die Laufzeit hängt.
         assertThat(sent.getAllValues()).allSatisfy(b -> assertThat(b).hasSizeLessThanOrEqualTo(BATCH_SIZE));
         // Und nichts, was der Lookup gekonnt hätte, landet trotzdem beim (kostenpflichtigen) Call.
-        assertThat(toClaude).allSatisfy(t -> assertThat(lookupTableService.categorize(t)).isEmpty());
+        assertThat(toClaude).allSatisfy(t -> assertThat(lookupTableService.categorize(USER_ID, t)).isEmpty());
 
         // Die Zahl, um die es geht: 96 unbekannte Transaktionen kosten in 20er-Bündeln 12
         // Requests statt 96 sequentieller Einzel-Calls (ADR-14, #192).
@@ -167,16 +174,16 @@ class PdfLookupCoverageIntegrationTest {
         List<String> texts = fullTexts(LAYOUT_FIXTURE);
 
         assertThat(texts).hasSize(20);
-        long hits = texts.stream().filter(t -> lookupTableService.categorize(t).isPresent()).count();
+        long hits = texts.stream().filter(t -> lookupTableService.categorize(USER_ID, t).isPresent()).count();
 
         assertThat(hits).isEqualTo(7);
         assertThat((double) hits / texts.size()).isLessThan(POST_YEAR_LOOKUP_SHARE);
 
         // Alle sieben Treffer stammen aus einer Detailzeile, keiner aus der Buchungszeile.
         assertThat(texts)
-                .filteredOn(t -> lookupTableService.categorize(t).isPresent())
+                .filteredOn(t -> lookupTableService.categorize(USER_ID, t).isPresent())
                 .allSatisfy(
-                        t -> assertThat(lookupTableService.categorize(t.split(" ")[0])).isEmpty());
+                        t -> assertThat(lookupTableService.categorize(USER_ID, t.split(" ")[0])).isEmpty());
     }
 
     private List<String> fullTexts() {
