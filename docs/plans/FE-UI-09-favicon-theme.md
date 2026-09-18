@@ -56,8 +56,8 @@ manueller Theme-Wahl (Nutzer wählt „Dunkel" trotz hellem OS) vom sichtbaren T
 
 ## Acceptance Criteria (aus dem Issue)
 
-- [ ] Neue Favicon-Datei liegt unter `frontend/public/favicon.ico` (bzw. Referenz in
+- [x] Neue Favicon-Datei liegt unter `frontend/public/favicon.ico` (bzw. Referenz in
       `frontend/src/index.html` angepasst, falls Format/Pfad abweicht) — hier: zwei Dateien,
       Referenz in `index.html` entsprechend angepasst
-- [ ] Favicon ist im Browser-Tab sichtbar (lokal per `ng serve` geprüft)
-- [ ] Alte Platzhalter-Datei entfernt, falls durch ein anderes Format ersetzt
+- [x] Favicon ist im Browser-Tab sichtbar (lokal per `ng serve` geprüft)
+- [x] Alte Platzhalter-Datei entfernt, falls durch ein anderes Format ersetzt

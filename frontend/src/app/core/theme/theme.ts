@@ -77,7 +77,7 @@ export class Theme {
     });
 
     // Favicon folgt demselben aufgelösten Theme (FE-UI-09) — analog zu ChartTheme, das
-    // dieselbe Grösse für Chart.js-Farben beobachtet.
+    // denselben Zustand für Chart.js-Farben beobachtet.
     effect(() => {
       const icon = this.document.querySelector<HTMLLinkElement>(FAVICON_SELECTOR);
       icon?.setAttribute('href', this.resolved() === 'dark' ? FAVICON_DARK_HREF : FAVICON_LIGHT_HREF);
