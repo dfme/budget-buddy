@@ -8,7 +8,7 @@
 
 ## Acceptance Criteria
 
-**Given** importierte Transaktionen, **When** ich die Übersicht öffne, **Then** ist jede Transaktion genau einer Kategorie aus einer fest definierten Taxonomie zugeordnet (Wohnen, Lebensmittel, Transport, Versicherung, Telekom, Gesundheit, Freizeit, Restaurant, Shopping, Bildung, Einkommen, Sparen, Sonstiges) — Default bei Unsicherheit: "Sonstiges".
+**Given** importierte Transaktionen, **When** ich die Übersicht öffne, **Then** ist jede Transaktion genau einer Kategorie aus einer fest definierten Taxonomie zugeordnet (Wohnen, Lebensmittel, Transport, Versicherung, Telekom, Gesundheit, Freizeit, Restaurant, Shopping, Bildung, Einkommen, Sparen, Persönliches, Steuern, Bargeldbezug, Reisen, Sonstiges) — Default bei Unsicherheit: "Sonstiges".
 
 **Given** ein definiertes Test-Set von mindestens 200 manuell gelabelten Transaktionen, **When** der Auto-Kategorisierer evaluiert wird, **Then** sind mindestens 80% der Transaktionen korrekt zugeordnet.
 

@@ -110,7 +110,7 @@ public class ClaudeCategorizationService implements CategorizationPort {
     /**
      * Der Transaktionstext ist Fremdeingabe: Ein Händlername kann aussehen wie eine Anweisung.
      * Der letzte Absatz sagt dem Modell ausdrücklich, dass er keine ist. Zweite Verteidigungslinie
-     * ist das Schema — was auch immer das Modell «befolgt», es kann nur eine der 13 Kategorien
+     * ist das Schema — was auch immer das Modell «befolgt», es kann nur eine der 17 Kategorien
      * zurückgeben.
      */
     private static final String SYSTEM_PROMPT =

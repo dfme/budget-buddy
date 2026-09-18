@@ -261,7 +261,7 @@ class ClaudeCategorizationServiceTest {
         // JsonValue-Map, und geprüft wird ohnehin nur, dass jedes Label darin vorkommt.
         String schema = captureParams().outputConfig().orElseThrow().toString();
 
-        assertThat(Category.values()).hasSize(13);
+        assertThat(Category.values()).hasSize(17);
         Arrays.stream(Category.values())
                 .forEach(category -> assertThat(schema).contains(category.name()));
     }

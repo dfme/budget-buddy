@@ -5,7 +5,9 @@
 
 ## Context
 
-BudgetBuddy muss Transaktionen automatisch in 13 Kategorien klassifizieren (Wohnen, Lebensmittel, Transport, ..., Sonstiges).
+BudgetBuddy muss Transaktionen automatisch in eine fixe Kategorienliste klassifizieren (Wohnen, Lebensmittel, Transport, ..., Sonstiges).
+Die Liste zählte bei diesem Entscheid 13 Kategorien; BE-CAT-10 hat sie auf 17 erweitert (Persönliches, Steuern, Bargeldbezug, Reisen).
+Quelle der Wahrheit ist und bleibt das Enum `Category.java` — an der Entscheidung unten ändert die Anzahl nichts.
 
 **Anforderungen:**
 
