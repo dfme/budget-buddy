@@ -152,3 +152,10 @@ berücksichtigen).
 - [ ] Folien/Slides aus dieser Struktur bauen (Format noch offen: Markdown-Slides, PowerPoint, Artifact — im Team entscheiden)
 - [ ] Demo-Kontoauszüge für den Präsentationsmonat neu generieren und Login vorab testen
 - [ ] Zeitprobe: einmal laut durchsprechen, insbesondere Bereich 3 (Live-Demo läuft oft länger als geplant)
+- [ ] **Vor der Zeitprobe prüfen: sind [PR #320](https://github.com/dfme/budget-buddy/pull/320) (BE-CAT-11) und
+      [PR #323](https://github.com/dfme/budget-buddy/pull/323) (BE-CAT-12, ADR-15) inzwischen gemerged?**
+      Beide sind aktuell noch offen, ändern aber genau die Stelle, die B14 beschreibt: BE-CAT-11 setzt den
+      Lerneffekt bei erfolgreicher Claude-Kategorisierung um (Issue #314 wird dann nicht mehr "offen"),
+      BE-CAT-12/ADR-15 trennt das Gelernte danach pro Nutzer (`user_category_lookup`, FK auf `users`,
+      Kontolöschung räumt mit) statt weiter in die globale `category_lookup`-Tabelle zu schreiben. Falls
+      gemerged: B14-Text und die ADR-Zahl in B22 (15 → 16) vor dem Vortrag aktualisieren.
