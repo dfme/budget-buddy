@@ -130,9 +130,11 @@ public class HybridCategorizationService implements CategorizationPort {
      * ist ein Call pro unklarem Händler und Import — bewusst gezahlt, damit ein später besseres
      * Modell den Händler noch einmal sehen kann.
      *
-     * <p>Gelernt wird der <strong>rohe</strong> Text, nicht die von {@link PromptSanitizer}
+     * <p>Übergeben wird der <strong>rohe</strong> Text, nicht die von {@link PromptSanitizer}
      * maskierte Fassung: Die Lookup-Stufe matcht gegen den rohen Text, und die Patterns aus der
-     * manuellen Korrektur (BE-CAT-04) sind ebenfalls roh. Datenschutzfolge: Seit BE-CAT-11 landet
+     * manuellen Korrektur (BE-CAT-04) sind ebenfalls roh. Was davon gespeichert wird — das
+     * stabile Präfix ohne die variable Mitteilung —, entscheidet {@link CategoryLearningService}
+     * für beide Quellen gleich (BE-CAT-13). Datenschutzfolge: Seit BE-CAT-11 landet
      * nicht mehr nur ein aktiv korrigierter, sondern jeder von Claude eingestufte Händlertext in
      * dieser Tabelle — sie hat keine {@code user_id} und überlebt die Kontolöschung (offene Lücke
      * #290, siehe {@code UserService#deleteUser}).
