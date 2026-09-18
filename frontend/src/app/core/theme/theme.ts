@@ -80,7 +80,10 @@ export class Theme {
     // denselben Zustand für Chart.js-Farben beobachtet.
     effect(() => {
       const icon = this.document.querySelector<HTMLLinkElement>(FAVICON_SELECTOR);
-      icon?.setAttribute('href', this.resolved() === 'dark' ? FAVICON_DARK_HREF : FAVICON_LIGHT_HREF);
+      icon?.setAttribute(
+        'href',
+        this.resolved() === 'dark' ? FAVICON_DARK_HREF : FAVICON_LIGHT_HREF,
+      );
     });
   }
 
