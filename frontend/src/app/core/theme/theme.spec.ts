@@ -6,11 +6,22 @@ import {
   setSystemDark,
   systemListenerCount,
 } from '../../../testing/prefers-color-scheme';
-import { THEME_STORAGE_KEY, Theme } from './theme';
+import {
+  FAVICON_DARK_HREF,
+  FAVICON_LIGHT_HREF,
+  FAVICON_SELECTOR,
+  THEME_STORAGE_KEY,
+  Theme,
+} from './theme';
 
 /** Liest das Attribut, das die Themes in `styles.scss` umschaltet. */
 function appliedTheme(): string | null {
   return document.documentElement.getAttribute('data-theme');
+}
+
+/** Liest den `href` des Favicon-`<link>`, den der Effekt umschreibt. */
+function faviconHref(): string | null {
+  return document.querySelector(FAVICON_SELECTOR)?.getAttribute('href') ?? null;
 }
 
 /** Erzeugt den Service und lässt seinen `effect()` einmal laufen. */
@@ -21,15 +32,21 @@ function createTheme(): Theme {
 }
 
 describe('Theme', () => {
+  let icon: HTMLLinkElement;
+
   beforeEach(() => {
     localStorage.removeItem(THEME_STORAGE_KEY);
     installMatchMedia(false);
+    icon = document.createElement('link');
+    icon.setAttribute('rel', 'icon');
+    document.head.appendChild(icon);
   });
 
   afterEach(() => {
     restoreMatchMedia();
     localStorage.removeItem(THEME_STORAGE_KEY);
     document.documentElement.removeAttribute('data-theme');
+    icon.remove();
   });
 
   // --- AC3: Default „System" ---
@@ -178,5 +195,49 @@ describe('Theme', () => {
     TestBed.resetTestingModule();
 
     expect(systemListenerCount()).toBe(0);
+  });
+
+  // --- FE-UI-09: Favicon folgt demselben aufgelösten Theme ---
+
+  it('setzt den hellen Favicon, wenn keine Wahl getroffen wurde', () => {
+    createTheme();
+
+    expect(faviconHref()).toBe(FAVICON_LIGHT_HREF);
+  });
+
+  it('setzt den dunklen Favicon, wenn das Betriebssystem dunkel anzeigt', () => {
+    installMatchMedia(true);
+
+    createTheme();
+
+    expect(faviconHref()).toBe(FAVICON_DARK_HREF);
+  });
+
+  it('wechselt den Favicon mit einer manuellen Theme-Wahl', () => {
+    const theme = createTheme();
+
+    theme.select('dark');
+    TestBed.tick();
+    expect(faviconHref()).toBe(FAVICON_DARK_HREF);
+
+    theme.select('light');
+    TestBed.tick();
+    expect(faviconHref()).toBe(FAVICON_LIGHT_HREF);
+  });
+
+  it('übernimmt einen späteren Systemwechsel auch im Favicon', () => {
+    createTheme();
+    expect(faviconHref()).toBe(FAVICON_LIGHT_HREF);
+
+    setSystemDark(true);
+    TestBed.tick();
+
+    expect(faviconHref()).toBe(FAVICON_DARK_HREF);
+  });
+
+  it('kommt ohne vorhandenes Favicon-Link-Element aus', () => {
+    icon.remove();
+
+    expect(() => createTheme()).not.toThrow();
   });
 });
