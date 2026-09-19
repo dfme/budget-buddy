@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
@@ -37,6 +39,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class HybridCategorizationServiceTest {
 
+    private static final long USER_ID = 42L;
     private static final String KNOWN = "COOP-2001 BERN";
     private static final String UNKNOWN = "DIGITEC GALAXUS AG 044 913 2323";
 
@@ -48,9 +51,9 @@ class HybridCategorizationServiceTest {
 
     @Test
     void bekannterHaendlerWirdOhneClaudeCallKategorisiert() {
-        when(lookupTableService.categorize(KNOWN)).thenReturn(Optional.of(lookup(Category.LEBENSMITTEL)));
+        when(lookupTableService.categorize(USER_ID, KNOWN)).thenReturn(Optional.of(lookup(Category.LEBENSMITTEL)));
 
-        assertThat(service.categorize(KNOWN)).contains(lookup(Category.LEBENSMITTEL));
+        assertThat(service.categorize(USER_ID, KNOWN)).contains(lookup(Category.LEBENSMITTEL));
         verifyNoInteractions(claudeCategorizationService);
         // Ein Lookup-Treffer steht bereits in der Tabelle — ihn zurückzuschreiben wäre ein
         // Upsert auf sich selbst und pro Import eine Schreiblast ohne jeden Gewinn.
@@ -59,11 +62,11 @@ class HybridCategorizationServiceTest {
 
     @Test
     void unbekannterHaendlerWirdAnClaudeDelegiert() {
-        when(lookupTableService.categorize(UNKNOWN)).thenReturn(Optional.empty());
+        when(lookupTableService.categorize(USER_ID, UNKNOWN)).thenReturn(Optional.empty());
         when(claudeCategorizationService.categorizeAll(List.of(UNKNOWN)))
                 .thenReturn(List.of(Optional.of(claude(Category.SHOPPING))));
 
-        assertThat(service.categorize(UNKNOWN)).contains(claude(Category.SHOPPING));
+        assertThat(service.categorize(USER_ID, UNKNOWN)).contains(claude(Category.SHOPPING));
         verify(claudeCategorizationService).categorizeAll(List.of(UNKNOWN));
     }
 
@@ -75,16 +78,16 @@ class HybridCategorizationServiceTest {
      */
     @Test
     void categorizeAll_fragtNurDieUnbekanntenUndZwarGebuendelt() {
-        when(lookupTableService.categorize(KNOWN)).thenReturn(Optional.of(lookup(Category.LEBENSMITTEL)));
-        when(lookupTableService.categorize(UNKNOWN)).thenReturn(Optional.empty());
-        when(lookupTableService.categorize("SBB")).thenReturn(Optional.empty());
+        when(lookupTableService.categorize(USER_ID, KNOWN)).thenReturn(Optional.of(lookup(Category.LEBENSMITTEL)));
+        when(lookupTableService.categorize(USER_ID, UNKNOWN)).thenReturn(Optional.empty());
+        when(lookupTableService.categorize(USER_ID, "SBB")).thenReturn(Optional.empty());
         when(claudeCategorizationService.categorizeAll(List.of(UNKNOWN, "SBB")))
                 .thenReturn(List.of(
                         Optional.of(claude(Category.SHOPPING)),
                         Optional.of(claude(Category.TRANSPORT))));
 
         List<Optional<CategorizationResult>> results =
-                service.categorizeAll(List.of(KNOWN, UNKNOWN, "SBB"));
+                service.categorizeAll(USER_ID, List.of(KNOWN, UNKNOWN, "SBB"));
 
         assertThat(results).containsExactly(
                 Optional.of(lookup(Category.LEBENSMITTEL)),
@@ -100,12 +103,12 @@ class HybridCategorizationServiceTest {
      */
     @Test
     void categorizeAll_haeltDieReihenfolgeAuchMitLeeremText() {
-        when(lookupTableService.categorize(KNOWN)).thenReturn(Optional.of(lookup(Category.LEBENSMITTEL)));
-        when(lookupTableService.categorize(UNKNOWN)).thenReturn(Optional.empty());
+        when(lookupTableService.categorize(USER_ID, KNOWN)).thenReturn(Optional.of(lookup(Category.LEBENSMITTEL)));
+        when(lookupTableService.categorize(USER_ID, UNKNOWN)).thenReturn(Optional.empty());
         when(claudeCategorizationService.categorizeAll(List.of(UNKNOWN)))
                 .thenReturn(List.of(Optional.of(claude(Category.SHOPPING))));
 
-        assertThat(service.categorizeAll(Arrays.asList(KNOWN, "  ", UNKNOWN))).containsExactly(
+        assertThat(service.categorizeAll(USER_ID, Arrays.asList(KNOWN, "  ", UNKNOWN))).containsExactly(
                 Optional.of(lookup(Category.LEBENSMITTEL)),
                 Optional.empty(),
                 Optional.of(claude(Category.SHOPPING)));
@@ -118,11 +121,11 @@ class HybridCategorizationServiceTest {
      */
     @Test
     void claudeFallbackSonstigesWirdDurchgereicht() {
-        when(lookupTableService.categorize(UNKNOWN)).thenReturn(Optional.empty());
+        when(lookupTableService.categorize(USER_ID, UNKNOWN)).thenReturn(Optional.empty());
         when(claudeCategorizationService.categorizeAll(List.of(UNKNOWN)))
                 .thenReturn(List.of(Optional.of(claude(Category.SONSTIGES))));
 
-        assertThat(service.categorize(UNKNOWN)).contains(claude(Category.SONSTIGES));
+        assertThat(service.categorize(USER_ID, UNKNOWN)).contains(claude(Category.SONSTIGES));
     }
 
     /**
@@ -131,34 +134,34 @@ class HybridCategorizationServiceTest {
      */
     @Test
     void unerwarteterClaudeFehlerFuehrtZuSonstigesStattAbbruch() {
-        when(lookupTableService.categorize(UNKNOWN)).thenReturn(Optional.empty());
+        when(lookupTableService.categorize(USER_ID, UNKNOWN)).thenReturn(Optional.empty());
         when(claudeCategorizationService.categorizeAll(List.of(UNKNOWN)))
                 .thenThrow(new IllegalStateException("SDK kaputt"));
 
         // CLAUDE_FALLBACK, nicht CLAUDE: Ein Ergebnis, das nur aus dem Fehler entstanden ist,
         // darf nicht gelernt werden (BE-CAT-11).
-        assertThat(service.categorize(UNKNOWN)).contains(fallback());
+        assertThat(service.categorize(USER_ID, UNKNOWN)).contains(fallback());
         verifyNoInteractions(categoryLearningPort);
     }
 
     /** Defensiv: ein leeres Optional aus Stufe 2 darf nicht als "keine Kategorie" durchschlagen. */
     @Test
     void leeresErgebnisVonClaudeWirdZuSonstiges() {
-        when(lookupTableService.categorize(UNKNOWN)).thenReturn(Optional.empty());
+        when(lookupTableService.categorize(USER_ID, UNKNOWN)).thenReturn(Optional.empty());
         when(claudeCategorizationService.categorizeAll(List.of(UNKNOWN)))
                 .thenReturn(List.of(Optional.empty()));
 
-        assertThat(service.categorize(UNKNOWN)).contains(fallback());
+        assertThat(service.categorize(USER_ID, UNKNOWN)).contains(fallback());
         verifyNoInteractions(categoryLearningPort);
     }
 
     /** Ein DB-Fehler ist ein echter Fehler und wird nicht zu 'Sonstiges' geschluckt. */
     @Test
     void lookupFehlerPropagiert() {
-        when(lookupTableService.categorize(KNOWN))
+        when(lookupTableService.categorize(USER_ID, KNOWN))
                 .thenThrow(new IllegalStateException("DB nicht erreichbar"));
 
-        assertThatThrownBy(() -> service.categorize(KNOWN))
+        assertThatThrownBy(() -> service.categorize(USER_ID, KNOWN))
                 .isInstanceOf(IllegalStateException.class);
         verifyNoInteractions(claudeCategorizationService);
     }
@@ -168,15 +171,15 @@ class HybridCategorizationServiceTest {
     /** AC 1: Was Claude wirklich beantwortet hat, geht als Händler-Pattern in die Tabelle. */
     @Test
     void lerntNachErfolgreicherClaudeKategorisierung() {
-        when(lookupTableService.categorize(UNKNOWN)).thenReturn(Optional.empty());
+        when(lookupTableService.categorize(USER_ID, UNKNOWN)).thenReturn(Optional.empty());
         when(claudeCategorizationService.categorizeAll(List.of(UNKNOWN)))
                 .thenReturn(List.of(Optional.of(claude(Category.SHOPPING))));
 
-        service.categorize(UNKNOWN);
+        service.categorize(USER_ID, UNKNOWN);
 
         // Der rohe Text, nicht die maskierte Fassung: Die Lookup-Stufe matcht gegen den rohen
         // Text, und die Patterns aus der manuellen Korrektur (BE-CAT-04) sind ebenfalls roh.
-        verify(categoryLearningPort).learn(UNKNOWN, Category.SHOPPING);
+        verify(categoryLearningPort).learn(USER_ID, UNKNOWN, Category.SHOPPING);
     }
 
     /**
@@ -191,17 +194,17 @@ class HybridCategorizationServiceTest {
     @Test
     void zweiterImportTrifftDieLookupTabelleOhneClaudeCall() {
         Map<String, Category> lookupTable = new HashMap<>();
-        when(lookupTableService.categorize(anyString())).thenAnswer(invocation ->
-                Optional.ofNullable(lookupTable.get(invocation.getArgument(0, String.class)))
+        when(lookupTableService.categorize(eq(USER_ID), anyString())).thenAnswer(invocation ->
+                Optional.ofNullable(lookupTable.get(invocation.getArgument(1, String.class)))
                         .map(HybridCategorizationServiceTest::lookup));
         doAnswer(invocation -> lookupTable.put(
-                        invocation.getArgument(0), invocation.getArgument(1)))
-                .when(categoryLearningPort).learn(anyString(), any());
+                        invocation.getArgument(1), invocation.getArgument(2)))
+                .when(categoryLearningPort).learn(eq(USER_ID), anyString(), any());
         when(claudeCategorizationService.categorizeAll(List.of(UNKNOWN)))
                 .thenReturn(List.of(Optional.of(claude(Category.SHOPPING))));
 
-        assertThat(service.categorize(UNKNOWN)).contains(claude(Category.SHOPPING));
-        assertThat(service.categorize(UNKNOWN)).contains(lookup(Category.SHOPPING));
+        assertThat(service.categorize(USER_ID, UNKNOWN)).contains(claude(Category.SHOPPING));
+        assertThat(service.categorize(USER_ID, UNKNOWN)).contains(lookup(Category.SHOPPING));
 
         verify(claudeCategorizationService, times(1)).categorizeAll(List.of(UNKNOWN));
     }
@@ -213,22 +216,22 @@ class HybridCategorizationServiceTest {
      */
     @Test
     void offenerBreakerSchreibtKeinenLookupEintrag() {
-        when(lookupTableService.categorize(UNKNOWN)).thenReturn(Optional.empty());
+        when(lookupTableService.categorize(USER_ID, UNKNOWN)).thenReturn(Optional.empty());
         when(claudeCategorizationService.categorizeAll(List.of(UNKNOWN)))
                 .thenReturn(List.of(Optional.of(skipped())));
 
-        assertThat(service.categorize(UNKNOWN)).contains(skipped());
+        assertThat(service.categorize(USER_ID, UNKNOWN)).contains(skipped());
         verifyNoInteractions(categoryLearningPort);
     }
 
     /** AC 2, die Gegenprobe mit Request: fehlgeschlagener oder unlesbarer Call. */
     @Test
     void fehlgeschlagenerCallSchreibtKeinenLookupEintrag() {
-        when(lookupTableService.categorize(UNKNOWN)).thenReturn(Optional.empty());
+        when(lookupTableService.categorize(USER_ID, UNKNOWN)).thenReturn(Optional.empty());
         when(claudeCategorizationService.categorizeAll(List.of(UNKNOWN)))
                 .thenReturn(List.of(Optional.of(fallback())));
 
-        assertThat(service.categorize(UNKNOWN)).contains(fallback());
+        assertThat(service.categorize(USER_ID, UNKNOWN)).contains(fallback());
         verifyNoInteractions(categoryLearningPort);
     }
 
@@ -239,11 +242,11 @@ class HybridCategorizationServiceTest {
      */
     @Test
     void echtesSonstigesWirdNichtGelernt() {
-        when(lookupTableService.categorize(UNKNOWN)).thenReturn(Optional.empty());
+        when(lookupTableService.categorize(USER_ID, UNKNOWN)).thenReturn(Optional.empty());
         when(claudeCategorizationService.categorizeAll(List.of(UNKNOWN)))
                 .thenReturn(List.of(Optional.of(claude(Category.SONSTIGES))));
 
-        assertThat(service.categorize(UNKNOWN)).contains(claude(Category.SONSTIGES));
+        assertThat(service.categorize(USER_ID, UNKNOWN)).contains(claude(Category.SONSTIGES));
         verifyNoInteractions(categoryLearningPort);
     }
 
@@ -254,16 +257,16 @@ class HybridCategorizationServiceTest {
      */
     @Test
     void derselbeHaendlerImBuendelWirdNurEinmalGelernt() {
-        when(lookupTableService.categorize(UNKNOWN)).thenReturn(Optional.empty());
+        when(lookupTableService.categorize(USER_ID, UNKNOWN)).thenReturn(Optional.empty());
         when(claudeCategorizationService.categorizeAll(List.of(UNKNOWN, UNKNOWN, UNKNOWN)))
                 .thenReturn(List.of(
                         Optional.of(claude(Category.SHOPPING)),
                         Optional.of(claude(Category.SHOPPING)),
                         Optional.of(claude(Category.SHOPPING))));
 
-        service.categorizeAll(List.of(UNKNOWN, UNKNOWN, UNKNOWN));
+        service.categorizeAll(USER_ID, List.of(UNKNOWN, UNKNOWN, UNKNOWN));
 
-        verify(categoryLearningPort, times(1)).learn(UNKNOWN, Category.SHOPPING);
+        verify(categoryLearningPort, times(1)).learn(USER_ID, UNKNOWN, Category.SHOPPING);
     }
 
     /**
@@ -274,15 +277,15 @@ class HybridCategorizationServiceTest {
      */
     @Test
     void fehlerBeimLernenBrichtDieKategorisierungNichtAb() {
-        when(lookupTableService.categorize(KNOWN))
+        when(lookupTableService.categorize(USER_ID, KNOWN))
                 .thenReturn(Optional.of(lookup(Category.LEBENSMITTEL)));
-        when(lookupTableService.categorize(UNKNOWN)).thenReturn(Optional.empty());
+        when(lookupTableService.categorize(USER_ID, UNKNOWN)).thenReturn(Optional.empty());
         when(claudeCategorizationService.categorizeAll(List.of(UNKNOWN)))
                 .thenReturn(List.of(Optional.of(claude(Category.SHOPPING))));
         doThrow(new IllegalStateException("DB nicht erreichbar"))
-                .when(categoryLearningPort).learn(anyString(), any());
+                .when(categoryLearningPort).learn(anyLong(), anyString(), any());
 
-        assertThat(service.categorizeAll(List.of(KNOWN, UNKNOWN))).containsExactly(
+        assertThat(service.categorizeAll(USER_ID, List.of(KNOWN, UNKNOWN))).containsExactly(
                 Optional.of(lookup(Category.LEBENSMITTEL)),
                 Optional.of(claude(Category.SHOPPING)));
     }
@@ -311,7 +314,7 @@ class HybridCategorizationServiceTest {
     @NullSource
     @ValueSource(strings = {"", "   "})
     void leereEingabeLiefertEmptyOhneStufenAufzurufen(String transactionText) {
-        assertThat(service.categorize(transactionText)).isEmpty();
+        assertThat(service.categorize(USER_ID, transactionText)).isEmpty();
         verifyNoInteractions(lookupTableService, claudeCategorizationService);
     }
 }

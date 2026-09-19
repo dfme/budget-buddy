@@ -108,15 +108,13 @@ public class UserController {
     @DeleteMapping
     @Operation(summary = "Konto endgültig löschen",
             description = "Löscht das Konto des eingeloggten Users samt aller Transaktionen, "
-                    + "Import-Jobs, Fixkosten, Benachrichtigungen und erkannten wiederkehrenden "
-                    + "Ausgaben (US-02, nDSG-Recht auf Löschung). Die Löschung ist endgültig und "
-                    + "kann nicht rückgängig gemacht werden; ein erneuter Login mit denselben "
-                    + "Zugangsdaten schlägt danach fehl. Verlangt das aktuelle Passwort als "
-                    + "Bestätigung im Body. Die Antwort löscht das JWT-Cookie (Max-Age=0). Eine "
-                    + "bekannte Lücke bleibt offen (#290): gelernte Händler-Patterns in "
-                    + "category_lookup überleben die Löschung (Tabelle ohne user_id, eigenes "
-                    + "Issue). Betroffen sind sowohl manuelle Kategorie-Korrekturen als auch die "
-                    + "beim Import automatisch gelernten Händler.")
+                    + "Import-Jobs, Fixkosten, Benachrichtigungen, erkannten wiederkehrenden "
+                    + "Ausgaben und gelernten Händler-Patterns (manuelle Kategorie-Korrekturen "
+                    + "wie beim Import automatisch gelernte Händler; US-02, nDSG-Recht auf "
+                    + "Löschung). Die Löschung ist endgültig und kann nicht rückgängig gemacht "
+                    + "werden; ein erneuter Login mit denselben Zugangsdaten schlägt danach fehl. "
+                    + "Verlangt das aktuelle Passwort als Bestätigung im Body. Die Antwort löscht "
+                    + "das JWT-Cookie (Max-Age=0).")
     @ApiResponses({
         @ApiResponse(responseCode = "204", description = "Konto gelöscht, JWT-Cookie gelöscht",
                 content = {}),

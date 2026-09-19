@@ -29,6 +29,7 @@ Diese Dokumentation hält die **wichtigsten Architektur-Entscheidungen** für Bu
 | **ADR-12** | [PostgreSQL bei Neon als Produktionsdatenbank](ADR-12-datenpersistenz-produktion.md) | ✅ Accepted | Datenspeicherung           |
 | **ADR-13** | [Zuordnung von Fixkosten zu importierten Transaktionen](ADR-13-fixkosten-transaktions-zuordnung.md) | ✅ Accepted | Safe-to-Spend-Berechnung   |
 | **ADR-14** | [Asynchroner PDF-Import mit Fortschritts-Job und Batch-Kategorisierung](ADR-14-asynchroner-pdf-import.md) | ✅ Accepted | Import-Flow / Kategorisierung |
+| **ADR-15** | [Mandantengebundener Lerneffekt der Hybrid-Kategorisierung](ADR-15-mandantengebundener-lerneffekt.md) | ✅ Accepted | Kategorisierung / Datenschutz (US-02) |
 
 ---
 
@@ -55,6 +56,7 @@ Diese Dokumentation hält die **wichtigsten Architektur-Entscheidungen** für Bu
 
 - **ADR-3:** REST API (statt GraphQL)
 - **ADR-6:** Hybrid Kategorisierung (Lookup + Claude API)
+- **ADR-15:** Lerneffekt pro Nutzer, Seeds global (ergänzt ADR-6; schliesst #319)
 - **ADR-13:** Fixkosten-Zuordnung im Safe-to-Spend (betragsbasiertes 1:1-Matching)
 
 ### Frontend UI / Design
@@ -257,5 +259,5 @@ Falls Fragen zu einer Entscheidung oder Anpassungsbedarf:
 
 ---
 
-**Zuletzt aktualisiert:** 2026-08-22  
+**Zuletzt aktualisiert:** 2026-09-18  
 **Maintainer:** BudgetBuddy Team

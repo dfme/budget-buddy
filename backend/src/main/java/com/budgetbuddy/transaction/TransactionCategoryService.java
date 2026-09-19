@@ -12,14 +12,15 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Zwei Schreibvorgänge in einer Transaktion: die Kategorie der Transaktion wird aktualisiert,
  * und über den {@link CategoryLearningPort} wird der Händlertext als Lookup-Pattern gelernt
  * (ADR-6, Schritt 4). Dadurch kategorisiert der PDF-Import die nächste Transaktion desselben
- * Händlers deterministisch über die Lookup-Tabelle — ohne Claude-Call.
+ * Händlers <em>dieses Users</em> deterministisch über die Lookup-Tabelle — ohne Claude-Call.
+ * Gelernt wird pro User (BE-CAT-12, ADR-15): Das Pattern gehört zu dem, der es korrigiert hat.
  *
  * <p>Gelernt wird {@link Transaction#fullText()}, nicht der blosse {@code buchungstext}: Die
  * Claude-Stufe lernt beim Import unter demselben Schlüssel (BE-CAT-11), und nur wenn beide
  * Quellen zeichengleich schreiben, wirkt der Upsert und überschreibt die Korrektur des Users den
  * Claude-Eintrag. Die Begründung im Detail steht bei {@link Transaction#fullText()}.
  *
- * <p>Der Schreibzugriff auf {@code category_lookup} läuft bewusst nicht direkt über dessen
+ * <p>Der Schreibzugriff auf {@code user_category_lookup} läuft bewusst nicht direkt über dessen
  * Repository, sondern über den Port des {@code categorization}-Moduls (Modulgrenze, CLAUDE.md).
  */
 @Service
@@ -58,9 +59,9 @@ public class TransactionCategoryService {
 
         // Lerneffekt: derselbe Schlüssel wie bei BE-CAT-11 (Buchungstext + Detailzeilen) — seit
         // DB-05/ADR-12 beim Speichern auf Grossschreibung normalisiert, weil PostgreSQL kein
-        // COLLATE NOCASE kennt. In category_lookup steht deshalb COOP PRONTO BERN, nicht
+        // COLLATE NOCASE kennt. In user_category_lookup steht deshalb COOP PRONTO BERN, nicht
         // "Coop Pronto Bern".
-        categoryLearningPort.learn(transaction.fullText(), category);
+        categoryLearningPort.learn(userId, transaction.fullText(), category);
 
         return TransactionResponse.from(transaction);
     }
