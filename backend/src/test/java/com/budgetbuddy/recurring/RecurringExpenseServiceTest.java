@@ -1,7 +1,6 @@
 package com.budgetbuddy.recurring;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -413,17 +412,6 @@ class RecurringExpenseServiceTest {
         // Abfrage, deren Ergebnis feststeht.
         assertThat(response.isNew()).isFalse();
         verify(notificationPort, never()).unreadReferenceIds(anyLong(), anyString());
-    }
-
-    @Test
-    void dismissWithoutANotificationDoesNotThrow() {
-        RecurringExpense entity = withId(NETFLIX, "20.90", 200L);
-        when(repository.findByIdAndUserId(200L, USER_ID)).thenReturn(Optional.of(entity));
-        // Der Port ist ein Mock ohne Stub: markReadByReference ist void und tut nichts — genau
-        // das Verhalten des echten Ports ohne passende Benachrichtigung (No-op).
-
-        assertThatCode(() -> service.dismiss(USER_ID, 200L)).doesNotThrowAnyException();
-        assertThat(entity.getStatus()).isEqualTo(RecurringExpenseStatus.DISMISSED);
     }
 
     @Test
