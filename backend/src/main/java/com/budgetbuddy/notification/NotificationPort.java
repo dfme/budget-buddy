@@ -38,16 +38,21 @@ public interface NotificationPort {
     Set<Long> unreadReferenceIds(long userId, String type);
 
     /**
-     * Ob zu <em>einer</em> {@code referenceId} eine ungelesene Benachrichtigung eines Users
-     * existiert — das Pendant zu {@link #unreadReferenceIds} für den Einzelfall (BE-REC-02,
-     * {@code dismiss}): dort geht es um das «Neu»-Flag einer einzigen Zeile, dafür alle
-     * ungelesenen IDs des Typs zu laden wäre unnötig.
+     * Markiert alle ungelesenen Benachrichtigungen eines Users zu einem Typ und einer
+     * {@code referenceId} als gelesen — für Module, die eine eigene Zeile abschliessen und deren
+     * «Neu»-Hinweis damit gegenstandslos wird (BE-REC-03, {@code dismiss}): eine Glocke, die
+     * weiter für ein «erkanntes Abo» wirbt, das gerade verneint wurde, führt ins Leere.
      *
-     * @param userId ID des Users, dessen Benachrichtigungen durchsucht werden.
+     * <p>Das aufrufende Modul kennt nur seine eigene Row-ID, nicht die der Notification — deshalb
+     * ein Port-Pfad über die {@code referenceId} statt eines Rückgriffs auf
+     * {@code NotificationService#markAsRead(long, long)}.
+     *
+     * <p>Ohne passende ungelesene Benachrichtigung ein No-op: wirft nicht. Idempotent — eine
+     * bereits gelesene Benachrichtigung behält ihren ursprünglichen Lesezeitpunkt.
+     *
+     * @param userId ID des Users, dessen Benachrichtigungen markiert werden.
      * @param type Benachrichtigungs-Typ, z. B. {@code "RECURRING_EXPENSE_DETECTED"}.
      * @param referenceId Verweis auf die Zeile des aufrufenden Moduls.
-     * @return {@code true}, wenn mindestens eine ungelesene Benachrichtigung dieses Typs auf die
-     *     {@code referenceId} zeigt.
      */
-    boolean isUnread(long userId, String type, long referenceId);
+    void markReadByReference(long userId, String type, long referenceId);
 }

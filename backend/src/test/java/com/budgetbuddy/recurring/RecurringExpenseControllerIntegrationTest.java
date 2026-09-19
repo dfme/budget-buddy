@@ -151,21 +151,67 @@ class RecurringExpenseControllerIntegrationTest {
     }
 
     @Test
-    void dismissAnswersWithTheNewFlagOfTheOwnEntryOnly() throws Exception {
+    void dismissAnswersNotNewEvenWhenItsNotificationWasUnread() throws Exception {
+        long id = createRecurringExpense(lara, "NETFLIX");
+        notificationRepository.save(new Notification(
+                lara, "RECURRING_EXPENSE_DETECTED", id, "Netflix erkannt", Instant.now()));
+
+        // Die Benachrichtigung ist in demselben Aufruf gelesen worden (BE-REC-03).
+        mockMvc.perform(post("/api/recurring-expenses/" + id + "/dismiss").cookie(jwtCookie(lara)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.isNew").value(false));
+    }
+
+    // --- BE-REC-03: Dismiss markiert die zugehörige Benachrichtigung als gelesen ---
+
+    @Test
+    void dismissMarksTheOwnNotificationAsRead() throws Exception {
+        long id = createRecurringExpense(lara, "NETFLIX");
+        Notification notification = notificationRepository.save(new Notification(
+                lara, "RECURRING_EXPENSE_DETECTED", id, "Netflix erkannt", Instant.now()));
+
+        mockMvc.perform(post("/api/recurring-expenses/" + id + "/dismiss").cookie(jwtCookie(lara)))
+                .andExpect(status().isOk());
+
+        assertThat(notificationRepository.findByIdAndUserId(notification.getId(), lara))
+                .get()
+                .extracting(Notification::isRead)
+                .isEqualTo(true);
+    }
+
+    @Test
+    void dismissLeavesTheNotificationOfAnotherEntryUnread() throws Exception {
         long netflix = createRecurringExpense(lara, "NETFLIX");
         long spotify = createRecurringExpense(lara, "SPOTIFY");
-        // Nur Spotify hat eine ungelesene Notification — Netflix darf davon nichts erben.
-        notificationRepository.save(new Notification(
+        Notification spotifyNotification = notificationRepository.save(new Notification(
                 lara, "RECURRING_EXPENSE_DETECTED", spotify, "Spotify erkannt", Instant.now()));
 
         mockMvc.perform(post("/api/recurring-expenses/" + netflix + "/dismiss")
                         .cookie(jwtCookie(lara)))
+                .andExpect(status().isOk());
+
+        assertThat(notificationRepository.findByIdAndUserId(spotifyNotification.getId(), lara))
+                .get()
+                .extracting(Notification::isRead)
+                .isEqualTo(false);
+        // Spotify ist weiterhin «neu» in der Übersicht.
+        mockMvc.perform(get("/api/recurring-expenses").cookie(jwtCookie(lara)))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].payeeKey").value("SPOTIFY"))
+                .andExpect(jsonPath("$[0].isNew").value(true));
+    }
+
+    @Test
+    void dismissWithoutANotificationAnswersWith200() throws Exception {
+        long id = createRecurringExpense(lara, "NETFLIX");
+        // Keine Benachrichtigung angelegt — der Eintrag stammt etwa aus einer Zeit vor der
+        // Glocke oder die Benachrichtigung wurde bereits aufgeräumt.
+
+        mockMvc.perform(post("/api/recurring-expenses/" + id + "/dismiss").cookie(jwtCookie(lara)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("DISMISSED"))
                 .andExpect(jsonPath("$.isNew").value(false));
-        mockMvc.perform(post("/api/recurring-expenses/" + spotify + "/dismiss")
-                        .cookie(jwtCookie(lara)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.isNew").value(true));
     }
 
     @Test

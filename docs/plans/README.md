@@ -63,6 +63,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `BE-PDF-14` | [Endpoint: Transaktionen eines Import-Jobs auflisten](BE-PDF-14-import-transactions-endpoint.md) | [#291](https://github.com/dfme/budget-buddy/issues/291) | US-04, US-05 | Sprint 6 |
 | `BE-REC-01` | [RecurringExpenseService: Erkennung](BE-REC-01-recurring-expense-detection.md) | [#253](https://github.com/dfme/budget-buddy/issues/253) | US-08 | Sprint 6 |
 | `BE-REC-02` | [REST-Endpoints Abo-Übersicht](BE-REC-02-abo-uebersicht-endpoints.md) | [#254](https://github.com/dfme/budget-buddy/issues/254) | US-08 | Sprint 6 |
+| `BE-REC-03` | [Dismiss markiert Benachrichtigung als gelesen](BE-REC-03-dismiss-marks-notification-read.md) | [#324](https://github.com/dfme/budget-buddy/issues/324) | US-08 | Sprint 7 |
 | `BE-STS-01` | [SafeToSpendService](BE-STS-01-safe-to-spend-service.md) | [#21](https://github.com/dfme/budget-buddy/issues/21) | US-06 | Sprint 4 |
 | `BE-STS-02` | [Einkommens-Heuristik](BE-STS-02-einkommens-heuristik.md) | [#22](https://github.com/dfme/budget-buddy/issues/22) | US-06 | Sprint 4 |
 | `BE-STS-03` | [GET /budget/safe-to-spend](BE-STS-03-safe-to-spend-endpoint.md) | [#23](https://github.com/dfme/budget-buddy/issues/23) | US-06 | Sprint 4 |
