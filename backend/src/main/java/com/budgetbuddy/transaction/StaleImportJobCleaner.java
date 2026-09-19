@@ -116,10 +116,9 @@ public class StaleImportJobCleaner {
      * Bereinigt beim Hochfahren, sobald der Kontext steht.
      *
      * <p>Synchron — der Zustand soll bereinigt sein, bevor der erste Upload durch den Duplikatcheck
-     * geht. Die Abfrage ist dabei ein Sequential Scan und kein Indexzugriff: Die Indizes aus
-     * {@code V05} führen alle mit {@code user_id}, das hier gar nicht im Spiel ist. Vertretbar
-     * bleibt der synchrone Aufruf, weil {@code import_jobs} eine Zeile pro Upload wächst und nicht
-     * pro Transaktion; der passende Teilindex ist als DB-10 (#270) erfasst. Aber in
+     * geht. Die Abfrage nutzt seit {@code V13} (DB-10, #270) den Teilindex
+     * {@code idx_import_jobs_running_created_at} auf {@code (created_at) WHERE status = 'RUNNING'}
+     * statt eines Sequential Scans über die ganze Tabelle. Aber in
      * {@code try/catch}: Diese
      * Bereinigung ist Aufräumarbeit, kein Startvorbehalt. Eine Datenbank, die im Moment des
      * Hochfahrens klemmt, darf die Anwendung nicht am Starten hindern — der periodische Lauf holt
