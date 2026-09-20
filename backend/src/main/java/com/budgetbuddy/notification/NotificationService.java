@@ -2,6 +2,7 @@ package com.budgetbuddy.notification;
 
 import com.budgetbuddy.notification.dto.NotificationResponse;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -16,8 +17,9 @@ import org.springframework.transaction.annotation.Transactional;
  * erzeugen (Fundament für US-08) — kein Aufrufer existiert in diesem Issue, der Port hält die
  * Modulgrenze trotzdem von Anfang an ein (CLAUDE.md).
  *
- * <p><strong>Mandantentrennung:</strong> {@link #list(long)} und {@link #markAsRead(long, long)}
- * laufen ausschliesslich über die user-gebundenen Methoden des {@link NotificationRepository}.
+ * <p><strong>Mandantentrennung:</strong> {@link #list(long)}, {@link #markAsRead(long, long)} und
+ * {@link #markReadByReference(long, String, long)} laufen ausschliesslich über die
+ * user-gebundenen Methoden des {@link NotificationRepository}.
  *
  * <p>{@code createdAt}/{@code readAt} kommen aus der injizierten {@link Clock} (analog
  * {@code ImportJob}), nicht aus {@code Instant.now()} — deterministisch testbar.
@@ -101,14 +103,18 @@ public class NotificationService implements NotificationPort {
     /**
      * {@inheritDoc}
      *
-     * <p>Nur gelesen; die Query ist über {@code userId} eingeschränkt, ein fremder Verweis liefert
-     * schlicht {@code false}.
+     * <p><strong>Mandantentrennung:</strong> die Query ist über {@code userId} eingeschränkt;
+     * ein fremder Verweis trifft nichts und der Aufruf bleibt ein No-op.
      */
     @Override
-    @Transactional(readOnly = true)
-    public boolean isUnread(long userId, String type, long referenceId) {
-        return notificationRepository.existsByUserIdAndTypeAndReferenceIdAndReadAtIsNull(
-                userId, type, referenceId);
+    @Transactional
+    public void markReadByReference(long userId, String type, long referenceId) {
+        Instant now = clock.instant();
+        for (Notification notification
+                : notificationRepository.findByUserIdAndTypeAndReferenceIdAndReadAtIsNull(
+                        userId, type, referenceId)) {
+            notification.markRead(now);
+        }
     }
 
     private static NotificationResponse toResponse(Notification notification) {

@@ -61,12 +61,13 @@ public class HybridCategorizationService implements CategorizationPort {
     }
 
     @Override
-    public Optional<CategorizationResult> categorize(String transactionText) {
-        return categorizeAll(Collections.singletonList(transactionText)).get(0);
+    public Optional<CategorizationResult> categorize(long userId, String transactionText) {
+        return categorizeAll(userId, Collections.singletonList(transactionText)).get(0);
     }
 
     @Override
-    public List<Optional<CategorizationResult>> categorizeAll(List<String> transactionTexts) {
+    public List<Optional<CategorizationResult>> categorizeAll(
+            long userId, List<String> transactionTexts) {
         List<Optional<CategorizationResult>> results =
                 new ArrayList<>(Collections.nCopies(transactionTexts.size(), Optional.empty()));
 
@@ -77,7 +78,7 @@ public class HybridCategorizationService implements CategorizationPort {
             if (text == null || text.isBlank()) {
                 continue;
             }
-            Optional<CategorizationResult> fromLookup = lookupTableService.categorize(text);
+            Optional<CategorizationResult> fromLookup = lookupTableService.categorize(userId, text);
             if (fromLookup.isPresent()) {
                 // Transaktionstext redigiert (BE-PDF-06): auch DEBUG darf keine Zahlungsdaten tragen.
                 log.debug("{} via Lookup-Tabelle als '{}' kategorisiert.",
@@ -108,7 +109,7 @@ public class HybridCategorizationService implements CategorizationPort {
         }
 
         // Stufe 3: was Claude wirklich beantwortet hat, wandert in die Lookup-Tabelle.
-        learnFromClaude(transactionTexts, results, unknown);
+        learnFromClaude(userId, transactionTexts, results, unknown);
         return results;
     }
 
@@ -132,12 +133,12 @@ public class HybridCategorizationService implements CategorizationPort {
      *
      * <p>Übergeben wird der <strong>rohe</strong> Text, nicht die von {@link PromptSanitizer}
      * maskierte Fassung: Die Lookup-Stufe matcht gegen den rohen Text, und die Patterns aus der
-     * manuellen Korrektur (BE-CAT-04) sind ebenfalls roh. Was davon gespeichert wird — das
-     * stabile Präfix ohne die variable Mitteilung —, entscheidet {@link CategoryLearningService}
-     * für beide Quellen gleich (BE-CAT-13). Datenschutzfolge: Seit BE-CAT-11 landet
-     * nicht mehr nur ein aktiv korrigierter, sondern jeder von Claude eingestufte Händlertext in
-     * dieser Tabelle — sie hat keine {@code user_id} und überlebt die Kontolöschung (offene Lücke
-     * #290, siehe {@code UserService#deleteUser}).
+     * manuellen Korrektur (BE-CAT-04) sind ebenfalls roh. Gelernt wird deshalb <strong>pro
+     * User</strong> (BE-CAT-12, ADR-15): Der rohe Händlertext ist ein Datum des Users, dessen
+     * Auszug ihn enthielt — er landet in {@code user_category_lookup}, wirkt nur auf seine
+     * Kategorisierung und wird mit seinem Konto gelöscht ({@code UserService#deleteUser}). Was
+     * davon gespeichert wird — das stabile Präfix ohne die variable Mitteilung —, entscheidet
+     * {@link CategoryLearningService} für beide Quellen gleich (BE-CAT-13).
      *
      * <p><strong>Ein Fehler hier darf die Kategorisierung nicht kosten.</strong> Die Ergebnisse
      * stehen zu diesem Zeitpunkt vollständig in {@code results}; eine nicht erreichbare Datenbank
@@ -146,9 +147,11 @@ public class HybridCategorizationService implements CategorizationPort {
      * für alle Einträge derselbe, und 20 identische Warnungen pro Bündel verdecken nur den Rest
      * des Import-Logs.
      *
+     * @param userId User, dem die gelernten Patterns gehören.
      * @param positions Indizes in {@code texts}, die an Claude gingen — nur sie kommen infrage.
      */
     private void learnFromClaude(
+            long userId,
             List<String> texts,
             List<Optional<CategorizationResult>> results,
             List<Integer> positions) {
@@ -171,7 +174,7 @@ public class HybridCategorizationService implements CategorizationPort {
                 continue;
             }
             try {
-                categoryLearningPort.learn(text, result.category());
+                categoryLearningPort.learn(userId, text, result.category());
             } catch (RuntimeException e) {
                 failed++;
                 lastFailure = e;

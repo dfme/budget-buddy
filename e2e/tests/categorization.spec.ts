@@ -1,11 +1,11 @@
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { type APIRequestContext, type Locator, type Page } from '@playwright/test';
+import { type Locator, type Page } from '@playwright/test';
 import { Client } from 'pg';
 
 import { expect, test } from '../fixtures/auth.fixture';
 import { DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER } from '../support/database';
+import { importFixture } from '../support/import';
 
 /**
  * E2E-Abdeckung der Must-Have-Story US-05 «Transaktionen kategorisieren» (E2E-CAT-01).
@@ -26,14 +26,6 @@ test.describe('Transaktionen kategorisieren', () => {
 
   /** Monat der Fixture-Buchungen — der Default der Übersicht ist der laufende Monat. */
   const FIXTURE_MONTH = '2025-06';
-
-  /**
-   * Obergrenze für den Kategorisierungs-Job. Seit ADR-14 (BE-PDF-09) läuft er asynchron; in der
-   * Testinstanz ohne `ANTHROPIC_API_KEY` dauert er Millisekunden, der serverseitige Watchdog
-   * steht aber auf 300s. Grosszügig, damit ein legitim langsamer Job nicht als Testfehler
-   * erscheint, während das Backend noch innerhalb seiner eigenen Grenze arbeitet.
-   */
-  const IMPORT_TIMEOUT_MS = 60_000;
 
   /**
    * Buchungstexte, für die dieser Lauf ein Lookup-Pattern gelernt hat — Eingabe für das Cleanup
@@ -92,60 +84,14 @@ test.describe('Transaktionen kategorisieren', () => {
   });
 
   /**
-   * Importiert die Fixture über die API und wartet, bis der Kategorisierungs-Job durch ist.
-   *
-   * <p>Bewusst nicht durch die Upload-UI: der Import ist Vorbedingung dieses Tests, nicht sein
-   * Gegenstand. Ihn durchzuklicken würde US-05 an US-04 aufhängen — ein Bug im Upload-UI liesse
-   * dann auch diese beiden Fälle rot werden, ohne Hinweis auf die eigentliche Ursache. Dieselbe
-   * Begründung, mit der die Auth-Fixture über die API registriert statt durchs Login-Formular.
-   *
-   * <p>`context.request` teilt den Cookie-Jar mit dem BrowserContext, der Upload läuft also unter
-   * demselben eingeloggten User wie die Seite danach.
-   */
-  async function importFixtureStatement(request: APIRequestContext): Promise<void> {
-    const upload = await request.post('/api/import/pdf', {
-      multipart: {
-        file: {
-          name: 'kontoauszug-synthetisch.pdf',
-          mimeType: 'application/pdf',
-          buffer: readFileSync(FIXTURE_PDF),
-        },
-      },
-    });
-    expect(upload.status(), 'Vorbedingung: POST /api/import/pdf').toBe(202);
-
-    const { jobId, total } = (await upload.json()) as { jobId: number; total: number };
-    expect(total, 'Vorbedingung: Anzahl geparster Buchungen').toBe(FIXTURE_TRANSACTION_COUNT);
-
-    let status = 'RUNNING';
-    await expect
-      .poll(
-        async () => {
-          const response = await request.get(`/api/import/${jobId}/status`);
-          expect(response.status(), `GET /api/import/${jobId}/status`).toBe(200);
-          ({ status } = (await response.json()) as { status: string });
-          return status;
-        },
-        {
-          timeout: IMPORT_TIMEOUT_MS,
-          message: `Import-Job ${jobId} hat keinen Endzustand erreicht`,
-        },
-      )
-      .not.toBe('RUNNING');
-
-    // DONE statt bloss «nicht mehr RUNNING»: ein FAILED-Job würde sonst als erfüllte Vorbedingung
-    // durchgehen, und der Test scheiterte danach an einer leeren Übersicht — mit einer Meldung,
-    // die auf die Kategorisierung zeigt statt auf den Import.
-    expect(status, `Import-Job ${jobId} endete nicht erfolgreich`).toBe('DONE');
-  }
-
-  /**
    * Der Aufklapp-Button einer Kategoriezeile.
    *
    * <p>Adressiert über `.badge__label` und exakten Text, nicht über den Text des Buttons: das
-   * Badge rendert daneben einen `.badge__dot` (`badge.html`), und ein Icon-Element im
-   * `textContent` des Elternteils hat in FE-UI-07 schon einmal drei Assertions gekostet. Exakt
-   * statt Teilstring, damit `Sonstiges` nicht versehentlich eine andere Zeile trifft.
+   * Badge rendert daneben ein `.badge__icon` — seit BE-CAT-10 den Kategorie-Glyph, davor einen
+   * `.badge__dot`, der jetzt nur noch als Fallback erscheint (`badge.html`). Ein Icon-Element im
+   * `textContent` des Elternteils hat in FE-UI-07 schon einmal drei Assertions gekostet, und der
+   * Glyph steht seit BE-CAT-10 wirklich dort. Exakt statt Teilstring, damit `Sonstiges` nicht
+   * versehentlich eine andere Zeile trifft.
    */
   function categoryToggle(page: Page, label: string): Locator {
     return page.locator('button.drilldown-toggle', {
@@ -162,7 +108,7 @@ test.describe('Transaktionen kategorisieren', () => {
     authenticatedContext,
     authenticatedPage: page,
   }) => {
-    await importFixtureStatement(authenticatedContext.request);
+    await importFixture(authenticatedContext.request, FIXTURE_PDF, FIXTURE_TRANSACTION_COUNT);
 
     await page.goto(`/categories?month=${FIXTURE_MONTH}`);
     await expect(page.getByRole('heading', { name: 'Kategorie-Übersicht' })).toBeVisible();
@@ -225,7 +171,7 @@ test.describe('Transaktionen kategorisieren', () => {
     authenticatedContext,
     authenticatedPage: page,
   }) => {
-    await importFixtureStatement(authenticatedContext.request);
+    await importFixture(authenticatedContext.request, FIXTURE_PDF, FIXTURE_TRANSACTION_COUNT);
 
     await page.goto(`/categories?month=${FIXTURE_MONTH}`);
     await page.locator('button.drilldown-toggle').first().click();

@@ -89,10 +89,12 @@ die im JAR gebündelte SPA aus«) schlägt dann als Einziger fehl und nennt gena
 | `tests/categorization.spec.ts` | Kategorisierung (US-05): Happy Path mit Korrektur über einen Reload, Fehlerpfad mit 500 auf dem Korrektur-PUT |
 | `tests/safe-to-spend.spec.ts` | Safe-to-Spend (US-06): Happy Path mit Querprobe gegen `GET /budget/safe-to-spend`, Fehlerpfad ohne erfasstes Einkommen |
 | `tests/month-switch.spec.ts` | Monatswechsel (US-12): Happy Path in einen vergangenen Monat mit «Abgeschlossen» auf Dashboard und Kategorie-Übersicht, Fehlerpfad in einen Monat ohne Daten |
+| `tests/recurring-expenses.spec.ts` | Abo-Erkennung (US-08): Happy Path mit «Neu»-Label nach 2 Folgemonaten, Alt-Pfad mit dauerhafter Ausnahme nach «Kein Abo» |
 | `fixtures/auth.fixture.ts` | Auth-Fixture: eingeloggte Session als Vorbedingung |
 | `fixtures/pdf/` | Synthetische Kontoauszug-PDFs — unkomprimiertes ASCII, lokal mit `cat` oder `git diff` prüfbar (GitHub zeigt sie als binär) |
 | `support/backend.ts` | Port, Basis-URL, JAR-Auflösung, Test-JWT-Secret |
 | `support/database.ts` | Verbindungsdaten der E2E-Datenbank und `resetDatabase()` |
+| `support/import.ts` | `importFixture()` — PDF-Import über die API anstossen und auf den Job-Endzustand pollen |
 | `global-setup.ts` | Ruft `resetDatabase()` einmal pro Lauf auf, nach dem Start der Instanz |
 | `playwright.config.ts` | Runner-Konfiguration inkl. `webServer` und `globalSetup` |
 
@@ -158,6 +160,11 @@ Dazu kommt `month-switch.spec.ts` (E2E-STS-02) für die Should-Have-Story US-12.
 ausserhalb der Must-Have-Liste, teilt sich mit US-06 aber die Ansicht: Der Monatswechsel
 entscheidet, *welchen* Monat der Safe-to-Spend beantwortet, und für einen vergangenen antwortet
 er mit «Abgeschlossen» statt mit einer Zahl.
+
+Ebenfalls ausserhalb der Must-Have-Liste deckt `recurring-expenses.spec.ts` (E2E-REC-01) die
+Should-Have-Story US-08 ab: Erkennung, REST-Endpoints und Screen entstehen in eigenen
+Feature-Tasks (`BE-REC-01`/`02`, `FE-REC-01`), die E2E-Abdeckung bündelt Happy Path und Alt-Pfad
+in einem eigenen Task, wie bei US-04 und US-06/US-12.
 
 Die Fälle hängen nicht an einzelnen Feature-Issues, sondern je an einem eigenen Task pro Story:
 US-04 allein besteht aus acht Issues, die zwei Testfälle liessen sich keinem davon sinnvoll

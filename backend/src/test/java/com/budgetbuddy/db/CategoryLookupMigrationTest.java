@@ -2,11 +2,14 @@ package com.budgetbuddy.db;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.budgetbuddy.categorization.Category;
 import com.budgetbuddy.support.PostgresTestDatabase;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -29,9 +32,12 @@ class CategoryLookupMigrationTest {
     private static final String TABLE = "category_lookup";
 
     // Fixe Kategorienliste aus CLAUDE.md — Seed-Daten dürfen nur diese Werte verwenden.
-    private static final Set<String> ALLOWED_CATEGORIES = Set.of(
-            "Wohnen", "Lebensmittel", "Transport", "Versicherung", "Telekom", "Gesundheit",
-            "Freizeit", "Restaurant", "Shopping", "Bildung", "Einkommen", "Sparen", "Sonstiges");
+    // Bewusst aus dem Enum abgeleitet statt hart kodiert: eine zweite Liste lief hier bis BE-CAT-10
+    // unbemerkt auseinander, weil sie die Zahl «13» nirgends nennt und so von keiner Suche nach den
+    // Kategorie-Spiegeln gefunden wurde.
+    private static final Set<String> ALLOWED_CATEGORIES = Arrays.stream(Category.values())
+            .map(Category::getLabel)
+            .collect(Collectors.toUnmodifiableSet());
 
     @DynamicPropertySource
     static void datasourceProperties(DynamicPropertyRegistry registry) {

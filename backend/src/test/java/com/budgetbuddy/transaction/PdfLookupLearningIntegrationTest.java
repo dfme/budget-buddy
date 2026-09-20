@@ -66,6 +66,17 @@ class PdfLookupLearningIntegrationTest {
     /** Alles, was im Lauf an Claude ging — über beide Importe hinweg. */
     private final List<String> sentToClaude = new ArrayList<>();
 
+    private long userId;
+
+    @BeforeEach
+    void seedUser() {
+        jdbcTemplate.update(
+                "INSERT INTO users (email, password_hash) VALUES (?, ?)",
+                "pdf-lookup-learning@example.ch", "$2a$10$test.only.not.a.real.hash");
+        userId = jdbcTemplate.queryForObject(
+                "SELECT id FROM users WHERE email = ?", Long.class, "pdf-lookup-learning@example.ch");
+    }
+
     @BeforeEach
     void stubClaude() {
         when(claudeCategorizationService.categorizeAll(anyList())).thenAnswer(invocation -> {
@@ -115,8 +126,9 @@ class PdfLookupLearningIntegrationTest {
         assertThat(countLookupRows()).isEqualTo(rowsBefore + 3);
         assertThat(countLookupRowsContaining(RENT)).isEqualTo(1);
         assertThat(jdbcTemplate.queryForObject(
-                        "SELECT empfaenger_pattern FROM category_lookup WHERE empfaenger_pattern LIKE ?",
-                        String.class, "%" + RENT + "%"))
+                        "SELECT empfaenger_pattern FROM user_category_lookup "
+                                + "WHERE user_id = ? AND empfaenger_pattern LIKE ?",
+                        String.class, userId, "%" + RENT + "%"))
                 .isEqualTo("GIRO POST " + RENT);
     }
 
@@ -125,7 +137,7 @@ class PdfLookupLearningIntegrationTest {
         List<Optional<CategorizationResult>> results = new ArrayList<>();
         for (int from = 0; from < texts.size(); from += BATCH_SIZE) {
             int to = Math.min(from + BATCH_SIZE, texts.size());
-            results.addAll(hybridCategorizationService.categorizeAll(texts.subList(from, to)));
+            results.addAll(hybridCategorizationService.categorizeAll(userId, texts.subList(from, to)));
         }
         return results;
     }
@@ -135,13 +147,14 @@ class PdfLookupLearningIntegrationTest {
     }
 
     private int countLookupRows() {
-        return jdbcTemplate.queryForObject("SELECT COUNT(*) FROM category_lookup", Integer.class);
+        return jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM user_category_lookup WHERE user_id = ?", Integer.class, userId);
     }
 
     private int countLookupRowsContaining(String fragment) {
         return jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM category_lookup WHERE empfaenger_pattern LIKE ?",
-                Integer.class, "%" + fragment + "%");
+                "SELECT COUNT(*) FROM user_category_lookup WHERE user_id = ? AND empfaenger_pattern LIKE ?",
+                Integer.class, userId, "%" + fragment + "%");
     }
 
     private static byte[] fixture(String resource) {

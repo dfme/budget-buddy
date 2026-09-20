@@ -35,7 +35,7 @@ describe('ChartTheme', () => {
     expect(palette.accent).toBe('#666666');
   });
 
-  it('deckt alle 13 Kategorien ab', () => {
+  it('deckt alle 17 Kategorien ab', () => {
     const palette = TestBed.inject(ChartTheme).palette();
 
     expect(Object.keys(palette.categories).sort()).toEqual([...CATEGORY_SLUGS].sort());

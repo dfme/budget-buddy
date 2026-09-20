@@ -2,8 +2,15 @@ package com.budgetbuddy.categorization;
 
 /**
  * Schreib-Port der Hybrid-Kategorisierung (ADR-6, Schritt 4 — Lerneffekt): trägt eine Zuordnung
- * {@code Händler-Pattern → Kategorie} in die {@code category_lookup}-Tabelle ein, damit künftige
- * Transaktionen desselben Händlers deterministisch und ohne Claude-Call kategorisiert werden.
+ * {@code Händler-Pattern → Kategorie} in die {@code user_category_lookup}-Tabelle ein, damit
+ * künftige Transaktionen desselben Händlers <em>bei diesem User</em> deterministisch und ohne
+ * Claude-Call kategorisiert werden.
+ *
+ * <p><strong>Gelernt wird pro User</strong> (BE-CAT-12, ADR-15): Das Pattern ist der rohe
+ * Buchungstext, also ein Datum des Users, bei dem es entstanden ist. Es wirkt nur auf seine
+ * Kategorisierung und wird mit seinem Konto gelöscht ({@link CategoryLookupCleanupPort}). Die
+ * globale {@code category_lookup}-Tabelle (V04) hält nur die kuratierten Seeds; der Lerneffekt
+ * schreibt sie nicht mehr.
  *
  * <p>Gegenstück zum Lese-{@link CategorizationPort}. <strong>Zwei Quellen schreiben hier hinein</strong>
  * — beide in dieselbe Tabelle, mit Upsert-Semantik:
@@ -39,10 +46,11 @@ package com.budgetbuddy.categorization;
 public interface CategoryLearningPort {
 
     /**
-     * Merkt sich, dass Transaktionstexte, die {@code merchantPattern} enthalten, zu
-     * {@code category} gehören. Existiert bereits ein Eintrag für dieses Pattern, wird seine
-     * Kategorie überschrieben (Upsert) — der jüngste Aufruf gewinnt.
+     * Merkt sich für {@code userId}, dass Transaktionstexte, die {@code merchantPattern}
+     * enthalten, zu {@code category} gehören. Existiert bei diesem User bereits ein Eintrag für
+     * dieses Pattern, wird seine Kategorie überschrieben (Upsert) — der jüngste Aufruf gewinnt.
      *
+     * @param userId User, dem das gelernte Pattern gehört.
      * @param merchantPattern der volle Transaktionstext aus Buchungstext und Detailzeilen
      *     ({@code fullText()}) — bei BE-CAT-04 der der korrigierten Transaktion, bei BE-CAT-11
      *     der, den die Claude-Stufe eingestuft hat. Gespeichert wird sein stabiles Präfix, das
@@ -50,5 +58,5 @@ public interface CategoryLearningPort {
      * @param category die Zielkategorie — vom User bestätigt (BE-CAT-04) oder von Claude ermittelt
      *     (BE-CAT-11).
      */
-    void learn(String merchantPattern, Category category);
+    void learn(long userId, String merchantPattern, Category category);
 }

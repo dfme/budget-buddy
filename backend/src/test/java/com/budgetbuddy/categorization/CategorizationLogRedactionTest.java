@@ -2,6 +2,7 @@ package com.budgetbuddy.categorization;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -52,6 +53,8 @@ class CategorizationLogRedactionTest {
 
     /** Frei erfundener, eindeutig wiedererkennbarer Zahlungstext. */
     private static final String TRANSACTION = "ZAHLUNG KARDIOLOGIE HIRSLANDEN 4242";
+
+    private static final long USER_ID = 7L;
 
     @Mock private ObjectProvider<AnthropicClient> clientProvider;
     @Mock private AnthropicClient client;
@@ -111,7 +114,7 @@ class CategorizationLogRedactionTest {
 
     /**
      * Seit ADR-14 kann eine <em>unbekannte Kategorie</em> nicht mehr auftreten — das Schema lässt
-     * nur die 13 Enum-Konstanten zu. Der verbleibende Fall ist eine Antwort, die sich nicht lesen
+     * nur die 17 Enum-Konstanten zu. Der verbleibende Fall ist eine Antwort, die sich nicht lesen
      * lässt; auch sie darf nichts vom Zahlungstext preisgeben.
      */
     @Test
@@ -198,15 +201,15 @@ class CategorizationLogRedactionTest {
                 new HybridCategorizationService(lookup, claude, learningPort);
 
         // DEBUG-Pfad «via Lookup-Tabelle kategorisiert».
-        when(lookup.categorize(TRANSACTION)).thenReturn(Optional.of(
+        when(lookup.categorize(USER_ID, TRANSACTION)).thenReturn(Optional.of(
                 new CategorizationResult(Category.GESUNDHEIT, CategorizationResult.Source.LOOKUP)));
-        hybrid.categorize(TRANSACTION);
+        hybrid.categorize(USER_ID, TRANSACTION);
 
         // WARN-Pfad «Unerwarteter Fehler bei der Claude-Kategorisierung».
-        when(lookup.categorize(TRANSACTION)).thenReturn(Optional.empty());
+        when(lookup.categorize(USER_ID, TRANSACTION)).thenReturn(Optional.empty());
         when(claude.categorizeAll(List.of(TRANSACTION)))
                 .thenThrow(new IllegalStateException("SDK kaputt"));
-        hybrid.categorize(TRANSACTION);
+        hybrid.categorize(USER_ID, TRANSACTION);
 
         assertRedacted();
     }
@@ -224,15 +227,15 @@ class CategorizationLogRedactionTest {
         HybridCategorizationService hybrid =
                 new HybridCategorizationService(lookup, claude, learningPort);
 
-        when(lookup.categorize(TRANSACTION)).thenReturn(Optional.empty());
+        when(lookup.categorize(USER_ID, TRANSACTION)).thenReturn(Optional.empty());
         when(claude.categorizeAll(List.of(TRANSACTION))).thenReturn(List.of(Optional.of(
                 new CategorizationResult(
                         Category.GESUNDHEIT, CategorizationResult.Source.CLAUDE))));
         doThrow(new IllegalStateException(
                         "duplicate key value violates unique constraint: " + TRANSACTION))
-                .when(learningPort).learn(any(), any());
+                .when(learningPort).learn(anyLong(), any(), any());
 
-        hybrid.categorize(TRANSACTION);
+        hybrid.categorize(USER_ID, TRANSACTION);
 
         assertRedacted();
         assertThat(appender.list)
@@ -242,11 +245,11 @@ class CategorizationLogRedactionTest {
 
     @Test
     void learningPathNeverLogsMerchantPatternInPlaintext() {
-        CategoryLookupRepository repository = mock(CategoryLookupRepository.class);
+        UserCategoryLookupRepository repository = mock(UserCategoryLookupRepository.class);
         CategoryLearningService learningService = new CategoryLearningService(repository);
 
         // DEBUG-Pfad «Lookup gelernt» — das Pattern stammt aus dem Transaktionstext.
-        learningService.learn(TRANSACTION, Category.GESUNDHEIT);
+        learningService.learn(USER_ID, TRANSACTION, Category.GESUNDHEIT);
 
         assertRedacted();
     }

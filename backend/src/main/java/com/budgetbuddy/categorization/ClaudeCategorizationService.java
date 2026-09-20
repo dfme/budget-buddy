@@ -110,7 +110,7 @@ public class ClaudeCategorizationService implements CategorizationPort {
     /**
      * Der Transaktionstext ist Fremdeingabe: Ein Händlername kann aussehen wie eine Anweisung.
      * Der letzte Absatz sagt dem Modell ausdrücklich, dass er keine ist. Zweite Verteidigungslinie
-     * ist das Schema — was auch immer das Modell «befolgt», es kann nur eine der 13 Kategorien
+     * ist das Schema — was auch immer das Modell «befolgt», es kann nur eine der 17 Kategorien
      * zurückgeben.
      */
     private static final String SYSTEM_PROMPT =
@@ -161,16 +161,32 @@ public class ClaudeCategorizationService implements CategorizationPort {
     }
 
     /**
-     * Einzelabfrage — delegiert an {@link #categorizeAll}, damit Breaker, Fallback und
+     * Port-Einstieg (BE-CAT-12): Die User-ID gehört zur Lookup-Stufe, nicht hierher — Claude sieht
+     * nur den maskierten Text, wer ihn importiert hat, ist für die Einstufung ohne Belang. Sie
+     * wird deshalb nicht weitergereicht; die eigentliche Implementierung ist
+     * {@link #categorizeAll(List)}.
+     */
+    @Override
+    public Optional<CategorizationResult> categorize(long userId, String transactionText) {
+        return categorize(transactionText);
+    }
+
+    /** Siehe {@link #categorize(long, String)} — die User-ID wird bewusst nicht verwendet. */
+    @Override
+    public List<Optional<CategorizationResult>> categorizeAll(
+            long userId, List<String> transactionTexts) {
+        return categorizeAll(transactionTexts);
+    }
+
+    /**
+     * Einzelabfrage — delegiert an {@link #categorizeAll(List)}, damit Breaker, Fallback und
      * Prompt-Aufbau nur an einer Stelle stehen. {@code singletonList} statt {@code List.of},
      * weil der Vertrag {@code null} als Eingabe zulässt.
      */
-    @Override
     public Optional<CategorizationResult> categorize(String transactionText) {
         return categorizeAll(Collections.singletonList(transactionText)).get(0);
     }
 
-    @Override
     public List<Optional<CategorizationResult>> categorizeAll(List<String> transactionTexts) {
         List<Optional<CategorizationResult>> results =
                 new ArrayList<>(Collections.nCopies(transactionTexts.size(), Optional.empty()));

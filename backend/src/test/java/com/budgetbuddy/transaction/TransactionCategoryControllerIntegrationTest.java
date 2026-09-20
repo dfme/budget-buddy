@@ -29,7 +29,8 @@ import org.springframework.test.web.servlet.MockMvc;
 /**
  * Integrationstest von {@code PUT /transactions/{id}/category} (BE-CAT-04) gegen echtes
  * PostgreSQL + Flyway. Deckt die Acceptance Criteria end-to-end ab: transactions-Zeile aktualisiert,
- * category_lookup geschrieben, nächste Transaktion desselben Händlers ohne Claude via Lookup.
+ * user_category_lookup geschrieben (pro User, BE-CAT-12), nächste Transaktion desselben Händlers
+ * ohne Claude via Lookup.
  *
  * <p>Eigene Datenbank auf dem gemeinsamen Testcontainer und {@code @DirtiesContext} analog zu
  * {@link TransactionSummaryControllerIntegrationTest} (Begründung in
@@ -67,10 +68,10 @@ class TransactionCategoryControllerIntegrationTest {
     @BeforeEach
     void seed() {
         transactionRepository.deleteAll();
+        // Gelernte Patterns vor den Usern: user_category_lookup.user_id ist ein Fremdschlüssel
+        // auf users (Flyway V12). Die Seeds in category_lookup bleiben unberührt.
+        jdbcTemplate.update("DELETE FROM user_category_lookup");
         jdbcTemplate.update("DELETE FROM users");
-        // Gelernte Patterns aus vorherigen Tests entfernen, Seed-Daten bleiben unberührt.
-        jdbcTemplate.update("DELETE FROM category_lookup WHERE empfaenger_pattern IN (?, ?, ?)",
-                "BAECKEREI MUELLER", CLAUDE_LEARNED_PATTERN, "KAUF/DIENSTLEISTUNG");
 
         userId = insertUser("lara@example.ch");
         otherUserId = insertUser("marc@example.ch");
@@ -118,16 +119,20 @@ class TransactionCategoryControllerIntegrationTest {
         assertThat(transactionRepository.findById(transactionId))
                 .get().extracting(Transaction::getCategory).isEqualTo("Lebensmittel");
 
-        // AC 2: Händler-Pattern in category_lookup eingetragen.
+        // AC 2: Händler-Pattern in user_category_lookup eingetragen — für diesen User (BE-CAT-12).
         String learned = jdbcTemplate.queryForObject(
-                "SELECT category FROM category_lookup WHERE empfaenger_pattern = 'BAECKEREI MUELLER'",
-                String.class);
+                "SELECT category FROM user_category_lookup "
+                        + "WHERE user_id = ? AND empfaenger_pattern = 'BAECKEREI MUELLER'",
+                String.class, userId);
         assertThat(learned).isEqualTo("Lebensmittel");
 
         // AC 3: nächste Transaktion desselben Händlers wird ohne Claude via Lookup kategorisiert.
-        assertThat(lookupTableService.categorize("BAECKEREI MUELLER FILIALE BERN"))
+        assertThat(lookupTableService.categorize(userId, "BAECKEREI MUELLER FILIALE BERN"))
                 .contains(new CategorizationResult(
                         Category.LEBENSMITTEL, CategorizationResult.Source.LOOKUP));
+        // Mandantentrennung (BE-CAT-12): Für einen anderen User bleibt der Händler unbekannt.
+        assertThat(lookupTableService.categorize(otherUserId, "BAECKEREI MUELLER FILIALE BERN"))
+                .isEmpty();
     }
 
     @Test
@@ -183,14 +188,16 @@ class TransactionCategoryControllerIntegrationTest {
      * entstanden — eine von Claude unter dem vollen Text, eine von der Korrektur unter dem blossen
      * {@code buchungstext}. Ein Map-Stub mit exaktem Schlüssel kann das nicht zeigen; es braucht
      * die LIKE-Substring-Semantik und die Sortierung nach Pattern-Länge aus
-     * {@code CategoryLookupRepository#findMatching}, weil genau sie den längeren Claude-Eintrag
-     * gewinnen liess.
+     * {@code UserCategoryLookupRepository#findMatching}, weil genau sie den längeren Claude-Eintrag
+     * gewinnen liess. Seit BE-CAT-12 gilt das pro User: beide Quellen schreiben unter
+     * {@code (user_id, empfaenger_pattern)}, und der Upsert greift nur, wenn auch der Schlüsseltext
+     * zeichengleich ist.
      */
     @Test
     void manualCorrectionOverwritesWhatClaudeLearnedForTheSameTransaction() throws Exception {
         // Import im Juli: Claude stuft den Händler ein und lernt ihn unter dem vollen Text.
-        learningPort.learn(CLAUDE_LEARNED_PATTERN, Category.RESTAURANT);
-        assertThat(lookupTableService.categorize(CLAUDE_LEARNED_PATTERN))
+        learningPort.learn(userId, CLAUDE_LEARNED_PATTERN, Category.RESTAURANT);
+        assertThat(lookupTableService.categorize(userId, CLAUDE_LEARNED_PATTERN))
                 .contains(new CategorizationResult(
                         Category.RESTAURANT, CategorizationResult.Source.LOOKUP));
 
@@ -201,29 +208,37 @@ class TransactionCategoryControllerIntegrationTest {
                         .content(body("Lebensmittel")))
                 .andExpect(status().isOk());
 
-        // Upsert statt zweiter Zeile: derselbe Primärschlüssel, keine Konkurrenz um die Länge.
-        assertThat(countLookupRowsContaining("BAECKEREI HUBER")).isEqualTo(1);
+        // Upsert statt zweiter Zeile: derselbe Schlüssel (user_id, empfaenger_pattern), keine
+        // Konkurrenz um die Länge.
+        assertThat(countLookupRowsContaining(userId, "BAECKEREI HUBER")).isEqualTo(1);
 
         // Import im August, derselbe Text: die Korrektur des Users gewinnt.
-        assertThat(lookupTableService.categorize(CLAUDE_LEARNED_PATTERN))
+        assertThat(lookupTableService.categorize(userId, CLAUDE_LEARNED_PATTERN))
                 .contains(new CategorizationResult(
                         Category.LEBENSMITTEL, CategorizationResult.Source.LOOKUP));
 
         // Und der generische Buchungstext wurde nicht als eigenes Pattern gelernt — sonst
         // kategorisierte er jeden Kartenkauf des Kontos als Lebensmittel.
-        assertThat(countLookupRowsFor("KAUF/DIENSTLEISTUNG")).isZero();
+        assertThat(countLookupRowsFor(userId, "KAUF/DIENSTLEISTUNG")).isZero();
+
+        // Mandantentrennung (BE-CAT-12): Für einen anderen User hat weder Claude noch die
+        // Korrektur etwas hinterlassen.
+        assertThat(countLookupRowsContaining(otherUserId, "BAECKEREI HUBER")).isZero();
+        assertThat(lookupTableService.categorize(otherUserId, CLAUDE_LEARNED_PATTERN)).isEmpty();
     }
 
     /** Wie viele Zeilen den Händler überhaupt tragen — eine zweite wäre der Befund aus #320. */
-    private Integer countLookupRowsContaining(String patternFragment) {
+    private Integer countLookupRowsContaining(long uid, String patternFragment) {
         return jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM category_lookup WHERE empfaenger_pattern LIKE ?",
-                Integer.class, "%" + patternFragment + "%");
+                "SELECT COUNT(*) FROM user_category_lookup"
+                        + " WHERE user_id = ? AND empfaenger_pattern LIKE ?",
+                Integer.class, uid, "%" + patternFragment + "%");
     }
 
-    private Integer countLookupRowsFor(String pattern) {
+    private Integer countLookupRowsFor(long uid, String pattern) {
         return jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM category_lookup WHERE empfaenger_pattern = ?",
-                Integer.class, pattern);
+                "SELECT COUNT(*) FROM user_category_lookup"
+                        + " WHERE user_id = ? AND empfaenger_pattern = ?",
+                Integer.class, uid, pattern);
     }
 }

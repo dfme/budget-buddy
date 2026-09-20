@@ -19,11 +19,25 @@ export class RecurringExpenseService {
 
   private readonly expensesState = signal<RecurringExpenseResponse[]>([]);
 
-  /** Erkannte Abos des eingeloggten Users, in der vom Backend gelieferten Reihenfolge. */
+  /**
+   * Alle Einträge des eingeloggten Users, beide Status, in der vom Backend gelieferten
+   * Reihenfolge (alphabetisch nach Empfänger). Die Consumer lesen {@link detected} und
+   * {@link dismissed}; das Ganze ist hier nur der gemeinsame Ausgangspunkt.
+   */
   readonly expenses = this.expensesState.asReadonly();
 
-  /** Abgeleitet: Anzahl erkannter Abos für die Teaser-Card. */
-  readonly count = computed(() => this.expenses().length);
+  /** Erkannte Abos — die eigentliche Abo-Liste. */
+  readonly detected = computed(() => this.expenses().filter((e) => e.status === 'DETECTED'));
+
+  /**
+   * Per «Kein Abo» verneinte Einträge — der Abschnitt «Kein Abo» der Übersicht (FE-NOTIF-03).
+   * Sie bleiben sichtbar, damit der Klick auf eine Benachrichtigung zu einem inzwischen
+   * verneinten Eintrag nicht auf einer Seite landet, auf der er fehlt.
+   */
+  readonly dismissed = computed(() => this.expenses().filter((e) => e.status === 'DISMISSED'));
+
+  /** Abgeleitet: Anzahl erkannter Abos für die Teaser-Card — Verneinte zählen nicht mit. */
+  readonly count = computed(() => this.detected().length);
 
   /** Lädt die Abo-Übersicht neu. */
   load(): Observable<RecurringExpenseResponse[]> {
@@ -33,18 +47,21 @@ export class RecurringExpenseService {
   }
 
   /**
-   * Markiert einen Eintrag als «Kein Abo» und nimmt ihn aus dem State.
+   * Markiert einen Eintrag als «Kein Abo» und ersetzt ihn im State durch die Antwort.
    *
-   * <p>Kein Reload: die Antwort trägt `status=DISMISSED`, und `GET` liefert nur `DETECTED` —
-   * der Eintrag wäre nach einem Reload ohnehin weg. Lokal zu entfernen zeigt dasselbe Ergebnis
-   * ohne zweiten Request.
+   * <p>Kein Reload: die Antwort ist der Eintrag in seinem neuen Zustand (`status=DISMISSED`,
+   * `isNew=false`) — genau das, was ein `GET` danach auch liefern würde. Ersetzt statt entfernt,
+   * weil der Eintrag die Seite nicht verlässt, sondern nur den Abschnitt wechselt
+   * (FE-NOTIF-03); die Position bleibt, das Backend sortiert nicht nach Status.
    */
   dismiss(id: number): Observable<RecurringExpenseResponse> {
     return this.http
       .post<RecurringExpenseResponse>(`/api/recurring-expenses/${id}/dismiss`, {})
       .pipe(
-        tap(() => {
-          this.expensesState.update((list) => list.filter((expense) => expense.id !== id));
+        tap((updated) => {
+          this.expensesState.update((list) =>
+            list.map((expense) => (expense.id === id ? updated : expense)),
+          );
         }),
       );
   }
