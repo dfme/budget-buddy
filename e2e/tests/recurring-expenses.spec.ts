@@ -148,18 +148,25 @@ test.describe('Abo-Erkennung', () => {
     await expect(page.locator('li.expense')).toHaveCount(2);
     await expect(page.locator('li.expense .expense__new')).toHaveCount(2);
 
-    // Eine Benachrichtigung, nicht zwei — das Badge zählt Benachrichtigungen, nicht Abos.
-    await expect(bell(page).locator('.bell__badge')).toHaveText('1');
+    // Eine Abo-Benachrichtigung, nicht zwei — sie zählt Läufe, nicht Abos. Über den Text
+    // gefiltert statt alle Einträge gezählt: der Import selbst darf daneben eigene
+    // Benachrichtigungen erzeugen (BE-PDF-15, #337), die dieser Test nicht mitzählen soll.
+    await expect(bell(page).locator('.bell__badge')).toHaveCount(1);
     await bell(page).click();
-    const items = page.locator('.bell-list__item:visible');
-    await expect(items).toHaveCount(1);
-    await expect(items.first()).toContainText(`2 neue Abos erkannt: ${PAYEE_2}, ${PAYEE}`);
+    const aboItems = page.locator('.bell-list__item:visible').filter({ hasText: /Abos? erkannt/ });
+    await expect(aboItems).toHaveCount(1);
+    await expect(aboItems.first()).toHaveClass(/bell-list__item--unread/);
+    await expect(aboItems.first()).toContainText(`2 neue Abos erkannt: ${PAYEE_2}, ${PAYEE}`);
 
     // AC 2 (FE-NOTIF-01, unverändert): der Einzelklick liest die Benachrichtigung und führt
-    // nach /abos. Das Badge ist danach weg …
-    await items.first().click();
+    // nach /abos. Die Abo-Benachrichtigung ist danach gelesen …
+    await aboItems.first().click();
     await expect(page).toHaveURL(/\/abos$/);
-    await expect(bell(page).locator('.bell__badge')).toHaveCount(0);
+    await bell(page).click();
+    await expect(
+      page.locator('.bell-list__item:visible').filter({ hasText: /Abos? erkannt/ }),
+    ).toHaveClass(/bell-list__item--read/);
+    await page.keyboard.press('Escape');
 
     // … und nach einem frischen GET tragen beide Einträge kein «Neu» mehr (BE-REC-02: das Label
     // hängt am Gelesen-Zustand der einen Bündel-Benachrichtigung).
@@ -181,9 +188,14 @@ test.describe('Abo-Erkennung', () => {
 
     await page.goto('/abos');
     await expect(page.locator('li.expense .expense__new')).toHaveCount(2);
-    await expect(bell(page).locator('.bell__badge')).toHaveText('2');
+    await expect(bell(page).locator('.bell__badge')).toHaveCount(1);
 
     await bell(page).click();
+    // Zwei Abo-Benachrichtigungen, je eine pro Lauf — gefiltert wie im Bündel-Test, damit
+    // Import-Benachrichtigungen (BE-PDF-15) den Zähler nicht verfälschen.
+    await expect(
+      page.locator('.bell-list__item:visible').filter({ hasText: /Abos? erkannt/ }),
+    ).toHaveCount(2);
     await page.getByRole('button', { name: 'Alle als gelesen markieren' }).click();
 
     // Ohne Navigation: das Dropdown bleibt offen, der Button verschwindet, das Badge auch.
