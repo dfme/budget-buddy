@@ -11,6 +11,7 @@ import { Modal } from './modal';
       <app-modal
         title="Kontoauszug bereits importiert"
         confirmLabel="Trotzdem importieren"
+        [confirmDisabled]="disabled()"
         (confirm)="confirmed.set(true)"
         (cancel)="open.set(false)"
       >
@@ -22,6 +23,7 @@ import { Modal } from './modal';
 class Host {
   readonly open = signal(true);
   readonly confirmed = signal(false);
+  readonly disabled = signal(false);
 }
 
 describe('Modal', () => {
@@ -118,5 +120,35 @@ describe('Modal', () => {
     expect(fixture.nativeElement.querySelectorAll('.cdk-focus-trap-anchor')).toHaveLength(2);
     expect(button('Abbrechen').hasAttribute('cdkFocusInitial')).toBe(true);
     expect(button('Trotzdem importieren').hasAttribute('cdkFocusInitial')).toBe(false);
+  });
+
+  // --- FE-SET-05: confirmDisabled ---
+
+  it('lässt die bestätigende Aktion ohne confirmDisabled aktiv', () => {
+    // Der Default ist `false` — die drei bestehenden Aufworte binden den Input nicht.
+    expect(button('Trotzdem importieren').disabled).toBe(false);
+  });
+
+  it('sperrt die bestätigende Aktion bei confirmDisabled', () => {
+    host.disabled.set(true);
+    fixture.detectChanges();
+
+    expect(button('Trotzdem importieren').disabled).toBe(true);
+
+    button('Trotzdem importieren').click();
+    expect(host.confirmed()).toBe(false);
+  });
+
+  it('lässt Abbrechen, Escape und Backdrop auch bei confirmDisabled erreichbar', () => {
+    // Ein Dialog, aus dem man nicht mehr herauskommt, wäre eine Fokus-Falle im wörtlichen Sinn:
+    // confirmDisabled sperrt ausschliesslich die bestätigende Aktion.
+    host.disabled.set(true);
+    fixture.detectChanges();
+
+    expect(button('Abbrechen').disabled).toBe(false);
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    fixture.detectChanges();
+    expect(host.open()).toBe(false);
   });
 });

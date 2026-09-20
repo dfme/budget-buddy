@@ -179,7 +179,7 @@ public class ImportJobRunner {
 
             List<Optional<CategorizationResult>> batch = degraded
                     ? skipped(to - from)
-                    : categorizationPort.categorizeAll(texts.subList(from, to));
+                    : categorizationPort.categorizeAll(userId, texts.subList(from, to));
 
             for (int position = 0; position < batch.size(); position++) {
                 ParsedTransaction tx = parsed.get(from + position);
@@ -192,7 +192,11 @@ public class ImportJobRunner {
                 if (result != null) {
                     switch (result.source()) {
                         case LOOKUP -> viaLookup++;
-                        case CLAUDE -> viaClaude++;
+                        // CLAUDE und CLAUDE_FALLBACK zählen hier zusammen: Beide haben einen
+                        // Request gekostet, und genau das misst diese Zahl neben der Laufzeit.
+                        // Ob eine brauchbare Antwort kam, trennt seit BE-CAT-11 der Lerneffekt —
+                        // für die Instrumentierung wäre eine vierte Zahl nur Rauschen.
+                        case CLAUDE, CLAUDE_FALLBACK -> viaClaude++;
                         case CLAUDE_SKIPPED -> ohneCall++;
                     }
                 }

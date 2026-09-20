@@ -22,9 +22,23 @@ echten Transaktionsdaten, nicht aus manueller Eingabe.
 | --------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------ |
 | 1. Bekannte Händler         | Lookup-Tabelle (Händlername → Kategorie) | Schnell, kostenlos, deterministisch — deckt ~70–80% der Transaktionen ab      |
 | 2. Unbekannte Transaktionen | Claude API (LLM), gebündelt              | Flexibel für unbekannte/mehrdeutige Einträge; reduziert API-Calls auf ~20–30% |
-| 3. Manuelle Korrekturen     | Lookup-Tabelle wird erweitert            | User-Korrekturen trainieren das System — Lerneffekt ohne Retraining           |
+| 3. Lerneffekt               | Lookup-Tabelle des Users wird erweitert  | Aus **zwei** Quellen: erfolgreiche Claude-Kategorisierungen (BE-CAT-11) und manuelle User-Korrekturen (BE-CAT-04) — Lerneffekt ohne Retraining, **pro Nutzer** (ADR-15) |
 
 **Fallback-Kategorie:** `Sonstiges` (wenn LLM unsicher oder API nicht erreichbar)
+
+**Zwei Tabellen (ADR-15, BE-CAT-12):** `category_lookup` (V04) hält die globalen, kuratierten
+Seeds und wird nur per Migration geändert. Alles Gelernte liegt in `user_category_lookup` (V12)
+mit `user_id` — es wirkt nur auf die Kategorisierung dieses Nutzers und wird bei der Kontolöschung
+über `CategoryLookupCleanupPort` mitgelöscht. `CategorizationPort` und `CategoryLearningPort`
+tragen deshalb die User-ID; beim Matching gewinnt das längste Pattern aus beiden Pools, bei
+gleicher Länge das eigene.
+
+**Was nicht gelernt wird (BE-CAT-11):** Nur ein Ergebnis, das Claude *tatsächlich beantwortet* hat
+(`CategorizationResult.Source.CLAUDE`), geht in die Lookup-Tabelle. Fehler-Fallbacks
+(`CLAUDE_FALLBACK` — fehlgeschlagener oder unlesbarer Call, im Bündel fehlende Nummer;
+`CLAUDE_SKIPPED` — offener Breaker, fehlender API-Key, überschrittenes Zeitbudget) und ein echtes
+`Sonstiges` vom Modell bleiben draussen. Sonst friert ein einzelner Netzwerkfehler einen Händler
+dauerhaft auf `Sonstiges` ein, weil Stufe 1 ihn künftig vor Claude abfängt.
 
 **Bündelung (ADR-14):** Bis zu 20 Transaktionen gehen in *einem* Request hinaus. Der Prompt ist
 eine nummerierte Liste; die Kategorienliste steht **nicht** darin, sondern als `enum`-Constraint

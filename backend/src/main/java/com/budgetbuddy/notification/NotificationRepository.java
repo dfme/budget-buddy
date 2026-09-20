@@ -48,12 +48,17 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     List<Notification> findByUserIdAndTypeAndReadAtIsNull(Long userId, String type);
 
     /**
-     * Ob eine ungelesene Benachrichtigung eines Users zu einem Typ auf eine bestimmte
-     * {@code referenceId} zeigt — für {@link NotificationPort#isUnread}. Ein {@code EXISTS} statt
-     * der Liste aus {@link #findByUserIdAndTypeAndReadAtIsNull}: für ein einzelnes Flag müssen
-     * nicht alle ungelesenen Zeilen des Typs geladen werden.
+     * Ungelesene Benachrichtigungen eines Users zu einem Typ, die auf eine bestimmte
+     * {@code referenceId} zeigen — für {@link NotificationPort#markReadByReference}. Eine Liste,
+     * kein {@code @Modifying}-UPDATE: der Lesezeitpunkt wird über
+     * {@link Notification#markRead(java.time.Instant)} gesetzt, derselbe Pfad wie bei
+     * {@code markAsRead}, damit die Idempotenz-Regel der Entity an einer Stelle bleibt.
+     *
+     * <p>Über {@code userId} gebunden, obwohl die {@code referenceId} eine global eindeutige
+     * Row-ID des aufrufenden Moduls ist: der Verweis ist FK-los (V10) und die Bindung an den User
+     * ist die einzige Zusage, die dieses Repository macht.
      */
-    boolean existsByUserIdAndTypeAndReferenceIdAndReadAtIsNull(
+    List<Notification> findByUserIdAndTypeAndReferenceIdAndReadAtIsNull(
             Long userId, String type, Long referenceId);
 
     /**

@@ -12,4 +12,4 @@
 
 **Given** eine Transaktion zum ersten Mal als wiederkehrend erkannt wird, **When** sie in der Abo-Übersicht erscheint, **Then** wird sie mit einem "Neu"-Label markiert und ich erhalte eine In-App-Benachrichtigung.
 
-**Given** eine Transaktion fälschlicherweise als wiederkehrend markiert ist, **When** ich auf "Kein Abo" klicke, **Then** wird sie aus der Abo-Übersicht entfernt und künftige Transaktionen desselben Empfängers werden nicht mehr automatisch als wiederkehrend erkannt.
+**Given** eine Transaktion fälschlicherweise als wiederkehrend markiert ist, **When** ich auf "Kein Abo" klicke, **Then** wird sie aus der Liste der Abos entfernt — sie bleibt auf der Seite in einem eigenen Abschnitt «Kein Abo» sichtbar, damit der Klick auf ihre Benachrichtigung nicht ins Leere führt (FE-NOTIF-03, #333) — und künftige Transaktionen desselben Empfängers werden nicht mehr automatisch als wiederkehrend erkannt.

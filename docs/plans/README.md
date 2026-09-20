@@ -30,6 +30,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `BE-AUTH-09` | [Passwort-Änderung-Endpoint](BE-AUTH-09-password-change.md) | [#176](https://github.com/dfme/budget-buddy/issues/176) | US-14 | Sprint 5 |
 | `BE-AUTH-10` | [Passwort über 72 Bytes führt zu HTTP 500 statt 400](BE-AUTH-10-password-byte-length.md) | [#200](https://github.com/dfme/budget-buddy/issues/200) | US-14 | Sprint 6 |
 | `BE-AUTH-11` | [JWT bleibt nach Passwort-Änderung gültig — Session-Invalidierung entscheiden](BE-AUTH-11-token-version-invalidation.md) | [#201](https://github.com/dfme/budget-buddy/issues/201) | US-14 | Sprint 6 |
+| `BE-AUTH-12` | [Obergrenzen für String-Felder in den Auth-DTOs fehlen](BE-AUTH-12-auth-field-limits.md) | [#231](https://github.com/dfme/budget-buddy/issues/231) | — | Sprint 7 |
 | `BE-AUTH-13` | [JWT-Laufzeit von 24 h verkürzen](BE-AUTH-13-jwt-laufzeit-4h.md) | [#289](https://github.com/dfme/budget-buddy/issues/289) | US-01 | Sprint 6 |
 | `BE-AUTH-14` | [Konto löschen: Endpoint auf /api/users/me](BE-AUTH-14-account-deletion-endpoint.md) | [#290](https://github.com/dfme/budget-buddy/issues/290) | US-02 | Sprint 6 |
 | `BE-CAT-01` | [CategorizationPort Interface und LookupTableService](BE-CAT-01-categorization-port.md) | [#14](https://github.com/dfme/budget-buddy/issues/14) | US-05 | Sprint 2 |
@@ -40,6 +41,10 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `BE-CAT-06` | [Transaktionstext vor Claude-Call maskieren (Datenminimierung)](BE-CAT-06-prompt-sanitizer.md) | [#134](https://github.com/dfme/budget-buddy/issues/134) | US-05 | Sprint 5 |
 | `BE-CAT-07` | [AnthropicStartupHealthCheckTest ist ordnungsabhängig und macht einen echten Netzwerk-Call](BE-CAT-07-healthcheck-test-isolation.md) | [#162](https://github.com/dfme/budget-buddy/issues/162) | — | Sprint 5 |
 | `BE-CAT-09` | [Token-Verbrauch und Kosten der Claude-Kategorisierung loggen](BE-CAT-09-token-usage-logging.md) | [#243](https://github.com/dfme/budget-buddy/issues/243) | — | Sprint 6 |
+| `BE-CAT-10` | [Vier neue Kategorien (Persönliches, Steuern, Bargeldbezug, Reisen) plus ein Icon je Kategorie](BE-CAT-10-kategorien-icons.md) | [#266](https://github.com/dfme/budget-buddy/issues/266) | US-05 | Sprint 7 |
+| `BE-CAT-11` | [Lerneffekt bereits bei erfolgreicher Claude-Kategorisierung, nicht erst bei manueller Korrektur](BE-CAT-11-lerneffekt-claude-erfolg.md) | [#314](https://github.com/dfme/budget-buddy/issues/314) | US-05 | Sprint 7 |
+| `BE-CAT-12` | [category_lookup überlebt die Kontolöschung — und wächst seit BE-CAT-11 ohne Zutun des Users](BE-CAT-12-category-lookup-mandantentrennung.md) | [#319](https://github.com/dfme/budget-buddy/issues/319) | US-02 | Sprint 7 |
+| `BE-CAT-14` | [LIKE-Wildcards (%, _) in gelernten Lookup-Patterns werden nicht escaped](BE-CAT-14-lookup-literal-matching.md) | [#322](https://github.com/dfme/budget-buddy/issues/322) | US-05 | Sprint 7 |
 | `BE-FC-01` | [FixedCost Entity und Repository](BE-FC-01-fixedcost-entity.md) | [#10](https://github.com/dfme/budget-buddy/issues/10) | US-03 | Sprint 4 |
 | `BE-FC-02` | [FixedCostService: CRUD und Normalisierung](BE-FC-02-fixedcost-service.md) | [#11](https://github.com/dfme/budget-buddy/issues/11) | US-03 | Sprint 4 |
 | `BE-FC-03` | [REST-Endpoints für Fixkosten](BE-FC-03-fixed-costs-endpoints.md) | [#12](https://github.com/dfme/budget-buddy/issues/12) | US-03 | Sprint 4 |
@@ -60,6 +65,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `BE-PDF-14` | [Endpoint: Transaktionen eines Import-Jobs auflisten](BE-PDF-14-import-transactions-endpoint.md) | [#291](https://github.com/dfme/budget-buddy/issues/291) | US-04, US-05 | Sprint 6 |
 | `BE-REC-01` | [RecurringExpenseService: Erkennung](BE-REC-01-recurring-expense-detection.md) | [#253](https://github.com/dfme/budget-buddy/issues/253) | US-08 | Sprint 6 |
 | `BE-REC-02` | [REST-Endpoints Abo-Übersicht](BE-REC-02-abo-uebersicht-endpoints.md) | [#254](https://github.com/dfme/budget-buddy/issues/254) | US-08 | Sprint 6 |
+| `BE-REC-03` | [Dismiss markiert Benachrichtigung als gelesen](BE-REC-03-dismiss-marks-notification-read.md) | [#324](https://github.com/dfme/budget-buddy/issues/324) | US-08 | Sprint 7 |
 | `BE-STS-01` | [SafeToSpendService](BE-STS-01-safe-to-spend-service.md) | [#21](https://github.com/dfme/budget-buddy/issues/21) | US-06 | Sprint 4 |
 | `BE-STS-02` | [Einkommens-Heuristik](BE-STS-02-einkommens-heuristik.md) | [#22](https://github.com/dfme/budget-buddy/issues/22) | US-06 | Sprint 4 |
 | `BE-STS-03` | [GET /budget/safe-to-spend](BE-STS-03-safe-to-spend-endpoint.md) | [#23](https://github.com/dfme/budget-buddy/issues/23) | US-06 | Sprint 4 |
@@ -75,11 +81,13 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `DB-07` | [Foreign Keys auf users ohne ON DELETE — Löschpfad für US-02](DB-07-user-loeschpfad.md) | [#142](https://github.com/dfme/budget-buddy/issues/142) | US-02 | Sprint 5 |
 | `DB-08` | [Flyway V10: notifications-Tabelle](DB-08-notifications-table.md) | [#245](https://github.com/dfme/budget-buddy/issues/245) | US-08 | Sprint 6 |
 | `DB-09` | [Flyway V11: recurring_expenses-Tabelle](DB-09-recurring-expenses-table.md) | [#252](https://github.com/dfme/budget-buddy/issues/252) | US-08 | Sprint 6 |
+| `DB-10` | [Cleaner-Query auf import_jobs läuft als Sequential Scan — Teilindex fehlt](DB-10-import-jobs-teilindex.md) | [#270](https://github.com/dfme/budget-buddy/issues/270) | US-04 | Sprint 7 |
 | `E2E-AUTH-01` | [Playwright: Register → Login → Logout (Happy + Fehlerpfad)](E2E-AUTH-01-register-login-logout.md) | [#58](https://github.com/dfme/budget-buddy/issues/58) | US-01 | Sprint 5 |
 | `E2E-CAT-01` | [Playwright: Transaktionen kategorisieren (Happy Path + Fehlerpfad)](E2E-CAT-01-playwright-kategorisierung.md) | [#124](https://github.com/dfme/budget-buddy/issues/124) | US-05 | Sprint 5 |
 | `E2E-FC-01` | [Playwright: Fixkosten-Wizard (Happy Path + Fehlerpfad)](E2E-FC-01-playwright-fixkosten-wizard.md) | [#123](https://github.com/dfme/budget-buddy/issues/123) | US-03 | Sprint 5 |
 | `E2E-FC-02` | [Playwright: Onboarding-Abschluss (Wizard → Dashboard)](E2E-FC-02-onboarding-abschluss.md) | [#190](https://github.com/dfme/budget-buddy/issues/190) | US-03 | Sprint 6 |
 | `E2E-PDF-01` | [Playwright: PDF-Upload (Happy Path + Fehlerpfad)](E2E-PDF-01-playwright-pdf-upload.md) | [#122](https://github.com/dfme/budget-buddy/issues/122) | US-04 | Sprint 5 |
+| `E2E-REC-01` | [Playwright: Abo-Erkennung](E2E-REC-01-abo-erkennung.md) | [#256](https://github.com/dfme/budget-buddy/issues/256) | US-08 | Sprint 6 |
 | `E2E-STS-01` | [Playwright: Safe-to-Spend (Happy Path + Fehlerpfad)](E2E-STS-01-safe-to-spend.md) | [#125](https://github.com/dfme/budget-buddy/issues/125) | US-06 | Sprint 5 |
 | `E2E-STS-02` | [Playwright: Monatswechsel](E2E-STS-02-monatswechsel.md) | [#251](https://github.com/dfme/budget-buddy/issues/251) | US-12 | Sprint 6 |
 | `FE-AUTH-01` | [FE-AUTH-01 — AuthService (Signal-State + /auth-Calls)](FE-AUTH-01-auth-service.md) | [#53](https://github.com/dfme/budget-buddy/issues/53) | US-01 | Sprint 2 |
@@ -87,6 +95,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `FE-AUTH-03` | [FE-AUTH-03 — Register-Component (Reactive Form)](FE-AUTH-03-register-component.md) | [#55](https://github.com/dfme/budget-buddy/issues/55) | US-01 | Sprint 2 |
 | `FE-AUTH-04` | [FE-AUTH-04 — authGuard + 401-Redirect für geschützte Routes](FE-AUTH-04-authguard-401-redirect.md) | [#56](https://github.com/dfme/budget-buddy/issues/56) | US-01 | Sprint 2 |
 | `FE-AUTH-05` | [Logout-Button + Nav-Anbindung](FE-AUTH-05-logout-button.md) | [#57](https://github.com/dfme/budget-buddy/issues/57) | US-01 | Sprint 2 |
+| `FE-AUTH-06` | [Register-Formular zeigt die Backend-Fehlermeldung bei 400 nicht an](FE-AUTH-06-register-400-message.md) | [#264](https://github.com/dfme/budget-buddy/issues/264) | — | Sprint 6 |
 | `FE-CAT-01` | [FE-CAT-01 — Kategorie-Übersicht](FE-CAT-01-kategorie-uebersicht.md) | [#30](https://github.com/dfme/budget-buddy/issues/30) | US-05 | Sprint 3 |
 | `FE-CAT-02` | [Pie-Chart Ausgaben nach Kategorie](FE-CAT-02-kategorie-donut-chart.md) | [#31](https://github.com/dfme/budget-buddy/issues/31) | US-05 | Sprint 4 |
 | `FE-CAT-03` | [Manuelles Korrigieren von Kategorien](FE-CAT-03-kategorie-korrektur.md) | [#32](https://github.com/dfme/budget-buddy/issues/32) | US-05 | Sprint 4 |
@@ -99,14 +108,18 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `FE-FC-03` | [Fixkosten-Liste](FE-FC-03-fixkosten-liste.md) | [#26](https://github.com/dfme/budget-buddy/issues/26) | US-03 | Sprint 4 |
 | `FE-FC-04` | [Fixkosten-Tabelle läuft auf schmalen Viewports über die Card hinaus](FE-FC-04-tabelle-overflow.md) | [#172](https://github.com/dfme/budget-buddy/issues/172) | — | Sprint 5 |
 | `FE-NOTIF-01` | [Notification-Glocke in der App-Shell](FE-NOTIF-01-notification-bell.md) | [#247](https://github.com/dfme/budget-buddy/issues/247) | US-08 | Sprint 6 |
+| `FE-NOTIF-02` | [Glocke: Dropdown auf Desktop ausserhalb des Viewports, Icon passt nicht zum Design](FE-NOTIF-02-bell-dropdown-icon.md) | [#308](https://github.com/dfme/budget-buddy/issues/308) | US-08 | Sprint 7 |
+| `FE-NOTIF-03` | [Verneinte Abos bleiben auf /abos sichtbar — Abschnitt «Kein Abo»](FE-NOTIF-03-abo-hinweis-verneinter-eintrag.md) | [#333](https://github.com/dfme/budget-buddy/issues/333) | US-08 | Sprint 7 |
 | `FE-PDF-01` | [Plan: FE-PDF-01 — PDF-Upload Component](FE-PDF-01-pdf-upload-component.md) | [#27](https://github.com/dfme/budget-buddy/issues/27) | US-04 | Sprint 3 |
 | `FE-PDF-02` | [FE-PDF-02 — Ergebnis-Anzeige nach PDF-Import](FE-PDF-02-import-ergebnis-anzeige.md) | [#28](https://github.com/dfme/budget-buddy/issues/28) | US-04 | Sprint 3 |
 | `FE-PDF-03` | [Duplikat-Dialog](FE-PDF-03-duplikat-dialog.md) | [#29](https://github.com/dfme/budget-buddy/issues/29) | US-04 | Sprint 4 |
 | `FE-PDF-04` | [Importierte Transaktionen mit Kategorie direkt im Import-Screen anzeigen und korrigieren](FE-PDF-04-import-transaction-list.md) | [#292](https://github.com/dfme/budget-buddy/issues/292) | US-04, US-05 | Sprint 6 |
+| `FE-REC-01` | [Abo-Übersicht-Screen](FE-REC-01-abo-uebersicht.md) | [#255](https://github.com/dfme/budget-buddy/issues/255) | US-08 | Sprint 6 |
 | `FE-SET-01` | [Einstellungen-Screen: Route und Navigation](FE-SET-01-einstellungen-screen.md) | [#177](https://github.com/dfme/budget-buddy/issues/177) | US-14 | Sprint 5 |
 | `FE-SET-02` | [Passwort ändern](FE-SET-02-passwort-aendern.md) | [#178](https://github.com/dfme/budget-buddy/issues/178) | US-14 | Sprint 5 |
 | `FE-SET-03` | [Einkommen manuell erfassen und ändern](FE-SET-03-einkommen-aendern.md) | [#179](https://github.com/dfme/budget-buddy/issues/179) | US-14 | Sprint 5 |
 | `FE-SET-04` | [Erscheinungsbild: Hell, Dunkel, System](FE-SET-04-erscheinungsbild.md) | [#180](https://github.com/dfme/budget-buddy/issues/180) | US-14 | Sprint 5 |
+| `FE-SET-05` | [Konto löschen: Aktion in den Einstellungen](FE-SET-05-delete-account.md) | [#299](https://github.com/dfme/budget-buddy/issues/299) | US-02 | Sprint 6 |
 | `FE-STS-01` | [Safe-to-Spend Dashboard-Widget](FE-STS-01-safe-to-spend-widget.md) | [#33](https://github.com/dfme/budget-buddy/issues/33) | US-06 | Sprint 4 |
 | `FE-STS-02` | [Negativ-Banner](FE-STS-02-negativ-banner.md) | [#34](https://github.com/dfme/budget-buddy/issues/34) | US-06 | Sprint 4 |
 | `FE-STS-03` | [No-Income State und Einkommens-Vorschlag](FE-STS-03-no-income-state-and-suggestion.md) | [#35](https://github.com/dfme/budget-buddy/issues/35) | US-06 | Sprint 4 |
@@ -118,6 +131,8 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `FE-UI-05` | [Chart-Integration: ng2-charts + Donut/Bar-Basiskomponenten (Variante A)](FE-UI-05-chart-integration.md) | [#102](https://github.com/dfme/budget-buddy/issues/102) | US-06 | Sprint 3 |
 | `FE-UI-06` | [Bestehende Screens auf Variante-A-Fundament migrieren](FE-UI-06-variante-a-migration.md) | [#104](https://github.com/dfme/budget-buddy/issues/104) | US-01, US-05 | Sprint 3 |
 | `FE-UI-07` | [Notice-Komponente: Icon und optionaler Titel](FE-UI-07-notice-icon-titel.md) | [#181](https://github.com/dfme/budget-buddy/issues/181) | — | Sprint 5 |
+| `FE-UI-08` | [app-card lässt das globale title-Attribut am Host stehen](FE-UI-08-card-title-attribute.md) | [#194](https://github.com/dfme/budget-buddy/issues/194) | — | Sprint 7 |
+| `FE-UI-09` | [Favicon austauschen](FE-UI-09-favicon-theme.md) | [#316](https://github.com/dfme/budget-buddy/issues/316) | — | Sprint 7 |
 | `INFRA-01` | [Plan: [INFRA-01] Spring Boot Skeleton anlegen](INFRA-01-spring-boot-skeleton.md) | [#1](https://github.com/dfme/budget-buddy/issues/1) | — | Sprint 1 |
 | `INFRA-02` | [Angular Skeleton anlegen](INFRA-02-angular-skeleton.md) | [#2](https://github.com/dfme/budget-buddy/issues/2) | — | Sprint 1 |
 | `INFRA-03` | [INFRA-03 — GitHub Actions CI einrichten](INFRA-03-github-actions-ci.md) | [#3](https://github.com/dfme/budget-buddy/issues/3) | — | Sprint 1 |
@@ -143,4 +158,5 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `INFRA-35` | [Automatisches PR-Review verstummt bei Hintergrund-Verifikation im nicht-interaktiven Lauf](INFRA-35-review-pr-no-background-verify.md) | [#224](https://github.com/dfme/budget-buddy/issues/224) | — | Sprint 5 |
 | `INFRA-37` | [MDC einführen: User-ID in Logs für bessere Analysierbarkeit](INFRA-37-mdc-logging.md) | [#257](https://github.com/dfme/budget-buddy/issues/257) | — | Sprint 6 |
 | `INFRA-38` | [Testdaten für Präsentation: Demo-Logins + Kontoauszüge für Lara und Marc](INFRA-38-demo-testdaten.md) | [#258](https://github.com/dfme/budget-buddy/issues/258) | — | Sprint 6 |
+| `INFRA-45` | [Import-Poll-Helper der E2E-Tests liegt dreifach kopiert in den Specs](INFRA-45-import-poll-helper.md) | [#332](https://github.com/dfme/budget-buddy/issues/332) | — | Sprint 7 |
 | — | [Zuschnitt: US-08, US-12](us-08-09-12-breakdown.md) | — | — | — |

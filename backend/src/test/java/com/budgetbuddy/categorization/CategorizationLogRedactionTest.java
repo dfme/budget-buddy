@@ -2,6 +2,8 @@ package com.budgetbuddy.categorization;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -51,6 +53,8 @@ class CategorizationLogRedactionTest {
 
     /** Frei erfundener, eindeutig wiedererkennbarer Zahlungstext. */
     private static final String TRANSACTION = "ZAHLUNG KARDIOLOGIE HIRSLANDEN 4242";
+
+    private static final long USER_ID = 7L;
 
     @Mock private ObjectProvider<AnthropicClient> clientProvider;
     @Mock private AnthropicClient client;
@@ -110,7 +114,7 @@ class CategorizationLogRedactionTest {
 
     /**
      * Seit ADR-14 kann eine <em>unbekannte Kategorie</em> nicht mehr auftreten — das Schema lässt
-     * nur die 13 Enum-Konstanten zu. Der verbleibende Fall ist eine Antwort, die sich nicht lesen
+     * nur die 17 Enum-Konstanten zu. Der verbleibende Fall ist eine Antwort, die sich nicht lesen
      * lässt; auch sie darf nichts vom Zahlungstext preisgeben.
      */
     @Test
@@ -192,29 +196,60 @@ class CategorizationLogRedactionTest {
     void hybridPathsNeverLogTransactionTextInPlaintext() {
         LookupTableService lookup = mock(LookupTableService.class);
         ClaudeCategorizationService claude = mock(ClaudeCategorizationService.class);
-        HybridCategorizationService hybrid = new HybridCategorizationService(lookup, claude);
+        CategoryLearningPort learningPort = mock(CategoryLearningPort.class);
+        HybridCategorizationService hybrid =
+                new HybridCategorizationService(lookup, claude, learningPort);
 
         // DEBUG-Pfad «via Lookup-Tabelle kategorisiert».
-        when(lookup.categorize(TRANSACTION)).thenReturn(Optional.of(
+        when(lookup.categorize(USER_ID, TRANSACTION)).thenReturn(Optional.of(
                 new CategorizationResult(Category.GESUNDHEIT, CategorizationResult.Source.LOOKUP)));
-        hybrid.categorize(TRANSACTION);
+        hybrid.categorize(USER_ID, TRANSACTION);
 
         // WARN-Pfad «Unerwarteter Fehler bei der Claude-Kategorisierung».
-        when(lookup.categorize(TRANSACTION)).thenReturn(Optional.empty());
+        when(lookup.categorize(USER_ID, TRANSACTION)).thenReturn(Optional.empty());
         when(claude.categorizeAll(List.of(TRANSACTION)))
                 .thenThrow(new IllegalStateException("SDK kaputt"));
-        hybrid.categorize(TRANSACTION);
+        hybrid.categorize(USER_ID, TRANSACTION);
 
         assertRedacted();
     }
 
+    /**
+     * Der Lerneffekt aus der Claude-Stufe (BE-CAT-11) hat einen eigenen WARN-Pfad, und sein
+     * Auslöser ist eine Exception aus der Persistenzschicht. Eine DB-Meldung kann den
+     * Primärschlüssel zitieren — und der Primärschlüssel <em>ist</em> hier der Transaktionstext.
+     */
+    @Test
+    void failedLearningNeverLogsTransactionTextInPlaintext() {
+        LookupTableService lookup = mock(LookupTableService.class);
+        ClaudeCategorizationService claude = mock(ClaudeCategorizationService.class);
+        CategoryLearningPort learningPort = mock(CategoryLearningPort.class);
+        HybridCategorizationService hybrid =
+                new HybridCategorizationService(lookup, claude, learningPort);
+
+        when(lookup.categorize(USER_ID, TRANSACTION)).thenReturn(Optional.empty());
+        when(claude.categorizeAll(List.of(TRANSACTION))).thenReturn(List.of(Optional.of(
+                new CategorizationResult(
+                        Category.GESUNDHEIT, CategorizationResult.Source.CLAUDE))));
+        doThrow(new IllegalStateException(
+                        "duplicate key value violates unique constraint: " + TRANSACTION))
+                .when(learningPort).learn(anyLong(), any(), any());
+
+        hybrid.categorize(USER_ID, TRANSACTION);
+
+        assertRedacted();
+        assertThat(appender.list)
+                .anySatisfy(event -> assertThat(event.getFormattedMessage())
+                        .contains("IllegalStateException"));
+    }
+
     @Test
     void learningPathNeverLogsMerchantPatternInPlaintext() {
-        CategoryLookupRepository repository = mock(CategoryLookupRepository.class);
+        UserCategoryLookupRepository repository = mock(UserCategoryLookupRepository.class);
         CategoryLearningService learningService = new CategoryLearningService(repository);
 
         // DEBUG-Pfad «Lookup gelernt» — das Pattern stammt aus dem Transaktionstext.
-        learningService.learn(TRANSACTION, Category.GESUNDHEIT);
+        learningService.learn(USER_ID, TRANSACTION, Category.GESUNDHEIT);
 
         assertRedacted();
     }

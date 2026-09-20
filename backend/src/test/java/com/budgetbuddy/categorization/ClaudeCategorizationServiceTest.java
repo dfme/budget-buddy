@@ -126,7 +126,7 @@ class ClaudeCategorizationServiceTest {
 
         Optional<CategorizationResult> result = service.categorize(TRANSACTION);
 
-        assertThat(result).contains(claude(Category.SONSTIGES));
+        assertThat(result).contains(fallback());
     }
 
     @Test
@@ -219,7 +219,7 @@ class ClaudeCategorizationServiceTest {
 
         assertThat(results).containsExactly(
                 Optional.of(claude(Category.LEBENSMITTEL)),
-                Optional.of(claude(Category.SONSTIGES)),
+                Optional.of(fallback()),
                 Optional.of(claude(Category.RESTAURANT)));
     }
 
@@ -240,8 +240,8 @@ class ClaudeCategorizationServiceTest {
         respondWithJson("{\"categories\":[{\"number\":1,\"cat");
 
         assertThat(service.categorizeAll(List.of("MIGROS", "SBB"))).containsExactly(
-                Optional.of(claude(Category.SONSTIGES)),
-                Optional.of(claude(Category.SONSTIGES)));
+                Optional.of(fallback()),
+                Optional.of(fallback()));
     }
 
     /**
@@ -261,7 +261,7 @@ class ClaudeCategorizationServiceTest {
         // JsonValue-Map, und geprüft wird ohnehin nur, dass jedes Label darin vorkommt.
         String schema = captureParams().outputConfig().orElseThrow().toString();
 
-        assertThat(Category.values()).hasSize(13);
+        assertThat(Category.values()).hasSize(17);
         Arrays.stream(Category.values())
                 .forEach(category -> assertThat(schema).contains(category.name()));
     }
@@ -320,7 +320,7 @@ class ClaudeCategorizationServiceTest {
         failWith(new AnthropicException("API down", null));
 
         for (int i = 0; i < ClaudeCategorizationService.FAILURE_THRESHOLD; i++) {
-            assertThat(service.categorize(TRANSACTION)).contains(claude(Category.SONSTIGES));
+            assertThat(service.categorize(TRANSACTION)).contains(fallback());
         }
         verify(messageService, times(ClaudeCategorizationService.FAILURE_THRESHOLD))
                 .create(any(StructuredMessageCreateParams.class));
@@ -349,11 +349,12 @@ class ClaudeCategorizationServiceTest {
 
         verify(messageService, times(ClaudeCategorizationService.FAILURE_THRESHOLD))
                 .create(any(StructuredMessageCreateParams.class));
-        // Die ersten drei Bündel haben Claude erreicht (CLAUDE), die restlichen nicht
-        // (CLAUDE_SKIPPED) — kategorisiert ist trotzdem alles.
+        // Die ersten drei Bündel haben Claude erreicht und sind am Fehler gescheitert
+        // (CLAUDE_FALLBACK), die restlichen gingen gar nicht erst hinaus (CLAUDE_SKIPPED) —
+        // kategorisiert ist trotzdem alles, und gelernt wird aus keinem von beiden.
         assertThat(results).hasSize(ClaudeCategorizationService.MAX_BATCH_SIZE * batches);
         assertThat(results).allMatch(r -> r.orElseThrow().category() == Category.SONSTIGES);
-        assertThat(results.get(0)).contains(claude(Category.SONSTIGES));
+        assertThat(results.get(0)).contains(fallback());
         assertThat(results.get(results.size() - 1)).contains(skipped());
     }
 
@@ -411,7 +412,7 @@ class ClaudeCategorizationServiceTest {
 
         // Cooldown abgelaufen → genau ein Trial-Call, der ebenfalls scheitert.
         when(clock.millis()).thenReturn(ClaudeCategorizationService.COOLDOWN.toMillis() + 1);
-        assertThat(service.categorize(TRANSACTION)).contains(claude(Category.SONSTIGES));
+        assertThat(service.categorize(TRANSACTION)).contains(fallback());
 
         int callsSoFar = ClaudeCategorizationService.FAILURE_THRESHOLD + 1;
         verify(messageService, times(callsSoFar)).create(any(StructuredMessageCreateParams.class));
@@ -432,7 +433,7 @@ class ClaudeCategorizationServiceTest {
         respondWithJson("kein JSON");
 
         for (int i = 0; i < ClaudeCategorizationService.FAILURE_THRESHOLD + 2; i++) {
-            assertThat(service.categorize(TRANSACTION)).contains(claude(Category.SONSTIGES));
+            assertThat(service.categorize(TRANSACTION)).contains(fallback());
         }
 
         // Jeder Aufruf hat Claude erreicht — der Breaker ist nie eingesprungen.
@@ -613,8 +614,19 @@ class ClaudeCategorizationServiceTest {
                 .thenReturn(new StructuredMessage<>(BatchCategorization.class, message));
     }
 
+    /** Ein echtes Modell-Ergebnis: Request hinaus, lesbare Antwort, gültiger Eintrag. */
     private static CategorizationResult claude(Category category) {
         return new CategorizationResult(category, CategorizationResult.Source.CLAUDE);
+    }
+
+    /**
+     * Request ging hinaus, brauchbares Ergebnis kam keines zurück (BE-CAT-11). Der Unterschied zu
+     * {@link #claude} ist nicht kosmetisch: Nur {@code CLAUDE} wird gelernt, und die Assertions
+     * hier sind die Stelle, an der festgehalten ist, welcher Pfad welches der beiden liefert.
+     */
+    private static CategorizationResult fallback() {
+        return new CategorizationResult(
+                Category.SONSTIGES, CategorizationResult.Source.CLAUDE_FALLBACK);
     }
 
     /** Claude-Stufe erreicht, aber ohne HTTP-Request beantwortet (Breaker offen / kein Key). */

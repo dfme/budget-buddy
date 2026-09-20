@@ -2,6 +2,7 @@ package com.budgetbuddy.recurring;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -337,21 +338,27 @@ class RecurringExpenseServiceTest {
 
     // --- BE-REC-02: list() ---
 
-    /** Nur DETECTED-Einträge gehören in die Abo-Übersicht (US-08 AC3). */
+    /**
+     * Beide Status gehören in die Antwort (FE-NOTIF-03): die Übersicht trennt selbst nach
+     * {@code status}. Vor #333 filterte die Abfrage auf DETECTED.
+     */
     @Test
-    void listReturnsOnlyDetectedEntries() {
-        when(repository.findByUserIdAndStatusOrderByPayeeKeyAsc(
-                USER_ID, RecurringExpenseStatus.DETECTED))
-                .thenReturn(List.of(withId(NETFLIX, "20.90", 200L)));
+    void listReturnsDetectedAndDismissedEntriesWithTheirStatus() {
+        RecurringExpense detected = withId(NETFLIX, "20.90", 200L);
+        RecurringExpense dismissed = withId("SPOTIFY AB", "12.95", 201L);
+        dismissed.dismiss();
+        when(repository.findByUserIdOrderByPayeeKeyAsc(USER_ID))
+                .thenReturn(List.of(detected, dismissed));
         when(notificationPort.unreadReferenceIds(USER_ID, RecurringExpenseService.NOTIFICATION_TYPE))
                 .thenReturn(Set.of());
 
         List<RecurringExpenseResponse> result = service.list(USER_ID);
 
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).payeeKey()).isEqualTo(NETFLIX);
-        verify(repository).findByUserIdAndStatusOrderByPayeeKeyAsc(
-                USER_ID, RecurringExpenseStatus.DETECTED);
+        assertThat(result).extracting(RecurringExpenseResponse::payeeKey, RecurringExpenseResponse::status)
+                .containsExactly(
+                        tuple(NETFLIX, RecurringExpenseStatus.DETECTED),
+                        tuple("SPOTIFY AB", RecurringExpenseStatus.DISMISSED));
+        verify(repository).findByUserIdOrderByPayeeKeyAsc(USER_ID);
     }
 
     /** Das «Neu»-Flag kommt aus der ungelesenen Notification, nicht aus einem eigenen Feld. */
@@ -359,8 +366,7 @@ class RecurringExpenseServiceTest {
     void listMarksEntriesWithAnUnreadNotificationAsNew() {
         RecurringExpense withUnread = withId(NETFLIX, "20.90", 200L);
         RecurringExpense withoutUnread = withId("SPOTIFY AB", "12.95", 201L);
-        when(repository.findByUserIdAndStatusOrderByPayeeKeyAsc(
-                USER_ID, RecurringExpenseStatus.DETECTED))
+        when(repository.findByUserIdOrderByPayeeKeyAsc(USER_ID))
                 .thenReturn(List.of(withUnread, withoutUnread));
         when(notificationPort.unreadReferenceIds(USER_ID, RecurringExpenseService.NOTIFICATION_TYPE))
                 .thenReturn(Set.of(200L));
@@ -374,10 +380,8 @@ class RecurringExpenseServiceTest {
     }
 
     @Test
-    void listReturnsEmptyForAUserWithoutDetectedEntries() {
-        when(repository.findByUserIdAndStatusOrderByPayeeKeyAsc(
-                USER_ID, RecurringExpenseStatus.DETECTED))
-                .thenReturn(List.of());
+    void listReturnsEmptyForAUserWithoutEntries() {
+        when(repository.findByUserIdOrderByPayeeKeyAsc(USER_ID)).thenReturn(List.of());
         when(notificationPort.unreadReferenceIds(USER_ID, RecurringExpenseService.NOTIFICATION_TYPE))
                 .thenReturn(Set.of());
 
@@ -390,26 +394,27 @@ class RecurringExpenseServiceTest {
     void dismissSetsStatusToDismissedAndReturnsTheUpdatedState() {
         RecurringExpense entity = withId(NETFLIX, "20.90", 200L);
         when(repository.findByIdAndUserId(200L, USER_ID)).thenReturn(Optional.of(entity));
-        when(notificationPort.isUnread(USER_ID, RecurringExpenseService.NOTIFICATION_TYPE, 200L))
-                .thenReturn(false);
 
         RecurringExpenseResponse response = service.dismiss(USER_ID, 200L);
 
         assertThat(entity.getStatus()).isEqualTo(RecurringExpenseStatus.DISMISSED);
         assertThat(response.status()).isEqualTo(RecurringExpenseStatus.DISMISSED);
-        assertThat(response.isNew()).isFalse();
     }
 
+    // --- BE-REC-03: dismiss() markiert die Benachrichtigung als gelesen ---
+
     @Test
-    void dismissAsksOnlyForTheOwnNotificationInsteadOfAllUnreadIds() {
+    void dismissMarksTheOwnNotificationAsReadAndAnswersNotNew() {
         RecurringExpense entity = withId(NETFLIX, "20.90", 200L);
         when(repository.findByIdAndUserId(200L, USER_ID)).thenReturn(Optional.of(entity));
-        when(notificationPort.isUnread(USER_ID, RecurringExpenseService.NOTIFICATION_TYPE, 200L))
-                .thenReturn(true);
 
         RecurringExpenseResponse response = service.dismiss(USER_ID, 200L);
 
-        assertThat(response.isNew()).isTrue();
+        verify(notificationPort).markReadByReference(
+                USER_ID, RecurringExpenseService.NOTIFICATION_TYPE, 200L);
+        // Die Benachrichtigung ist in demselben Aufruf gelesen worden — ein Nachfragen wäre eine
+        // Abfrage, deren Ergebnis feststeht.
+        assertThat(response.isNew()).isFalse();
         verify(notificationPort, never()).unreadReferenceIds(anyLong(), anyString());
     }
 
@@ -418,12 +423,14 @@ class RecurringExpenseServiceTest {
         RecurringExpense entity = withId(NETFLIX, "20.90", 200L);
         entity.dismiss();
         when(repository.findByIdAndUserId(200L, USER_ID)).thenReturn(Optional.of(entity));
-        when(notificationPort.isUnread(USER_ID, RecurringExpenseService.NOTIFICATION_TYPE, 200L))
-                .thenReturn(false);
 
         RecurringExpenseResponse response = service.dismiss(USER_ID, 200L);
 
         assertThat(response.status()).isEqualTo(RecurringExpenseStatus.DISMISSED);
+        // Auch beim zweiten Mal wird markiert — der Port ist idempotent, ein Abbruch hier würde
+        // eine beim ersten Mal fehlgeschlagene Markierung nie nachholen.
+        verify(notificationPort).markReadByReference(
+                USER_ID, RecurringExpenseService.NOTIFICATION_TYPE, 200L);
     }
 
     @Test

@@ -80,4 +80,47 @@ class ParsedTransactionTest {
             assertThat(with(List.of()).fullText()).isEqualTo("LASTSCHRIFT");
         }
     }
+
+    /**
+     * Die persistierte Buchung muss denselben Lookup-Schlüssel liefern wie die geparste
+     * (BE-CAT-11): Die Claude-Stufe lernt beim Import über {@link ParsedTransaction#fullText()},
+     * die manuelle Korrektur über {@link Transaction#fullText()}. Driften die beiden auseinander,
+     * schreiben sie zwei Zeilen statt einer — und die Korrektur des Users verliert gegen den
+     * längeren Claude-Eintrag, weil {@code findMatching} nach Pattern-Länge sortiert.
+     *
+     * <p>Der Weg dazwischen ist der Import: {@code detailsAsText()} wird persistiert
+     * ({@code ImportJobRunner:210}) und von {@link Transaction#fullText()} wieder zum Schlüssel
+     * zusammengesetzt. Diese Tests laufen ihn nach.
+     */
+    @Nested
+    class SameKeyAsPersistedTransaction {
+
+        private Transaction persisted(ParsedTransaction parsed) {
+            return new Transaction(1L, parsed.buchungsdatum(), parsed.buchungstext(),
+                    parsed.detailsAsText(), parsed.betrag(), parsed.isIncome(), "Sonstiges", "sha");
+        }
+
+        @Test
+        void withDetails() {
+            ParsedTransaction parsed = with(List.of("MUSTER, LEA", "SACKGELD LEA"));
+
+            assertThat(persisted(parsed).fullText()).isEqualTo(parsed.fullText());
+        }
+
+        @Test
+        void withoutDetails() {
+            ParsedTransaction parsed = with(List.of());
+
+            assertThat(persisted(parsed).fullText()).isEqualTo(parsed.fullText());
+        }
+
+        /** Vor BE-PDF-07 importiert: keine Detailzeilen in der Spalte, nur der Buchungstext. */
+        @Test
+        void legacyRowWithoutDetailsColumn() {
+            Transaction legacy = new Transaction(1L, LocalDate.of(2026, 7, 11), "LASTSCHRIFT", null,
+                    new BigDecimal("89.90"), false, "Sonstiges", "sha");
+
+            assertThat(legacy.fullText()).isEqualTo("LASTSCHRIFT");
+        }
+    }
 }

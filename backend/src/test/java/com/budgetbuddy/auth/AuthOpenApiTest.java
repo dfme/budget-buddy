@@ -48,6 +48,26 @@ class AuthOpenApiTest {
                         .value("string"));
     }
 
+    /**
+     * Belegt die DoD-Angabe «maxLength erscheint im Schema» von BE-AUTH-12 (#231): Springdoc
+     * leitet {@code maxLength} direkt aus den {@code @Size(max = …)}-Annotationen auf
+     * {@link com.budgetbuddy.auth.dto.RegisterRequest} ab, keine eigene {@code @Schema}-Angabe
+     * nötig.
+     */
+    @Test
+    void registerRequestSchemaIncludesMaxLengthOfEmailFirstNameAndLastName() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.components.schemas.RegisterRequest.properties.email.maxLength")
+                        .value(254))
+                .andExpect(
+                        jsonPath("$.components.schemas.RegisterRequest.properties.firstName.maxLength")
+                                .value(50))
+                .andExpect(
+                        jsonPath("$.components.schemas.RegisterRequest.properties.lastName.maxLength")
+                                .value(50));
+    }
+
     @Test
     void userProfileResponseSchemaIncludesFirstNameAndLastName() throws Exception {
         mockMvc.perform(get("/v3/api-docs"))

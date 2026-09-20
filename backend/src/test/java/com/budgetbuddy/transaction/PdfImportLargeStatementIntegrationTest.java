@@ -2,6 +2,7 @@ package com.budgetbuddy.transaction;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -109,8 +110,8 @@ class PdfImportLargeStatementIntegrationTest {
         userId = jdbcTemplate.queryForObject(
                 "SELECT id FROM users WHERE email = 'lara@example.ch'", Long.class);
 
-        when(categorizationPort.categorizeAll(any())).thenAnswer(invocation -> {
-            List<String> texts = invocation.getArgument(0);
+        when(categorizationPort.categorizeAll(anyLong(), any())).thenAnswer(invocation -> {
+            List<String> texts = invocation.getArgument(1);
             return Collections.nCopies(texts.size(), Optional.of(new CategorizationResult(
                     Category.LEBENSMITTEL, CategorizationResult.Source.CLAUDE)));
         });
@@ -190,7 +191,7 @@ class PdfImportLargeStatementIntegrationTest {
         assertThat(expectedBatches).isEqualTo(6);
 
         ArgumentCaptor<List<String>> batches = ArgumentCaptor.forClass(List.class);
-        verify(categorizationPort, times(expectedBatches)).categorizeAll(batches.capture());
+        verify(categorizationPort, times(expectedBatches)).categorizeAll(anyLong(), batches.capture());
 
         // Kein Bündel überschreitet die konfigurierte Grösse, und zusammen decken sie alles ab.
         assertThat(batches.getAllValues()).allSatisfy(

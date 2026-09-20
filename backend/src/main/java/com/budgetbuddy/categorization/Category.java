@@ -8,7 +8,10 @@ package com.budgetbuddy.categorization;
  * {@link #fromLabel(String)} bildet einen solchen DB-String zurück auf die Enum-Konstante.
  *
  * <p>{@link #SONSTIGES} ist die Fallback-Kategorie, wenn weder Lookup noch Claude eine Kategorie
- * liefern.
+ * liefern. Sie steht bewusst als letzte Konstante: BE-CAT-10 hat die Liste von 13 auf 17
+ * Kategorien erweitert und die vier neuen davor eingefügt, damit der Fallback das Ende der Liste
+ * bleibt und die Reihenfolge der bestehenden 13 sich nicht verschiebt. Die Reihenfolge ist reine
+ * Anzeige — persistiert wird das {@code label}, nie der Ordinalwert.
  */
 public enum Category {
     WOHNEN("Wohnen"),
@@ -23,6 +26,10 @@ public enum Category {
     BILDUNG("Bildung"),
     EINKOMMEN("Einkommen"),
     SPAREN("Sparen"),
+    PERSOENLICHES("Persönliches"),
+    STEUERN("Steuern"),
+    BARGELDBEZUG("Bargeldbezug"),
+    REISEN("Reisen"),
     SONSTIGES("Sonstiges");
 
     private final String label;

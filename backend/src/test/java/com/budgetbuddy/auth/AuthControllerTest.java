@@ -54,6 +54,31 @@ class AuthControllerTest {
     private static final String LARA =
             "{\"email\": \"lara@example.ch\", \"password\": \"geheim123\"}";
 
+    /**
+     * Baut eine formal gültige E-Mail-Adresse exakt der gewünschten Gesamtlänge — lokaler Teil auf
+     * die RFC-5321-Grenze von 64 Zeichen gedeckelt, der Rest über mehrere Domain-Labels (je
+     * höchstens 63 Zeichen, RFC 1035) aufgefüllt. Ein einzelnes überlanges Label würde von
+     * {@code @Email} unabhängig von {@code @Size} schon als Formatfehler abgelehnt (BE-AUTH-12,
+     * #231) — der Test soll aber gezielt die Längengrenze prüfen, nicht das Format.
+     */
+    private static String emailOfLength(int totalLength) {
+        String local = "a".repeat(64);
+        String tld = ".ch";
+        int remaining = totalLength - local.length() - 1 - tld.length();
+        StringBuilder domain = new StringBuilder();
+        while (remaining > 0) {
+            int labelLength = Math.min(63, remaining);
+            domain.append("a".repeat(labelLength));
+            remaining -= labelLength;
+            if (remaining > 0) {
+                domain.append('.');
+                remaining--;
+            }
+        }
+        domain.append(tld);
+        return local + "@" + domain;
+    }
+
     @Test
     void registerCreatesUserSetsCookieAndStoresBcryptHash() throws Exception {
         mockMvc.perform(post("/api/auth/register")
@@ -143,6 +168,81 @@ class AuthControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Passwort ist zu lang (maximal 72 Bytes)."))
                 .andExpect(content().string(not(containsString(tooManyBytesPassword))));
+    }
+
+    @Test
+    void registerWithEmailOver254CharsReturns400() throws Exception {
+        // BE-AUTH-12 (#231): 255 Zeichen — reisst die RFC-5321-Grenze knapp.
+        String tooLongEmail = emailOfLength(255);
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\": \"" + tooLongEmail + "\", \"password\": \"geheim123\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("E-Mail darf höchstens 254 Zeichen lang sein."))
+                .andExpect(content().string(not(containsString(tooLongEmail))));
+    }
+
+    @Test
+    void registerWithEmailAtMaxLengthIsAccepted() throws Exception {
+        // 254 Zeichen — der Grenzfall, gerade noch gültig.
+        String maxLengthEmail = emailOfLength(254);
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\": \"" + maxLengthEmail + "\", \"password\": \"geheim123\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.email").value(maxLengthEmail));
+    }
+
+    @Test
+    void registerWithFirstNameOver50CharsReturns400() throws Exception {
+        String tooLongName = "a".repeat(51);
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\": \"lara@example.ch\", \"password\": \"geheim123\", "
+                                + "\"firstName\": \"" + tooLongName + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Vorname darf höchstens 50 Zeichen lang sein."))
+                .andExpect(content().string(not(containsString(tooLongName))));
+    }
+
+    @Test
+    void registerWithFirstNameAtMaxLengthIsAccepted() throws Exception {
+        String maxLengthName = "a".repeat(50);
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\": \"lara@example.ch\", \"password\": \"geheim123\", "
+                                + "\"firstName\": \"" + maxLengthName + "\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.firstName").value(maxLengthName));
+    }
+
+    @Test
+    void registerWithLastNameOver50CharsReturns400() throws Exception {
+        String tooLongName = "a".repeat(51);
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\": \"lara@example.ch\", \"password\": \"geheim123\", "
+                                + "\"lastName\": \"" + tooLongName + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Nachname darf höchstens 50 Zeichen lang sein."))
+                .andExpect(content().string(not(containsString(tooLongName))));
+    }
+
+    @Test
+    void registerWithLastNameAtMaxLengthIsAccepted() throws Exception {
+        String maxLengthName = "a".repeat(50);
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\": \"lara@example.ch\", \"password\": \"geheim123\", "
+                                + "\"lastName\": \"" + maxLengthName + "\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.lastName").value(maxLengthName));
     }
 
     @Test

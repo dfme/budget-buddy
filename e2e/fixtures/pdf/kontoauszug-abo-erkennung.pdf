@@ -1,0 +1,50 @@
+%PDF-1.4
+% SYNTHETISCHE TESTFIXTURE - E2E-REC-01 (#256), keine echten Kontodaten. STREAMBOX.CH ist ein fiktiver Anbieter.
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 407 >>
+stream
+BT
+/F1 10 Tf
+14 TL
+50 780 Td
+(Testbank Musterhausen AG                    SYNTHETISCHER TESTAUSZUG) Tj
+T*
+(Kontoauszug Privatkonto  01.06.2025 - 31.07.2025) Tj
+T*
+(Buchungsdatum Valuta Text Belastung Gutschrift Saldo) Tj
+T*
+(Saldovortrag 2'000.00) Tj
+T*
+(03.06.2025 03.06.2025 STREAMBOX.CH ABO 15.90 1'984.10) Tj
+T*
+(03.07.2025 03.07.2025 STREAMBOX.CH ABO 15.90 1'968.20) Tj
+T*
+(Schlusssaldo 1'968.20) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000122 00000 n 
+0000000171 00000 n 
+0000000228 00000 n 
+0000000354 00000 n 
+0000000812 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+909
+%%EOF

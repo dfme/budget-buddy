@@ -202,4 +202,55 @@ describe('AuthService', () => {
 
     expect(completed).toBe(true);
   });
+
+  // --- FE-SET-05 / US-02: Konto löschen ---
+
+  it('deleteAccount sends the password in the body, not in the URL (FE-SET-05)', () => {
+    service.login('lara@example.ch', 'supersecret').subscribe();
+    httpMock.expectOne('/api/auth/login').flush(LARA);
+
+    let completed = false;
+    service.deleteAccount('supersecret').subscribe(() => (completed = true));
+
+    const req = httpMock.expectOne('/api/users/me');
+    expect(req.request.method).toBe('DELETE');
+    // Der Feldname ist Teil des Vertrags: das Backend bindet auf DeleteAccountRequest.passwort.
+    expect(req.request.body).toEqual({ passwort: 'supersecret' });
+    // Das Passwort darf nicht in die URL rutschen — dort landete es in Access-Logs und in der
+    // Browser-History (AC5, ADR-7).
+    expect(req.request.urlWithParams).toBe('/api/users/me');
+    req.flush(null, { status: 204, statusText: 'No Content' });
+
+    expect(completed).toBe(true);
+  });
+
+  it('deleteAccount clears the auth state on success (FE-SET-05)', () => {
+    service.login('lara@example.ch', 'supersecret').subscribe();
+    httpMock.expectOne('/api/auth/login').flush(LARA);
+    expect(service.isAuthenticated()).toBe(true);
+
+    service.deleteAccount('supersecret').subscribe();
+    httpMock.expectOne('/api/users/me').flush(null, { status: 204, statusText: 'No Content' });
+
+    // Ohne das hielte der authGuard die Sitzung für gültig und schickte die Navigation auf
+    // /login wieder zurück aufs Dashboard.
+    expect(service.currentUser()).toBeNull();
+    expect(service.isAuthenticated()).toBe(false);
+  });
+
+  it('deleteAccount keeps the auth state when the password is wrong (FE-SET-05)', () => {
+    service.login('lara@example.ch', 'supersecret').subscribe();
+    httpMock.expectOne('/api/auth/login').flush(LARA);
+
+    let status: number | undefined;
+    service.deleteAccount('falsch').subscribe({ error: (err) => (status = err.status) });
+
+    httpMock
+      .expectOne('/api/users/me')
+      .flush({ message: 'Aktuelles Passwort falsch' }, { status: 400, statusText: 'Bad Request' });
+
+    expect(status).toBe(400);
+    // Es wurde nichts gelöscht — der User ist weiterhin eingeloggt.
+    expect(service.currentUser()).toEqual(LARA);
+  });
 });

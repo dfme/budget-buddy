@@ -1,6 +1,7 @@
 package com.budgetbuddy.transaction;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
@@ -82,7 +83,7 @@ class PdfImportErrorDispatchIntegrationTest {
                 "lara@example.ch", "bcrypt-hash", new BigDecimal("2200.00"), true);
         userId = jdbcTemplate.queryForObject(
                 "SELECT id FROM users WHERE email = 'lara@example.ch'", Long.class);
-        when(categorizationPort.categorize(anyString()))
+        when(categorizationPort.categorize(anyLong(), anyString()))
                 .thenReturn(Optional.of(new CategorizationResult(
                         Category.LEBENSMITTEL, CategorizationResult.Source.LOOKUP)));
     }

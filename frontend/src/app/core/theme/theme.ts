@@ -22,6 +22,13 @@ export const THEME_ATTRIBUTE = 'data-theme';
 /** Media Query, aus der „System" seinen Wert bezieht. */
 export const DARK_MEDIA_QUERY = '(prefers-color-scheme: dark)';
 
+/** Selektor des Favicon-`<link>` in `index.html` (FE-UI-09). */
+export const FAVICON_SELECTOR = 'link[rel="icon"]';
+
+/** `href`-Werte der beiden Favicon-Varianten — dieselben Dateinamen wie im Inline-Script. */
+export const FAVICON_LIGHT_HREF = 'favicon-light.ico';
+export const FAVICON_DARK_HREF = 'favicon-dark.ico';
+
 /**
  * Hält die nutzerseitige Theme-Wahl und schreibt sie als `data-theme` auf `<html>`
  * (FE-SET-04, US-14).
@@ -67,6 +74,16 @@ export class Theme {
 
     effect(() => {
       this.document.documentElement.setAttribute(THEME_ATTRIBUTE, this.resolved());
+    });
+
+    // Favicon folgt demselben aufgelösten Theme (FE-UI-09) — analog zu ChartTheme, das
+    // denselben Zustand für Chart.js-Farben beobachtet.
+    effect(() => {
+      const icon = this.document.querySelector<HTMLLinkElement>(FAVICON_SELECTOR);
+      icon?.setAttribute(
+        'href',
+        this.resolved() === 'dark' ? FAVICON_DARK_HREF : FAVICON_LIGHT_HREF,
+      );
     });
   }
 

@@ -115,6 +115,31 @@ export class AuthService {
     return this.http.put<void>('/api/users/me/password', { aktuellesPasswort, neuesPasswort });
   }
 
+  /**
+   * Löscht das Konto endgültig (`DELETE /api/users/me`, US-02, FE-SET-05).
+   *
+   * <p>Das Passwort steht im Body, nicht in einem Query-Parameter — dieselbe Begründung wie
+   * backendseitig bei {@code DeleteAccountRequest}: ein Query-Parameter landete in Access-Logs
+   * und in der Browser-History. `HttpClient.delete` nimmt einen Body nur über die Options
+   * entgegen, daher die Form `{ body: … }`.
+   *
+   * <p>Der Feldname ist bewusst deutsch (`passwort`) — er entspricht wörtlich
+   * {@code DeleteAccountRequest} im Backend, analog zu {@link changePassword}.
+   *
+   * <p>Anders als bei {@link changePassword} wird der State geleert: nach 204 existiert der User
+   * nicht mehr, und das Backend hat das JWT-Cookie mit der Antwort gelöscht (`Max-Age=0`). Bliebe
+   * `currentUser()` gesetzt, hielte der `authGuard` die Sitzung für gültig und liesse die
+   * Navigation auf `/login` wieder zurück auf ein Dashboard laufen, das keine Daten mehr hat.
+   *
+   * <p>Bei 400 (Passwort falsch) bleibt der State unangetastet — es wurde nichts gelöscht, der
+   * User ist weiterhin eingeloggt.
+   */
+  deleteAccount(passwort: string): Observable<void> {
+    return this.http
+      .delete<void>('/api/users/me', { body: { passwort } })
+      .pipe(tap(() => this.currentUserState.set(null)));
+  }
+
   /** Loggt aus; das Backend invalidiert das Cookie (Max-Age=0), wir leeren den State. */
   logout(): Observable<void> {
     return this.http

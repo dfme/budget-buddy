@@ -1,0 +1,119 @@
+@use 'tokens' as *;
+
+:host {
+  display: block;
+}
+
+// Dieselbe Spaltenbreite wie die Fixkosten-Liste — beides Listen-Screens mit Aktion pro Zeile.
+.recurring-expense-list {
+  max-width: 40rem;
+  margin: 0 auto;
+}
+
+h1 {
+  margin: 0 0 $sp-2;
+}
+
+.intro {
+  margin: 0 0 $sp-4;
+  color: $c-ink-2;
+  font-size: $fs-sm;
+}
+
+.dismiss-error {
+  display: block;
+  margin-bottom: $sp-4;
+}
+
+.expenses,
+.dismissed-expenses {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+// Eine Zeile: Empfänger + «seit» links, Betrag und Button rechts. Auf schmalen Schirmen bricht
+// der Button in eine eigene Zeile, statt Empfänger und Betrag zu quetschen.
+.expense,
+.dismissed-expense {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: $sp-2 $sp-4;
+  padding: $sp-3 0;
+  border-bottom: 1px solid $c-line;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.expense__main {
+  display: flex;
+  flex: 1 1 12rem;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.expense__payee {
+  display: inline-flex;
+  align-items: center;
+  gap: $sp-2;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+// «Neu»-Label: Pille in der Akzentfarbe — dieselbe Familie wie der Ungelesen-Badge der Glocke,
+// aber nicht rot: ein neu erkanntes Abo ist eine Information, kein Alarm.
+.expense__new {
+  padding: 0 $sp-2;
+  border-radius: $r-pill;
+  background: $c-accent-soft;
+  color: $c-accent;
+  font-size: $fs-xs;
+  font-weight: 600;
+  line-height: 1.5;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.expense__since {
+  color: $c-ink-2;
+  font-size: $fs-sm;
+}
+
+.expense__amount {
+  @include tabular;
+
+  font-weight: 500;
+}
+
+.expense__dismiss {
+  white-space: nowrap;
+}
+
+.status {
+  text-align: center;
+  padding: $sp-5 0;
+}
+
+.status.empty {
+  color: $c-ink-2;
+}
+
+// Abschnitt «Kein Abo» (FE-NOTIF-03): eigene Card unter der Abo-Liste, Zeilen gedämpft — das
+// sind erledigte Einträge, keine Abos.
+.dismissed {
+  display: block;
+  margin-top: $sp-4;
+}
+
+.dismissed__intro {
+  margin: 0 0 $sp-2;
+  color: $c-ink-2;
+  font-size: $fs-sm;
+}
+
+.dismissed-expense {
+  color: $c-ink-2;
+}
