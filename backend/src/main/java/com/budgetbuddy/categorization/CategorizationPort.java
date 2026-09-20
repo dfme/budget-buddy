@@ -17,12 +17,20 @@ import java.util.Optional;
  * Requests à ~1.1s und lief damit reproduzierbar in das Zeitbudget (#192). Die Bündelung ist
  * deshalb nicht Feintuning, sondern der Unterschied zwischen «Import funktioniert» und
  * «Import funktioniert nicht».
+ *
+ * <p><strong>Jeder Aufruf trägt die User-ID</strong> (BE-CAT-12, ADR-15): Die Lookup-Stufe matcht
+ * gegen die globalen Seeds <em>und</em> gegen das, was dieser User gelernt hat — ein Pattern aus
+ * Laras Korrekturen darf Marcs Auszug nicht kategorisieren. Die Claude-Stufe braucht die ID nicht
+ * und ignoriert sie; sie steht im Port, weil der Aufrufer die vollständige Kette bekommt und die
+ * Mandantengrenze dort liegen muss, wo die Query steht.
  */
 public interface CategorizationPort {
 
     /**
      * Ordnet einen Transaktionstext einer {@link Category} zu.
      *
+     * @param userId User, dessen Transaktion kategorisiert wird — schränkt die gelernten
+     *     Patterns auf seine eigenen ein.
      * @param transactionText Freitext der Transaktion (z. B. {@code "DIGITEC GALAXUS AG 044 913
      *     2323"}), typischerweise aus dem PDF-Import.
      * @return die erkannte Kategorie samt liefernder Stufe ({@link CategorizationResult.Source},
@@ -30,7 +38,7 @@ public interface CategorizationPort {
      *     {@link Optional#empty()}, wenn diese Quelle den Text nicht zuordnen kann (der Aufrufer
      *     eskaliert dann an die nächste Stufe bzw. den Fallback {@code Sonstiges}).
      */
-    Optional<CategorizationResult> categorize(String transactionText);
+    Optional<CategorizationResult> categorize(long userId, String transactionText);
 
     /**
      * Ordnet mehrere Transaktionstexte in einem Zug zu.
@@ -40,12 +48,14 @@ public interface CategorizationPort {
      * Aufruf überschreiben ihn und fassen die Texte zusammen; siehe
      * {@link ClaudeCategorizationService}.
      *
+     * @param userId User, dessen Transaktionen kategorisiert werden.
      * @param transactionTexts Freitexte in der Reihenfolge des Aufrufers.
      * @return Ergebnisse <strong>positionsgleich</strong> zur Eingabe — Index {@code i} der
      *     Rückgabe gehört zu Index {@code i} der Eingabe. Die Liste hat immer dieselbe Länge wie
      *     die Eingabe; einzelne Einträge können {@link Optional#empty()} sein (leerer Text).
      */
-    default List<Optional<CategorizationResult>> categorizeAll(List<String> transactionTexts) {
-        return transactionTexts.stream().map(this::categorize).toList();
+    default List<Optional<CategorizationResult>> categorizeAll(
+            long userId, List<String> transactionTexts) {
+        return transactionTexts.stream().map(text -> categorize(userId, text)).toList();
     }
 }

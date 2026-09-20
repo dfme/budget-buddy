@@ -37,7 +37,8 @@ Browser (Lara, Marc)
 │  Database  [PostgreSQL 18 + Flyway]                 │
 │  Neon, Frankfurt/EU — ausserhalb von Render         │
 │  users · transactions · fixed_costs · import_jobs · │
-│  savings_goals · category_lookup                    │
+│  savings_goals · category_lookup ·                  │
+│  user_category_lookup (Gelerntes pro Nutzer)        │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -73,3 +74,4 @@ Browser (Lara, Marc)
 | [ADR-12](adr/ADR-12-datenpersistenz-produktion.md) | PostgreSQL 18 bei Neon (Frankfurt/EU, Free); supersedet ADR-5 |
 | [ADR-13](adr/ADR-13-fixkosten-transaktions-zuordnung.md) | Fixkosten-Doppelabzug: betragsbasiertes 1:1-Matching zur Berechnungszeit |
 | [ADR-14](adr/ADR-14-asynchroner-pdf-import.md) | Parse synchron, Kategorisierung als `@Async`-Job mit Fortschritts-Polling; 20 Transaktionen pro Claude-Call |
+| [ADR-15](adr/ADR-15-mandantengebundener-lerneffekt.md) | Lerneffekt pro Nutzer (`user_category_lookup`, mit dem Konto gelöscht); Seeds bleiben global in `category_lookup` |

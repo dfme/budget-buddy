@@ -143,9 +143,11 @@ test.describe('Transaktionen kategorisieren', () => {
    * Der Aufklapp-Button einer Kategoriezeile.
    *
    * <p>Adressiert über `.badge__label` und exakten Text, nicht über den Text des Buttons: das
-   * Badge rendert daneben einen `.badge__dot` (`badge.html`), und ein Icon-Element im
-   * `textContent` des Elternteils hat in FE-UI-07 schon einmal drei Assertions gekostet. Exakt
-   * statt Teilstring, damit `Sonstiges` nicht versehentlich eine andere Zeile trifft.
+   * Badge rendert daneben ein `.badge__icon` — seit BE-CAT-10 den Kategorie-Glyph, davor einen
+   * `.badge__dot`, der jetzt nur noch als Fallback erscheint (`badge.html`). Ein Icon-Element im
+   * `textContent` des Elternteils hat in FE-UI-07 schon einmal drei Assertions gekostet, und der
+   * Glyph steht seit BE-CAT-10 wirklich dort. Exakt statt Teilstring, damit `Sonstiges` nicht
+   * versehentlich eine andere Zeile trifft.
    */
   function categoryToggle(page: Page, label: string): Locator {
     return page.locator('button.drilldown-toggle', {

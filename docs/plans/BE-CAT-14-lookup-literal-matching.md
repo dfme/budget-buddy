@@ -52,7 +52,8 @@ Patterns ebenso — AC 3 ist damit ohne Migration erfüllt.
 | Datei | Änderung |
 | --- | --- |
 | `backend/src/main/java/com/budgetbuddy/categorization/CategoryLookupRepository.java` | Query auf `locate`, Javadoc um die Wildcard-Begründung ergänzt |
-| `backend/src/test/java/com/budgetbuddy/categorization/LookupTableServiceIntegrationTest.java` | fünf neue Tests, `CategoryLookupRepository` und `CategoryLearningService` autowired, Klassen-Javadoc erweitert |
+| `backend/src/main/java/com/budgetbuddy/categorization/UserCategoryLookupRepository.java` | dasselbe für den Lern-Pool — nach dem Merge von BE-CAT-12 dazugekommen, siehe Nachtrag unten |
+| `backend/src/test/java/com/budgetbuddy/categorization/LookupTableServiceIntegrationTest.java` | sechs neue Tests, beide Lookup-Repositories, `CategoryLearningService` und `JdbcTemplate` autowired, Klassen-Javadoc erweitert |
 | `docs/plans/BE-CAT-14-lookup-literal-matching.md` | neu (diese Datei) |
 | `docs/plans/README.md` | eine Indexzeile |
 
@@ -97,6 +98,27 @@ alten `LIKE`. Die Reihenfolge-Unabhängigkeit der Klasse bleibt erhalten.
 Ein leeres Pattern würde mit `locate('', text) = 1` alles matchen — wie vorher mit `%%%`.
 `CategoryLearningService:39` weist leere Patterns ab und kein V04-Seed ist leer; das Verhalten ist
 unverändert, und eine Guard dagegen gehört nicht in diesen Fix.
+
+## Nachtrag: Merge von `main` (BE-CAT-12 / ADR-15)
+
+Während dieser Branch offen war, ist [BE-CAT-12](BE-CAT-12-category-lookup-mandantentrennung.md)
+(#319, PR #323) auf `main` gelandet und hat den Lerneffekt mandantengebunden gemacht: Gelernt wird
+seither ausschliesslich in die neue Tabelle `user_category_lookup` (V12), `category_lookup` hält
+nur noch die kuratierten Seeds.
+
+Damit verschiebt sich der Ort des Bugs. Die Umfangsprüfung oben war zum Zeitpunkt ihrer Aufnahme
+korrekt — `CategoryLookupRepository.findMatching` war die einzige Stelle —, aber
+`UserCategoryLookupRepository.findMatching` kam mit derselben
+`upper(:text) LIKE concat('%', upper(...), '%')`-Konstruktion hinzu. Genau dort liegen jetzt die
+Patterns, die ein `%` oder `_` überhaupt tragen können: roher Buchungstext. Der Fix nur auf der
+globalen Tabelle würde nach dem Merge nichts mehr reparieren, weil deren 18 Seeds kein Metazeichen
+enthalten.
+
+Die Umstellung auf `locate(...) > 0` gilt deshalb für **beide** Queries. Die Metazeichen-Tests
+laufen über den Lernpfad und damit gegen `user_category_lookup`; für die globale Tabelle kommt ein
+eigener Test dazu, der sein Pattern direkt einfügt — dorthin schreibt der Lerneffekt seit ADR-15
+nicht mehr. Der Test-Setup braucht seit V12 einen echten `users`-Eintrag (Fremdschlüssel), die
+Klasse legt ihn in `@BeforeEach` an und räumt Lern- und Testzeilen vorher ab.
 
 ## Acceptance Criteria (aus #322)
 

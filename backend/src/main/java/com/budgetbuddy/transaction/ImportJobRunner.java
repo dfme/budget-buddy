@@ -179,7 +179,7 @@ public class ImportJobRunner {
 
             List<Optional<CategorizationResult>> batch = degraded
                     ? skipped(to - from)
-                    : categorizationPort.categorizeAll(texts.subList(from, to));
+                    : categorizationPort.categorizeAll(userId, texts.subList(from, to));
 
             for (int position = 0; position < batch.size(); position++) {
                 ParsedTransaction tx = parsed.get(from + position);

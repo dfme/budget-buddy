@@ -5,10 +5,11 @@ import { Chip } from './chip';
 
 @Component({
   imports: [Chip],
-  template: `<button appChip [selected]="selected()">Lebensmittel</button>`,
+  template: `<button appChip [selected]="selected()" [category]="category()">Lebensmittel</button>`,
 })
 class Host {
   readonly selected = signal(false);
+  readonly category = signal<string | undefined>(undefined);
 }
 
 describe('Chip', () => {
@@ -38,5 +39,28 @@ describe('Chip', () => {
 
     expect(chip().classList).toContain('chip--selected');
     expect(chip().getAttribute('aria-pressed')).toBe('true');
+  });
+
+  // BE-CAT-10: Der Chip wird nicht nur für Kategorien verwendet. Ohne Slug muss er deshalb
+  // exakt so aussehen wie vorher — ein leeres Icon-Element wäre schon eine Verhaltensänderung.
+  it('rendert ohne Kategorie kein Icon', () => {
+    expect(fixture.nativeElement.querySelector('.chip__icon')).toBeNull();
+    expect(chip().textContent?.trim()).toBe('Lebensmittel');
+  });
+
+  it('stellt bei gesetzter Kategorie deren Icon voran', () => {
+    fixture.componentInstance.category.set('lebensmittel');
+    fixture.detectChanges();
+
+    const icon = fixture.nativeElement.querySelector('.chip__icon');
+    expect(icon?.textContent?.trim()).toBe('🛒');
+    expect(icon?.getAttribute('aria-hidden')).toBe('true');
+  });
+
+  it('rendert bei unbekannter Kategorie kein Icon', () => {
+    fixture.componentInstance.category.set('weltraumtourismus');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.chip__icon')).toBeNull();
   });
 });

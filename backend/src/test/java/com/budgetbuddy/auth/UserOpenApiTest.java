@@ -71,20 +71,23 @@ class UserOpenApiTest {
     // --- DELETE /users/me (BE-AUTH-14) ---
 
     @Test
-    void deleteAccountEndpointIsDocumentedAsIrreversibleAndNamesTheKnownGap() throws Exception {
-        // AC: «dokumentiert, dass die Löschung endgültig ist» und «benennt die offenen Lücken» —
-        // beides steht in der description, damit es in der Swagger UI sichtbar ist und nicht nur
-        // in einem Javadoc, das die UI nie erreicht. Seit BE-REC-01 (#253) ist recurring_expenses
-        // in der Cleanup-Kette; übrig bleibt category_lookup.
+    void deleteAccountEndpointIsDocumentedAsIrreversibleAndNamesNoOpenGap() throws Exception {
+        // AC: «dokumentiert, dass die Löschung endgültig ist» — in der description, damit es in
+        // der Swagger UI sichtbar ist und nicht nur in einem Javadoc, das die UI nie erreicht.
+        // Seit BE-REC-01 (#253) ist recurring_expenses in der Cleanup-Kette, seit BE-CAT-12
+        // (#319) auch der Lerneffekt: Die Beschreibung nennt die gelernten Händler-Patterns als
+        // Teil der Löschung und keine Tabelle mehr als offene Lücke.
         mockMvc.perform(get("/v3/api-docs"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath(ME_DELETE).exists())
                 .andExpect(jsonPath(ME_DELETE + ".summary").isNotEmpty())
                 .andExpect(jsonPath(ME_DELETE + ".description").value(containsString("endgültig")))
                 .andExpect(jsonPath(ME_DELETE + ".description")
-                        .value(containsString("category_lookup")))
+                        .value(containsString("gelernten Händler-Patterns")))
                 .andExpect(jsonPath(ME_DELETE + ".description")
-                        .value(not(containsString("recurring_expenses"))));
+                        .value(not(containsString("Lücke"))))
+                .andExpect(jsonPath(ME_DELETE + ".description")
+                        .value(not(containsString("category_lookup"))));
     }
 
     @Test

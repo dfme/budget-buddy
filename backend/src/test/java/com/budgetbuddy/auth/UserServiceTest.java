@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 
 import com.budgetbuddy.auth.dto.UserProfileResponse;
 import com.budgetbuddy.budget.FixedCostCleanupPort;
+import com.budgetbuddy.categorization.CategoryLookupCleanupPort;
 import com.budgetbuddy.notification.NotificationCleanupPort;
 import com.budgetbuddy.recurring.RecurringExpenseCleanupPort;
 import com.budgetbuddy.transaction.TransactionCleanupPort;
@@ -45,6 +46,9 @@ class UserServiceTest {
 
     @Mock
     private RecurringExpenseCleanupPort recurringExpenseCleanupPort;
+
+    @Mock
+    private CategoryLookupCleanupPort categoryLookupCleanupPort;
 
     @Mock
     private PasswordEncoder passwordEncoder;
@@ -257,7 +261,7 @@ class UserServiceTest {
      * Reihenfolge ist der eigentliche Kern von DB-07: alle Cleanup-Ports müssen laufen, bevor
      * der User selbst gelöscht wird — sonst schlägt dessen Löschung an der Fremdschlüssel-
      * Constraint auf {@code transactions}/{@code fixed_costs}/{@code import_jobs}/
-     * {@code notifications}/{@code recurring_expenses} fehl.
+     * {@code notifications}/{@code recurring_expenses}/{@code user_category_lookup} fehl.
      */
     @Test
     void deleteUserCleansUpDependentDataBeforeRemovingTheUser() {
@@ -268,11 +272,13 @@ class UserServiceTest {
 
         InOrder order = inOrder(
                 transactionCleanupPort, fixedCostCleanupPort, notificationCleanupPort,
-                recurringExpenseCleanupPort, userRepository);
+                recurringExpenseCleanupPort, categoryLookupCleanupPort, userRepository);
         order.verify(transactionCleanupPort).deleteAllForUser(1L);
         order.verify(fixedCostCleanupPort).deleteAllForUser(1L);
         order.verify(notificationCleanupPort).deleteAllForUser(1L);
         order.verify(recurringExpenseCleanupPort).deleteAllForUser(1L);
+        // BE-CAT-12: gelernte Händler-Patterns gehören zum User und gehen mit ihm.
+        order.verify(categoryLookupCleanupPort).deleteAllForUser(1L);
         order.verify(userRepository).delete(user);
     }
 
@@ -284,7 +290,7 @@ class UserServiceTest {
                 .isInstanceOf(UserNotFoundException.class);
 
         verifyNoInteractions(transactionCleanupPort, fixedCostCleanupPort, notificationCleanupPort,
-                recurringExpenseCleanupPort);
+                recurringExpenseCleanupPort, categoryLookupCleanupPort);
         verify(userRepository, never()).delete(any());
     }
 
@@ -301,7 +307,7 @@ class UserServiceTest {
                 .isInstanceOf(InvalidCurrentPasswordException.class);
 
         verifyNoInteractions(transactionCleanupPort, fixedCostCleanupPort, notificationCleanupPort,
-                recurringExpenseCleanupPort);
+                recurringExpenseCleanupPort, categoryLookupCleanupPort);
         verify(userRepository, never()).delete(any());
     }
 

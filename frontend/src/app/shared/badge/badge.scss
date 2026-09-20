@@ -13,12 +13,24 @@
   color: $c-ink-2;
 }
 
+// Icon der Kategorie (BE-CAT-10). Farb-Emoji bringen ihre eigene Farbe mit — `color` greift
+// hier also nicht; die Kategoriefarbe trägt das Label. Die Zeilenhöhe steht fix, weil Emoji je
+// nach Plattform höher bauen als die Laufweite der Schrift und die Pille sonst aufginge.
+.badge__icon {
+  flex: none;
+  font-size: $fs-sm;
+  line-height: 1;
+}
+
+// Fallback für unbekannte/fehlende Kategorie: Steht kein Glyph zur Verfügung, bleibt es beim
+// Farbpunkt von vor BE-CAT-10. Er ist schmaler als ein Emoji — die Pille fällt damit etwas
+// kürzer aus, was hinnehmbar ist, weil er nur bei einem Label auftritt, das keine der 17
+// Kategorien trifft.
 .badge__dot {
   width: 0.5rem;
   height: 0.5rem;
   flex: none;
   border-radius: $r-pill;
-  // Fallback für unbekannte/fehlende Kategorie.
   background: $c-ink-3;
 }
 

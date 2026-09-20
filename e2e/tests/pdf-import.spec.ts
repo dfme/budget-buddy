@@ -77,13 +77,13 @@ test.describe('PDF-Import', () => {
     const rows = page.locator('.imported__row');
     await expect(rows).toHaveCount(FIXTURE_TRANSACTION_COUNT);
 
-    // Jede Zeile trägt das Korrektur-Dropdown mit den 13 Kategorien aus `shared/category.ts`
+    // Jede Zeile trägt das Korrektur-Dropdown mit den 17 Kategorien aus `shared/category.ts`
     // (FE-CAT-03). Welche Kategorie vorausgewählt ist, ist bewusst nicht Gegenstand: ohne
     // ANTHROPIC_API_KEY fällt in der Testinstanz alles Unbekannte auf `Sonstiges` zurück
     // (`AnthropicProperties`), und der Rest hängt an den Seed-Daten aus Migration V04.
     const firstCategory = rows.first().locator('.imported__category select');
     await expect(firstCategory).toBeVisible();
-    await expect(firstCategory.locator('option')).toHaveCount(13);
+    await expect(firstCategory.locator('option')).toHaveCount(17);
   });
 
   test('Fehlerpfad: unlesbares PDF meldet einen Fehler und keinen Erfolg', async ({

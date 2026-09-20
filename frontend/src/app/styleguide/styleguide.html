@@ -42,7 +42,7 @@
     <p>Inhalt der Karte — beliebig projizierbar.</p>
   </app-card>
 
-  <h2 class="sg-label">Badge (13 Kategorien)</h2>
+  <h2 class="sg-label">Badge (17 Kategorien)</h2>
   <div class="sg-row sg-row--wrap">
     @for (cat of categories; track cat.slug) {
       <app-badge [category]="cat.slug" [label]="cat.label" />
@@ -93,10 +93,20 @@
 
   <h2 class="sg-label">Chip</h2>
   <div class="sg-row sg-row--wrap">
-    <button appChip [selected]="chipSelected()" (click)="chipSelected.set(true)">
+    <button
+      appChip
+      category="lebensmittel"
+      [selected]="chipSelected()"
+      (click)="chipSelected.set(true)"
+    >
       Lebensmittel
     </button>
-    <button appChip [selected]="!chipSelected()" (click)="chipSelected.set(false)">
+    <button
+      appChip
+      category="transport"
+      [selected]="!chipSelected()"
+      (click)="chipSelected.set(false)"
+    >
       Transport
     </button>
   </div>

@@ -49,7 +49,7 @@ import { Segment, SegmentOption } from '../shared/segment/segment';
 export class Styleguide {
   private readonly themeService = inject(Theme);
 
-  /** Alle 13 Kategorien für die Badge-Galerie. */
+  /** Alle 17 Kategorien für die Badge-Galerie. */
   readonly categories = CATEGORIES;
 
   /**

@@ -57,8 +57,10 @@ public class RecurringExpenseController {
     @Operation(summary = "Eintrag als Kein Abo markieren",
             description = "Markiert einen Eintrag des Users als Kein Abo (status=DISMISSED) und "
                     + "liefert seinen aktuellen Zustand. Der zugehörige Empfänger wird künftig "
-                    + "nicht mehr automatisch erkannt. Idempotent — ein zweiter Aufruf ändert den "
-                    + "Status nicht erneut.")
+                    + "nicht mehr automatisch erkannt; die zugehörige Benachrichtigung "
+                    + "(RECURRING_EXPENSE_DETECTED) gilt als gelesen, isNew ist in der Antwort "
+                    + "immer false. Idempotent — ein zweiter Aufruf ändert den Status nicht "
+                    + "erneut.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Eintrag aktualisiert"),
         @ApiResponse(responseCode = "401", description = "Nicht authentifiziert", content = {}),
