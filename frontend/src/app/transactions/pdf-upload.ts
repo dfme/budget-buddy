@@ -118,9 +118,10 @@ export interface ImportProgress {
  * Backend synchron am Ende des Jobs, ihre Benachrichtigung existiert also, sobald der Poll
  * `DONE` meldet. Die Glocke lädt aber nur bei Login und Navigation (FE-NOTIF-01, kein Polling)
  * — wer auf dem Import-Screen bleibt, sähe das Badge erst nach dem nächsten Seitenwechsel.
- * Deshalb stösst der `DONE`-Zweig einmal {@link NotificationService.load} an: kein Polling,
+ * Deshalb stösst der `DONE`-Zweig einmal {@link NotificationService.reload} an: kein Polling,
  * ein gezielter Reload an der einzigen Stelle, an der das Frontend weiss, dass gerade etwas
- * entstanden sein kann.
+ * entstanden sein kann — und bewusst `reload` statt `load`, damit er sich nicht an ein `GET`
+ * hängt, das vor dem Abschluss losging und den Stand davor liefern würde.
  */
 @Component({
   selector: 'app-pdf-upload',
@@ -321,7 +322,7 @@ export class PdfUpload {
    */
   private reloadNotifications(): void {
     this.notificationService
-      .load()
+      .reload()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         error: (_err: HttpErrorResponse) => {

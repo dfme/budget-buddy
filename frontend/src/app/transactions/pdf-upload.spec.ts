@@ -175,11 +175,6 @@ describe('PdfUpload', () => {
     expect(fixture.nativeElement.querySelector('app-meter')).toBeNull();
   });
 
-  /**
-   * AC2 aus #192: Ein Import, der serverseitig ins Zeitbudget lief, ist trotzdem vollständig
-   * gespeichert. Die Meldung bleibt deshalb eine Erfolgsmeldung und erklärt nur, warum ein Teil
-   * unter «Sonstiges» steht.
-   */
   // FE-NOTIF-04 (#336): die Abo-Benachrichtigung des Imports soll sofort in der Glocke stehen,
   // nicht erst nach der nächsten Navigation.
   it('reloads the notification bell once the job is DONE', () => {
@@ -228,6 +223,11 @@ describe('PdfUpload', () => {
     httpMock.expectNone('/api/notifications');
   });
 
+  /**
+   * AC2 aus #192: Ein Import, der serverseitig ins Zeitbudget lief, ist trotzdem vollständig
+   * gespeichert. Die Meldung bleibt deshalb eine Erfolgsmeldung und erklärt nur, warum ein Teil
+   * unter «Sonstiges» steht.
+   */
   it('reports a degraded import as a success with an explanation', () => {
     component.onDrop(dropEvent([pdfFile()]));
     completeImport(108, { degraded: true });

@@ -76,6 +76,36 @@ describe('NotificationService', () => {
     expect(service.notifications()).toEqual([READ]);
   });
 
+  // FE-NOTIF-04: der Reload nach einem Import darf sich nicht an ein GET hängen, das vor dem
+  // Abschluss losging — sonst kommt der Stand davor zurück, und zwar ohne zweiten Versuch.
+  it('reload() startet einen eigenen Request, auch wenn noch einer läuft', () => {
+    service.load().subscribe();
+    const stale = httpMock.expectOne('/api/notifications');
+
+    service.reload().subscribe();
+    const fresh = httpMock.expectOne('/api/notifications');
+
+    stale.flush([]);
+    fresh.flush([UNREAD]);
+
+    expect(service.notifications()).toEqual([UNREAD]);
+  });
+
+  it('der Abschluss des alten Requests verwirft den jüngeren nicht', () => {
+    service.load().subscribe();
+    const stale = httpMock.expectOne('/api/notifications');
+    service.reload().subscribe();
+    const fresh = httpMock.expectOne('/api/notifications');
+    stale.flush([]);
+
+    // Solange der jüngere läuft, hängt sich ein weiterer load() an ihn — kein dritter Request.
+    service.load().subscribe();
+    httpMock.expectNone('/api/notifications');
+    fresh.flush([UNREAD]);
+
+    expect(service.notifications()).toEqual([UNREAD]);
+  });
+
   it('markiert eine Benachrichtigung als gelesen und ersetzt sie im State', () => {
     service.load().subscribe();
     httpMock.expectOne('/api/notifications').flush([UNREAD, READ]);
@@ -94,21 +124,39 @@ describe('NotificationService', () => {
   });
 
   // FE-NOTIF-04: eine Aktion für alle ungelesenen.
-  it('markiert alle als gelesen und ersetzt den State durch die Antwort', () => {
+  it('markiert alle als gelesen und übernimmt die Antwort in der bestehenden Reihenfolge', () => {
+    // Wie GET sie liefert: die ältere ungelesene (20.8.) vor der neueren gelesenen (1.9.).
+    const olderUnread: NotificationResponse = {
+      ...UNREAD,
+      id: 3,
+      createdAt: '2026-08-20T08:00:00Z',
+    };
     service.load().subscribe();
-    httpMock.expectOne('/api/notifications').flush([UNREAD, READ]);
+    httpMock.expectOne('/api/notifications').flush([olderUnread, READ]);
 
-    const all: NotificationResponse[] = [{ ...UNREAD, read: true }, READ];
+    // Das Backend sortiert nach dem Markieren nur noch nach createdAt desc — READ käme zuerst.
+    const fromServer: NotificationResponse[] = [READ, { ...olderUnread, read: true }];
     let response: NotificationResponse[] | undefined;
     service.markAllAsRead().subscribe((r) => (response = r));
 
     const req = httpMock.expectOne('/api/notifications/read-all');
     expect(req.request.method).toBe('POST');
-    req.flush(all);
+    req.flush(fromServer);
 
-    expect(response).toEqual(all);
-    expect(service.notifications()).toEqual(all);
+    expect(response).toEqual(fromServer);
+    // Im offenen Dropdown springt nichts: lokale Reihenfolge, Werte vom Server.
+    expect(service.notifications()).toEqual([{ ...olderUnread, read: true }, READ]);
     expect(service.unreadCount()).toBe(0);
+  });
+
+  it('markAllAsRead hängt lokal unbekannte Einträge der Antwort hinten an', () => {
+    service.load().subscribe();
+    httpMock.expectOne('/api/notifications').flush([UNREAD]);
+
+    service.markAllAsRead().subscribe();
+    httpMock.expectOne('/api/notifications/read-all').flush([READ, { ...UNREAD, read: true }]);
+
+    expect(service.notifications()).toEqual([{ ...UNREAD, read: true }, READ]);
   });
 
   it('clear() leert den State ohne Backend-Call', () => {
