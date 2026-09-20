@@ -10,6 +10,8 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
+import { NotificationService } from '../notifications/notification.service';
+
 import { Amount } from '../shared/amount/amount';
 import { Button } from '../shared/button/button';
 import { Card } from '../shared/card/card';
@@ -111,6 +113,14 @@ export interface ImportProgress {
  * unter der Erfolgsmeldung — jede mit einem Dropdown, über das sich ihre Kategorie an Ort und
  * Stelle korrigieren lässt ({@link changeCategory}). Vorher musste der Nutzer dafür auf die
  * Kategorie-Übersicht wechseln und dort den Monat des Auszugs suchen.
+ *
+ * <p><strong>Glocke nach dem Import (FE-NOTIF-04, #336):</strong> Die Abo-Erkennung läuft im
+ * Backend synchron am Ende des Jobs, ihre Benachrichtigung existiert also, sobald der Poll
+ * `DONE` meldet. Die Glocke lädt aber nur bei Login und Navigation (FE-NOTIF-01, kein Polling)
+ * — wer auf dem Import-Screen bleibt, sähe das Badge erst nach dem nächsten Seitenwechsel.
+ * Deshalb stösst der `DONE`-Zweig einmal {@link NotificationService.load} an: kein Polling,
+ * ein gezielter Reload an der einzigen Stelle, an der das Frontend weiss, dass gerade etwas
+ * entstanden sein kann.
  */
 @Component({
   selector: 'app-pdf-upload',
@@ -122,6 +132,7 @@ export interface ImportProgress {
 export class PdfUpload {
   private readonly importService = inject(PdfImportService);
   private readonly transactionService = inject(TransactionService);
+  private readonly notificationService = inject(NotificationService);
   private readonly destroyRef = inject(DestroyRef);
 
   /** Die 17 Kategorien des Dropdowns — dieselbe Quelle wie die Kategorie-Übersicht (FE-CAT-03). */
@@ -302,6 +313,23 @@ export class PdfUpload {
       });
   }
 
+  /**
+   * Lädt die Glocke neu, damit eine im Import entstandene Abo-Benachrichtigung sofort sichtbar
+   * ist (siehe Klassen-Doc). Ein Fehler bleibt still wie bei jedem anderen Reload der Glocke
+   * (`NotificationBell.reload`): der Import selbst ist gelungen, und die Glocke zeigt weiterhin
+   * den letzten bekannten Stand.
+   */
+  private reloadNotifications(): void {
+    this.notificationService
+      .load()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        error: (_err: HttpErrorResponse) => {
+          // Siehe Methoden-Doc: bewusst ohne Meldung.
+        },
+      });
+  }
+
   /** Verfolgt den Hintergrundlauf bis zum Endzustand und schreibt den Fortschritt fort. */
   private trackJob(jobId: number): void {
     this.importService
@@ -315,6 +343,7 @@ export class PdfUpload {
             // Erst jetzt, nie vorher: Vor `DONE` antwortet der Endpoint mit 409 (BE-PDF-14).
             // Der Nullfall kommt hier nicht an — er verlässt `upload()` schon vor `trackJob`.
             this.loadImportedTransactions(jobId);
+            this.reloadNotifications();
           } else if (status.status === 'FAILED') {
             this.finish({ kind: 'error', message: JOB_FAILED_MESSAGE });
           }
