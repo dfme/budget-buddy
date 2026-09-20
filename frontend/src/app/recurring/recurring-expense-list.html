@@ -10,6 +10,18 @@
   } @else if (errorMessage()) {
     <app-notice variant="error">{{ errorMessage() }}</app-notice>
   } @else {
+    <!--
+      FE-NOTIF-03: Die Seite wurde wegen eines bestimmten Eintrags geöffnet (`?ref=` aus der
+      Glocke), der nicht in der Liste steht. Zustandsbeschreibend formuliert, nicht als Ereignis
+      — markiert der Nutzer den referenzierten Eintrag hier selbst als «Kein Abo», bleibt der Satz
+      richtig, statt eine fremde Ursache zu behaupten.
+    -->
+    @if (referencedEntryMissing()) {
+      <app-notice variant="info" class="dismissed-hint">
+        Dieser Eintrag ist als «Kein Abo» markiert und erscheint deshalb nicht in der Liste.
+      </app-notice>
+    }
+
     @if (dismissErrorMessage(); as message) {
       <app-notice variant="error" class="dismiss-error">{{ message }}</app-notice>
     }

@@ -230,8 +230,8 @@ describe('NotificationBell', () => {
 
     // Sofort navigiert, nicht erst nach dem Gelesen-Call: Käme die Übersicht erst nach dessen
     // Abschluss an, stünde der Eintrag dort bereits als gelesen und das «Neu»-Label liefe leer
-    // (US-08 AC2).
-    expect(router.url).toBe('/abos');
+    // (US-08 AC2). Der `ref`-Parameter kommt aus FE-NOTIF-03 — eigener Test weiter unten.
+    expect(router.url).toBe('/abos?ref=42');
     expect(query('.bell-list')).toBeNull();
     // Die Navigation löst den üblichen Reload aus.
     httpMock.expectOne('/api/notifications').flush([]);
@@ -249,12 +249,45 @@ describe('NotificationBell', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(router.url).toBe('/abos');
+    expect(router.url).toBe('/abos?ref=42');
     httpMock.expectOne('/api/notifications').flush([]);
 
     httpMock
       .expectOne('/api/notifications/3/read')
       .flush(null, { status: 500, statusText: 'Server Error' });
+  });
+
+  // FE-NOTIF-03: Die Übersicht zeigt nur DETECTED-Einträge. Ohne die mitgegebene `referenceId`
+  // kann sie nicht unterscheiden, ob der gemeinte Eintrag nie existierte oder inzwischen «Kein
+  // Abo» ist — und der Klick landete kommentarlos auf einer Seite ohne ihn.
+  it('gibt die referenceId als ?ref an die Abo-Übersicht mit', async () => {
+    create();
+    flushInitialLoad([RECURRING_UNREAD]);
+    bellButton().click();
+    fixture.detectChanges();
+
+    query<HTMLButtonElement>('.bell-list__item')!.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(router.url).toBe('/abos?ref=42');
+    httpMock.expectOne('/api/notifications').flush([]);
+    httpMock.expectOne('/api/notifications/3/read').flush({ ...RECURRING_UNREAD, read: true });
+  });
+
+  it('navigiert ohne referenceId weiterhin ohne Query-Parameter', async () => {
+    create();
+    flushInitialLoad([{ ...RECURRING_UNREAD, referenceId: null }]);
+    bellButton().click();
+    fixture.detectChanges();
+
+    query<HTMLButtonElement>('.bell-list__item')!.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(router.url).toBe('/abos');
+    httpMock.expectOne('/api/notifications').flush([]);
+    httpMock.expectOne('/api/notifications/3/read').flush({ ...RECURRING_UNREAD, read: true });
   });
 
   it('navigiert bei einer Benachrichtigung anderen Typs nicht', async () => {

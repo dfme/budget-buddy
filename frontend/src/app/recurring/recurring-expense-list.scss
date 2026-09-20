@@ -20,7 +20,8 @@ h1 {
   font-size: $fs-sm;
 }
 
-.dismiss-error {
+.dismiss-error,
+.dismissed-hint {
   display: block;
   margin-bottom: $sp-4;
 }

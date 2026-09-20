@@ -1,6 +1,8 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { map } from 'rxjs';
 
 import { Amount } from '../shared/amount/amount';
 import { Button } from '../shared/button/button';
@@ -14,6 +16,20 @@ import { RecurringExpenseService } from './recurring-expense.service';
 interface ExpenseRow extends RecurringExpenseResponse {
   /** Menschlich lesbares Label des ersten Monats, z. B. `"seit Juli 2026"`. */
   sinceLabel: string;
+}
+
+/**
+ * Liest den `ref`-Query-Parameter als Zeilen-ID (FE-NOTIF-03). Alles, was keine positive ganze
+ * Zahl ist, gilt als nicht gesetzt — der Parameter kommt aus der URL und damit potenziell von
+ * Hand. Der Leerstring ist der Grund für die Untergrenze: `Number('')` ist `0` und käme sonst als
+ * gültige ID durch, obwohl `?ref=` gar keinen Eintrag benennt.
+ */
+function parseReferencedId(raw: string | null): number | null {
+  if (raw === null || raw.trim() === '') {
+    return null;
+  }
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
 /**
@@ -41,6 +57,7 @@ interface ExpenseRow extends RecurringExpenseResponse {
 })
 export class RecurringExpenseList {
   private readonly recurringExpenses = inject(RecurringExpenseService);
+  private readonly route = inject(ActivatedRoute);
 
   /** `true`, solange die Liste (noch) lädt. */
   readonly loading = signal(true);
@@ -67,6 +84,38 @@ export class RecurringExpenseList {
         ? `seit ${formatMonth(expense.firstDetectedMonth)}`
         : `seit ${expense.firstDetectedMonth}`,
     })),
+  );
+
+  /**
+   * ID des Eintrags, wegen dem die Seite geöffnet wurde — aus `?ref=` (FE-NOTIF-03). `null`, wenn
+   * die Seite direkt angesteuert wurde.
+   *
+   * <p>Reaktiv aus `queryParamMap` statt einmalig im Konstruktor gelesen: Die Glocke sitzt in der
+   * App-Shell und ist auch auf `/abos` selbst sichtbar. Ein Klick dort wechselt nur den
+   * Query-Parameter, und bei gleichbleibender Route baut der Router die Komponente nicht neu —
+   * ein einmaliges Auslesen bliebe auf dem Wert der ersten Navigation stehen.
+   */
+  readonly referencedId = toSignal(
+    this.route.queryParamMap.pipe(map((params) => parseReferencedId(params.get('ref')))),
+    { initialValue: null },
+  );
+
+  /**
+   * `true`, wenn die Seite wegen eines bestimmten Eintrags geöffnet wurde, dieser aber nicht in
+   * der Liste steht (FE-NOTIF-03) — in der Praxis, weil er inzwischen «Kein Abo» ist:
+   * {@link RecurringExpenseService} lädt nur `DETECTED`-Einträge.
+   *
+   * <p>Die beiden ersten Bedingungen sind nicht kosmetisch. Während des Ladens ist {@link rows}
+   * leer, jeder Verweis liefe dann ins Leere; und ein Ladefehler heisst «unbekannt», nicht
+   * «verneint» — ohne diese Wachen behauptete der Hinweis in beiden Fällen etwas, das er nicht
+   * weiss.
+   */
+  readonly referencedEntryMissing = computed(
+    () =>
+      !this.loading() &&
+      this.errorMessage() === null &&
+      this.referencedId() !== null &&
+      !this.rows().some((row) => row.id === this.referencedId()),
   );
 
   constructor() {

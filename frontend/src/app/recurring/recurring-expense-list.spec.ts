@@ -2,7 +2,8 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import { provideRouter } from '@angular/router';
+import { ActivatedRoute, ParamMap, convertToParamMap, provideRouter } from '@angular/router';
+import { BehaviorSubject } from 'rxjs';
 
 import { RecurringExpenseList } from './recurring-expense-list';
 import { RecurringExpenseResponse } from './recurring-expense.model';
@@ -30,11 +31,22 @@ const SPOTIFY: RecurringExpenseResponse = {
 describe('RecurringExpenseList', () => {
   let fixture: ComponentFixture<RecurringExpenseList>;
   let httpMock: HttpTestingController;
+  let queryParamMap: BehaviorSubject<ParamMap>;
 
   beforeEach(async () => {
+    // `ActivatedRoute` als Stub statt echter Navigation: Die Komponente liest aus der Route nur
+    // `queryParamMap` (FE-NOTIF-03), und ein Subject lässt den Parameter auch nachträglich
+    // wechseln — genau der Fall, für den er reaktiv gelesen wird.
+    queryParamMap = new BehaviorSubject<ParamMap>(convertToParamMap({}));
+
     await TestBed.configureTestingModule({
       imports: [RecurringExpenseList],
-      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        { provide: ActivatedRoute, useValue: { queryParamMap } },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(RecurringExpenseList);
@@ -59,6 +71,63 @@ describe('RecurringExpenseList', () => {
   function dismissButtons(): HTMLButtonElement[] {
     return Array.from(el().querySelectorAll<HTMLButtonElement>('.expense__dismiss'));
   }
+
+  function setRef(ref: string): void {
+    queryParamMap.next(convertToParamMap({ ref }));
+  }
+
+  function dismissedHint(): HTMLElement | null {
+    return el().querySelector<HTMLElement>('.dismissed-hint');
+  }
+
+  // FE-NOTIF-03, AC1: Die Glocke führt mit `?ref=` hierher. Steht der Eintrag nicht in der Liste,
+  // ist er «Kein Abo» — die Seite sagt das, statt den Nutzer vor einer Liste ohne ihn stehen zu
+  // lassen.
+  it('weist auf einen verneinten Eintrag hin, wenn ?ref nicht in der Liste steht', () => {
+    setRef('99');
+    flushList([NETFLIX, SPOTIFY]);
+
+    expect(dismissedHint()?.textContent).toContain('Kein Abo');
+    expect(rows()).toHaveLength(2);
+  });
+
+  // FE-NOTIF-03, AC2: Der Normalfall — das Abo existiert noch, die Seite zeigt es, kein Hinweis.
+  it('zeigt keinen Hinweis, wenn der Eintrag aus ?ref noch in der Liste steht', () => {
+    setRef('1');
+    flushList([NETFLIX, SPOTIFY]);
+
+    expect(dismissedHint()).toBeNull();
+  });
+
+  it('zeigt keinen Hinweis, wenn die Seite ohne ?ref geöffnet wurde', () => {
+    flushList([NETFLIX]);
+
+    expect(dismissedHint()).toBeNull();
+  });
+
+  // Der Parameter steht in der URL und ist damit von Hand veränderbar. Ein Wert, der keine
+  // Zeilen-ID sein kann, darf keinen Hinweis auslösen — «0» ist der Grund für die Untergrenze in
+  // `parseReferencedId`, weil `Number('')` genau dorthin fällt.
+  it.each(['', 'abc', '0', '-5'])('ignoriert einen unbrauchbaren ?ref-Wert (%j)', (ref) => {
+    setRef(ref);
+    flushList([NETFLIX]);
+
+    expect(dismissedHint()).toBeNull();
+  });
+
+  // Ein Ladefehler heisst «unbekannt», nicht «verneint». Ohne die `errorMessage`-Wache in
+  // `referencedEntryMissing` behauptete die Seite hier, der Eintrag sei als Kein Abo markiert —
+  // obwohl sie gar keine Liste hat, gegen die sie das prüfen könnte.
+  it('behauptet bei einem Ladefehler nicht, der Eintrag sei verneint', () => {
+    setRef('99');
+    httpMock
+      .expectOne('/api/recurring-expenses')
+      .flush(null, { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+
+    expect(dismissedHint()).toBeNull();
+    expect(el().querySelector('app-notice')?.textContent).toContain('konnte nicht geladen werden');
+  });
 
   it('zeigt einen Ladezustand, solange der Request läuft', () => {
     httpMock.expectOne('/api/recurring-expenses');
