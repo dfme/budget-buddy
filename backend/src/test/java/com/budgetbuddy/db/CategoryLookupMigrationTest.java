@@ -20,7 +20,9 @@ import org.springframework.test.context.DynamicPropertySource;
 
 /**
  * Verifiziert die Flyway-Migration V04 (category_lookup-Tabelle inkl. Seed-Daten) gegen eine echte
- * PostgreSQL-Datenbank.
+ * PostgreSQL-Datenbank — seit BE-CAT-17 zusammen mit V15, das die Seeds für Bargeldbezug und
+ * Steuern nachreicht. Die Prüfungen laufen deshalb gegen die Tabelle nach allen Migrationen und
+ * nicht gegen eine einzelne Datei.
  *
  * <p>Seit DB-05 (ADR-12) gegen Testcontainers-Postgres in derselben Major-Version wie Produktion,
  * mit einer eigenen Datenbank für diese Klasse (siehe {@link PostgresTestDatabase}).
@@ -115,6 +117,35 @@ class CategoryLookupMigrationTest {
                 String.class, "migros");
 
         assertThat(category).isEqualTo("Lebensmittel");
+    }
+
+    @Test
+    void v15SeedsTheCashWithdrawalAndTaxCategories() {
+        // BE-CAT-17. Die beiden Kategorien gibt es seit BE-CAT-10, Seeds bekamen sie erst mit V15
+        // — bis dahin lief Stufe 1 (ADR-6) für sie leer und jeder Bancomat-Bezug ging an Claude.
+        // Geprüft wird die Tabelle, nicht die Datei: Die Zusage ist, dass die Seeds nach allen
+        // Migrationen dastehen, nicht, dass eine bestimmte Migration sie geschrieben hat.
+        Map<String, String> categoryByPattern = jdbcTemplate.queryForList(
+                        "SELECT empfaenger_pattern, category FROM category_lookup"
+                                + " WHERE category IN ('Bargeldbezug', 'Steuern')")
+                .stream()
+                .collect(Collectors.toMap(
+                        row -> (String) row.get("empfaenger_pattern"),
+                        row -> (String) row.get("category")));
+
+        assertThat(categoryByPattern)
+                .containsEntry("BANCOMAT", "Bargeldbezug")
+                .containsEntry("POSTOMAT", "Bargeldbezug")
+                .containsEntry("GELDAUTOMAT", "Bargeldbezug")
+                .containsEntry("BARGELDBEZUG", "Bargeldbezug")
+                .containsEntry("BARBEZUG", "Bargeldbezug")
+                .containsEntry("STEUERVERWALTUNG", "Steuern")
+                .containsEntry("STEUERAMT", "Steuern");
+
+        // Bewusst nicht geseedet (Begründung in V15): Beides sind Substrings gewöhnlicher
+        // Buchungstexte, und findMatching kennt seit BE-CAT-14 keine Wortgrenzen. Steht hier,
+        // damit ein späterer Nachtrag eine Entscheidung ist und kein Versehen.
+        assertThat(categoryByPattern).doesNotContainKeys("ATM", "STEUERN");
     }
 
     @Test

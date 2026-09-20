@@ -34,9 +34,9 @@ oder pro Nutzer gelten?**
 
 **Zwischenform: Seeds global, Gelerntes pro Nutzer.**
 
-1. **`category_lookup` (V04) bleibt die globale, kuratierte Basis.** Sie enthält die Seeds und
-   wird vom Lerneffekt nicht mehr geschrieben. Änderungen daran sind Migrationen — also
-   Code-Review, nicht Nutzereingabe.
+1. **`category_lookup` (V04, ergänzt durch V15) bleibt die globale, kuratierte Basis.** Sie
+   enthält die Seeds und wird vom Lerneffekt nicht mehr geschrieben. Änderungen daran sind
+   Migrationen — also Code-Review, nicht Nutzereingabe.
 2. **Alles Gelernte liegt in `user_category_lookup` (V12)** mit `user_id` (FK auf `users`, ohne
    `ON DELETE`, wie alle Nutzertabellen seit DB-07) und `UNIQUE (user_id, empfaenger_pattern)`.
    Beide Quellen des Lerneffekts — manuelle Korrektur (BE-CAT-04) und Claude-Treffer (BE-CAT-11)
@@ -75,7 +75,8 @@ zuordnen. Sie bleiben auf Teamentscheid als globale Patterns stehen; V12 räumt 
 bewusst nicht. Das ist eine bekannte Ausnahme von Punkt 1: Diese Zeilen sind rohe Buchungstexte
 ohne Eigentümer und überleben jede Kontolöschung. Auf der Produktionsinstanz liegen zum
 Zeitpunkt dieses Entscheids nur Demo- und Kursdaten (INFRA-38). Wer sie loswerden will, löscht
-in einer späteren Migration alles, was nicht zu den 18 Seeds aus V04 gehört.
+in einer späteren Migration alles, was nicht zu den kuratierten Seeds gehört — seit BE-CAT-17
+sind das die 18 Zeilen aus V04 plus die sieben aus V15, nicht mehr V04 allein.
 
 ## Consequences
 

@@ -32,8 +32,8 @@ Wir nutzen einen **Hybrid-Ansatz: Lookup-Tabelle + Claude API**:
      `HybridCategorizationService`)
 
    Beide schreiben seit BE-CAT-12 **pro Nutzer** in `user_category_lookup` (V12), nicht mehr in
-   die globale Seed-Tabelle `category_lookup` (V04) — Entscheid und Matching-Regel in
-   [ADR-15](ADR-15-mandantengebundener-lerneffekt.md).
+   die globale Seed-Tabelle `category_lookup` (V04, ergänzt durch V15) — Entscheid und
+   Matching-Regel in [ADR-15](ADR-15-mandantengebundener-lerneffekt.md).
 
 **Warum zwei Quellen.** Bis BE-CAT-11 lernte nur die Korrektur. Ein Händler, den Claude auf Anhieb
 richtig einstufte und den deshalb niemand korrigierte, löste bei jedem Import wieder einen Call
