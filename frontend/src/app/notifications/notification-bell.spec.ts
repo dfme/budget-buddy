@@ -217,6 +217,60 @@ describe('NotificationBell', () => {
     httpMock.expectNone('/api/notifications/2/read');
   });
 
+  // FE-NOTIF-04 (#336): eine Aktion für alle ungelesenen statt N Einzelklicks.
+  it('zeigt «Alle als gelesen markieren» nur, solange etwas ungelesen ist', () => {
+    create();
+    flushInitialLoad([READ]);
+    bellButton().click();
+    fixture.detectChanges();
+
+    expect(query('.bell-list__read-all')).toBeNull();
+  });
+
+  it('markiert per «Alle als gelesen markieren» alle als gelesen, Badge weg, Dropdown bleibt offen', () => {
+    create();
+    flushInitialLoad([UNREAD, RECURRING_UNREAD]);
+    bellButton().click();
+    fixture.detectChanges();
+    expect(query('.bell__badge')?.textContent?.trim()).toBe('2');
+
+    query<HTMLButtonElement>('.bell-list__read-all')!.click();
+
+    const req = httpMock.expectOne('/api/notifications/read-all');
+    expect(req.request.method).toBe('POST');
+    req.flush([
+      { ...UNREAD, read: true },
+      { ...RECURRING_UNREAD, read: true },
+    ]);
+    fixture.detectChanges();
+
+    expect(query('.bell__badge')).toBeNull();
+    expect(query('.bell-list__item--unread')).toBeNull();
+    // Gelesene bleiben stehen (Inbox), aber als erledigt markiert.
+    expect(el().querySelectorAll('.bell-list__item--read').length).toBe(2);
+    expect(query('.bell-list__read-all')).toBeNull();
+    expect(query('.bell-list')).not.toBeNull();
+    // Kein Ziel für alle zusammen — anders als beim Einzelklick auf eine Abo-Benachrichtigung.
+    expect(router.url).not.toBe('/abos');
+  });
+
+  it('bleibt bei einem fehlschlagenden read-all-Call still, Badge unverändert', () => {
+    create();
+    flushInitialLoad([UNREAD]);
+    bellButton().click();
+    fixture.detectChanges();
+
+    query<HTMLButtonElement>('.bell-list__read-all')!.click();
+
+    httpMock
+      .expectOne('/api/notifications/read-all')
+      .flush(null, { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+
+    expect(query('.bell__badge')?.textContent?.trim()).toBe('1');
+    expect(query('.bell-list__read-all')).not.toBeNull();
+  });
+
   // FE-REC-01: die Antwort auf «Netflix wurde als Abo erkannt» ist die Abo-Übersicht.
   it('führt bei einer Abo-Benachrichtigung sofort in die Abo-Übersicht und schliesst das Dropdown', async () => {
     create();

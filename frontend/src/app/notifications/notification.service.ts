@@ -5,8 +5,8 @@ import { Observable, finalize, shareReplay, tap } from 'rxjs';
 import { NotificationResponse } from './notification.model';
 
 /**
- * Zentraler State und Kapselung von `GET /api/notifications` und
- * `POST /api/notifications/{id}/read` (FE-NOTIF-01, BE-NOTIF-01).
+ * Zentraler State und Kapselung von `GET /api/notifications`, `POST /api/notifications/{id}/read`
+ * (FE-NOTIF-01, BE-NOTIF-01) und `POST /api/notifications/read-all` (FE-NOTIF-04).
  *
  * <p>Anders als `SafeToSpendService` (dort liegt der UI-State in der Komponente) hält dieser
  * Service den State selbst — die Glocke wird doppelt gerendert (mobile Topbar + Desktop-Sidebar,
@@ -49,6 +49,17 @@ export class NotificationService {
         this.notificationsState.update((list) => list.map((n) => (n.id === id ? updated : n)));
       }),
     );
+  }
+
+  /**
+   * Markiert alle Benachrichtigungen als gelesen (FE-NOTIF-04). Das Backend liefert die
+   * vollständige Liste zurück, in derselben Reihenfolge wie `GET` — sie ersetzt den State in
+   * einem Zug, ein Nachladen entfällt.
+   */
+  markAllAsRead(): Observable<NotificationResponse[]> {
+    return this.http
+      .post<NotificationResponse[]>('/api/notifications/read-all', {})
+      .pipe(tap((notifications) => this.notificationsState.set(notifications)));
   }
 
   /**

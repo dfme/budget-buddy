@@ -45,6 +45,19 @@ public interface RecurringExpenseRepository extends JpaRepository<RecurringExpen
     Optional<RecurringExpense> findByIdAndUserId(Long id, Long userId);
 
     /**
+     * Alle Einträge eines Users, die an derselben Bündel-Benachrichtigung hängen — für
+     * {@code dismiss} (FE-NOTIF-04): erst wenn keiner davon mehr {@code DETECTED} ist, wird das
+     * Bündel als gelesen markiert. Eine Liste statt eines {@code exists}-Counts, damit der Aufrufer
+     * die soeben in derselben Persistence-Context geänderte Zeile mitzählt, ohne auf das
+     * Flush-Verhalten der Query angewiesen zu sein.
+     *
+     * <p>Über {@code userId} gebunden, obwohl die {@code notificationId} global eindeutig ist —
+     * dieselbe Zusage wie bei allen Methoden hier; der Index kommt aus dem {@code user_id}-Präfix
+     * der {@code UNIQUE}-Constraint (V11, V14).
+     */
+    List<RecurringExpense> findByUserIdAndNotificationId(Long userId, Long notificationId);
+
+    /**
      * Löscht alle Einträge eines Users (Kontolöschung, US-02, nDSG).
      *
      * <p>Bewusst {@code @Modifying} — Begründung wie bei

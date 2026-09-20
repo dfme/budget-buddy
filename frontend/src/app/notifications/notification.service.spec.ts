@@ -93,6 +93,24 @@ describe('NotificationService', () => {
     expect(service.unreadCount()).toBe(0);
   });
 
+  // FE-NOTIF-04: eine Aktion für alle ungelesenen.
+  it('markiert alle als gelesen und ersetzt den State durch die Antwort', () => {
+    service.load().subscribe();
+    httpMock.expectOne('/api/notifications').flush([UNREAD, READ]);
+
+    const all: NotificationResponse[] = [{ ...UNREAD, read: true }, READ];
+    let response: NotificationResponse[] | undefined;
+    service.markAllAsRead().subscribe((r) => (response = r));
+
+    const req = httpMock.expectOne('/api/notifications/read-all');
+    expect(req.request.method).toBe('POST');
+    req.flush(all);
+
+    expect(response).toEqual(all);
+    expect(service.notifications()).toEqual(all);
+    expect(service.unreadCount()).toBe(0);
+  });
+
   it('clear() leert den State ohne Backend-Call', () => {
     service.load().subscribe();
     httpMock.expectOne('/api/notifications').flush([UNREAD]);

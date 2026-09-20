@@ -15,7 +15,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Benachrichtigungs-Endpoints für den eingeloggten User (BE-NOTIF-01, Fundament für US-08).
+ * Benachrichtigungs-Endpoints für den eingeloggten User (BE-NOTIF-01, Fundament für US-08;
+ * {@code read-all} seit FE-NOTIF-04).
+ *
+ * <p>{@code /read-all} steht vor {@code /{id}/read} und kollidiert nicht damit: der Pfad hat ein
+ * Segment weniger, Spring MVC ordnet ihn eindeutig zu.
  *
  * <p>Geschützt durch {@code anyRequest().authenticated()} (SecurityConfig); die User-ID kommt als
  * Principal aus dem {@code JwtCookieAuthenticationFilter}. Ohne gültiges JWT antwortet Spring
@@ -49,6 +53,20 @@ public class NotificationController {
     })
     public List<NotificationResponse> list(@AuthenticationPrincipal Long userId) {
         return notificationService.list(userId);
+    }
+
+    @PostMapping("/read-all")
+    @Operation(summary = "Alle Benachrichtigungen als gelesen markieren",
+            description = "Markiert alle ungelesenen Benachrichtigungen des eingeloggten Users als "
+                    + "gelesen und liefert die vollständige Liste in derselben Reihenfolge wie GET. "
+                    + "Idempotent — bereits gelesene behalten ihren Lesezeitpunkt, ein User ohne "
+                    + "ungelesene bekommt seine Liste, keinen Fehler.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Liste zurückgegeben, alle gelesen"),
+        @ApiResponse(responseCode = "401", description = "Nicht authentifiziert", content = {})
+    })
+    public List<NotificationResponse> markAllAsRead(@AuthenticationPrincipal Long userId) {
+        return notificationService.markAllAsRead(userId);
     }
 
     @PostMapping("/{id}/read")

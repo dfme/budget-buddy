@@ -51,6 +51,8 @@ class NotificationServiceTest {
 
     @Test
     void createPersistsWithTheGivenUserTypeReferenceAndMessage() {
+        when(notificationRepository.save(any())).thenAnswer(inv -> withId(inv.getArgument(0)));
+
         service.create(USER_ID, "RECURRING_EXPENSE_DETECTED", 99L, "Netflix erkannt");
 
         ArgumentCaptor<Notification> saved = ArgumentCaptor.forClass(Notification.class);
@@ -65,11 +67,22 @@ class NotificationServiceTest {
 
     @Test
     void createAcceptsANullReferenceId() {
+        when(notificationRepository.save(any())).thenAnswer(inv -> withId(inv.getArgument(0)));
+
         service.create(USER_ID, "MONTHLY_REPORT_READY", null, "Bericht bereit");
 
         ArgumentCaptor<Notification> saved = ArgumentCaptor.forClass(Notification.class);
         verify(notificationRepository).save(saved.capture());
         assertThat(saved.getValue().getReferenceId()).isNull();
+    }
+
+    @Test
+    void createReturnsTheIdTheDatabaseAssigned() {
+        // FE-NOTIF-04: das recurring-Modul hängt seine Zeilen an diese ID (notification_id, V14).
+        when(notificationRepository.save(any())).thenAnswer(inv -> withId(inv.getArgument(0)));
+
+        assertThat(service.create(USER_ID, "RECURRING_EXPENSE_DETECTED", null, "3 neue Abos erkannt"))
+                .isEqualTo(NOTIFICATION_ID);
     }
 
     @Test
@@ -162,56 +175,115 @@ class NotificationServiceTest {
                 .isInstanceOf(NotificationNotFoundException.class);
     }
 
-    // --- unreadReferenceIds() (BE-REC-02) ---
+    // --- markAllAsRead() (FE-NOTIF-04) ---
 
     @Test
-    void unreadReferenceIdsReturnsReferenceIdsOfUnreadNotificationsOfTheGivenType() {
-        Notification unread = entry(1L, "RECURRING_EXPENSE_DETECTED", 200L, "Netflix", null);
+    void markAllAsReadSetsReadAtOnEveryUnreadNotificationAndReturnsTheList() {
+        Notification first = entry(1L, "RECURRING_EXPENSE_DETECTED", null, "3 neue Abos erkannt", null);
+        Notification second = entry(2L, "RECURRING_EXPENSE_DETECTED", null, "1 neues Abo erkannt", null);
+        when(notificationRepository.findByUserIdAndReadAtIsNull(USER_ID))
+                .thenReturn(List.of(first, second));
+        when(notificationRepository.findByUserIdOrderByUnreadFirstThenNewest(USER_ID))
+                .thenReturn(List.of(second, first));
+
+        List<NotificationResponse> result = service.markAllAsRead(USER_ID);
+
+        assertThat(first.getReadAt()).isEqualTo(FIXED_INSTANT);
+        assertThat(second.getReadAt()).isEqualTo(FIXED_INSTANT);
+        assertThat(result).extracting(NotificationResponse::id).containsExactly(2L, 1L);
+        assertThat(result).allMatch(NotificationResponse::read);
+    }
+
+    @Test
+    void markAllAsReadIsANoOpWithoutUnreadNotifications() {
+        Instant earlier = FIXED_INSTANT.minusSeconds(3600);
+        Notification alreadyRead = entry(1L, "RECURRING_EXPENSE_DETECTED", null, "Netflix", earlier);
+        when(notificationRepository.findByUserIdAndReadAtIsNull(USER_ID)).thenReturn(List.of());
+        when(notificationRepository.findByUserIdOrderByUnreadFirstThenNewest(USER_ID))
+                .thenReturn(List.of(alreadyRead));
+
+        List<NotificationResponse> result = service.markAllAsRead(USER_ID);
+
+        // Der Lesezeitpunkt der bereits gelesenen bleibt der ursprüngliche.
+        assertThat(alreadyRead.getReadAt()).isEqualTo(earlier);
+        assertThat(result).hasSize(1);
+        verify(notificationRepository, never()).save(any());
+    }
+
+    // --- unreadIds() (BE-REC-02, seit FE-NOTIF-04 über die Notification-ID) ---
+
+    @Test
+    void unreadIdsReturnsIdsOfUnreadNotificationsOfTheGivenType() {
+        Notification unread = entry(1L, "RECURRING_EXPENSE_DETECTED", null, "3 neue Abos erkannt", null);
         when(notificationRepository.findByUserIdAndTypeAndReadAtIsNull(
                 USER_ID, "RECURRING_EXPENSE_DETECTED"))
                 .thenReturn(List.of(unread));
 
-        assertThat(service.unreadReferenceIds(USER_ID, "RECURRING_EXPENSE_DETECTED"))
-                .containsExactly(200L);
+        assertThat(service.unreadIds(USER_ID, "RECURRING_EXPENSE_DETECTED")).containsExactly(1L);
     }
 
     @Test
-    void unreadReferenceIdsReturnsEmptyWhenNoneAreUnread() {
+    void unreadIdsReturnsEmptyWhenNoneAreUnread() {
         when(notificationRepository.findByUserIdAndTypeAndReadAtIsNull(
                 USER_ID, "RECURRING_EXPENSE_DETECTED"))
                 .thenReturn(List.of());
 
-        assertThat(service.unreadReferenceIds(USER_ID, "RECURRING_EXPENSE_DETECTED")).isEmpty();
+        assertThat(service.unreadIds(USER_ID, "RECURRING_EXPENSE_DETECTED")).isEmpty();
     }
 
-    // --- markReadByReference() (BE-REC-03) ---
+    // --- markRead() (BE-REC-03, seit FE-NOTIF-04 über die Notification-ID) ---
 
     @Test
-    void markReadByReferenceSetsReadAtOnEveryUnreadNotificationOfTheReference() {
-        Notification first = entry(1L, "RECURRING_EXPENSE_DETECTED", 200L, "Netflix", null);
-        Notification second = entry(2L, "RECURRING_EXPENSE_DETECTED", 200L, "Netflix", null);
-        when(notificationRepository.findByUserIdAndTypeAndReferenceIdAndReadAtIsNull(
-                USER_ID, "RECURRING_EXPENSE_DETECTED", 200L))
-                .thenReturn(List.of(first, second));
+    void markReadSetsReadAtOnTheOwnNotification() {
+        Notification unread = entry(NOTIFICATION_ID, "RECURRING_EXPENSE_DETECTED", null, "Netflix", null);
+        when(notificationRepository.findByIdAndUserId(NOTIFICATION_ID, USER_ID))
+                .thenReturn(Optional.of(unread));
 
-        service.markReadByReference(USER_ID, "RECURRING_EXPENSE_DETECTED", 200L);
+        service.markRead(USER_ID, NOTIFICATION_ID);
 
-        assertThat(first.getReadAt()).isEqualTo(FIXED_INSTANT);
-        assertThat(second.getReadAt()).isEqualTo(FIXED_INSTANT);
+        assertThat(unread.getReadAt()).isEqualTo(FIXED_INSTANT);
     }
 
     @Test
-    void markReadByReferenceIsANoOpWithoutAMatchingUnreadNotification() {
-        when(notificationRepository.findByUserIdAndTypeAndReferenceIdAndReadAtIsNull(
-                USER_ID, "RECURRING_EXPENSE_DETECTED", 200L))
-                .thenReturn(List.of());
+    void markReadKeepsTheOriginalReadAtWhenAlreadyRead() {
+        Instant earlier = FIXED_INSTANT.minusSeconds(3600);
+        Notification read = entry(NOTIFICATION_ID, "RECURRING_EXPENSE_DETECTED", null, "Netflix", earlier);
+        when(notificationRepository.findByIdAndUserId(NOTIFICATION_ID, USER_ID))
+                .thenReturn(Optional.of(read));
 
-        assertThatCode(() -> service.markReadByReference(USER_ID, "RECURRING_EXPENSE_DETECTED", 200L))
-                .doesNotThrowAnyException();
+        service.markRead(USER_ID, NOTIFICATION_ID);
+
+        assertThat(read.getReadAt()).isEqualTo(earlier);
+    }
+
+    @Test
+    void markReadIsANoOpForAMissingOrForeignNotification() {
+        // Die user-gebundene Query liefert für fremde IDs leer — derselbe Pfad wie markAsRead,
+        // nur ohne Exception, weil hier kein Request-Client wartet.
+        when(notificationRepository.findByIdAndUserId(NOTIFICATION_ID, USER_ID))
+                .thenReturn(Optional.empty());
+
+        assertThatCode(() -> service.markRead(USER_ID, NOTIFICATION_ID)).doesNotThrowAnyException();
         verify(notificationRepository, never()).save(any());
     }
 
     // --- Helfer ---
+
+    /** Simuliert die Datenbank: das gespeicherte Entity bekommt {@link #NOTIFICATION_ID}. */
+    private static Notification withId(Notification notification) {
+        return setId(notification, NOTIFICATION_ID);
+    }
+
+    private static Notification setId(Notification notification, long id) {
+        try {
+            Field idField = Notification.class.getDeclaredField("id");
+            idField.setAccessible(true);
+            idField.set(notification, id);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(e);
+        }
+        return notification;
+    }
 
     /**
      * Baut eine {@link Notification} mit gesetzter ID und optional bereits gesetztem
@@ -220,15 +292,9 @@ class NotificationServiceTest {
      */
     private static Notification entry(
             long id, String type, Long referenceId, String message, Instant readAt) {
-        Notification notification =
-                new Notification(USER_ID, type, referenceId, message, FIXED_INSTANT.minusSeconds(120));
-        try {
-            Field idField = Notification.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(notification, id);
-        } catch (ReflectiveOperationException e) {
-            throw new IllegalStateException(e);
-        }
+        Notification notification = setId(
+                new Notification(USER_ID, type, referenceId, message, FIXED_INSTANT.minusSeconds(120)),
+                id);
         if (readAt != null) {
             notification.markRead(readAt);
         }
