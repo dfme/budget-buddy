@@ -124,7 +124,7 @@ export class PdfUpload {
   private readonly transactionService = inject(TransactionService);
   private readonly destroyRef = inject(DestroyRef);
 
-  /** Die 13 Kategorien des Dropdowns — dieselbe Quelle wie die Kategorie-Übersicht (FE-CAT-03). */
+  /** Die 17 Kategorien des Dropdowns — dieselbe Quelle wie die Kategorie-Übersicht (FE-CAT-03). */
   protected readonly categories = CATEGORIES;
 
   /** `true`, solange Upload oder Kategorisierung laufen — sperrt die Dropzone. */

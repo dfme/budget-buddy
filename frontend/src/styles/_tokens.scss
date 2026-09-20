@@ -41,7 +41,9 @@ $c-warning-soft: var(--c-warning-soft);
 
 $shadow-card: var(--shadow-card);
 
-// Kategorie-Palette — deckt alle 13 Kategorien aus `Category.java` ab.
+// Kategorie-Palette — deckt alle 17 Kategorien aus `Category.java` ab. Die vier Töne, die
+// BE-CAT-10 ergänzt hat, füllen die vier grössten Farbton-Lücken der bestehenden 13, damit
+// sie sich von ihren Nachbarn trennen: Indigo, Gold, Magenta, Karmin.
 // Im Komponenten-Port wird daraus eine `[class]`-Bindung auf den Kategorie-Slug.
 $categories: (
   'wohnen': var(--cat-wohnen),
@@ -56,6 +58,10 @@ $categories: (
   'bildung': var(--cat-bildung),
   'einkommen': var(--cat-einkommen),
   'sparen': var(--cat-sparen),
+  'persoenliches': var(--cat-persoenliches),
+  'steuern': var(--cat-steuern),
+  'bargeldbezug': var(--cat-bargeldbezug),
+  'reisen': var(--cat-reisen),
   'sonstiges': var(--cat-sonstiges),
 );
 

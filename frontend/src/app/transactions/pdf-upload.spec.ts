@@ -613,13 +613,13 @@ describe('PdfUpload', () => {
       expect(rows()).toHaveLength(1);
     });
 
-    /** AC 2 und 4: dieselben 13 Kategorien wie in FE-CAT-03, «Sonstiges» vorausgewählt. */
-    it('offers the 13 categories with Sonstiges preselected for an unassigned booking', () => {
+    /** AC 2 und 4: dieselben 17 Kategorien wie in FE-CAT-03, «Sonstiges» vorausgewählt. */
+    it('offers the 17 categories with Sonstiges preselected for an unassigned booking', () => {
       component.onDrop(dropEvent([pdfFile()]));
       completeImport(1, {}, [transaction({ id: 11, category: 'Sonstiges' })]);
 
       const options = Array.from(categorySelect().options).map((o) => o.value);
-      expect(options).toHaveLength(13);
+      expect(options).toHaveLength(17);
       expect(options).toContain('Lebensmittel');
       expect(categorySelect().value).toBe('Sonstiges');
     });

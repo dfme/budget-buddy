@@ -206,7 +206,9 @@ describe('CategoryOverview', () => {
     expect(rows.length).toBe(2);
 
     const cells = rows[0].querySelectorAll('td');
-    expect(cells[0].textContent?.trim()).toBe('Wohnen');
+    // Wie in `toggleFor`: Die Kategoriezelle trägt seit BE-CAT-10 neben dem Label auch den
+    // Glyph des Badges, also wird das Label selbst adressiert statt der ganzen Zelle.
+    expect(cells[0].querySelector('.badge__label')?.textContent?.trim()).toBe('Wohnen');
     expect(cells[1].textContent).toContain('1’000.00');
     expect(cells[2].textContent?.trim()).toBe('1');
     expect(cells[3].textContent?.trim()).toBe('74.05%');
@@ -414,13 +416,22 @@ describe('CategoryOverview', () => {
     expect(component.summary()?.totalCount).toBe(3);
   });
 
-  /** Der Aufklapp-Button der Zeile mit diesem Kategorie-Label. */
+  /**
+   * Der Aufklapp-Button der Zeile mit diesem Kategorie-Label.
+   *
+   * <p>Verglichen wird der Text von `.badge__label`, nicht der des ganzen Buttons: Seit
+   * BE-CAT-10 rendert das Badge den Kategorie-Glyph als Textknoten, und der steht damit im
+   * `textContent` des Buttons. Ein Vergleich auf Button-Ebene suchte also nach
+   * `"🛒Lebensmittel"` — dieselbe Falle, vor der `e2e/tests/categorization.spec.ts` schon
+   * seit FE-UI-07 warnt. Exakt statt Teilstring bleibt es, damit `Sonstiges` nicht
+   * versehentlich eine andere Zeile trifft.
+   */
   function toggleFor(category: string): HTMLButtonElement {
     const toggle = Array.from(
       (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>(
         '.drilldown-toggle',
       ),
-    ).find((button) => button.textContent?.trim() === category);
+    ).find((button) => button.querySelector('.badge__label')?.textContent?.trim() === category);
     expect(toggle).toBeDefined();
     return toggle!;
   }
@@ -533,8 +544,8 @@ describe('CategoryOverview', () => {
       // httpMock.verify() im afterEach beweist, dass kein weiterer Request offen ist.
     });
 
-    // AC 1: Dropdown zeigt alle 13 Kategorien aus CLAUDE.md
-    it('offers all 13 categories in every dropdown, preselected with the current one', () => {
+    // AC 1: Dropdown zeigt alle 17 Kategorien aus CLAUDE.md
+    it('offers all 17 categories in every dropdown, preselected with the current one', () => {
       expandLebensmittel();
 
       const dropdowns = selects();
@@ -542,8 +553,8 @@ describe('CategoryOverview', () => {
 
       for (const dropdown of dropdowns) {
         const options = Array.from(dropdown.options).map((option) => option.value);
-        expect(options).toHaveLength(13);
-        // Gegenprobe gegen die geteilte Liste statt gegen eine Kopie im Test: eine 14.
+        expect(options).toHaveLength(17);
+        // Gegenprobe gegen die geteilte Liste statt gegen eine Kopie im Test: eine 18.
         // Kategorie im Backend-Enum fällt so hier auf und nicht erst im Betrieb.
         expect(options).toEqual(CATEGORIES.map((c) => c.label));
       }

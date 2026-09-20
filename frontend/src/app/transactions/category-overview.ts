@@ -115,7 +115,7 @@ export class CategoryOverview {
   /** Deutsches Label → Kategorie-Slug, um aus der API-Antwort das `app-badge`-Token zu treffen. */
   private static readonly SLUG_BY_LABEL = new Map(CATEGORIES.map((c) => [c.label, c.slug]));
 
-  /** Die 13 Kategorien für das Korrektur-Dropdown (FE-CAT-03, AC 1). */
+  /** Die 17 Kategorien für das Korrektur-Dropdown (FE-CAT-03, AC 1). */
   protected readonly categories = CATEGORIES;
 
   private readonly summaryService = inject(TransactionSummaryService);

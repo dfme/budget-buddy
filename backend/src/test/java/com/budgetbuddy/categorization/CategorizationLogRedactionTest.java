@@ -114,7 +114,7 @@ class CategorizationLogRedactionTest {
 
     /**
      * Seit ADR-14 kann eine <em>unbekannte Kategorie</em> nicht mehr auftreten — das Schema lässt
-     * nur die 13 Enum-Konstanten zu. Der verbleibende Fall ist eine Antwort, die sich nicht lesen
+     * nur die 17 Enum-Konstanten zu. Der verbleibende Fall ist eine Antwort, die sich nicht lesen
      * lässt; auch sie darf nichts vom Zahlungstext preisgeben.
      */
     @Test

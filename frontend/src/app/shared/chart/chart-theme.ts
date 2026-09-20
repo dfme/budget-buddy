@@ -22,7 +22,7 @@ export interface ChartPalette {
   readonly lineStrong: string;
   /** `--c-accent` — hervorgehobener Balken (laufender Monat). */
   readonly accent: string;
-  /** Kategorie-Slug → Farbe aus `--cat-<slug>`, für alle 13 Kategorien. */
+  /** Kategorie-Slug → Farbe aus `--cat-<slug>`, für alle 17 Kategorien. */
   readonly categories: Readonly<Record<string, string>>;
   /** Effektive Schriftfamilie des Dokuments; leer, wenn (noch) nicht ermittelbar. */
   readonly fontFamily: string;
