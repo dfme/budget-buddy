@@ -9,9 +9,10 @@ import { expect, test } from '../fixtures/auth.fixture';
  * E2E-Abdeckung der Should-Have-Story US-08 «Wiederkehrende Ausgaben (Abos) erkennen»
  * (E2E-REC-01).
  *
- * Ein Happy Path und ein Alt-Pfad — die in CLAUDE.md («Testing: Frameworks») vorgeschriebene
- * Menge pro Story. Erkennung (`BE-REC-01`), REST-Endpoints (`BE-REC-02`) und der Screen
- * (`FE-REC-01`) existieren bereits; dieser Task liefert nur die Playwright-Abdeckung.
+ * Ein Happy Path und ein Alt-Pfad, analog zur Must-Have-Regel in `docs/CONVENTIONS.md`, obwohl
+ * US-08 als Should-Have nicht darunter fällt. Erkennung (`BE-REC-01`), REST-Endpoints
+ * (`BE-REC-02`) und der Screen (`FE-REC-01`) existieren bereits; dieser Task liefert nur die
+ * Playwright-Abdeckung.
  *
  * Einstieg über `authenticatedPage`/`authenticatedContext`: `/abos` liegt hinter `authGuard` UND
  * `onboardingGuard`, die Fixture erledigt beides über die API (siehe `fixtures/auth.fixture.ts`).
