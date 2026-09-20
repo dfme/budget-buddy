@@ -19,6 +19,13 @@ public interface UserCategoryLookupRepository extends JpaRepository<UserCategory
      * {@link CategoryLookupRepository#findMatching}, sortiert nach Pattern-Länge absteigend, damit
      * das spezifischste Pattern deterministisch vorn steht.
      *
+     * <p><strong>{@code locate(...)} statt {@code LIKE} — nicht zurückbauen (BE-CAT-14).</strong>
+     * Die Begründung steht bei {@link CategoryLookupRepository#findMatching} und wiegt hier
+     * schwerer: Diese Tabelle hält seit BE-CAT-12 <em>ausschliesslich</em> Gelerntes, also rohen
+     * Buchungstext, in dem ein {@code %} oder {@code _} regelmässig vorkommt — die kuratierten
+     * Seeds drüben tragen keines. Als {@code LIKE}-Muster würde ein solches Pattern zum Wildcard
+     * und eine falsche Kategorie über Stufe 1 liefern, ohne dass Claude den Text je sieht.
+     *
      * @param userId User, dessen Lerneinträge befragt werden.
      * @param text Transaktions-Freitext.
      * @return passende Einträge, spezifischster zuerst; leer, wenn kein Pattern matcht.
@@ -27,7 +34,7 @@ public interface UserCategoryLookupRepository extends JpaRepository<UserCategory
             """
             SELECT u FROM UserCategoryLookup u
             WHERE u.userId = :userId
-              AND upper(:text) LIKE concat('%', upper(u.empfaengerPattern), '%')
+              AND locate(upper(u.empfaengerPattern), upper(:text)) > 0
             ORDER BY length(u.empfaengerPattern) DESC, u.empfaengerPattern ASC
             """)
     List<UserCategoryLookup> findMatching(@Param("userId") Long userId, @Param("text") String text);
