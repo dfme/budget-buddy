@@ -10,18 +10,6 @@
   } @else if (errorMessage()) {
     <app-notice variant="error">{{ errorMessage() }}</app-notice>
   } @else {
-    <!--
-      FE-NOTIF-03: Die Seite wurde wegen eines bestimmten Eintrags geöffnet (`?ref=` aus der
-      Glocke), der nicht in der Liste steht. Zustandsbeschreibend formuliert, nicht als Ereignis
-      — markiert der Nutzer den referenzierten Eintrag hier selbst als «Kein Abo», bleibt der Satz
-      richtig, statt eine fremde Ursache zu behaupten.
-    -->
-    @if (referencedEntryMissing()) {
-      <app-notice variant="info" class="dismissed-hint">
-        Dieser Eintrag ist als «Kein Abo» markiert und erscheint deshalb nicht in der Liste.
-      </app-notice>
-    }
-
     @if (dismissErrorMessage(); as message) {
       <app-notice variant="error" class="dismiss-error">{{ message }}</app-notice>
     }
@@ -72,5 +60,30 @@
         </ul>
       }
     </app-card>
+
+    <!--
+      FE-NOTIF-03: Verneinte Einträge bleiben auf der Seite, in eigener Card unter der Abo-Liste.
+      Eigene Klassen (`dismissed-expense`), nicht `expense` — die Abo-Liste oben soll für Tests
+      und Screenreader weiterhin genau die Abos sein. Keine Aktion pro Zeile: ein Rückgängig gibt
+      es (noch) nicht.
+    -->
+    @if (dismissedRows().length > 0) {
+      <app-card class="dismissed" title="Kein Abo">
+        <p class="dismissed__intro">
+          Als «Kein Abo» markiert — diese Empfänger werden nicht mehr automatisch als Abo erkannt.
+        </p>
+        <ul class="dismissed-expenses">
+          @for (row of dismissedRows(); track row.id) {
+            <li class="dismissed-expense">
+              <div class="expense__main">
+                <span class="expense__payee">{{ row.payeeKey }}</span>
+                <span class="expense__since">{{ row.sinceLabel }}</span>
+              </div>
+              <app-amount class="expense__amount" [value]="row.amount" [hidePositiveSign]="true" />
+            </li>
+          }
+        </ul>
+      </app-card>
+    }
   }
 </section>

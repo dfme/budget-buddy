@@ -66,7 +66,7 @@ class RecurringExpenseControllerIntegrationTest {
     // --- AC1: GET /api/recurring-expenses ---
 
     @Test
-    void listReturnsOnlyTheOwnDetectedEntries() throws Exception {
+    void listReturnsOnlyTheOwnEntries() throws Exception {
         createRecurringExpense(lara, "NETFLIX");
         createRecurringExpense(marc, "SPOTIFY");
 
@@ -90,8 +90,13 @@ class RecurringExpenseControllerIntegrationTest {
                 .andExpect(jsonPath("$[2].payeeKey").value("SWISSCOM"));
     }
 
+    /**
+     * FE-NOTIF-03 (#333): ein verneinter Eintrag bleibt in der Liste, erkennbar an
+     * {@code status=DISMISSED} — die Übersicht zeigt ihn im Abschnitt «Kein Abo». Vor #333
+     * antwortete der Endpoint hier mit {@code []}.
+     */
     @Test
-    void dismissedEntriesDoNotAppearInTheList() throws Exception {
+    void dismissedEntriesStayInTheListWithStatusDismissed() throws Exception {
         long id = createRecurringExpense(lara, "NETFLIX");
 
         mockMvc.perform(post("/api/recurring-expenses/" + id + "/dismiss").cookie(jwtCookie(lara)))
@@ -99,7 +104,10 @@ class RecurringExpenseControllerIntegrationTest {
 
         mockMvc.perform(get("/api/recurring-expenses").cookie(jwtCookie(lara)))
                 .andExpect(status().isOk())
-                .andExpect(content().json("[]"));
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(id))
+                .andExpect(jsonPath("$[0].status").value("DISMISSED"))
+                .andExpect(jsonPath("$[0].isNew").value(false));
     }
 
     @Test
@@ -194,12 +202,16 @@ class RecurringExpenseControllerIntegrationTest {
                 .get()
                 .extracting(Notification::isRead)
                 .isEqualTo(false);
-        // Spotify ist weiterhin «neu» in der Übersicht.
+        // Spotify ist weiterhin «neu» in der Übersicht; Netflix steht als DISMISSED davor
+        // (alphabetisch).
         mockMvc.perform(get("/api/recurring-expenses").cookie(jwtCookie(lara)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].payeeKey").value("SPOTIFY"))
-                .andExpect(jsonPath("$[0].isNew").value(true));
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].payeeKey").value("NETFLIX"))
+                .andExpect(jsonPath("$[0].status").value("DISMISSED"))
+                .andExpect(jsonPath("$[1].payeeKey").value("SPOTIFY"))
+                .andExpect(jsonPath("$[1].status").value("DETECTED"))
+                .andExpect(jsonPath("$[1].isNew").value(true));
     }
 
     @Test

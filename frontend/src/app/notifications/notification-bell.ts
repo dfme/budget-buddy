@@ -108,26 +108,11 @@ export class NotificationBell {
    * Weg verlangt. Die Glocke selbst markiert trotzdem als gelesen — der Klick ist die
    * Kenntnisnahme der Benachrichtigung, nicht der Grund, warum der Eintrag in der Übersicht sein
    * «Neu» behält.
-   *
-   * <p><strong>Der `ref`-Parameter (FE-NOTIF-03).</strong> Die Übersicht zeigt nur
-   * `DETECTED`-Einträge — wurde der Eintrag zwischenzeitlich per «Kein Abo» verneint, führte der
-   * Klick auf eine Seite, auf der er fehlt, ohne jeden Hinweis warum. Mitgegeben wird deshalb die
-   * `referenceId`, die auf die Zeile in `recurring_expenses` zeigt; die Übersicht erkennt daran,
-   * dass der gemeinte Eintrag nicht (mehr) in ihrer Liste steht, und sagt es.
-   *
-   * <p>Nicht über `notification.read` entschieden: Der Gelesen-Status ist kein Stellvertreter für
-   * `DISMISSED`. Diese Methode markiert jede angeklickte Benachrichtigung als gelesen, ein
-   * intaktes Abo wäre nach dem ersten Klick also ebenfalls «gelesen» — ein Navigationsverbot
-   * daran festzumachen bräche den Normalfall.
    */
   protected select(notification: NotificationResponse): void {
     if (notification.type === RECURRING_EXPENSE_DETECTED) {
       this.close();
-      // Ohne `referenceId` gibt es nichts zu referenzieren — dann bleibt es beim blossen Ziel,
-      // statt `ref=null` in die URL zu schreiben.
-      void this.router.navigate(['/abos'], {
-        queryParams: notification.referenceId === null ? {} : { ref: notification.referenceId },
-      });
+      void this.router.navigate(['/abos']);
     }
 
     if (notification.read) {

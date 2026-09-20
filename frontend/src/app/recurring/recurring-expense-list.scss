@@ -20,13 +20,13 @@ h1 {
   font-size: $fs-sm;
 }
 
-.dismiss-error,
-.dismissed-hint {
+.dismiss-error {
   display: block;
   margin-bottom: $sp-4;
 }
 
-.expenses {
+.expenses,
+.dismissed-expenses {
   margin: 0;
   padding: 0;
   list-style: none;
@@ -34,7 +34,8 @@ h1 {
 
 // Eine Zeile: Empfänger + «seit» links, Betrag und Button rechts. Auf schmalen Schirmen bricht
 // der Button in eine eigene Zeile, statt Empfänger und Betrag zu quetschen.
-.expense {
+.expense,
+.dismissed-expense {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -97,5 +98,22 @@ h1 {
 }
 
 .status.empty {
+  color: $c-ink-2;
+}
+
+// Abschnitt «Kein Abo» (FE-NOTIF-03): eigene Card unter der Abo-Liste, Zeilen gedämpft — das
+// sind erledigte Einträge, keine Abos.
+.dismissed {
+  display: block;
+  margin-top: $sp-4;
+}
+
+.dismissed__intro {
+  margin: 0 0 $sp-2;
+  color: $c-ink-2;
+  font-size: $fs-sm;
+}
+
+.dismissed-expense {
   color: $c-ink-2;
 }

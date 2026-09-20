@@ -1,8 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, RouterLink } from '@angular/router';
-import { map } from 'rxjs';
+import { RouterLink } from '@angular/router';
 
 import { Amount } from '../shared/amount/amount';
 import { Button } from '../shared/button/button';
@@ -18,27 +16,33 @@ interface ExpenseRow extends RecurringExpenseResponse {
   sinceLabel: string;
 }
 
-/**
- * Liest den `ref`-Query-Parameter als Zeilen-ID (FE-NOTIF-03). Alles, was keine positive ganze
- * Zahl ist, gilt als nicht gesetzt — der Parameter kommt aus der URL und damit potenziell von
- * Hand. Der Leerstring ist der Grund für die Untergrenze: `Number('')` ist `0` und käme sonst als
- * gültige ID durch, obwohl `?ref=` gar keinen Eintrag benennt.
- */
-function parseReferencedId(raw: string | null): number | null {
-  if (raw === null || raw.trim() === '') {
-    return null;
-  }
-  const parsed = Number(raw);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+function toRow(expense: RecurringExpenseResponse): ExpenseRow {
+  return {
+    ...expense,
+    // `firstDetectedMonth` kommt als `YYYY-MM` aus der Datenbank; die Wache ist nur die
+    // Absicherung gegen «Invalid Date» im Label, falls das Format doch einmal abweicht.
+    sinceLabel: isValidMonth(expense.firstDetectedMonth)
+      ? `seit ${formatMonth(expense.firstDetectedMonth)}`
+      : `seit ${expense.firstDetectedMonth}`,
+  };
 }
 
 /**
  * Abo-Übersicht: erkannte wiederkehrende Ausgaben mit «Neu»-Label und «Kein Abo»-Button
- * (FE-REC-01, US-08).
+ * (FE-REC-01, US-08), darunter die verneinten Einträge in einem eigenen Abschnitt «Kein Abo»
+ * (FE-NOTIF-03).
  *
  * <p>Jede Zeile ist eine erkannte <em>Gruppe</em> — derselbe Empfänger, in mindestens zwei
  * aufeinanderfolgenden Monaten mit demselben Betrag belastet. Die Einzelbuchungen zeigt die
  * Übersicht nicht; dafür steht der erste Monat der Reihe («seit …») in der Zeile.
+ *
+ * <p>Der Abschnitt «Kein Abo» ist der Grund, warum der Klick auf eine
+ * `RECURRING_EXPENSE_DETECTED`-Benachrichtigung immer ein Ziel hat: die Benachrichtigung bleibt
+ * in der Glocke stehen, auch wenn der Eintrag inzwischen verneint wurde (BE-REC-03 markiert sie
+ * nur als gelesen). Stünde der Eintrag dann nirgends, landete der Klick auf einer Seite ohne
+ * ihn — genau das schliesst #333 AC1 aus. US-08 AC3 («wird aus der Abo-Übersicht entfernt»)
+ * heisst seither: aus der Liste der Abos, nicht von der Seite. Ohne verneinte Einträge fehlt der
+ * Abschnitt ganz.
  *
  * <p>Der State liegt im {@link RecurringExpenseService}, weil die Teaser-Card des Dashboards
  * dieselbe Liste zählt. Hier liegt nur, was allein diese Seite betrifft: Lade- und
@@ -57,7 +61,6 @@ function parseReferencedId(raw: string | null): number | null {
 })
 export class RecurringExpenseList {
   private readonly recurringExpenses = inject(RecurringExpenseService);
-  private readonly route = inject(ActivatedRoute);
 
   /** `true`, solange die Liste (noch) lädt. */
   readonly loading = signal(true);
@@ -72,50 +75,20 @@ export class RecurringExpenseList {
   readonly dismissErrorMessage = signal<string | null>(null);
 
   /**
-   * Die Zeilen fürs Template, mit fertigem «seit»-Label. Als `computed` statt Methodenaufruf im
-   * Template — dieselbe Begründung wie bei `Dashboard.totalRows`.
+   * Die Abo-Zeilen fürs Template, mit fertigem «seit»-Label. Als `computed` statt Methodenaufruf
+   * im Template — dieselbe Begründung wie bei `Dashboard.totalRows`.
    */
   readonly rows = computed<readonly ExpenseRow[]>(() =>
-    this.recurringExpenses.expenses().map((expense) => ({
-      ...expense,
-      // `firstDetectedMonth` kommt als `YYYY-MM` aus der Datenbank; die Wache ist nur die
-      // Absicherung gegen «Invalid Date» im Label, falls das Format doch einmal abweicht.
-      sinceLabel: isValidMonth(expense.firstDetectedMonth)
-        ? `seit ${formatMonth(expense.firstDetectedMonth)}`
-        : `seit ${expense.firstDetectedMonth}`,
-    })),
+    this.recurringExpenses.detected().map(toRow),
   );
 
   /**
-   * ID des Eintrags, wegen dem die Seite geöffnet wurde — aus `?ref=` (FE-NOTIF-03). `null`, wenn
-   * die Seite direkt angesteuert wurde.
-   *
-   * <p>Reaktiv aus `queryParamMap` statt einmalig im Konstruktor gelesen: Die Glocke sitzt in der
-   * App-Shell und ist auch auf `/abos` selbst sichtbar. Ein Klick dort wechselt nur den
-   * Query-Parameter, und bei gleichbleibender Route baut der Router die Komponente nicht neu —
-   * ein einmaliges Auslesen bliebe auf dem Wert der ersten Navigation stehen.
+   * Die verneinten Einträge für den Abschnitt «Kein Abo» (FE-NOTIF-03) — dieselbe Zeilenform,
+   * aber ohne «Neu» und ohne Button: `isNew` ist nach dem Dismiss immer `false`, und einen
+   * bereits verneinten Eintrag noch einmal zu verneinen wäre nur der idempotente Backend-Call.
    */
-  readonly referencedId = toSignal(
-    this.route.queryParamMap.pipe(map((params) => parseReferencedId(params.get('ref')))),
-    { initialValue: null },
-  );
-
-  /**
-   * `true`, wenn die Seite wegen eines bestimmten Eintrags geöffnet wurde, dieser aber nicht in
-   * der Liste steht (FE-NOTIF-03) — in der Praxis, weil er inzwischen «Kein Abo» ist:
-   * {@link RecurringExpenseService} lädt nur `DETECTED`-Einträge.
-   *
-   * <p>Die beiden ersten Bedingungen sind nicht kosmetisch. Während des Ladens ist {@link rows}
-   * leer, jeder Verweis liefe dann ins Leere; und ein Ladefehler heisst «unbekannt», nicht
-   * «verneint» — ohne diese Wachen behauptete der Hinweis in beiden Fällen etwas, das er nicht
-   * weiss.
-   */
-  readonly referencedEntryMissing = computed(
-    () =>
-      !this.loading() &&
-      this.errorMessage() === null &&
-      this.referencedId() !== null &&
-      !this.rows().some((row) => row.id === this.referencedId()),
+  readonly dismissedRows = computed<readonly ExpenseRow[]>(() =>
+    this.recurringExpenses.dismissed().map(toRow),
   );
 
   constructor() {
@@ -134,8 +107,9 @@ export class RecurringExpenseList {
    * <p>Nur ein Request zur Zeit: solange einer läuft, sind alle «Kein Abo»-Buttons gesperrt.
    * Das hält den Fehlerzustand eindeutig — eine Meldung für genau den Eintrag, der noch da ist.
    *
-   * <p>Bei Erfolg nimmt der Service den Eintrag aus dem State; die Zeile verschwindet damit aus
-   * {@link rows}. Bei einem Fehler bleibt sie stehen, ein erneuter Klick versucht es wieder.
+   * <p>Bei Erfolg ersetzt der Service den Eintrag im State durch die Antwort (`DISMISSED`); die
+   * Zeile wandert damit aus {@link rows} nach {@link dismissedRows}. Bei einem Fehler bleibt sie
+   * stehen, ein erneuter Klick versucht es wieder.
    */
   dismiss(expense: RecurringExpenseResponse): void {
     if (this.dismissingId() !== null) {

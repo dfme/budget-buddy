@@ -1,4 +1,4 @@
-# [FE-NOTIF-03] Klick auf Benachrichtigung eines verneinten Abos führt nach /abos ins Leere
+# [FE-NOTIF-03] Verneinte Abos bleiben auf /abos sichtbar — Abschnitt «Kein Abo»
 
 - **Issue:** [#333](https://github.com/dfme/budget-buddy/issues/333)
 - **Task-ID:** `FE-NOTIF-03`
@@ -11,7 +11,7 @@
 
 Klickt eine Person in der Glocke auf eine `RECURRING_EXPENSE_DETECTED`-Benachrichtigung, deren
 Abo-Eintrag inzwischen per «Kein Abo» verneint wurde, landet sie auf `/abos` — und der Eintrag
-ist dort nicht mehr zu sehen, weil `GET /api/recurring-expenses` hart auf `DETECTED` filtert
+war dort nicht zu sehen, weil `GET /api/recurring-expenses` bis dahin hart auf `DETECTED` filterte
 (`RecurringExpenseService.java:250`).
 
 ## Verworfene Variante: «gelesene Benachrichtigung navigiert nicht mehr»
@@ -33,80 +33,86 @@ Der zweite Klick auf ein intaktes Abo liefe damit ins Nichts — genau das, was 
 **Dismiss entfernt die Benachrichtigung (Backend).** Sauber, aber dreht den Kern von BE-REC-03
 (#324, PR #328) teilweise zurück und nimmt die Meldung aus der Historie.
 
-**`/abos` zeigt verneinte Einträge in eigenem Abschnitt (FE+BE).** Die einzige Variante, bei der
-der Klick ein echtes Ziel hat — aber sie kollidiert mit dem Wortlaut von US-08 AC3 («wird sie aus
-der Abo-Übersicht entfernt») und bricht zwei Assertions des gerade erst mit #329 grün gewordenen
-E2E-Alt-Pfads (`e2e/tests/recurring-expenses.spec.ts:140-153`: `li.expense → 0` und
-`p.status.empty` sichtbar).
+**Hinweis-Notice auf `/abos` (nur FE, erste Fassung dieses PR).** Die Glocke gab die
+`referenceId` als `?ref=` mit, die Übersicht meldete «Dieser Eintrag ist als Kein Abo markiert».
+Kleinster Eingriff, aber AC1 nur sinngemäss erfüllt: der Klick landete weiterhin auf einer Seite
+ohne den Eintrag. Im Review verworfen, siehe Entscheid.
 
 ## Entscheid
 
-Die Glocke navigiert für `RECURRING_EXPENSE_DETECTED` weiterhin nach `/abos`, hängt aber die
-`referenceId` als Query-Parameter `ref` an. Die Abo-Übersicht vergleicht diese ID nach dem Laden
-mit ihren Zeilen; fehlt sie, erscheint ein `info`-Notice über der Liste. Kein Backend, kein
-Contract, kein E2E-Eingriff.
+**Variante 3 aus dem Issue: `/abos` zeigt verneinte Einträge in einem eigenen Abschnitt
+«Kein Abo».** Der Klick aus der Glocke hat damit immer ein echtes Ziel — alle drei ACs sind
+wörtlich erfüllt.
 
-Der Parameter statt des Gelesen-Status, weil die Zeilen-ID die einzige Information ist, die beide
-Seiten teilen: `Notification.referenceId` zeigt auf `recurring_expenses.id` (`NotificationPort:21`,
-`RecurringExpenseService.java:286`).
+Produktentscheid im Review von PR #335 (dfme, 2026-09-20). Die erste Fassung des PR hatte
+stattdessen einen Hinweis-Notice auf `/abos` gesetzt (die Glocke gab die `referenceId` als
+`?ref=` mit, die Übersicht meldete den fehlenden Eintrag). Das erfüllte AC1 nur sinngemäss und
+wurde deshalb verworfen — zugunsten der einzigen Variante, bei der der Eintrag wirklich da ist.
+
+**Was der Entscheid an US-08 ändert:** AC3 («wird sie aus der Abo-Übersicht entfernt») heisst
+seither «aus der Liste der Abos entfernt, auf der Seite unter Kein Abo weiterhin sichtbar». Der
+Wortlaut in `docs/requirements/US-08-wiederkehrende-ausgaben.md` ist entsprechend präzisiert.
+
+### API-Form
+
+`GET /api/recurring-expenses` liefert beide Status in einer Liste; das DTO trägt `status` bereits.
+Die Übersicht braucht damit einen Request statt zwei, der Client trennt nach `status`. Einzige
+weitere Konsumentin ist die Dashboard-Teaser-Card (`count()`), die nur `DETECTED` zählt.
+Verworfen: `?status=` — zwei Requests für `/abos` oder ein Sonderwert `ALL` für nichts.
+
+### Kein `?ref`
+
+Der Eintrag ist auf der Seite; ein Highlight des gemeinten Eintrags wäre Scope-Creep. Die
+Glocke navigiert unverändert nach `/abos`.
 
 ## Betroffene Dateien
 
 | Datei | Änderung |
 | --- | --- |
-| `frontend/src/app/notifications/notification-bell.ts` | `select()` navigiert mit `queryParams: { ref: … }`, wenn `referenceId` gesetzt ist |
-| `frontend/src/app/notifications/notification-bell.spec.ts` | Test: Ziel ist `/abos?ref=42`; Test: ohne `referenceId` weiterhin `/abos` |
-| `frontend/src/app/recurring/recurring-expense-list.ts` | `ActivatedRoute` injizieren, `referencedId` als Signal, `referencedEntryMissing` als `computed` |
-| `frontend/src/app/recurring/recurring-expense-list.html` | `app-notice variant="info"` über der Card |
-| `frontend/src/app/recurring/recurring-expense-list.scss` | Abstand für den neuen Notice (analog `.dismiss-error`) |
-| `frontend/src/app/recurring/recurring-expense-list.spec.ts` | vier Tests, siehe Test-Strategie |
-
-## Implementierungsschritte
-
-1. `notification-bell.ts`: In `select()` beim Typ `RECURRING_EXPENSE_DETECTED` navigieren mit
-   `{ queryParams: notification.referenceId === null ? {} : { ref: notification.referenceId } }`.
-   Javadoc um den Grund ergänzen; die bestehende Begründung zur sofortigen Navigation bleibt.
-2. `recurring-expense-list.ts`: `ActivatedRoute` injizieren und `referencedId` über
-   `toSignal(this.route.queryParamMap.pipe(map(...)), { initialValue: null })` ableiten, mit
-   `Number.parseInt` plus `Number.isInteger`-Wache. Reaktiv statt einmalig im Konstruktor, weil
-   die Glocke auch von `/abos` aus geklickt werden kann — dann wechselt nur der Query-Parameter
-   und Angular baut die Komponente nicht neu.
-3. `recurring-expense-list.ts`: `referencedEntryMissing` als `computed` aus `!loading()`,
-   `errorMessage() === null`, `referencedId() !== null` und `!rows().some(...)`. Die ersten
-   beiden Wachen sind der Kern: während des Ladens ist `rows()` leer, und ein Ladefehler bedeutet
-   «unbekannt», nicht «verneint».
-4. `recurring-expense-list.html`: Im `@else`-Zweig, vor `dismissErrorMessage`, den Notice
-   einsetzen: «Dieser Eintrag ist als «Kein Abo» markiert und erscheint deshalb nicht in der
-   Liste.» Zustandsbeschreibend statt ereignisbezogen — dismisst der Nutzer den referenzierten
-   Eintrag selbst auf dieser Seite, bleibt der Satz korrekt.
-5. `.scss`: Regel für `.dismissed-hint` analog `.dismiss-error`.
-6. Tests schreiben, `npm test` und `ng build` laufen lassen.
+| `backend/…/RecurringExpenseRepository.java` | `findByUserIdAndStatusOrderByPayeeKeyAsc` → `findByUserIdOrderByPayeeKeyAsc` |
+| `backend/…/RecurringExpenseService.java` | `list` liefert beide Status; Javadoc zu `list` und `dismiss` |
+| `backend/…/RecurringExpenseController.java` | OpenAPI-Beschreibung von `GET` |
+| `backend/…/RecurringExpenseServiceTest.java`, `…ControllerIntegrationTest.java` | Mocks/Assertions auf beide Status |
+| `frontend/…/recurring-expense.model.ts` | Doku zu `status` |
+| `frontend/…/recurring-expense.service.ts` | `detected`/`dismissed` als `computed`, `count` aus `detected`, `dismiss()` ersetzt statt entfernt |
+| `frontend/…/recurring-expense-list.{ts,html,scss}` | zweite Card «Kein Abo» (`li.dismissed-expense`), nur wenn nicht leer; ohne «Neu», ohne Button |
+| `frontend/…/recurring-expense-list.spec.ts`, `…service.spec.ts` | siehe Test-Strategie |
+| `e2e/tests/recurring-expenses.spec.ts` | Alt-Pfad: zwei zusätzliche Assertions auf den Abschnitt |
+| `docs/requirements/US-08-wiederkehrende-ausgaben.md` | AC3 präzisiert |
 
 ## Test-Strategie
 
-Angular TestBed / Vitest, keine neuen E2E-Tests — der Weg ist reine Frontend-Logik, und der
-bestehende E2E-Alt-Pfad bleibt unberührt.
+Backend JUnit, Angular TestBed/Vitest und der bestehende Playwright-Alt-Pfad, additiv erweitert —
+die Abo-Card oben bleibt unverändert (`li.expense → 0`, `p.status.empty` bleiben wahr), der neue
+Abschnitt hat eigene Klassen.
 
-`notification-bell.spec.ts`
+Backend
 
-- Klick auf `RECURRING_UNREAD` (`referenceId: 42`) → `router.url` ist `/abos?ref=42`
-- Klick auf eine `RECURRING_EXPENSE_DETECTED` ohne `referenceId` → `/abos` ohne Parameter
+- `list` liefert `DETECTED` und `DISMISSED` mit ihrem Status (Unit + IT)
+- Nach `dismiss` bleibt der Eintrag in `GET`, mit `status=DISMISSED`, `isNew=false` (IT)
+- Mandantentrennung unverändert (IT)
 
-`recurring-expense-list.spec.ts` (`ActivatedRoute`-Stub mit `queryParamMap`)
+`recurring-expense.service.spec.ts`
 
-- `?ref=99`, Liste enthält 1 und 2 → Notice sichtbar → AC1
-- `?ref=1`, Liste enthält 1 → kein Notice → AC2
-- ohne Parameter → kein Notice
-- `?ref=99` und der `GET` schlägt fehl → kein Notice, nur die Fehlermeldung
+- Trennung nach Status, `count` zählt nur `DETECTED`
+- `dismiss` ersetzt den Eintrag an Ort und Stelle
+
+`recurring-expense-list.spec.ts`
+
+- Verneinter Eintrag im Abschnitt «Kein Abo», ohne «Neu», ohne Button; Abo-Liste enthält ihn
+  nicht → AC1 + US-08 AC3
+- Kein Abschnitt ohne Verneinte
+- Leerzustand und Abschnitt zugleich, wenn nur Verneinte da sind
+- «Kein Abo» verschiebt die Zeile in den Abschnitt
+
+`e2e/tests/recurring-expenses.spec.ts` (Alt-Pfad)
+
+- Nach dem Dismiss steht der Empfänger unter «Kein Abo», ohne Button; nach dem Reload weiterhin
 
 ## Acceptance Criteria (aus dem Issue)
 
-- [ ] Ein Klick auf eine `RECURRING_EXPENSE_DETECTED`-Benachrichtigung, deren Eintrag `DISMISSED`
-      ist, führt nicht auf eine Seite, auf der der Eintrag fehlt
-- [ ] Ein Klick auf eine Benachrichtigung, deren Eintrag noch `DETECTED` ist, führt weiterhin
-      nach `/abos` (US-08 AC2 bleibt erfüllt)
-- [ ] Test deckt den gewählten Weg ab (Vitest/TestBed oder Playwright, je nach Lösung)
-
-**Offen deklariert:** AC1 verlangt wörtlich, dass der Klick *nicht* auf einer Seite ohne den
-Eintrag landet. Dieser Weg landet dort, erklärt es aber. Nur die dritte Variante hätte den
-Buchstaben erfüllt — sie ist aus den oben genannten Gründen verworfen. Gehört so in den PR-Body.
+- [x] Ein Klick auf eine `RECURRING_EXPENSE_DETECTED`-Benachrichtigung, deren Eintrag `DISMISSED`
+      ist, führt nicht auf eine Seite, auf der der Eintrag fehlt — er steht unter «Kein Abo»
+- [x] Ein Klick auf eine Benachrichtigung, deren Eintrag noch `DETECTED` ist, führt weiterhin
+      nach `/abos` (US-08 AC2 bleibt erfüllt) — die Glocke ist unverändert
+- [x] Test deckt den gewählten Weg ab (JUnit, Vitest/TestBed und Playwright)

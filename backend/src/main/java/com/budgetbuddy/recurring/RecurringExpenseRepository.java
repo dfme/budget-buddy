@@ -23,15 +23,17 @@ public interface RecurringExpenseRepository extends JpaRepository<RecurringExpen
     List<RecurringExpense> findByUserId(Long userId);
 
     /**
-     * Einträge eines Users in einem Status — für {@code list} (BE-REC-02): nur {@code DETECTED}
-     * gehört in die Abo-Übersicht, ein «Kein Abo» markierter Eintrag verschwindet daraus (US-08).
+     * Alle Einträge eines Users, beide Status, sortiert — für {@code list} (BE-REC-02). Seit
+     * FE-NOTIF-03 gehören auch {@code DISMISSED}-Einträge in die Antwort: die Abo-Übersicht zeigt
+     * sie in einem eigenen Abschnitt «Kein Abo», damit der Klick auf eine Benachrichtigung zu
+     * einem inzwischen verneinten Eintrag ein Ziel hat. Die Trennung nach Status macht der
+     * Client anhand des {@code status}-Felds.
      *
      * <p>Alphabetisch nach {@code payee_key}, damit die Übersicht zwischen zwei Aufrufen nicht
      * springt — ohne {@code ORDER BY} hinge die Reihenfolge an der Datenbank. Der Schlüssel ist pro
      * User eindeutig (V11), die Sortierung damit total.
      */
-    List<RecurringExpense> findByUserIdAndStatusOrderByPayeeKeyAsc(
-            Long userId, RecurringExpenseStatus status);
+    List<RecurringExpense> findByUserIdOrderByPayeeKeyAsc(Long userId);
 
     /**
      * Einzelner Eintrag eines Users — für {@code dismiss} (BE-REC-02).

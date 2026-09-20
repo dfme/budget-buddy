@@ -134,11 +134,18 @@ test.describe('Abo-Erkennung', () => {
     // dieser Zeile läuft (`recurring-expense-list.html`), das aria-label bleibt stabil.
     await page.getByRole('button', { name: `Kein Abo: ${PAYEE}` }).click();
 
-    // Kein Reload nötig: `dismiss` nimmt den Eintrag lokal aus dem State
-    // (`recurring-expense.service.ts`). Die Zeile verschwindet sofort, die Übersicht ist danach
-    // leer — nur dieser eine Empfänger wurde importiert.
+    // Kein Reload nötig: `dismiss` ersetzt den Eintrag lokal im State
+    // (`recurring-expense.service.ts`). Die Zeile verschwindet sofort aus der Abo-Liste, die ist
+    // danach leer — nur dieser eine Empfänger wurde importiert.
     await expect(row).toHaveCount(0);
     await expect(page.locator('p.status.empty')).toBeVisible();
+
+    // FE-NOTIF-03 (#333): Der Eintrag verlässt die Seite nicht, er wechselt in den Abschnitt
+    // «Kein Abo» — damit der Klick auf die Benachrichtigung in der Glocke weiterhin ein Ziel
+    // hat. Eigene Klasse, nicht `li.expense`: die Abo-Liste oben bleibt genau die Abos.
+    const dismissedRow = page.locator('li.dismissed-expense').filter({ hasText: PAYEE });
+    await expect(dismissedRow).toHaveCount(1);
+    await expect(dismissedRow.locator('.expense__dismiss')).toHaveCount(0);
 
     // Zweiter Import: eine dritte Monatsbuchung desselben Empfängers/Betrags. Für sich genommen
     // qualifiziert das Paar Juli/August erneut — die Erkennung überspringt den Empfänger aber,
@@ -151,5 +158,7 @@ test.describe('Abo-Erkennung', () => {
     await page.reload();
     await expect(page.locator('li.expense').filter({ hasText: PAYEE })).toHaveCount(0);
     await expect(page.locator('p.status.empty')).toBeVisible();
+    // … und unter «Kein Abo» steht er nach dem frischen GET weiterhin (status=DISMISSED).
+    await expect(page.locator('li.dismissed-expense').filter({ hasText: PAYEE })).toHaveCount(1);
   });
 });
