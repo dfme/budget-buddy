@@ -1,9 +1,9 @@
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { type APIRequestContext, type Locator, type Page } from '@playwright/test';
+import { type Locator, type Page } from '@playwright/test';
 
 import { expect, test } from '../fixtures/auth.fixture';
+import { importFixture } from '../support/import';
 
 /**
  * E2E-Abdeckung der Should-Have-Story US-12 «Zwischen Monaten wechseln» (E2E-STS-02).
@@ -52,73 +52,6 @@ test.describe('Monatswechsel', () => {
   const FIXTURE_MONTH_LABEL = 'Juni 2025';
 
   /**
-   * Obergrenze für den Kategorisierungs-Job. Seit ADR-14 (BE-PDF-09) läuft er asynchron; in der
-   * Testinstanz ohne `ANTHROPIC_API_KEY` dauert er Millisekunden, der serverseitige Watchdog
-   * steht aber auf 300s. Grosszügig, damit ein legitim langsamer Job nicht als Testfehler
-   * erscheint, während das Backend noch innerhalb seiner eigenen Grenze arbeitet.
-   */
-  const IMPORT_TIMEOUT_MS = 60_000;
-
-  /**
-   * Importiert die Fixture über die API und wartet, bis der Kategorisierungs-Job durch ist.
-   *
-   * <p>Bewusst nicht durch die Upload-UI: der Import ist Vorbedingung dieses Tests, nicht sein
-   * Gegenstand. Ihn durchzuklicken würde US-12 an US-04 aufhängen — ein Bug im Upload-UI liesse
-   * dann auch diese beiden Fälle rot werden, ohne Hinweis auf die eigentliche Ursache. Dieselbe
-   * Begründung, mit der die Auth-Fixture über die API registriert statt durchs Login-Formular.
-   *
-   * <p><strong>Auf `DONE` gewartet wird nicht aus Vorsicht.</strong> `Transaction.category`
-   * bleibt bis zum Abschluss des Jobs `null` (`Transaction.java:67`), und die Kategorie-Übersicht
-   * gruppiert danach. Ohne das Warten stünde der letzte Schritt des Happy Path vor einer leeren
-   * Tabelle und meldete einen Fehler im Monatswechsel, wo in Wahrheit nur die Vorbedingung noch
-   * lief.
-   *
-   * <p>Zweite Kopie neben `categorization.spec.ts:98` statt eines Helfers in `support/`: Das ist
-   * gemeinsamer Harness-Code, an dem alle Specs hängen — für einen PR, der einen Test
-   * hinzufügt, der falsche Blast Radius. Dieselbe Abwägung, mit der jener Spec sein Cleanup
-   * lokal hält.
-   */
-  async function importFixtureStatement(request: APIRequestContext): Promise<void> {
-    const upload = await request.post('/api/import/pdf', {
-      multipart: {
-        file: {
-          name: 'kontoauszug-synthetisch.pdf',
-          mimeType: 'application/pdf',
-          buffer: readFileSync(FIXTURE_PDF),
-        },
-      },
-    });
-    expect(upload.status(), 'Vorbedingung: POST /api/import/pdf').toBe(202);
-
-    const { jobId, total } = (await upload.json()) as {
-      jobId: number;
-      total: number;
-    };
-    expect(total, 'Vorbedingung: Anzahl geparster Buchungen').toBe(FIXTURE_TRANSACTION_COUNT);
-
-    let status = 'RUNNING';
-    await expect
-      .poll(
-        async () => {
-          const response = await request.get(`/api/import/${jobId}/status`);
-          expect(response.status(), `GET /api/import/${jobId}/status`).toBe(200);
-          ({ status } = (await response.json()) as { status: string });
-          return status;
-        },
-        {
-          timeout: IMPORT_TIMEOUT_MS,
-          message: `Import-Job ${jobId} hat keinen Endzustand erreicht`,
-        },
-      )
-      .not.toBe('RUNNING');
-
-    // DONE statt bloss «nicht mehr RUNNING»: ein FAILED-Job würde sonst als erfüllte Vorbedingung
-    // durchgehen, und der Test scheiterte danach an einer leeren Ansicht — mit einer Meldung, die
-    // auf den Monatswechsel zeigt statt auf den Import.
-    expect(status, `Import-Job ${jobId} endete nicht erfolgreich`).toBe('DONE');
-  }
-
-  /**
    * Der laufende Monat und sein Vormonat als `YYYY-MM`, aus einem einzigen `Date` abgeleitet.
    *
    * <p>Beides in einem Aufruf, weil der Test sonst zweimal «jetzt» läse: Ein Lauf, der exakt über
@@ -163,7 +96,7 @@ test.describe('Monatswechsel', () => {
     authenticatedContext: context,
     authenticatedPage: page,
   }) => {
-    await importFixtureStatement(context.request);
+    await importFixture(context.request, FIXTURE_PDF, FIXTURE_TRANSACTION_COUNT);
 
     const { current } = currentAndPreviousMonth();
 
@@ -264,7 +197,7 @@ test.describe('Monatswechsel', () => {
     // Fehlerpfad von US-12 und nicht zu dem eines frischen Kontos: Der Hinweis muss am gewählten
     // Monat hängen, nicht daran, dass es überhaupt keine Buchungen gibt. Ohne den Import wäre
     // der Test auch gegen eine Implementierung grün, die den Hinweis pauschal zeigt.
-    await importFixtureStatement(context.request);
+    await importFixture(context.request, FIXTURE_PDF, FIXTURE_TRANSACTION_COUNT);
 
     const { current, previous } = currentAndPreviousMonth();
     const previousLabel = monthLabel(previous);

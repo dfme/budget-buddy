@@ -158,4 +158,5 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `INFRA-35` | [Automatisches PR-Review verstummt bei Hintergrund-Verifikation im nicht-interaktiven Lauf](INFRA-35-review-pr-no-background-verify.md) | [#224](https://github.com/dfme/budget-buddy/issues/224) | — | Sprint 5 |
 | `INFRA-37` | [MDC einführen: User-ID in Logs für bessere Analysierbarkeit](INFRA-37-mdc-logging.md) | [#257](https://github.com/dfme/budget-buddy/issues/257) | — | Sprint 6 |
 | `INFRA-38` | [Testdaten für Präsentation: Demo-Logins + Kontoauszüge für Lara und Marc](INFRA-38-demo-testdaten.md) | [#258](https://github.com/dfme/budget-buddy/issues/258) | — | Sprint 6 |
+| `INFRA-45` | [Import-Poll-Helper der E2E-Tests liegt dreifach kopiert in den Specs](INFRA-45-import-poll-helper.md) | [#332](https://github.com/dfme/budget-buddy/issues/332) | — | Sprint 7 |
 | — | [Zuschnitt: US-08, US-12](us-08-09-12-breakdown.md) | — | — | — |
