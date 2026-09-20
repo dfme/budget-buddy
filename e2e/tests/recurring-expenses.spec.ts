@@ -14,6 +14,11 @@ import { importFixture } from '../support/import';
  *
  * Einstieg über `authenticatedPage`/`authenticatedContext`: `/abos` liegt hinter `authGuard` UND
  * `onboardingGuard`, die Fixture erledigt beides über die API (siehe `fixtures/auth.fixture.ts`).
+ *
+ * <p>Die Abo-Erkennung läuft synchron am Ende desselben Import-Jobs
+ * (`ImportJobRunner.detectRecurringExpenses`, vor `finishSuccessfully`), ein separates Warten
+ * auf die Erkennung ist deshalb in keinem der beiden Tests nötig — sobald `importFixture` `DONE`
+ * meldet, ist `GET /api/recurring-expenses` bereits aktuell.
  */
 test.describe('Abo-Erkennung', () => {
   /**
@@ -47,12 +52,6 @@ test.describe('Abo-Erkennung', () => {
   /** Empfängertext ohne Ziffern — überlebt `ExpenseHistoryService.normalise` unverändert. */
   const PAYEE = 'STREAMBOX.CH ABO';
 
-  /**
-   * Die Abo-Erkennung läuft synchron am Ende desselben Import-Jobs
-   * (`ImportJobRunner.detectRecurringExpenses`, vor `finishSuccessfully`), ein separates Warten
-   * auf die Erkennung ist deshalb nicht nötig — sobald `importFixture` `DONE` meldet, ist
-   * `GET /api/recurring-expenses` bereits aktuell.
-   */
   test('Happy Path: gleicher Empfänger/Betrag in 2 Folgemonaten erscheint mit «Neu»-Label', async ({
     authenticatedContext,
     authenticatedPage: page,

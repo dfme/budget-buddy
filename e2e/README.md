@@ -94,6 +94,7 @@ die im JAR gebündelte SPA aus«) schlägt dann als Einziger fehl und nennt gena
 | `fixtures/pdf/` | Synthetische Kontoauszug-PDFs — unkomprimiertes ASCII, lokal mit `cat` oder `git diff` prüfbar (GitHub zeigt sie als binär) |
 | `support/backend.ts` | Port, Basis-URL, JAR-Auflösung, Test-JWT-Secret |
 | `support/database.ts` | Verbindungsdaten der E2E-Datenbank und `resetDatabase()` |
+| `support/import.ts` | `importFixture()` — PDF-Import über die API anstossen und auf den Job-Endzustand pollen |
 | `global-setup.ts` | Ruft `resetDatabase()` einmal pro Lauf auf, nach dem Start der Instanz |
 | `playwright.config.ts` | Runner-Konfiguration inkl. `webServer` und `globalSetup` |
 

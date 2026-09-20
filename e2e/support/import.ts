@@ -8,7 +8,7 @@ import { type APIRequestContext, expect } from '@playwright/test';
  * steht aber auf 300s. Grosszügig, damit ein legitim langsamer Job nicht als Testfehler
  * erscheint, während das Backend noch innerhalb seiner eigenen Grenze arbeitet.
  */
-export const IMPORT_TIMEOUT_MS = 60_000;
+const IMPORT_TIMEOUT_MS = 60_000;
 
 /**
  * Importiert eine Fixture über die API und wartet, bis der Job einen Endzustand erreicht hat.
