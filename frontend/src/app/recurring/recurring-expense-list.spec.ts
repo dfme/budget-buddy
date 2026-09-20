@@ -27,6 +27,17 @@ const SPOTIFY: RecurringExpenseResponse = {
   isNew: false,
 };
 
+/** Ein per «Kein Abo» verneinter Eintrag, wie `GET` ihn seit FE-NOTIF-03 mitliefert. */
+const SWISSCOM_DISMISSED: RecurringExpenseResponse = {
+  id: 3,
+  payeeKey: 'SWISSCOM',
+  amount: 59.9,
+  status: 'DISMISSED',
+  firstDetectedMonth: '2026-05',
+  createdAt: '2026-08-20T08:00:00Z',
+  isNew: false,
+};
+
 describe('RecurringExpenseList', () => {
   let fixture: ComponentFixture<RecurringExpenseList>;
   let httpMock: HttpTestingController;
@@ -60,6 +71,14 @@ describe('RecurringExpenseList', () => {
     return Array.from(el().querySelectorAll<HTMLButtonElement>('.expense__dismiss'));
   }
 
+  function dismissedRows(): HTMLElement[] {
+    return Array.from(el().querySelectorAll<HTMLElement>('.dismissed-expense'));
+  }
+
+  function dismissedSection(): HTMLElement | null {
+    return el().querySelector<HTMLElement>('.dismissed');
+  }
+
   it('zeigt einen Ladezustand, solange der Request läuft', () => {
     httpMock.expectOne('/api/recurring-expenses');
     fixture.detectChanges();
@@ -91,8 +110,9 @@ describe('RecurringExpenseList', () => {
     expect(list[1].classList).not.toContain('expense--new');
   });
 
-  it('ruft bei Kein Abo den dismiss-Endpoint auf und entfernt den Eintrag aus der Liste', () => {
+  it('ruft bei Kein Abo den dismiss-Endpoint auf und verschiebt den Eintrag nach «Kein Abo»', () => {
     flushList([NETFLIX, SPOTIFY]);
+    expect(dismissedSection()).toBeNull();
 
     dismissButtons()[0].click();
     fixture.detectChanges();
@@ -104,13 +124,51 @@ describe('RecurringExpenseList', () => {
 
     const req = httpMock.expectOne('/api/recurring-expenses/1/dismiss');
     expect(req.request.method).toBe('POST');
-    req.flush({ ...NETFLIX, status: 'DISMISSED' });
+    req.flush({ ...NETFLIX, status: 'DISMISSED', isNew: false });
     fixture.detectChanges();
 
     const list = rows();
     expect(list).toHaveLength(1);
     expect(list[0].querySelector('.expense__payee')?.textContent).toContain('SPOTIFY');
     expect(dismissButtons()[0].disabled).toBe(false);
+    // FE-NOTIF-03: die Zeile verlässt die Seite nicht, sie wechselt in den Abschnitt «Kein Abo».
+    expect(dismissedRows()).toHaveLength(1);
+    expect(dismissedRows()[0].querySelector('.expense__payee')?.textContent).toContain('NETFLIX');
+  });
+
+  // FE-NOTIF-03, #333 AC1: Der Klick auf die Benachrichtigung eines inzwischen verneinten
+  // Eintrags führt nach `/abos` — und der Eintrag muss dort stehen. Ohne diesen Abschnitt
+  // landete er auf einer Seite, auf der der Eintrag fehlt.
+  it('zeigt verneinte Einträge in einem eigenen Abschnitt «Kein Abo», ohne Neu-Label und Button', () => {
+    flushList([NETFLIX, SWISSCOM_DISMISSED]);
+
+    // Die Abo-Liste bleibt genau die Abos (US-08 AC3: aus der Abo-Liste entfernt).
+    expect(rows()).toHaveLength(1);
+    expect(rows()[0].querySelector('.expense__payee')?.textContent).toContain('NETFLIX');
+
+    const section = dismissedSection();
+    expect(section?.querySelector('.card__title')?.textContent).toBe('Kein Abo');
+    const dismissed = dismissedRows();
+    expect(dismissed).toHaveLength(1);
+    expect(dismissed[0].querySelector('.expense__payee')?.textContent).toContain('SWISSCOM');
+    expect(dismissed[0].querySelector('.expense__since')?.textContent).toContain('seit Mai 2026');
+    expect(dismissed[0].querySelector('.expense__amount')?.textContent).toContain('59.90');
+    expect(dismissed[0].querySelector('.expense__new')).toBeNull();
+    expect(dismissed[0].querySelector('.expense__dismiss')).toBeNull();
+  });
+
+  it('zeigt den Abschnitt «Kein Abo» nicht, solange nichts verneint ist', () => {
+    flushList([NETFLIX, SPOTIFY]);
+
+    expect(dismissedSection()).toBeNull();
+  });
+
+  // Nur Verneinte, kein einziges Abo: oben der Leerzustand, unten der Abschnitt — beides.
+  it('zeigt Leerzustand und Abschnitt «Kein Abo» zugleich, wenn nur Verneinte da sind', () => {
+    flushList([SWISSCOM_DISMISSED]);
+
+    expect(el().querySelector('.status.empty')).not.toBeNull();
+    expect(dismissedRows()).toHaveLength(1);
   });
 
   it('lässt den Eintrag bei einem fehlschlagenden Kein Abo stehen und zeigt eine Meldung', () => {

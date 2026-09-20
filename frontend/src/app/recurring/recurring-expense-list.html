@@ -60,5 +60,30 @@
         </ul>
       }
     </app-card>
+
+    <!--
+      FE-NOTIF-03: Verneinte Einträge bleiben auf der Seite, in eigener Card unter der Abo-Liste.
+      Eigene Klassen (`dismissed-expense`), nicht `expense` — die Abo-Liste oben soll für Tests
+      und Screenreader weiterhin genau die Abos sein. Keine Aktion pro Zeile: ein Rückgängig gibt
+      es (noch) nicht.
+    -->
+    @if (dismissedRows().length > 0) {
+      <app-card class="dismissed" title="Kein Abo">
+        <p class="dismissed__intro">
+          Als «Kein Abo» markiert — diese Empfänger werden nicht mehr automatisch als Abo erkannt.
+        </p>
+        <ul class="dismissed-expenses">
+          @for (row of dismissedRows(); track row.id) {
+            <li class="dismissed-expense">
+              <div class="expense__main">
+                <span class="expense__payee">{{ row.payeeKey }}</span>
+                <span class="expense__since">{{ row.sinceLabel }}</span>
+              </div>
+              <app-amount class="expense__amount" [value]="row.amount" [hidePositiveSign]="true" />
+            </li>
+          }
+        </ul>
+      </app-card>
+    }
   }
 </section>

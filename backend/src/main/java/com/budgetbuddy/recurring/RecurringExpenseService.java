@@ -231,15 +231,23 @@ public class RecurringExpenseService implements RecurringExpenseDetectionPort {
     }
 
     /**
-     * Liefert die Abo-Übersicht des Users (BE-REC-02): nur {@code DETECTED}-Einträge, ein «Kein
-     * Abo» markierter Eintrag ist keine Abo-Übersicht mehr wert (US-08). Das «Neu»-Flag kommt aus
-     * dem Gelesen-Zustand der zugehörigen Notification, nicht aus einem eigenen Feld — siehe
+     * Liefert die Abo-Übersicht des Users (BE-REC-02): alle Einträge, {@code DETECTED} wie
+     * {@code DISMISSED}, unterscheidbar am {@code status}-Feld. Das «Neu»-Flag kommt aus dem
+     * Gelesen-Zustand der zugehörigen Notification, nicht aus einem eigenen Feld — siehe
      * Klassen-Javadoc zur Notification-Erzeugung in {@link #detect(long)}.
      *
+     * <p>Ursprünglich nur {@code DETECTED} (US-08 AC3: «wird aus der Abo-Übersicht entfernt»).
+     * Seit FE-NOTIF-03 (#333) kommen die {@code DISMISSED}-Einträge mit: die Übersicht zeigt sie in
+     * einem eigenen Abschnitt «Kein Abo», damit der Klick auf eine
+     * {@code RECURRING_EXPENSE_DETECTED}-Benachrichtigung auch dann ein Ziel hat, wenn der Eintrag
+     * inzwischen verneint wurde — die Benachrichtigung bleibt in der Glocke stehen (BE-REC-03
+     * markiert sie nur als gelesen). «Entfernt» heisst seither «aus der Liste der Abos», nicht
+     * «von der Seite».
+     *
      * <p><strong>Mandantentrennung:</strong>
-     * {@link RecurringExpenseRepository#findByUserIdAndStatusOrderByPayeeKeyAsc} ist auf den
-     * übergebenen User eingeschränkt. Die Reihenfolge ist alphabetisch nach Empfänger und damit
-     * stabil zwischen zwei Aufrufen.
+     * {@link RecurringExpenseRepository#findByUserIdOrderByPayeeKeyAsc} ist auf den übergebenen
+     * User eingeschränkt. Die Reihenfolge ist alphabetisch nach Empfänger und damit stabil
+     * zwischen zwei Aufrufen.
      *
      * @param userId ID des eingeloggten Users (aus dem JWT).
      */
@@ -247,7 +255,7 @@ public class RecurringExpenseService implements RecurringExpenseDetectionPort {
     public List<RecurringExpenseResponse> list(long userId) {
         Set<Long> unread = notificationPort.unreadReferenceIds(userId, NOTIFICATION_TYPE);
         return recurringExpenseRepository
-                .findByUserIdAndStatusOrderByPayeeKeyAsc(userId, RecurringExpenseStatus.DETECTED)
+                .findByUserIdOrderByPayeeKeyAsc(userId)
                 .stream()
                 .map(expense -> toResponse(expense, unread.contains(expense.getId())))
                 .toList();
@@ -259,8 +267,8 @@ public class RecurringExpenseService implements RecurringExpenseDetectionPort {
      * ausgeschlossen — das leistet bereits {@link #detect(long)} (siehe Klassen-Javadoc), hier
      * wird der Status umgestellt und die zugehörige Benachrichtigung als gelesen markiert
      * (BE-REC-03): eine Glocke, die weiter für ein «erkanntes Abo» wirbt, das gerade verneint
-     * wurde, führt nach {@code /abos} ins Leere — {@link #list(long)} liefert den Eintrag nicht
-     * mehr.
+     * wurde, zählt ins Badge, obwohl es nichts Neues gibt. In {@link #list(long)} bleibt der
+     * Eintrag mit {@code status=DISMISSED} enthalten (FE-NOTIF-03).
      *
      * <p>Status und Gelesen-Marke stehen in <em>einer</em> Transaktion — zusammen in der
      * Datenbank oder keines von beiden, dieselbe Klammer wie bei Zeile und Notification in

@@ -12,7 +12,10 @@ export interface RecurringExpenseResponse {
   payeeKey: string;
   /** Betrag der jüngsten erkannten Belastung, in CHF. */
   amount: number;
-  /** `GET` liefert nur `DETECTED`; `DISMISSED` kommt nur als Antwort von `dismiss` zurück. */
+  /**
+   * `GET` liefert beide Status (FE-NOTIF-03): `DETECTED` ist ein erkanntes Abo, `DISMISSED` ein
+   * per «Kein Abo» verneinter Eintrag, den die Übersicht in einem eigenen Abschnitt zeigt.
+   */
   status: 'DETECTED' | 'DISMISSED';
   /** Erster Monat der Abo-Reihe in den Daten, als `YYYY-MM`. */
   firstDetectedMonth: string;
