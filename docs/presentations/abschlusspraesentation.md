@@ -120,9 +120,10 @@ laufen lassen, schlägt die Live-Registrierung in B30 mit `409` fehl, weil die E
 1 Minute Puffer bleibt (9 von 10 Min verplant) — gegenüber der vorherigen Version leicht entspannter,
 weil der separate Login-Schritt durch den Auto-Login in B30 entfällt.
 
-**Zusatzfeature nur als Puffer, nicht fest eingeplant:** Abo-Übersicht (US-08) **oder** Sparziel
-(US-07) nur zeigen, falls nach B34 noch Zeit bleibt — im festen 10-Minuten-Budget ist dafür kein
-fixer Platz.
+**Zusatzfeature nur als Puffer, nicht fest eingeplant:** Abo-Übersicht (US-08) nur zeigen, falls
+nach B34 noch Zeit bleibt — im festen 10-Minuten-Budget ist dafür kein fixer Platz. Sparziel
+(US-07) ist **nicht implementiert** (nur Requirements-Doku, kein Code) und deshalb kein
+Puffer-Kandidat — siehe Feature-Liste unten.
 
 **Timing bleibt eng:** Bei der Zeitprobe (siehe „Offene Punkte") zuerst B30 stoppen — falls
 Registrierung + Wizard + Banner + Einkommen dort länger als 2 Minuten brauchen, eher den Wizard auf
@@ -146,6 +147,64 @@ berücksichtigen).
 
 ---
 
+### Vollständige Feature-Liste & Zuordnung zu den Präsentationen
+
+Es gibt **zwei Präsentationen**: die Abschlusspräsentation (dieses Dokument, 10-Minuten-Demo
+B30–B34 oben) und **eine Woche vorher eine verkürzte Testpräsentation** mit demselben Team, aber
+weniger Zeit für die Demo. Tabelle unten listet **jedes einzelne Feature** (= jede User Story,
+[docs/requirements/](../requirements/)) mit Ist-Stand, Zuordnung zu den beiden Präsentationen und
+1–2 Zusatzpunkten pro Feature, falls die Demo schneller geht als geplant.
+
+**Annahme, die im Team noch bestätigt werden muss:** Die Testpräsentation hat ca. 4–5 Minuten für
+die Demo (die Hälfte der Abschlusspräsentation) — falls das Team einen anderen Wert festlegt,
+Tabelle und T30–T33 unten entsprechend anpassen (siehe „Offene Punkte").
+
+**Hauptnutzen — Pflicht an beiden Präsentationen:** PDF-Import (US-04) → Kategorisierung
+automatisch + 1 manuelle Korrektur (US-05) → Safe-to-Spend-Betrag (US-06). Das ist die Kernkette
+aus B31–B33 und entspricht Laras `Core Value` aus [README.md](../../README.md) — unabhängig vom
+Zeitbudget nicht kürzbar, da sonst der eigentliche Produktnutzen an keiner der beiden
+Präsentationen gezeigt wird.
+
+| US | Feature | Status | Testpräsentation | Abschlusspräsentation | Puffer, falls Zeit übrig |
+| --- | ------- | ------ | ----------------- | ---------------------- | ------------------------- |
+| US-01 | Login / Registrierung | ✅ implementiert | indirekt — Lara ist vorbereitet, kein Live-Login-Screen (T30) | ja — B30, Live-Registrierung mit Auto-Login | (1) zweiten Login-Versuch mit falschem Passwort zeigen (401) · (2) JWT als httpOnly-Cookie kurz erwähnen (Bezug ADR-7, Bereich 1) |
+| US-02 | Datenschutz: Konto löschen | ✅ implementiert (Consent-Checkbox bei Registrierung ⚠️ noch nicht umgesetzt) | nein | ja — B34, Bestätigungsdialog mit Passwort, Login danach schlägt fehl | (1) fehlgeschlagenen Login-Versuch nach Löschung zeigen · (2) erwähnen, dass Transaktionen/Fixkosten mitgelöscht werden, nicht nur der Useraccount |
+| US-03 | Fixkosten-Wizard (Onboarding) | ✅ implementiert | verkürzt — nur 1 Position statt aller 3 (T30) | ja — B30, alle Positionen aus der Tabelle oben | (1) Validierungsfehler zeigen (negativer/leerer Betrag) · (2) danach unter „Fixkosten" eine weitere Position live nachtragen |
+| **US-04** | **PDF-Upload** | ✅ **Hauptnutzen** | **ja — Kernstück (T31)** | **ja — Kernstück (B31)** | (1) Fortschrittsanzeige/Polling kurz erklären (asynchron seit ADR-14) · (2) Client-Validierung zeigen (falsches Format oder >10 MB wird sofort abgelehnt) |
+| **US-05** | **Kategorisierung (automatisch + manuell)** | ✅ **Hauptnutzen** | **ja — Kernstück, 1 Korrektur (T32)** | **ja — Kernstück, 1 Korrektur (B32)** | (1) zweite Korrektur zeigen, diesmal ein Lookup- statt Claude-Fall · (2) Lerneffekt erklären: derselbe Händler wird beim nächsten Import automatisch richtig zugeordnet (B14) |
+| **US-06** | **Safe-to-Spend** | ✅ **Hauptnutzen** | **ja — Kernstück (T33)** | **ja — Kernstück (B33)** | (1) Wochen- vs. Monatsbetrag kurz gegenüberstellen · (2) negatives Budget-Banner erwähnen, falls Laras Zahlen es nicht ohnehin zeigen |
+| US-07 | Sparziel | ❌ **nicht implementiert** (Could, kein Code — nur Requirements-Doku) | nein — nicht demofähig | nein — nicht demofähig | entfällt; auf Nachfrage: „auf der Roadmap, aber MoSCoW Could" |
+| US-08 | Wiederkehrende Ausgaben (Abo-Übersicht) | ✅ implementiert (`/abos`, Teaser-Card auf dem Dashboard, Notification-Glocke) | nein (Zeitgründe) | als Puffer nach B34 (bereits vorgesehen, siehe oben) | (1) Notification-Glocke zeigen, die auf ein erkanntes Abo hinweist · (2) „Kein Abo"-Verneinung zeigen, Abo bleibt trotzdem sichtbar |
+| US-09 | KI-Monatsbericht | ❌ **nicht implementiert** (Should — nur ein leerer Package-Stub, keine Klassen) | nein | nein | entfällt; auf Nachfrage: als offene Lücke benennen, nicht beschönigen |
+| US-10 | Monatsvergleich | ❌ nicht als eigenes Feature (Could) — die Drei-Monats-Tabelle unter dem Safe-to-Spend-Widget deckt Einnahmen/Ausgaben/Differenz teilweise ab | nein | optional als Puffer: Drei-Monats-Tabelle unter B33 mitzeigen | (1) zeigen, dass ein Monat ohne Daten sauber mit „–" statt „0.00" behandelt wird |
+| US-11 | OpenBanking | ❌ explizit kein MVP (eigene Notiz in US-11: „Implementierung erst nach Abschluss aller Must-/Should-Stories") | nein | nein | entfällt; auf Nachfrage: bewusste Priorisierungsentscheidung, konsistent mit MoSCoW aus B21 |
+| US-12 | Monatswechsel | ✅ implementiert (Month-Nav auf Dashboard & Kategorien) | nein (Demo bleibt im aktuellen Monat) | implizit sichtbar über B33, auf Wunsch 1 Klick in den Vormonat | (1) einen Klick in den Vormonat zeigen · (2) „Abgeschlossen"-Banner für vergangene Monate erklären (kein Safe-to-Spend für die Vergangenheit) |
+| US-13 | Transaktionen pro Kategorie einsehen | ✅ implementiert (Drilldown auf `/categories`) | nein | optional als Puffer nach B32: eine Kategorie aufklappen | (1) Kategorie aufklappen und Einzeltransaktionen zeigen · (2) „mehr laden" bei vielen Transaktionen zeigen |
+| US-14 | Einstellungen (Passwort/Einkommen/Theme) | ✅ implementiert (`/einstellungen`) | nein | Einkommen live in B30; Passwort/Theme nur auf Nachfrage | (1) Theme-Umschaltung Light/Dark zeigen · (2) Einkommensvorschlag „Übernehmen" aus erkannten Gutschriften erklären |
+
+### Testpräsentation — verkürzter Demo-Ablauf (T30–T33)
+
+Anders als B30 **keine Live-Registrierung**: Zeitersparnis, indem `lara@demo.bb` vorher regulär
+über `backend/tools/seed_demo_accounts.sh` angelegt wird (so, wie es für die Abschlusspräsentation
+explizit **nicht** gemacht werden darf, siehe „Konsequenz fürs Seed-Skript" oben — für die
+Testpräsentation ist das hier der richtige, zeitsparende Weg). Kein B34 (Konto löschen) in der
+Testpräsentation — daher **nach der Testpräsentation `lara@demo.bb` manuell zurücksetzen**
+([docs/demo/README.md → Zurücksetzen](../demo/README.md#zurücksetzen)), sonst schlägt die Live-
+Registrierung in B30 der Abschlusspräsentation eine Woche später mit `409` fehl.
+
+| Nr | Min | Flow | Unterschied zu B30–B34 |
+| --- | --- | ---- | ------------------------ |
+| T30 | 0–1 | Kontext + Dashboard als bereits eingeloggte Lara | Kein Live-Registrieren/Onboarding-Wizard; Fixkosten/Einkommen nur kurz auf dem Dashboard zeigen statt Klick für Klick |
+| T31 | 1–2.5 | PDF-Import | Wie B31, ungekürzt — Teil des Hauptnutzens |
+| T32 | 2.5–4 | Kategorisierung + 1 Korrektur | Wie B32, ungekürzt — Teil des Hauptnutzens |
+| T33 | 4–5 | Safe-to-Spend | Wie B33, ungekürzt — Teil des Hauptnutzens |
+
+Kein Zusatzfeature/Puffer-Slot fest eingeplant — bei Testpräsentationen bleibt der Fokus auf dem
+Hauptnutzen, damit die Zeitmessung realistisch abbildet, wie lang die **Kernkette** tatsächlich
+dauert (das ist der Teil, der an der Abschlusspräsentation ohnehin nicht gekürzt werden darf).
+
+---
+
 ## Offene Punkte
 
 - [ ] Namen den drei Bereichen zuordnen (Tabelle oben)
@@ -157,3 +216,11 @@ berücksichtigen).
       Stand 18.09.2026 sind beide noch **offen**. Vor dem Vortrag verifizieren, dass sie tatsächlich
       gemerged sind; falls nicht, B14 zurück auf den Vor-Merge-Stand (nur manuelle Korrektur trainiert,
       Issue #314 offen) und die ADR-Zahl in B22 zurück auf 15.
+      → **Update 20.09.2026:** Auf `main` sind beide inzwischen gemerged (BE-CAT-11 #320, BE-CAT-12
+      #323) — B14/B22 stimmen mit `main` überein. Dieser Branch (`feature/abschlusspraesentation`) lag
+      beim Schreiben der Feature-Liste unten 39 Commits hinter `main`; die Feature-Liste wurde gegen
+      `main` verifiziert (u. a. `/abos`-Route und „Konto löschen"-Dialog existieren dort bereits), vor
+      dem Vortrag trotzdem `git merge main` o. Ä. auf diesem Branch nicht vergessen.
+- [ ] **Dauer der Testpräsentations-Demo (T30–T33) im Team bestätigen** — in der Feature-Liste oben
+      mit ca. 4–5 Minuten angenommen (Hälfte der Abschlusspräsentation); falls das Team einen anderen
+      Wert festlegt, Tabelle und T30–T33 entsprechend anpassen.
