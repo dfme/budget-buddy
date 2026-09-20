@@ -23,8 +23,8 @@ import org.springframework.test.context.DynamicPropertySource;
  * Index einen Seq Scan als günstiger einschätzen, ein solcher Test wäre brüchig.
  *
  * <p>V13 statt V12: {@code V12__create_user_category_lookup_table.sql} war zum Zeitpunkt dieser
- * Migration bereits durch einen anderen offenen PR (#323) belegt. V12 bleibt deshalb in
- * {@code flyway_schema_history} eine Lücke, bis jener PR gemergt ist.
+ * Migration bereits durch einen anderen offenen PR (#323) belegt, der zwischenzeitlich gemergt
+ * wurde.
  *
  * <p>Seit DB-05 (ADR-12) gegen Testcontainers-Postgres in derselben Major-Version wie Produktion,
  * mit einer eigenen Datenbank für diese Klasse (siehe {@link PostgresTestDatabase}).
@@ -50,12 +50,10 @@ class ImportJobsPartialIndexMigrationTest {
     @Test
     void migrationsRunSuccessfullyThroughV13() {
         // V01 (users) ... V13 (Teilindex auf import_jobs) müssen alle erfolgreich gelaufen sein.
-        // Nur 12 Zeilen, nicht 13: V12 ist absichtlich ausgelassen (siehe Klassen-Javadoc), die
-        // Versionsnummer selbst ist damit nicht die Zeilenzahl.
         Integer successfulMigrations = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM flyway_schema_history WHERE success = true", Integer.class);
 
-        assertThat(successfulMigrations).isGreaterThanOrEqualTo(12);
+        assertThat(successfulMigrations).isGreaterThanOrEqualTo(13);
     }
 
     @Test

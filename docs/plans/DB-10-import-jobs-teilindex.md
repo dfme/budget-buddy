@@ -38,7 +38,7 @@ Diese Migration verwendet deshalb **`V13`**.
 3. Kommentar in `application.properties` (bei
    `budgetbuddy.import.stale-job-scan-interval`, beschreibt denselben Sequential Scan) ebenso
    nachziehen.
-4. Neuer Migrationstest `backend/src/test/java/com/budgetbuddy/db/ImportJobsMigrationTest.java`
+4. Neuer Migrationstest `backend/src/test/java/com/budgetbuddy/db/ImportJobsPartialIndexMigrationTest.java`
    nach dem Muster von `NotificationsMigrationTest` (via `SchemaInspector`, echtes
    Testcontainers-Postgres): prüft, dass der Index mit korrekter Spalte **und** `WHERE`-Klausel
    existiert.
@@ -50,7 +50,7 @@ Diese Migration verwendet deshalb **`V13`**.
 ## Betroffene Dateien
 
 - Neu: `backend/src/main/resources/db/migration/V13__add_partial_index_import_jobs_running.sql`
-- Neu: `backend/src/test/java/com/budgetbuddy/db/ImportJobsMigrationTest.java`
+- Neu: `backend/src/test/java/com/budgetbuddy/db/ImportJobsPartialIndexMigrationTest.java`
 - Geändert: `backend/src/main/java/com/budgetbuddy/transaction/StaleImportJobCleaner.java`
 - Geändert: `backend/src/main/resources/application.properties`
 
