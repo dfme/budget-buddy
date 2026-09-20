@@ -1,6 +1,7 @@
 package com.budgetbuddy.notification;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -183,24 +184,31 @@ class NotificationServiceTest {
         assertThat(service.unreadReferenceIds(USER_ID, "RECURRING_EXPENSE_DETECTED")).isEmpty();
     }
 
-    // --- isUnread() (BE-REC-02) ---
+    // --- markReadByReference() (BE-REC-03) ---
 
     @Test
-    void isUnreadDelegatesToTheExistsQueryBoundToUserTypeAndReference() {
-        when(notificationRepository.existsByUserIdAndTypeAndReferenceIdAndReadAtIsNull(
+    void markReadByReferenceSetsReadAtOnEveryUnreadNotificationOfTheReference() {
+        Notification first = entry(1L, "RECURRING_EXPENSE_DETECTED", 200L, "Netflix", null);
+        Notification second = entry(2L, "RECURRING_EXPENSE_DETECTED", 200L, "Netflix", null);
+        when(notificationRepository.findByUserIdAndTypeAndReferenceIdAndReadAtIsNull(
                 USER_ID, "RECURRING_EXPENSE_DETECTED", 200L))
-                .thenReturn(true);
+                .thenReturn(List.of(first, second));
 
-        assertThat(service.isUnread(USER_ID, "RECURRING_EXPENSE_DETECTED", 200L)).isTrue();
+        service.markReadByReference(USER_ID, "RECURRING_EXPENSE_DETECTED", 200L);
+
+        assertThat(first.getReadAt()).isEqualTo(FIXED_INSTANT);
+        assertThat(second.getReadAt()).isEqualTo(FIXED_INSTANT);
     }
 
     @Test
-    void isUnreadReturnsFalseWhenNoUnreadNotificationPointsToTheReference() {
-        when(notificationRepository.existsByUserIdAndTypeAndReferenceIdAndReadAtIsNull(
+    void markReadByReferenceIsANoOpWithoutAMatchingUnreadNotification() {
+        when(notificationRepository.findByUserIdAndTypeAndReferenceIdAndReadAtIsNull(
                 USER_ID, "RECURRING_EXPENSE_DETECTED", 200L))
-                .thenReturn(false);
+                .thenReturn(List.of());
 
-        assertThat(service.isUnread(USER_ID, "RECURRING_EXPENSE_DETECTED", 200L)).isFalse();
+        assertThatCode(() -> service.markReadByReference(USER_ID, "RECURRING_EXPENSE_DETECTED", 200L))
+                .doesNotThrowAnyException();
+        verify(notificationRepository, never()).save(any());
     }
 
     // --- Helfer ---

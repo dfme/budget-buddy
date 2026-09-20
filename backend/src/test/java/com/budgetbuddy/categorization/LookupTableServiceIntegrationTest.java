@@ -31,24 +31,27 @@ class LookupTableServiceIntegrationTest {
 
     @Autowired private LookupTableService lookupTableService;
 
+    /** Beliebiger User ohne eigene Lerneinträge — geprüft werden hier nur die Seeds (BE-CAT-12). */
+    private static final long USER_ID = 1L;
+
     @Test
     void matchesMerchantAsSubstringOfTransactionText() {
         // Realer PDF-Text enthält das Seed-Pattern MIGROS plus Zusatz-Tokens.
-        Optional<CategorizationResult> result = lookupTableService.categorize("MIGROS BERN 044 913 2323");
+        Optional<CategorizationResult> result = lookupTableService.categorize(USER_ID, "MIGROS BERN 044 913 2323");
 
         assertThat(result).contains(new CategorizationResult(Category.LEBENSMITTEL, CategorizationResult.Source.LOOKUP));
     }
 
     @Test
     void matchesCaseInsensitively() {
-        Optional<CategorizationResult> result = lookupTableService.categorize("digitec galaxus ag");
+        Optional<CategorizationResult> result = lookupTableService.categorize(USER_ID, "digitec galaxus ag");
 
         assertThat(result).contains(new CategorizationResult(Category.SHOPPING, CategorizationResult.Source.LOOKUP));
     }
 
     @Test
     void returnsEmptyForUnknownMerchant() {
-        Optional<CategorizationResult> result = lookupTableService.categorize("BAECKEREI MUELLER 12345");
+        Optional<CategorizationResult> result = lookupTableService.categorize(USER_ID, "BAECKEREI MUELLER 12345");
 
         assertThat(result).isEmpty();
     }

@@ -2,6 +2,7 @@ package com.budgetbuddy.auth;
 
 import com.budgetbuddy.auth.dto.UserProfileResponse;
 import com.budgetbuddy.budget.FixedCostCleanupPort;
+import com.budgetbuddy.categorization.CategoryLookupCleanupPort;
 import com.budgetbuddy.money.ChfAmounts;
 import com.budgetbuddy.notification.NotificationCleanupPort;
 import com.budgetbuddy.recurring.RecurringExpenseCleanupPort;
@@ -38,6 +39,7 @@ public class UserService implements UserIncomePort {
     private final FixedCostCleanupPort fixedCostCleanupPort;
     private final NotificationCleanupPort notificationCleanupPort;
     private final RecurringExpenseCleanupPort recurringExpenseCleanupPort;
+    private final CategoryLookupCleanupPort categoryLookupCleanupPort;
     private final PasswordEncoder passwordEncoder;
 
     public UserService(
@@ -46,12 +48,14 @@ public class UserService implements UserIncomePort {
             FixedCostCleanupPort fixedCostCleanupPort,
             NotificationCleanupPort notificationCleanupPort,
             RecurringExpenseCleanupPort recurringExpenseCleanupPort,
+            CategoryLookupCleanupPort categoryLookupCleanupPort,
             PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.transactionCleanupPort = transactionCleanupPort;
         this.fixedCostCleanupPort = fixedCostCleanupPort;
         this.notificationCleanupPort = notificationCleanupPort;
         this.recurringExpenseCleanupPort = recurringExpenseCleanupPort;
+        this.categoryLookupCleanupPort = categoryLookupCleanupPort;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -180,24 +184,19 @@ public class UserService implements UserIncomePort {
      * {@link #changePassword}: ein Aufrufer, der den Endpoint umgeht, kann sie so nicht umgehen.
      * Sie läuft vor dem ersten Cleanup-Port; bei falschem Passwort wird nichts gelöscht.
      *
-     * <p>{@code transactions}, {@code import_jobs}, {@code fixed_costs}, {@code notifications} und
-     * {@code recurring_expenses} tragen alle eine Fremdschlüssel auf {@code users} ohne
-     * {@code ON DELETE} — der User wird deshalb erst gelöscht, <em>nachdem</em> alle Cleanup-Ports
-     * ihre Tabellen geräumt haben, sonst schlägt die letzte Zeile am Constraint fehl. Bewusst kein {@code ON DELETE CASCADE}: die
-     * Löschung bleibt eine sichtbare, einzeln testbare Operation im Code statt einer stillen
-     * DB-Nebenwirkung (siehe {@code V05__create_import_jobs_table.sql}).
+     * <p>{@code transactions}, {@code import_jobs}, {@code fixed_costs}, {@code notifications},
+     * {@code recurring_expenses} und {@code user_category_lookup} tragen alle einen
+     * Fremdschlüssel auf {@code users} ohne {@code ON DELETE} — der User wird deshalb erst
+     * gelöscht, <em>nachdem</em> alle Cleanup-Ports ihre Tabellen geräumt haben, sonst schlägt die
+     * letzte Zeile am Constraint fehl. Bewusst kein {@code ON DELETE CASCADE}: die Löschung bleibt
+     * eine sichtbare, einzeln testbare Operation im Code statt einer stillen DB-Nebenwirkung
+     * (siehe {@code V05__create_import_jobs_table.sql}).
      *
-     * <p><strong>Eine bekannte Lücke, die diese Methode nicht schliesst</strong> (#290) — US-02
-     * gilt erst als erfüllt, wenn sie geschlossen ist: {@code category_lookup} überlebt die
-     * Löschung. Der rohe Buchungstext steht dort als Primärschlüssel in einer Tabelle ohne
-     * {@code user_id} (V04), und ohne {@code user_id} lässt sie sich nicht mandantenweise räumen
-     * — eigenes Issue.
-     *
-     * <p><strong>Seit BE-CAT-11 ist die Lücke breiter</strong>, als sie war: Bis dahin landete dort
-     * nur, was ein User aktiv korrigiert hatte ({@code TransactionCategoryService} →
-     * {@code CategoryLearningService.learn}). Inzwischen schreibt auch der
-     * {@code HybridCategorizationService} jeden Händlertext hinein, den die Claude-Stufe
-     * erfolgreich kategorisiert hat — ohne Zutun des Users und für jeden importierten Auszug.
+     * <p>{@code user_category_lookup} ist seit BE-CAT-12 (ADR-15) dabei: Die gelernten
+     * Händler-Patterns — manuelle Korrekturen wie beim Import von Claude eingestufte Händler —
+     * sind rohe Buchungstexte des Users und liegen deshalb in einer Tabelle mit {@code user_id},
+     * nicht mehr in der globalen {@code category_lookup} (V04). Die hält nur noch die kuratierten
+     * Seeds und wird hier bewusst nicht angefasst.
      *
      * @throws UserNotFoundException wenn kein User mit dieser ID existiert.
      * @throws InvalidCurrentPasswordException wenn {@code currentPassword} nicht mit dem
@@ -213,6 +212,7 @@ public class UserService implements UserIncomePort {
         fixedCostCleanupPort.deleteAllForUser(userId);
         notificationCleanupPort.deleteAllForUser(userId);
         recurringExpenseCleanupPort.deleteAllForUser(userId);
+        categoryLookupCleanupPort.deleteAllForUser(userId);
         userRepository.delete(user);
     }
 

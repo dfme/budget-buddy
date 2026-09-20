@@ -356,8 +356,8 @@ git diff main | grep -inE 'printStackTrace|log\.(info|debug|warn).*(amount|betra
 ```
 
 **8. nDSG-Pfade** — bei US-02/US-14: Kontolöschung muss wirklich löschen, über alle abhängigen
-Tabellen (`transactions`, `fixed_costs`, `savings_goals`, `category_lookup`-Korrekturen,
-`import_jobs`). Nachweis ist ein Test, der nach dem Löschen die abhängigen Zeilen zählt — nicht die
+Tabellen (`transactions`, `import_jobs`, `fixed_costs`, `notifications`, `recurring_expenses`,
+`user_category_lookup` — die globale `category_lookup` hält seit ADR-15 nur Seeds). Nachweis ist ein Test, der nach dem Löschen die abhängigen Zeilen zählt — nicht die
 Annahme, dass ein Cascade greift.
 
 #### Befunde einsortieren

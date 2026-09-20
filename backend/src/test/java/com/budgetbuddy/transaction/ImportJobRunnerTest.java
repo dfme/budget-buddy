@@ -3,6 +3,7 @@ package com.budgetbuddy.transaction;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.groups.Tuple.tuple;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
@@ -93,8 +94,8 @@ class ImportJobRunnerTest {
     }
 
     private void categorizeAllAs(Category category, CategorizationResult.Source source) {
-        when(categorizationPort.categorizeAll(any())).thenAnswer(invocation -> {
-            List<String> texts = invocation.getArgument(0);
+        when(categorizationPort.categorizeAll(anyLong(), any())).thenAnswer(invocation -> {
+            List<String> texts = invocation.getArgument(1);
             return Collections.nCopies(
                     texts.size(), Optional.of(new CategorizationResult(category, source)));
         });
@@ -186,7 +187,7 @@ class ImportJobRunnerTest {
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<String>> texts = ArgumentCaptor.forClass(List.class);
-        verify(categorizationPort).categorizeAll(texts.capture());
+        verify(categorizationPort).categorizeAll(anyLong(), texts.capture());
         assertThat(texts.getValue()).containsExactly("LASTSCHRIFT ZALANDO SE");
     }
 
@@ -228,7 +229,7 @@ class ImportJobRunnerTest {
                 SHA, false);
 
         ArgumentCaptor<List<String>> texts = ArgumentCaptor.forClass(List.class);
-        verify(categorizationPort).categorizeAll(texts.capture());
+        verify(categorizationPort).categorizeAll(anyLong(), texts.capture());
         assertThat(texts.getValue()).singleElement()
                 .asString()
                 .contains("ESR")
@@ -240,8 +241,8 @@ class ImportJobRunnerTest {
     @Test
     void emptyCategorization_fallsBackToSonstiges() {
         clockNeverExpires();
-        when(categorizationPort.categorizeAll(any())).thenAnswer(invocation ->
-                Collections.nCopies(((List<?>) invocation.getArgument(0)).size(), Optional.empty()));
+        when(categorizationPort.categorizeAll(anyLong(), any())).thenAnswer(invocation ->
+                Collections.nCopies(((List<?>) invocation.getArgument(1)).size(), Optional.empty()));
 
         runner.run(new ImportJob(USER_ID, "sha-fixture", 1, T0),
                 List.of(parsed("GIRO POST", List.of(), "850.00", false)), SHA, false);
@@ -288,7 +289,7 @@ class ImportJobRunnerTest {
         assertThat(job.getProcessed()).isEqualTo(6);
 
         // Nach der Überschreitung geht kein Request mehr hinaus — genau ein Bündel wurde gefragt.
-        verify(categorizationPort).categorizeAll(any());
+        verify(categorizationPort).categorizeAll(anyLong(), any());
     }
 
     /**
@@ -346,7 +347,7 @@ class ImportJobRunnerTest {
     @Test
     void unexpectedFailure_marksTheJobFailedInsteadOfLeavingItRunning() {
         clockNeverExpires();
-        when(categorizationPort.categorizeAll(any()))
+        when(categorizationPort.categorizeAll(anyLong(), any()))
                 .thenThrow(new IllegalStateException("kaputt"));
         ImportJob job = new ImportJob(USER_ID, "sha-fixture", 1, T0);
 
@@ -414,7 +415,7 @@ class ImportJobRunnerTest {
     void error_marksTheJobFailedAndIsRethrown() {
         clockNeverExpires();
         OutOfMemoryError oom = new OutOfMemoryError("Java heap space");
-        when(categorizationPort.categorizeAll(any())).thenThrow(oom);
+        when(categorizationPort.categorizeAll(anyLong(), any())).thenThrow(oom);
         ImportJob job = new ImportJob(USER_ID, "sha-fixture", 1, T0);
 
         assertThatThrownBy(() ->
@@ -438,7 +439,7 @@ class ImportJobRunnerTest {
     void errorSurvivesAFailingStatusWrite() {
         clockNeverExpires();
         OutOfMemoryError oom = new OutOfMemoryError("Java heap space");
-        when(categorizationPort.categorizeAll(any())).thenThrow(oom);
+        when(categorizationPort.categorizeAll(anyLong(), any())).thenThrow(oom);
         when(importJobRepository.save(any(ImportJob.class)))
                 .thenThrow(new IllegalStateException("DB nicht erreichbar"));
         ImportJob job = new ImportJob(USER_ID, "sha-fixture", 1, T0);
