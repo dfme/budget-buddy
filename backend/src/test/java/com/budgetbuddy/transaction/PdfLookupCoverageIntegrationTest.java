@@ -135,7 +135,7 @@ class PdfLookupCoverageIntegrationTest {
                 .contains(Category.STEUERN);
 
         // Der Wortlaut der anderen Banken, den die 240er-Fixture nicht trägt: UBS und Raiffeisen
-        // buchen «Bezug … Bancomat» (generate_pdf_fixtures.py:810, :1015), die Demo-Auszüge
+        // buchen «Bezug … Bancomat» (generate_pdf_fixtures.py:842, :1048), die Demo-Auszüge
         // «BARGELDBEZUG» (generate_demo_statements.py:150).
         assertThat(lookupTableService.categorize(USER_ID, "Bezug UBS Bancomat"))
                 .map(CategorizationResult::category)
