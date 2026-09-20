@@ -69,8 +69,9 @@ MUSTER IMMOBILIEN AG MIETE JANUAR 2025` traf `… MIETE FEBRUAR 2025` nie, und d
 pro Monat um eine Zeile, die nie wieder traf. `CategoryLearningService` schneidet den Text
 deshalb vor dem ersten variablen Token ab (Monat mit Jahr, alleinstehendes Jahr, numerisches
 Datum, Referenz mit fünf und mehr Ziffern, IBAN — `LookupPatternExtractor`). Ein Präfix statt
-einer Maskierung, weil `findMatching` per `LIKE '%pattern%'` einen zusammenhängenden Substring
-braucht. Ein Guard hält generische Patterns heraus: Das Präfix muss mindestens drei Tokens und
+einer Maskierung, weil `findMatching` per `locate(...)` einen zusammenhängenden Substring
+braucht (Substring-Suche ohne Wildcards seit BE-CAT-14 — nicht auf `LIKE` zurückbauen). Ein
+Guard hält generische Patterns heraus: Das Präfix muss mindestens drei Tokens und
 mindestens die Hälfte des Textes behalten, sonst wird wie bisher der volle Text gelernt — sonst
 zwänge `TWINT KAUF/DIENSTLEISTUNG VOM` jede TWINT-Zahlung eines Kontos in eine Kategorie. Der
 Schnitt sitzt im Service und nicht beim Aufrufer, damit beide Quellen denselben Schlüssel

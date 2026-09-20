@@ -15,6 +15,7 @@ import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -70,11 +71,13 @@ class PdfLookupLearningIntegrationTest {
 
     @BeforeEach
     void seedUser() {
+        // Eindeutig pro Test: Es gibt weder Rollback noch Cleanup, und users.email ist UNIQUE —
+        // ein zweiter @Test in dieser Klasse scheiterte sonst am Constraint statt an der Fachlichkeit.
+        String email = "pdf-lookup-learning-" + UUID.randomUUID() + "@example.ch";
         jdbcTemplate.update(
                 "INSERT INTO users (email, password_hash) VALUES (?, ?)",
-                "pdf-lookup-learning@example.ch", "$2a$10$test.only.not.a.real.hash");
-        userId = jdbcTemplate.queryForObject(
-                "SELECT id FROM users WHERE email = ?", Long.class, "pdf-lookup-learning@example.ch");
+                email, "$2a$10$test.only.not.a.real.hash");
+        userId = jdbcTemplate.queryForObject("SELECT id FROM users WHERE email = ?", Long.class, email);
     }
 
     @BeforeEach

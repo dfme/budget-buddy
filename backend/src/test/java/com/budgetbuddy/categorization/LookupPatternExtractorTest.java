@@ -131,16 +131,17 @@ class LookupPatternExtractorTest {
         assertThat(LookupPatternExtractor.extract(
                         "GUTSCHRIFT MUSTER CONSULTING GMBH LOHN JULI 2026 SOWIE SPE SENVERGUETUNG"))
                 .isEqualTo("GUTSCHRIFT MUSTER CONSULTING GMBH LOHN");
-        // 6 Tokens, Schnitt nach 2: unter der Hälfte → voll.
-        assertThat(LookupPatternExtractor.extract("GIRO POST 2025-01 MUSTER AG MIETE"))
-                .isEqualTo("GIRO POST 2025-01 MUSTER AG MIETE");
+        // 7 Tokens, Schnitt nach 3: MIN_TOKENS erfüllt, aber 3 < 7/2 → voll. (Bei zwei Tokens
+        // griffe schon MIN_TOKENS, bevor die Hälfte-Regel überhaupt geprüft wird.)
+        assertThat(LookupPatternExtractor.extract("GIRO POST MUSTER 2025 AG MIETE NEBENKOSTEN"))
+                .isEqualTo("GIRO POST MUSTER 2025 AG MIETE NEBENKOSTEN");
     }
 
     // --- Invarianten ----------------------------------------------------------------------------
 
     @Test
     void resultIsAlwaysAPrefixOfTheInput() {
-        // Die Eigenschaft, an der die LIKE-Semantik von findMatching hängt.
+        // Die Eigenschaft, an der die locate()-Substring-Semantik von findMatching hängt.
         String[] inputs = {
             "GIRO POST MUSTER IMMOBILIEN AG MIETE JANUAR 2025",
             "GIRO POST MUSTER AG MIETE PER 15. MAI 2025",

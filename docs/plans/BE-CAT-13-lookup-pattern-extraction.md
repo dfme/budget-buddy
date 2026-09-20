@@ -28,7 +28,9 @@ Korrektur-Eintrag nur für *diesen* Monat gewinnen — der Blocker aus PR #320 i
   macht den Lese-Pfad zum Schreib-Pfad und kollidiert mit #319 (BE-CAT-12), das dieselbe Tabelle
   um `user_id` erweitern will.
 - **Präfix-Schnitt am ersten variablen Token.** Das Pattern ist damit immer ein Präfix des
-  Textes — die `LIKE '%pattern%'`-Semantik der Query bleibt garantiert. Variabel sind:
+  Textes — die Substring-Semantik der Query bleibt garantiert (zum Planungsstand
+  `LIKE '%pattern%'`, seit BE-CAT-14/#331 `locate(...)`; die Anforderung «zusammenhängender
+  Substring» ist dieselbe). Variabel sind:
   1. Monatsname (DE/FR/IT/EN, inkl. `MAERZ`/`MÄRZ`, Abkürzungen) **nur wenn direkt ein Jahr
      folgt** (`MAI 2025`, `MAI 25`, `JAN-2025`); ein alleinstehendes `MAI` bleibt stehen
      (`MAI THAI RESTAURANT`); eine Tagesnummer davor (`15. MAI 2025`) zieht den Schnitt nach vorn
@@ -77,7 +79,7 @@ Korrektur-Eintrag nur für *diesen* Monat gewinnen — der Blocker aus PR #320 i
 
 ## Nicht Teil dieses PR
 
-Retention (Folge-Issue), der `LIKE`-Full-Scan pro Transaktion (kein AC).
+Retention (Folge-Issue), der Full-Scan von `findMatching` pro Transaktion (kein AC).
 
 ## Acceptance Criteria (aus dem Issue)
 

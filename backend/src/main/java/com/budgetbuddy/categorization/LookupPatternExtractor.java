@@ -7,7 +7,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Leitet aus einem Transaktionstext das Pattern ab, unter dem er in {@code category_lookup}
+ * Leitet aus einem Transaktionstext das Pattern ab, unter dem er in {@code user_category_lookup}
  * gelernt wird (BE-CAT-13, ADR-6 Schritt 4).
  *
  * <p><strong>Warum nicht der volle Text.</strong> Seit BE-CAT-11 lernt die Tabelle jeden von
@@ -18,12 +18,13 @@ import java.util.regex.Pattern;
  * 240er-Fixture erzeugen die 96 Claude-Fälle 43 verschiedene Zeilen, davon 27 für nur drei
  * Gegenparteien (Miete 12, Lohn 12, Steuerrückerstattung 3); mit dem Schnitt sind es 19.
  *
- * <p><strong>Präfix-Schnitt statt Maskierung.</strong> {@link CategoryLookupRepository#findMatching}
- * matcht per {@code LIKE '%pattern%'}: Das Pattern muss ein zusammenhängender Substring jedes
- * künftigen Textes sein. Tokens aus der Mitte herauszuschneiden würde das brechen. Der Text wird
- * deshalb <em>vor dem ersten variablen Token abgeschnitten</em> — das Ergebnis ist ein Präfix des
- * Inputs und damit garantiert ein Substring. Das trägt, weil die Mitteilung in allen drei
- * geparsten Layouts hinter der Gegenpartei steht (PostFinance: {@code TYP | Gegenpartei |
+ * <p><strong>Präfix-Schnitt statt Maskierung.</strong>
+ * {@link UserCategoryLookupRepository#findMatching} matcht per {@code locate(...)} —
+ * Substring-Suche ohne Wildcards (BE-CAT-14): Das Pattern muss ein zusammenhängender Substring
+ * jedes künftigen Textes sein. Tokens aus der Mitte herauszuschneiden würde das brechen. Der Text
+ * wird deshalb <em>vor dem ersten variablen Token abgeschnitten</em> — das Ergebnis ist ein
+ * Präfix des Inputs und damit garantiert ein Substring. Das trägt, weil die Mitteilung in allen
+ * drei geparsten Layouts hinter der Gegenpartei steht (PostFinance: {@code TYP | Gegenpartei |
  * Mitteilung}; die {@code Bezahlt für}-Zeilen des 2026er-Layouts ebenso). Alle Regeln sind gegen
  * den Korpus der acht PDF-Fixtures gegengeprüft.
  *

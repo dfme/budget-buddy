@@ -156,8 +156,11 @@ public class HybridCategorizationService implements CategorizationPort {
             List<Optional<CategorizationResult>> results,
             List<Integer> positions) {
 
-        // Derselbe Händler steht auf einem Auszug oft mehrfach. Ohne diese Menge liefe pro
-        // Vorkommen ein eigener Upsert auf denselben Primärschlüssel.
+        // Derselbe Text steht auf einem Auszug oft mehrfach (Kartenzahlungen). Die Menge spart den
+        // Upsert pro Vorkommen. Sie dedupliziert den rohen Text, nicht das gelernte Präfix — der
+        // Schnitt sitzt bewusst nur hinter dem Port (BE-CAT-13). Texte, die erst dort auf denselben
+        // Schlüssel fallen (Miete Januar und Februar im selben Bündel), laufen als je ein
+        // idempotenter Upsert; das ist gewollt und harmlos.
         Set<String> alreadyLearned = new HashSet<>();
         int failed = 0;
         RuntimeException lastFailure = null;

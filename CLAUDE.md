@@ -44,7 +44,7 @@ dauerhaft auf `Sonstiges` ein, weil Stufe 1 ihn künftig vor Claude abfängt.
 dem ersten variablen Token ab — Monat mit Jahr, Jahr, Datum, Referenz ab fünf Ziffern, IBAN
 (`LookupPatternExtractor`). Aus `GIRO POST MUSTER IMMOBILIEN AG MIETE JANUAR 2025` wird
 `GIRO POST MUSTER IMMOBILIEN AG MIETE`, und die Februar-Miete trifft ohne Claude-Call. Ein Präfix,
-kein Herausschneiden, weil `findMatching` per `LIKE '%pattern%'` einen Substring braucht. Guard:
+kein Herausschneiden, weil `findMatching` per `locate(...)` einen Substring braucht. Guard:
 Das Präfix muss mindestens drei Tokens und die Hälfte des Textes behalten, sonst wird der volle
 Text gelernt — ein zu kurzes Pattern (`TWINT KAUF/DIENSTLEISTUNG VOM`) zwänge sonst jede
 TWINT-Zahlung in eine Kategorie. Der Schnitt sitzt im Service, damit **beide** Lernquellen
