@@ -86,6 +86,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `E2E-FC-01` | [Playwright: Fixkosten-Wizard (Happy Path + Fehlerpfad)](E2E-FC-01-playwright-fixkosten-wizard.md) | [#123](https://github.com/dfme/budget-buddy/issues/123) | US-03 | Sprint 5 |
 | `E2E-FC-02` | [Playwright: Onboarding-Abschluss (Wizard → Dashboard)](E2E-FC-02-onboarding-abschluss.md) | [#190](https://github.com/dfme/budget-buddy/issues/190) | US-03 | Sprint 6 |
 | `E2E-PDF-01` | [Playwright: PDF-Upload (Happy Path + Fehlerpfad)](E2E-PDF-01-playwright-pdf-upload.md) | [#122](https://github.com/dfme/budget-buddy/issues/122) | US-04 | Sprint 5 |
+| `E2E-REC-01` | [Playwright: Abo-Erkennung](E2E-REC-01-abo-erkennung.md) | [#256](https://github.com/dfme/budget-buddy/issues/256) | US-08 | Sprint 6 |
 | `E2E-STS-01` | [Playwright: Safe-to-Spend (Happy Path + Fehlerpfad)](E2E-STS-01-safe-to-spend.md) | [#125](https://github.com/dfme/budget-buddy/issues/125) | US-06 | Sprint 5 |
 | `E2E-STS-02` | [Playwright: Monatswechsel](E2E-STS-02-monatswechsel.md) | [#251](https://github.com/dfme/budget-buddy/issues/251) | US-12 | Sprint 6 |
 | `FE-AUTH-01` | [FE-AUTH-01 — AuthService (Signal-State + /auth-Calls)](FE-AUTH-01-auth-service.md) | [#53](https://github.com/dfme/budget-buddy/issues/53) | US-01 | Sprint 2 |
