@@ -80,6 +80,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `DB-07` | [Foreign Keys auf users ohne ON DELETE — Löschpfad für US-02](DB-07-user-loeschpfad.md) | [#142](https://github.com/dfme/budget-buddy/issues/142) | US-02 | Sprint 5 |
 | `DB-08` | [Flyway V10: notifications-Tabelle](DB-08-notifications-table.md) | [#245](https://github.com/dfme/budget-buddy/issues/245) | US-08 | Sprint 6 |
 | `DB-09` | [Flyway V11: recurring_expenses-Tabelle](DB-09-recurring-expenses-table.md) | [#252](https://github.com/dfme/budget-buddy/issues/252) | US-08 | Sprint 6 |
+| `DB-10` | [Cleaner-Query auf import_jobs läuft als Sequential Scan — Teilindex fehlt](DB-10-import-jobs-teilindex.md) | [#270](https://github.com/dfme/budget-buddy/issues/270) | US-04 | Sprint 7 |
 | `E2E-AUTH-01` | [Playwright: Register → Login → Logout (Happy + Fehlerpfad)](E2E-AUTH-01-register-login-logout.md) | [#58](https://github.com/dfme/budget-buddy/issues/58) | US-01 | Sprint 5 |
 | `E2E-CAT-01` | [Playwright: Transaktionen kategorisieren (Happy Path + Fehlerpfad)](E2E-CAT-01-playwright-kategorisierung.md) | [#124](https://github.com/dfme/budget-buddy/issues/124) | US-05 | Sprint 5 |
 | `E2E-FC-01` | [Playwright: Fixkosten-Wizard (Happy Path + Fehlerpfad)](E2E-FC-01-playwright-fixkosten-wizard.md) | [#123](https://github.com/dfme/budget-buddy/issues/123) | US-03 | Sprint 5 |
