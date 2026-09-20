@@ -22,6 +22,12 @@ Bei einer Miete von 1200 CHF als Fixkosten-Position und einer Belastung über 12
 
 > Zuordnungsmechanismus, Grenzen und verworfene Alternativen: [ADR-13](../adr/ADR-13-fixkosten-transaktions-zuordnung.md) (BE-STS-04, [#154](https://github.com/dfme/budget-buddy/issues/154)).
 
+**Given** ein erkanntes, nicht als «Kein Abo» markiertes Abo ([US-08](US-08-wiederkehrende-ausgaben.md)), **When** der Safe-to-Spend berechnet wird, **Then** wirkt es wie eine Fixkosten-Position: sein Betrag wird von Monatsbeginn an abgezogen, und höchstens eine betragsgleiche Belastung des Monats wird aus den variablen Ausgaben ausgenommen — das Abo mindert den Betrag **genau einmal**, auch bevor seine Abbuchung im Auszug steht. Ein Abo, das zusätzlich als Fixkosten-Position mit demselben Betrag erfasst ist, gilt als bereits erfasst und zählt nicht ein zweites Mal.
+
+Bei einem erkannten Abo NETFLIX über 17.90 CHF, das im laufenden Monat noch nicht abgebucht wurde, gehen 17.90 CHF in die Rechnung ein; nach der Abbuchung sind es weiterhin 17.90 CHF, nicht 35.80 CHF. Eine Fixkosten-Position «Handy» über 59.00 CHF neben einem erkannten Abo SWISSCOM über 59.00 CHF zählt 59.00 CHF, nicht 118.00 CHF.
+
+> Erweiterung von ADR-13 auf erkannte Abos und die Deduplizierungsregel: [ADR-13, Nachtrag FE-FC-05](../adr/ADR-13-fixkosten-transaktions-zuordnung.md#nachtrag-fe-fc-05-338-erkannte-abos-wirken-wie-fixkosten-positionen) ([#338](https://github.com/dfme/budget-buddy/issues/338)).
+
 **Given** der Betrag ist negativ, **When** ich das Dashboard öffne, **Then** wird ein rot hinterlegtes Banner mit dem Text "Achtung: Dein Budget für diese Woche ist überzogen" am oberen Rand des Dashboards angezeigt.
 
 **Given** kein Monatseinkommen erfasst ist, **When** ich das Dashboard öffne, **Then** wird statt des Safe-to-Spend-Betrags der Hinweis "Bitte erfasse dein Monatseinkommen in den Einstellungen" angezeigt — keine Division wird ausgeführt.

@@ -147,12 +147,16 @@ Angular Feature-Folders analog zu den Backend-Modulen, unterhalb von `frontend/s
 frontend/
   └── src/app/
         ├── auth/          (US-01: Login/Register)
-        ├── onboarding/    (US-03: Fixkosten-Wizard)
+        ├── onboarding/    (US-03: Fixkosten-Wizard und Fixkosten-Liste — seit FE-FC-05 mit dem
+        │                   eingebetteten Abschnitt «Erkannte Abos» aus recurring/)
         ├── transactions/  (US-04: Upload, US-05: Kategorisierung, US-13: pro Kategorie)
         ├── dashboard/     (US-06: Safe-to-Spend, US-10: Monatsvergleich, US-12: Monatswechsel)
-        ├── savings/       (US-07: Sparziel)
-        ├── reports/       (US-09: KI-Monatsbericht)
+        ├── recurring/     (US-08: Abo-Übersicht — Komponente, Service, Model; keine eigene Route)
+        ├── notifications/ (US-08: Glocke mit Ungelesen-Badge in der App-Shell)
+        ├── savings/       (US-07: Sparziel — geplant, noch nicht angelegt)
+        ├── reports/       (US-09: KI-Monatsbericht — geplant, noch nicht angelegt)
         ├── settings/      (US-02: Consent/Löschen, US-14: Passwort/Einkommen)
+        ├── styleguide/    (Dev-only Komponenten-Showcase, FE-UI-03 — nicht in der Navigation)
         ├── shared/        (domänenübergreifende UI-Komponenten, Pipes)
         └── core/          (Guards, Auth-State, HTTP-Error-Handling)
 ```

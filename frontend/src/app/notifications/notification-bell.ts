@@ -100,8 +100,9 @@ export class NotificationBell {
    * — der sichere Fallback, ein erneuter Klick versucht es wieder.
    *
    * <p><strong>Abo-Benachrichtigung (FE-REC-01).</strong> Trägt sie den Typ
-   * {@link RECURRING_EXPENSE_DETECTED}, führt der Klick zusätzlich in die Abo-Übersicht und
-   * schliesst das Dropdown — dort steht der Eintrag, und das ist die Antwort auf die Meldung.
+   * {@link RECURRING_EXPENSE_DETECTED}, führt der Klick zusätzlich in die Abo-Übersicht — seit
+   * FE-FC-05 der Abschnitt «Erkannte Abos» auf `/fixkosten` — und schliesst das Dropdown: dort
+   * steht der Eintrag, und das ist die Antwort auf die Meldung.
    * Navigiert wird sofort, der Gelesen-Call läuft parallel im Hintergrund weiter: Die Übersicht
    * leitet ihr «Neu»-Label aus genau dieser Benachrichtigung ab (BE-REC-02) — würde erst auf den
    * Abschluss des Gelesen-Calls gewartet, wäre der Eintrag beim Eintreffen in der Übersicht
@@ -113,7 +114,7 @@ export class NotificationBell {
   protected select(notification: NotificationResponse): void {
     if (notification.type === RECURRING_EXPENSE_DETECTED) {
       this.close();
-      void this.router.navigate(['/abos']);
+      void this.router.navigate(['/fixkosten']);
     }
 
     if (notification.read) {
@@ -135,7 +136,7 @@ export class NotificationBell {
    * <p>Das Dropdown bleibt offen, wie beim Einzelklick — der Wechsel auf «gelesen» soll sichtbar
    * sein. Navigiert wird nicht: anders als bei {@link select} gibt es kein einzelnes Ziel.
    *
-   * <p>Nimmt als Nebeneffekt jedes «Neu»-Label auf `/abos`: das hängt am selben Gelesen-Zustand
+   * <p>Nimmt als Nebeneffekt jedes «Neu»-Label auf `/fixkosten`: das hängt am selben Gelesen-Zustand
    * (BE-REC-02). Das ist beabsichtigt und in US-08 AC2 festgehalten.
    *
    * <p>Ein Fehler bleibt bewusst still, wie bei {@link select}: das Badge zeigt dann weiterhin

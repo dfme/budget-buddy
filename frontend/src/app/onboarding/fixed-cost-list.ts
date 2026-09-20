@@ -12,6 +12,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 
+import { RecurringExpenseList } from '../recurring/recurring-expense-list';
 import { Button } from '../shared/button/button';
 import { Card } from '../shared/card/card';
 import { Field } from '../shared/field/field';
@@ -28,7 +29,13 @@ import { FixedCostService } from './fixed-cost.service';
 import { MIN_BETRAG_CHF, maxTwoDecimals, nonBlank } from './fixed-cost.validators';
 
 /**
- * Übersicht aller Fixkosten-Positionen mit Bearbeiten und Löschen (FE-FC-03, US-03).
+ * Übersicht aller Fixkosten-Positionen mit Bearbeiten und Löschen (FE-FC-03, US-03), darunter
+ * der Abschnitt «Erkannte Abos» (FE-FC-05, US-08).
+ *
+ * <p>Der Abo-Abschnitt ist die eingebettete {@link RecurringExpenseList} — mit eigenem State und
+ * eigenem Request. Diese Klasse weiss nichts von Abos: sie lädt, bearbeitet und löscht
+ * Fixkosten wie vor FE-FC-05; die Zusammenführung ist eine Frage der Seite, nicht der Daten
+ * (kein Datenmodell-Merge, siehe #338).
  *
  * <p>Lädt `GET /api/fixed-costs` beim Start in ein einziges {@link summary}-Signal — Positionen,
  * Monatssumme, Einkommen und `exceedsIncome` kommen serverseitig bereits berechnet zusammen
@@ -54,6 +61,7 @@ import { MIN_BETRAG_CHF, maxTwoDecimals, nonBlank } from './fixed-cost.validator
     Input,
     Modal,
     Notice,
+    RecurringExpenseList,
   ],
   templateUrl: './fixed-cost-list.html',
   styleUrl: './fixed-cost-list.scss',

@@ -12,8 +12,10 @@ import { importFixture } from '../support/import';
  * (`BE-REC-02`) und der Screen (`FE-REC-01`) existieren bereits; dieser Task liefert nur die
  * Playwright-Abdeckung.
  *
- * Einstieg über `authenticatedPage`/`authenticatedContext`: `/abos` liegt hinter `authGuard` UND
- * `onboardingGuard`, die Fixture erledigt beides über die API (siehe `fixtures/auth.fixture.ts`).
+ * Einstieg über `authenticatedPage`/`authenticatedContext`: `/fixkosten` liegt hinter `authGuard`
+ * UND `onboardingGuard`, die Fixture erledigt beides über die API (siehe
+ * `fixtures/auth.fixture.ts`). Die Abo-Übersicht ist seit FE-FC-05 (#338) der Abschnitt
+ * «Erkannte Abos» auf dieser Seite; `/abos` leitet nur noch dorthin um.
  *
  * <p>Die Abo-Erkennung läuft synchron am Ende desselben Import-Jobs
  * (`ImportJobRunner.detectRecurringExpenses`, vor `finishSuccessfully`), ein separates Warten
@@ -66,8 +68,8 @@ test.describe('Abo-Erkennung', () => {
   }) => {
     await importFixture(authenticatedContext.request, FIXTURE_DETECTION);
 
-    await page.goto('/abos');
-    await expect(page.getByRole('heading', { name: 'Abos' })).toBeVisible();
+    await page.goto('/fixkosten');
+    await expect(page.getByRole('heading', { level: 2, name: 'Erkannte Abos' })).toBeVisible();
 
     // AC 1: die Zeile der erkannten Gruppe — Empfänger und «seit»-Label (erster Monat der Reihe).
     const row = page.locator('li.expense').filter({ hasText: PAYEE });
@@ -98,7 +100,7 @@ test.describe('Abo-Erkennung', () => {
   }) => {
     await importFixture(authenticatedContext.request, FIXTURE_BUNDLE);
 
-    await page.goto('/abos');
+    await page.goto('/fixkosten');
     await expect(page.locator('li.expense')).toHaveCount(2);
     await expect(page.locator('li.expense .expense__new')).toHaveCount(2);
 
@@ -113,9 +115,9 @@ test.describe('Abo-Erkennung', () => {
     await expect(aboItems.first()).toContainText(`2 neue Abos erkannt: ${PAYEE_2}, ${PAYEE}`);
 
     // AC 2 (FE-NOTIF-01, unverändert): der Einzelklick liest die Benachrichtigung und führt
-    // nach /abos. Die Abo-Benachrichtigung ist danach gelesen …
+    // nach /fixkosten (FE-FC-05). Die Abo-Benachrichtigung ist danach gelesen …
     await aboItems.first().click();
-    await expect(page).toHaveURL(/\/abos$/);
+    await expect(page).toHaveURL(/\/fixkosten$/);
     await bell(page).click();
     await expect(
       page.locator('.bell-list__item:visible').filter({ hasText: /Abos? erkannt/ }),
@@ -140,7 +142,7 @@ test.describe('Abo-Erkennung', () => {
     await importFixture(authenticatedContext.request, FIXTURE_DETECTION);
     await importFixture(authenticatedContext.request, FIXTURE_BUNDLE);
 
-    await page.goto('/abos');
+    await page.goto('/fixkosten');
     await expect(page.locator('li.expense .expense__new')).toHaveCount(2);
     await expect(bell(page).locator('.bell__badge')).toHaveCount(1);
 
@@ -168,7 +170,7 @@ test.describe('Abo-Erkennung', () => {
   }) => {
     await importFixture(authenticatedContext.request, FIXTURE_DETECTION);
 
-    await page.goto('/abos');
+    await page.goto('/fixkosten');
     const row = page.locator('li.expense').filter({ hasText: PAYEE });
     await expect(row).toHaveCount(1);
 
@@ -178,9 +180,12 @@ test.describe('Abo-Erkennung', () => {
 
     // Kein Reload nötig: `dismiss` ersetzt den Eintrag lokal im State
     // (`recurring-expense.service.ts`). Die Zeile verschwindet sofort aus der Abo-Liste, die ist
-    // danach leer — nur dieser eine Empfänger wurde importiert.
+    // danach leer — nur dieser eine Empfänger wurde importiert. Auf den Abo-Abschnitt
+    // eingeschränkt: seit FE-FC-05 hat die Seite daneben den Leerzustand der Fixkosten-Tabelle,
+    // und der Test-User hat keine Positionen erfasst.
     await expect(row).toHaveCount(0);
-    await expect(page.locator('p.status.empty')).toBeVisible();
+    const aboEmptyState = page.locator('app-recurring-expense-list p.status.empty');
+    await expect(aboEmptyState).toBeVisible();
 
     // FE-NOTIF-03 (#333): Der Eintrag verlässt die Seite nicht, er wechselt in den Abschnitt
     // «Kein Abo» — damit der Klick auf die Benachrichtigung in der Glocke weiterhin ein Ziel
@@ -199,8 +204,18 @@ test.describe('Abo-Erkennung', () => {
     // Dismiss-Request ihn einmalig aus der Anzeige entfernt hat.
     await page.reload();
     await expect(page.locator('li.expense').filter({ hasText: PAYEE })).toHaveCount(0);
-    await expect(page.locator('p.status.empty')).toBeVisible();
+    await expect(aboEmptyState).toBeVisible();
     // … und unter «Kein Abo» steht er nach dem frischen GET weiterhin (status=DISMISSED).
     await expect(page.locator('li.dismissed-expense').filter({ hasText: PAYEE })).toHaveCount(1);
+  });
+
+  // FE-FC-05 (#338), AC 4: der alte Pfad leitet auf die zusammengeführte Seite um — Bookmarks
+  // und ältere Links landen im Abo-Abschnitt, nicht über den Catch-all auf dem Dashboard.
+  test('/abos leitet auf /fixkosten um', async ({ authenticatedPage: page }) => {
+    await page.goto('/abos');
+
+    await expect(page).toHaveURL(/\/fixkosten$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Fixkosten' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'Erkannte Abos' })).toBeVisible();
   });
 });

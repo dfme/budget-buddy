@@ -5,6 +5,7 @@ import com.budgetbuddy.budget.dto.FixedCostSummaryResponse;
 import com.budgetbuddy.budget.dto.SafeToSpendResponse;
 import com.budgetbuddy.budget.dto.SafeToSpendStatus;
 import com.budgetbuddy.money.ChfAmounts;
+import com.budgetbuddy.recurring.RecurringExpenseAmountPort;
 import com.budgetbuddy.transaction.IncomeSuggestionPort;
 import com.budgetbuddy.transaction.MonthlyExpensePort;
 import java.math.BigDecimal;
@@ -14,6 +15,7 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,10 +26,12 @@ import org.springframework.transaction.annotation.Transactional;
  * <p><strong>Formel:</strong>
  *
  * <pre>{@code
- * amount = (monthly_income − Fixkosten (Monatssumme) − variable Ausgaben) ÷ weeksLeft
+ * amount = (monthly_income − Fixkosten (Monatssumme) − erkannte Abos − variable Ausgaben) ÷ weeksLeft
  *
+ * erkannte Abos     = Σ Beträge der DETECTED-Abos ohne betragsgleiche Fixkosten-Position
  * variable Ausgaben = Belastungen des laufenden Monats
  *                     − je Fixkosten-Position eine betragsgleiche Belastung
+ *                     − je erkanntem Abo (ohne Position) eine betragsgleiche Belastung
  * }</pre>
  *
  * <p><strong>Divisor.</strong> {@code weeksLeft} ist die aufgerundete Zahl der verbleibenden Wochen
@@ -85,18 +89,29 @@ import org.springframework.transaction.annotation.Transactional;
  * belastet. Ausgenommen ist sie nur aus <em>diesem</em> Summanden — dieselbe Trennung, die
  * {@code docs/prompts/02_01_mvp-requirements.md} als Auflösung von Risiko 2 vorgeschlagen hat.
  *
+ * <p><strong>Erkannte Abos (FE-FC-05, US-08).</strong> Ein erkanntes, nicht verneintes Abo wirkt
+ * wie eine Fixkosten-Position: sein Betrag geht auf der Fixkosten-Seite ab — von Monatsbeginn an,
+ * nicht erst, wenn die Abbuchung im Auszug steht —, und der {@link FixedCostDebitMatcher} streicht
+ * die Abbuchung aus dem Ausgaben-Summanden. Vorher zählte ein Abo nur als variable Ausgabe des
+ * Monats, in dem es abging: bis dahin war der Safe-to-Spend um den Abo-Betrag zu hoch. Ein Abo,
+ * das der User bereits als Position erfasst hat, zählt nicht doppelt — erkannt am gleichen Betrag
+ * ({@link FixedCostDebitMatcher#uncoveredRecurringExpenses}); die Begründung steht dort und im
+ * ADR-13-Nachtrag. Die Beträge kommen über {@link RecurringExpenseAmountPort} aus dem
+ * recurring-Modul — nur Beträge, kein Empfänger.
+ *
  * <p>Sämtliche Beträge sind {@link BigDecimal} (ADR-9) — nie {@code double}/{@code float}.
  *
  * <p><strong>Mandantentrennung:</strong> alle Eingabewerte werden ausschliesslich über die
  * user-gebundenen Methoden von {@link UserIncomePort}, {@link FixedCostService},
- * {@link MonthlyExpensePort} und {@link IncomeSuggestionPort} gelesen. Dieser Service hält kein
+ * {@link MonthlyExpensePort}, {@link RecurringExpenseAmountPort} und {@link IncomeSuggestionPort}
+ * gelesen. Dieser Service hält kein
  * eigenes Repository und kann damit keine Query absetzen, die den User nicht einschränkt. Das gilt
  * auch für die Zuordnung: der {@link FixedCostDebitMatcher} bekommt ausschliesslich Werte, die hier
  * bereits user-gebunden geladen wurden, und liest selbst nichts nach.
  *
- * <p><strong>Modulgrenzen:</strong> Einkommen, Ausgaben und Einkommens-Vorschlag kommen über Ports
- * aus {@code auth} bzw. {@code transaction} — kein direkter Zugriff auf deren Repositories
- * (CLAUDE.md). Die Fixkosten
+ * <p><strong>Modulgrenzen:</strong> Einkommen, Ausgaben, Abo-Beträge und Einkommens-Vorschlag
+ * kommen über Ports aus {@code auth}, {@code transaction} bzw. {@code recurring} — kein direkter
+ * Zugriff auf deren Repositories (CLAUDE.md). Die Fixkosten
  * liegen im eigenen Modul; genutzt wird bewusst {@link FixedCostService#list(long)} und nicht das
  * Repository, damit hier exakt die Monatssumme eingeht, die der Wizard anzeigt (Rundungsregel und
  * Begründung in {@link FixedCostService}).
@@ -129,6 +144,7 @@ public class SafeToSpendService {
     private final UserIncomePort userIncomePort;
     private final FixedCostService fixedCostService;
     private final MonthlyExpensePort monthlyExpensePort;
+    private final RecurringExpenseAmountPort recurringExpenseAmountPort;
     private final IncomeSuggestionPort incomeSuggestionPort;
     private final Clock clock;
 
@@ -136,11 +152,13 @@ public class SafeToSpendService {
             UserIncomePort userIncomePort,
             FixedCostService fixedCostService,
             MonthlyExpensePort monthlyExpensePort,
+            RecurringExpenseAmountPort recurringExpenseAmountPort,
             IncomeSuggestionPort incomeSuggestionPort,
             Clock clock) {
         this.userIncomePort = userIncomePort;
         this.fixedCostService = fixedCostService;
         this.monthlyExpensePort = monthlyExpensePort;
+        this.recurringExpenseAmountPort = recurringExpenseAmountPort;
         this.incomeSuggestionPort = incomeSuggestionPort;
         this.clock = clock;
     }
@@ -183,7 +201,7 @@ public class SafeToSpendService {
      * @param month der Monat, für den gerechnet werden soll.
      * @return Betrag samt Divisor und den beiden Zustands-Flags aus US-06. Ohne erfasstes Einkommen
      *     ein Ergebnis mit {@code noIncome = true} und {@code amount = null} — es findet dann keine
-     *     Division statt und es werden auch keine Ausgaben geladen; stattdessen läuft die
+     *     Division statt und es werden weder Ausgaben noch Abos geladen; stattdessen läuft die
      *     Einkommens-Heuristik und füllt {@code incomeSuggestion}. Für einen vergangenen Monat der
      *     {@code CLOSED}-Marker.
      * @throws FutureMonthException wenn {@code month} nach dem laufenden Monat liegt.
@@ -234,13 +252,26 @@ public class SafeToSpendService {
         FixedCostSummaryResponse fixedCostSummary = fixedCostService.list(userId);
         BigDecimal fixedCosts = fixedCostSummary.summeMonatlich();
 
-        // Die per Dauerauftrag bezahlten Fixkosten fallen aus dem Ausgaben-Summanden — sonst
-        // stünden sie in beiden und minderten den Betrag zweimal (BE-STS-04, ADR-13).
+        // Erkannte Abos wirken wie Fixkosten-Positionen (FE-FC-05) — ohne die, die der User
+        // bereits als Position erfasst hat, erkannt am gleichen Betrag. Dieselbe Liste geht in
+        // beide Summanden: was hier abgezogen wird, streicht unten seine Abbuchung, und nur das.
+        List<BigDecimal> abos = FixedCostDebitMatcher.uncoveredRecurringExpenses(
+                recurringExpenseAmountPort.detectedAmounts(userId), fixedCostSummary.fixedCosts());
+        BigDecimal recurringExpenses = abos.stream()
+                .reduce(BigDecimal.ZERO.setScale(RAPPEN_SCALE), BigDecimal::add);
+
+        // Die per Dauerauftrag bezahlten Fixkosten und die Abbuchungen der Abos fallen aus dem
+        // Ausgaben-Summanden — sonst stünden sie in beiden und minderten den Betrag zweimal
+        // (BE-STS-04, ADR-13).
         BigDecimal expenses = FixedCostDebitMatcher.variableExpenses(
                 monthlyExpensePort.expenseAmounts(userId, month),
-                fixedCostSummary.fixedCosts());
+                fixedCostSummary.fixedCosts(),
+                abos);
 
-        BigDecimal verfuegbar = monthlyIncome.get().subtract(fixedCosts).subtract(expenses);
+        BigDecimal verfuegbar = monthlyIncome.get()
+                .subtract(fixedCosts)
+                .subtract(recurringExpenses)
+                .subtract(expenses);
         // HALF_UP wie in FixedCostService: die Skala-2-Rundung ist damit im ganzen budget-Modul
         // dieselbe. Der Divisor ist ein int und nie 0 — siehe weeksLeft(...).
         BigDecimal amount = verfuegbar.divide(

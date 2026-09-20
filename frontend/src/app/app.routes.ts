@@ -39,12 +39,11 @@ export const routes: Routes = [
     loadComponent: () => import('./onboarding/fixed-cost-list').then((m) => m.FixedCostList),
   },
   {
-    // Kein Eintrag in der Hauptnavigation — der Einstieg läuft über die Teaser-Card auf dem
-    // Dashboard und über die Abo-Benachrichtigung in der Glocke (FE-REC-01, US-08).
+    // FE-FC-05: die Abo-Übersicht ist ein Abschnitt auf /fixkosten. Der alte Pfad bleibt als
+    // Umleitung, damit Bookmarks und ältere Links nicht im Catch-all aufs Dashboard landen.
+    // Guards braucht die Umleitung nicht — /fixkosten bringt seine eigenen mit.
     path: 'abos',
-    canActivate: [authGuard, onboardingGuard],
-    loadComponent: () =>
-      import('./recurring/recurring-expense-list').then((m) => m.RecurringExpenseList),
+    redirectTo: 'fixkosten',
   },
   {
     path: 'einstellungen',

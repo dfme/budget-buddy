@@ -435,6 +435,33 @@ class RecurringExpenseServiceTest {
         assertThat(service.list(USER_ID)).isEmpty();
     }
 
+    // --- FE-FC-05: detectedAmounts() für den Safe-to-Spend ---
+
+    /**
+     * Nur die Beträge, nur {@code DETECTED}: der Port fragt das Repository mit dem Status ab und
+     * reicht keine Entities weiter. Dass verneinte Einträge nicht mitkommen, belegt die
+     * Repository-Query selbst — über echte Daten im {@code SafeToSpendServiceIntegrationTest}.
+     */
+    @Test
+    void detectedAmountsReturnsTheAmountsOfDetectedEntriesOnly() {
+        when(repository.findByUserIdAndStatus(USER_ID, RecurringExpenseStatus.DETECTED))
+                .thenReturn(List.of(withId(NETFLIX, "20.90", 200L), withId("SWISSCOM", "59.00", 201L)));
+
+        List<BigDecimal> result = service.detectedAmounts(USER_ID);
+
+        assertThat(result).containsExactly(new BigDecimal("20.90"), new BigDecimal("59.00"));
+        verify(repository).findByUserIdAndStatus(USER_ID, RecurringExpenseStatus.DETECTED);
+        verify(repository, never()).findByUserIdAndStatus(USER_ID, RecurringExpenseStatus.DISMISSED);
+    }
+
+    @Test
+    void detectedAmountsIsEmptyForAUserWithoutDetectedEntries() {
+        when(repository.findByUserIdAndStatus(USER_ID, RecurringExpenseStatus.DETECTED))
+                .thenReturn(List.of());
+
+        assertThat(service.detectedAmounts(USER_ID)).isEmpty();
+    }
+
     // --- BE-REC-02: dismiss() ---
 
     @Test

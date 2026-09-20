@@ -60,7 +60,7 @@ describe('NotificationBell', () => {
         provideHttpClientTesting(),
         provideRouter([
           { path: 'dashboard', component: RouteStub },
-          { path: 'abos', component: RouteStub },
+          { path: 'fixkosten', component: RouteStub },
         ]),
         { provide: LOCALE_ID, useValue: 'de-CH' },
       ],
@@ -251,7 +251,7 @@ describe('NotificationBell', () => {
     expect(query('.bell-list__read-all')).toBeNull();
     expect(query('.bell-list')).not.toBeNull();
     // Kein Ziel für alle zusammen — anders als beim Einzelklick auf eine Abo-Benachrichtigung.
-    expect(router.url).not.toBe('/abos');
+    expect(router.url).not.toBe('/fixkosten');
   });
 
   it('bleibt bei einem fehlschlagenden read-all-Call still, Badge unverändert', () => {
@@ -285,7 +285,7 @@ describe('NotificationBell', () => {
     // Sofort navigiert, nicht erst nach dem Gelesen-Call: Käme die Übersicht erst nach dessen
     // Abschluss an, stünde der Eintrag dort bereits als gelesen und das «Neu»-Label liefe leer
     // (US-08 AC2).
-    expect(router.url).toBe('/abos');
+    expect(router.url).toBe('/fixkosten');
     expect(query('.bell-list')).toBeNull();
     // Die Navigation löst den üblichen Reload aus.
     httpMock.expectOne('/api/notifications').flush([]);
@@ -303,7 +303,7 @@ describe('NotificationBell', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(router.url).toBe('/abos');
+    expect(router.url).toBe('/fixkosten');
     httpMock.expectOne('/api/notifications').flush([]);
 
     httpMock

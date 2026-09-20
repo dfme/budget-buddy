@@ -33,7 +33,10 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
  * <p>Seit BE-STS-04 (ADR-13) gehört zur Mandantentrennung eine zweite Frage: die Streichung der per
  * Dauerauftrag bezahlten Fixkosten führt Positionen und Belastungen zusammen, und beide Seiten
  * müssen demselben User gehören. Das deckt
- * {@link #aForeignUsersFixedCostPositionNeverExcludesAnOwnDebit()} ab.
+ * {@link #aForeignUsersFixedCostPositionNeverExcludesAnOwnDebit()} ab. Seit FE-FC-05 kommt eine
+ * dritte Kante dazu ({@code RecurringExpenseAmountPort} aus {@code recurring}): erkannte Abos
+ * mindern den Betrag, verneinte nicht, fremde nie —
+ * {@link #aForeignUsersRecurringExpenseNeverLowersTheResult()}.
  *
  * <p>Die {@link Clock} ist als {@link MockitoBean} auf einen festen Zeitpunkt gestellt: sonst hinge
  * das Ergebnis am Kalendertag des CI-Laufs und der Test wäre an 11 von 12 Monaten grün und einmal
@@ -209,6 +212,72 @@ class SafeToSpendServiceIntegrationTest {
         assertThat(service.calculate(marc).amount()).isEqualByComparingTo("1233.33");
     }
 
+    // --- FE-FC-05: erkannte Abos wirken wie Fixkosten-Positionen ---
+
+    @Test
+    void aDetectedRecurringExpenseLowersTheResultEvenBeforeItsDebit() {
+        // Netflix erkannt, im August (noch) nicht abgebucht: vorher zählte es nicht.
+        long lara = insertUser("lara-sts-abo@example.com", new BigDecimal("3000.00"));
+        insertRecurringExpense(lara, "NETFLIX", new BigDecimal("17.90"), "DETECTED");
+        insertExpense(lara, LocalDate.of(2026, 8, 3), "COOP BERN", new BigDecimal("300.00"));
+
+        // (3000.00 − 0 − 17.90 − 300.00) ÷ 3 = 894.03
+        assertThat(service.calculate(lara).amount()).isEqualByComparingTo("894.03");
+    }
+
+    @Test
+    void aDetectedRecurringExpenseCountsOnceWhenItsDebitIsInTheMonth() {
+        // Erkannt UND abgebucht: die Belastung fällt weg, das Abo zählt über die Fixkosten-Seite.
+        long lara = insertUser("lara-sts-abo-abbuchung@example.com", new BigDecimal("3000.00"));
+        insertRecurringExpense(lara, "NETFLIX", new BigDecimal("17.90"), "DETECTED");
+        insertExpense(lara, LocalDate.of(2026, 8, 2), "NETFLIX", new BigDecimal("17.90"));
+        insertExpense(lara, LocalDate.of(2026, 8, 3), "COOP BERN", new BigDecimal("300.00"));
+
+        // (3000.00 − 17.90 − 300.00) ÷ 3 = 894.03 — dasselbe wie ohne Abbuchung, nicht 888.07.
+        assertThat(service.calculate(lara).amount()).isEqualByComparingTo("894.03");
+    }
+
+    @Test
+    void aDismissedRecurringExpenseDoesNotLowerTheResult() {
+        // «Kein Abo» (US-08 AC3): der Eintrag bleibt in der Tabelle, darf aber nichts mindern.
+        long marc = insertUser("marc-sts-kein-abo@example.com", new BigDecimal("3000.00"));
+        insertRecurringExpense(marc, "COOP", new BigDecimal("49.90"), "DISMISSED");
+        insertExpense(marc, LocalDate.of(2026, 8, 3), "SBB", new BigDecimal("300.00"));
+
+        // (3000.00 − 0 − 0 − 300.00) ÷ 3 = 900.00
+        assertThat(service.calculate(marc).amount()).isEqualByComparingTo("900.00");
+    }
+
+    @Test
+    void aRecurringExpenseAlreadyEnteredAsFixedCostCountsOnce() {
+        // Handy im Wizard erfasst und als SWISSCOM erkannt, dazu die Abbuchung: 59.00 einmal.
+        long lara = insertUser("lara-sts-abo-doppelt@example.com", new BigDecimal("3000.00"));
+        fixedCostService.create(lara,
+                new FixedCostRequest("Handy", new BigDecimal("59.00"), "monatlich"));
+        insertRecurringExpense(lara, "SWISSCOM", new BigDecimal("59.00"), "DETECTED");
+        insertExpense(lara, LocalDate.of(2026, 8, 1), "SWISSCOM", new BigDecimal("59.00"));
+        insertExpense(lara, LocalDate.of(2026, 8, 3), "COOP BERN", new BigDecimal("300.00"));
+
+        // (3000.00 − 59.00 − 0 − 300.00) ÷ 3 = 880.33 — mit Doppelzählung wären es 860.67.
+        assertThat(service.calculate(lara).amount()).isEqualByComparingTo("880.33");
+    }
+
+    @Test
+    void aForeignUsersRecurringExpenseNeverLowersTheResult() {
+        // Marc hat ein erkanntes Abo, Lara nicht. Griffe der Port über den User hinweg, sänke
+        // Laras Betrag um Marcs Abo — und Marcs Abbuchung dürfte Laras 17.90-Belastung streichen.
+        long lara = insertUser("lara-sts-abo-fremd@example.com", new BigDecimal("3000.00"));
+        insertExpense(lara, LocalDate.of(2026, 8, 2), "KIOSK", new BigDecimal("17.90"));
+
+        long marc = insertUser("marc-sts-abo-fremd@example.com", new BigDecimal("5000.00"));
+        insertRecurringExpense(marc, "NETFLIX", new BigDecimal("17.90"), "DETECTED");
+
+        // Lara: (3000.00 − 0 − 0 − 17.90) ÷ 3 = 994.03 — die 17.90 bleiben variable Ausgabe.
+        assertThat(service.calculate(lara).amount()).isEqualByComparingTo("994.03");
+        // Marc: (5000.00 − 0 − 17.90 − 0) ÷ 3 = 1660.70
+        assertThat(service.calculate(marc).amount()).isEqualByComparingTo("1660.70");
+    }
+
     // --- Mandantentrennung: Gegenprobe mit einem zweiten User im selben Monat ---
 
     @Test
@@ -271,6 +340,19 @@ class SafeToSpendServiceIntegrationTest {
 
     private void insertExpense(long userId, LocalDate datum, String text, BigDecimal betrag) {
         insertTransaction(userId, datum, text, betrag, false);
+    }
+
+    /**
+     * Ein Eintrag der Abo-Erkennung (V11/V14), direkt per SQL: ein Aufruf über
+     * {@code RecurringExpenseService.detect} wäre der Umweg über die Erkennungsregel, die hier
+     * nicht Gegenstand ist. {@code notification_id} bleibt null — das «Neu»-Flag spielt für den
+     * Safe-to-Spend keine Rolle.
+     */
+    private void insertRecurringExpense(long userId, String payeeKey, BigDecimal amount, String status) {
+        jdbcTemplate.update(
+                "INSERT INTO recurring_expenses (user_id, payee_key, amount, status, first_detected_month)"
+                        + " VALUES (?, ?, ?, ?, ?)",
+                userId, payeeKey, amount, status, "2026-06");
     }
 
     /**

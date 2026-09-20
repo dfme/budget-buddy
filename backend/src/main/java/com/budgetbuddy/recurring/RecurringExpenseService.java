@@ -67,15 +67,23 @@ import org.springframework.transaction.annotation.Transactional;
  * wie im {@code FixedCostDebitMatcher} — {@link BigDecimal#compareTo} statt {@code equals}, damit
  * die Skala des Vergleichs nicht an der Skala einer anderen Klasse hängt.
  *
- * <p><strong>Mandantentrennung:</strong> beide Lesezugriffe — {@link ExpenseHistoryPort} und
- * {@link RecurringExpenseRepository#findByUserId} — sind auf den übergebenen User eingeschränkt;
- * geschrieben wird mit derselben ID.
+ * <p><strong>Safe-to-Spend (FE-FC-05).</strong> Erkannte Abos mindern seit FE-FC-05 den
+ * Safe-to-Spend wie Fixkosten-Positionen. Das budget-Modul liest dafür über
+ * {@link RecurringExpenseAmountPort#detectedAmounts} nur die Beträge der {@code DETECTED}-Zeilen;
+ * die Zuordnung zur Abbuchung des Monats und die Regel gegen Doppelzählung liegen drüben
+ * ({@code FixedCostDebitMatcher}, ADR-13-Nachtrag).
+ *
+ * <p><strong>Mandantentrennung:</strong> alle Lesezugriffe — {@link ExpenseHistoryPort},
+ * {@link RecurringExpenseRepository#findByUserId} und
+ * {@link RecurringExpenseRepository#findByUserIdAndStatus} — sind auf den übergebenen User
+ * eingeschränkt; geschrieben wird mit derselben ID.
  *
  * <p><strong>Logging:</strong> nur Zähler. Empfängernamen sind Transaktionsdaten und gehören nicht
  * ins Log (BE-PDF-06, CONVENTIONS «Logging-Kontext»).
  */
 @Service
-public class RecurringExpenseService implements RecurringExpenseDetectionPort {
+public class RecurringExpenseService
+        implements RecurringExpenseDetectionPort, RecurringExpenseAmountPort {
 
     /** Typ der Benachrichtigung — der Wert, den {@code NotificationPort} als freien String führt. */
     public static final String NOTIFICATION_TYPE = "RECURRING_EXPENSE_DETECTED";
@@ -271,6 +279,24 @@ public class RecurringExpenseService implements RecurringExpenseDetectionPort {
                 .findByUserIdOrderByPayeeKeyAsc(userId)
                 .stream()
                 .map(expense -> toResponse(expense, isNew(expense, unread)))
+                .toList();
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p><strong>Mandantentrennung:</strong>
+     * {@link RecurringExpenseRepository#findByUserIdAndStatus} ist auf den übergebenen User
+     * eingeschränkt. Es gehen nur Beträge über die Kante — der Safe-to-Spend braucht weder
+     * Empfänger noch «Neu»-Flag, und beides hätte im budget-Modul nichts zu suchen.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<BigDecimal> detectedAmounts(long userId) {
+        return recurringExpenseRepository
+                .findByUserIdAndStatus(userId, RecurringExpenseStatus.DETECTED)
+                .stream()
+                .map(RecurringExpense::getAmount)
                 .toList();
     }
 

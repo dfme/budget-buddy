@@ -183,6 +183,58 @@ Etwa «Wohnen» und «Versicherung» gar nicht als variable Ausgaben zählen.
 variable Ausgaben verschlucken und den Safe-to-Spend unbegrenzt zu hoch ausweisen — ohne jede
 Obergrenze, anders als beim betragsbasierten Matching.
 
+## Nachtrag FE-FC-05 (#338): Erkannte Abos wirken wie Fixkosten-Positionen
+
+**Datum:** 2026-09-20
+
+Seit US-08 erkennt das System wiederkehrende Ausgaben (`recurring_expenses`, Status `DETECTED`
+oder `DISMISSED`). Bis FE-FC-05 zählte ein erkanntes Abo im Safe-to-Spend nur als variable
+Ausgabe des Monats, in dem seine Abbuchung lag: vor der Abbuchung war der Betrag um das Abo zu
+hoch, danach stimmte er. Eine Fixkosten-Position dagegen mindert den Betrag von Monatsbeginn an.
+
+**Entscheid:** Erkannte, nicht verneinte Abos gehen denselben Weg wie Fixkosten-Positionen:
+
+```
+fixedCosts = Σ monatsbetrag aller Positionen
+           + Σ Beträge der DETECTED-Abos ohne betragsgleiche Position
+expenses   = Σ Belastungen des Monats
+             − je Position und je nicht abgedecktem Abo eine betragsgleiche Belastung
+```
+
+Drei Festlegungen kommen zu den bestehenden dazu:
+
+**4. Dieselbe Regel, dasselbe Multiset.** Fixkosten-Positionen und Abos landen im
+`FixedCostDebitMatcher` in *einem* Multiset. Für die Streichung ist gleichgültig, woher die
+Verpflichtung stammt — je Eintrag höchstens eine Belastung, wie bisher.
+
+**5. Betragsgleich heisst bereits erfasst.** Ein Abo kann zugleich als Fixkosten-Position
+erfasst sein — Handy, Krankenkasse, Streaming sind die typischen Fälle, die sowohl im Wizard
+eingetragen als auch aus dem Auszug erkannt werden. Ohne Deduplizierung stünde die Verpflichtung
+zweimal auf der Fixkosten-Seite. Woran das System die Überschneidung erkennt, ist dieselbe Frage
+wie in diesem ADR, und die Antwort ist dieselbe: der Betrag. `uncoveredRecurringExpenses` bildet
+die Multiset-Differenz der Abo-Beträge gegen `FixedCost.betrag`; nur der Rest zählt zusätzlich.
+Verglichen wird gegen `betrag`, nicht `monatsbetrag` — aus dem Grund von Festlegung 2.
+
+**6. `DISMISSED` zählt nie.** «Kein Abo» (US-08 AC3) ist die Aussage des Nutzers, dass dies
+keine Verpflichtung ist. Der Eintrag bleibt zur Anzeige in der Tabelle, aber
+`RecurringExpenseAmountPort.detectedAmounts` liefert ihn nicht.
+
+**Modulkante.** Das budget-Modul liest die Beträge über den neuen
+`recurring.RecurringExpenseAmountPort` — Interface im liefernden Modul, nur Beträge, keine
+Entities, kein Empfänger. Die Zuordnungsregel bleibt im budget-Modul, wo sie schon für die
+Positionen liegt.
+
+**Grenzen.** Die Fehlerrichtung der Deduplizierung ist dieselbe wie beim Matching: ein Abo, das
+nur zufällig rappengenau den Betrag einer *fremden* Fixkosten-Position trifft, zählt nicht — der
+Safe-to-Spend ist um diesen Betrag zu hoch. Der Fehler ist auf ein Abo begrenzt. Ohne
+Deduplizierung wäre der häufigste Fall — Handy manuell erfasst und automatisch erkannt —
+systematisch doppelt abgezogen. Die Warnung «Fixkosten übersteigen dein Einkommen»
+(`FixedCostService.list`) bezieht die Abos nicht ein; das bleibt bewusst offen.
+
+Ein Abo bleibt weiterhin nicht zu einer editierbaren Fixkosten-Position promovierbar
+(#338 grenzt das aus). Sobald #159 den Empfänger persistiert, ist er auch für die
+Deduplizierung das trennschärfere Kriterium — derselbe Upgrade-Pfad wie oben.
+
 ## Related
 
 - [ADR-9](ADR-9-bigdecimal-money.md) — alle Beträge als `BigDecimal`; das Matching vergleicht auf

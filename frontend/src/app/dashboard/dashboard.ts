@@ -306,9 +306,10 @@ export class Dashboard {
   /**
    * Der Text der Abo-Teaser-Card (FE-REC-01, US-08), z. B. `"3 Abos erkannt"`.
    *
-   * <p>Die Card steht auch bei 0 Einträgen da: sie ist der einzige Einstieg in die Abo-Übersicht
-   * (kein Eintrag in der Hauptnavigation), und wer sie bei 0 versteckte, nähme dem Nutzer den Weg
-   * dorthin genau dann, wenn er nachsehen will, warum nichts erkannt wurde.
+   * <p>Die Card steht auch bei 0 Einträgen da: sie ist vom Dashboard aus der direkte Einstieg
+   * in die Abo-Übersicht — seit FE-FC-05 der Abschnitt «Erkannte Abos» auf `/fixkosten` —, und
+   * wer sie bei 0 versteckte, nähme dem Nutzer den Weg dorthin genau dann, wenn er nachsehen
+   * will, warum nichts erkannt wurde.
    */
   readonly recurringTeaserText = computed(() => {
     const count = this.recurringExpenses.count();
@@ -503,7 +504,8 @@ export class Dashboard {
    *
    * <p>Einmal beim Aufbau der Seite und unabhängig vom Monat: erkannte Abos sind keine
    * Monatsgrösse, und die Liste ändert sich nur durch einen Import oder ein «Kein Abo» — beides
-   * führt über eine andere Seite hierher zurück.
+   * führt über eine andere Seite hierher zurück. Ein «Kein Abo» verändert seit FE-FC-05 auch den
+   * Safe-to-Spend; der wird beim Rückweg ohnehin neu geladen.
    *
    * <p>Ein Fehler bleibt bewusst still: die Card zeigt dann «Keine Abos erkannt» und verlinkt
    * weiterhin in die Übersicht, die ihren Fehler selbst meldet. Eine rote Meldung für einen

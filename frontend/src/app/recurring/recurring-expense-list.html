@@ -1,8 +1,9 @@
-<section class="recurring-expense-list">
-  <h1>Abos</h1>
+<section class="recurring-expense-list" aria-labelledby="recurring-expenses-heading">
+  <h2 id="recurring-expenses-heading">Erkannte Abos</h2>
   <p class="intro">
     Wiederkehrende Ausgaben, die in mindestens zwei aufeinanderfolgenden Monaten mit demselben
-    Betrag beim selben Empfänger erkannt wurden.
+    Betrag beim selben Empfänger erkannt wurden. Sie fliessen wie Fixkosten in deinen Safe-to-Spend
+    ein — ausser du markierst sie als «Kein Abo».
   </p>
 
   @if (loading()) {

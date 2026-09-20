@@ -138,6 +138,13 @@
     </app-card>
   }
 
+  <!--
+    FE-FC-05: Erkannte Abos (US-08) stehen seit der Zusammenführung hier, unter der
+    Fixkosten-Tabelle — nicht mehr auf einer eigenen Seite. Eigener Lade- und Fehlerzustand: ein
+    Fehler in der Abo-Liste lässt die Fixkosten-Tabelle stehen und umgekehrt.
+  -->
+  <app-recurring-expense-list />
+
   @if (pendingDelete(); as item) {
     <app-modal
       title="Position löschen?"

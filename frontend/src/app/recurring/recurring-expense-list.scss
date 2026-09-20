@@ -4,13 +4,13 @@
   display: block;
 }
 
-// Dieselbe Spaltenbreite wie die Fixkosten-Liste — beides Listen-Screens mit Aktion pro Zeile.
+// Ein Abschnitt der Fixkosten-Seite (FE-FC-05), keine eigene Seite mehr: die Breite gibt die
+// umgebende `.fixed-cost-list` vor, hier bleibt nur der Abstand zur Fixkosten-Tabelle darüber.
 .recurring-expense-list {
-  max-width: 40rem;
-  margin: 0 auto;
+  margin-top: $sp-6;
 }
 
-h1 {
+h2 {
   margin: 0 0 $sp-2;
 }
 
