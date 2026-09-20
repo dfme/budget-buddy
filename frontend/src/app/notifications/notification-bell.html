@@ -35,6 +35,15 @@
      role="menu" würde Pfeiltasten-Navigation versprechen, die es hier nicht gibt. -->
 @if (open()) {
   <div class="bell-list" [id]="listId">
+    <!-- FE-NOTIF-04: eine Aktion für alle ungelesenen — nur gerendert, solange es welche gibt.
+         Ein dauerhaft sichtbarer, aber wirkungsloser Button wäre ein Versprechen ohne Inhalt. -->
+    @if (unreadCount() > 0) {
+      <div class="bell-list__actions">
+        <button type="button" class="bell-list__read-all" (click)="markAllAsRead()">
+          Alle als gelesen markieren
+        </button>
+      </div>
+    }
     @if (notifications().length === 0) {
       <p class="bell-list__empty">Keine Benachrichtigungen</p>
     } @else {
@@ -43,6 +52,7 @@
           type="button"
           class="bell-list__item"
           [class.bell-list__item--unread]="!notification.read"
+          [class.bell-list__item--read]="notification.read"
           (click)="select(notification)"
         >
           <span class="bell-list__message">{{ notification.message }}</span>

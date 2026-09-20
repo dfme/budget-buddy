@@ -1,6 +1,8 @@
 package com.budgetbuddy.notification;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.is;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -124,7 +126,47 @@ class NotificationControllerIntegrationTest {
                 .andExpect(jsonPath("$.read").value(true));
     }
 
+    // --- read-all (FE-NOTIF-04) ---
+
+    @Test
+    void markAllAsReadSetsEveryOwnNotificationToReadAndReturnsTheList() throws Exception {
+        long first = createNotification(lara, "3 neue Abos erkannt");
+        long second = createNotification(lara, "1 neues Abo erkannt");
+
+        mockMvc.perform(post("/api/notifications/read-all").cookie(jwtCookie(lara)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[*].read").value(everyItem(is(true))));
+
+        assertThat(notificationRepository.findByIdAndUserId(first, lara)).get()
+                .extracting(Notification::isRead).isEqualTo(true);
+        assertThat(notificationRepository.findByIdAndUserId(second, lara)).get()
+                .extracting(Notification::isRead).isEqualTo(true);
+    }
+
+    @Test
+    void markAllAsReadWithoutUnreadNotificationsAnswersWith200AndTheList() throws Exception {
+        mockMvc.perform(post("/api/notifications/read-all").cookie(jwtCookie(lara)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
     // --- AC4: Mandantentrennung ---
+
+    @Test
+    void markAllAsReadDoesNotTouchAnotherUsersNotifications() throws Exception {
+        long larasId = createNotification(lara, "Netflix erkannt");
+        createNotification(marc, "Spotify erkannt");
+
+        mockMvc.perform(post("/api/notifications/read-all").cookie(jwtCookie(marc)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].read").value(true));
+
+        assertThat(notificationRepository.findByIdAndUserId(larasId, lara)).get()
+                .extracting(Notification::isRead).isEqualTo(false);
+    }
 
     @Test
     void aForeignNotificationCannotBeMarkedAsRead() throws Exception {
@@ -152,6 +194,7 @@ class NotificationControllerIntegrationTest {
     void withoutJwtEveryEndpointReturns401() throws Exception {
         mockMvc.perform(get("/api/notifications")).andExpect(status().isUnauthorized());
         mockMvc.perform(post("/api/notifications/1/read")).andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/notifications/read-all")).andExpect(status().isUnauthorized());
     }
 
     // --- Wire-Format ---

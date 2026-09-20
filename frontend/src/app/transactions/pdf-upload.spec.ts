@@ -61,10 +61,12 @@ describe('PdfUpload', () => {
 
   /**
    * Beantwortet die Abfrage der importierten Buchungen, die seit FE-PDF-04 auf jedes `DONE`
-   * folgt. Ohne sie bliebe der Request offen und `httpMock.verify()` liesse den Test scheitern.
+   * folgt, und den Reload der Glocke, der seit FE-NOTIF-04 ebenfalls auf `DONE` folgt. Ohne sie
+   * blieben die Requests offen und `httpMock.verify()` liesse den Test scheitern.
    */
   function flushImportedTransactions(transactions: Transaction[] = []): void {
     httpMock.expectOne(`/api/import/${JOB_ID}/transactions`).flush(transactions);
+    httpMock.expectOne('/api/notifications').flush([]);
     fixture.detectChanges();
   }
 
@@ -171,6 +173,54 @@ describe('PdfUpload', () => {
     expect(component.uploading()).toBe(false);
     expect(component.importOutcome()).toEqual({ kind: 'success', count: 42, degraded: false });
     expect(fixture.nativeElement.querySelector('app-meter')).toBeNull();
+  });
+
+  // FE-NOTIF-04 (#336): die Abo-Benachrichtigung des Imports soll sofort in der Glocke stehen,
+  // nicht erst nach der nächsten Navigation.
+  it('reloads the notification bell once the job is DONE', () => {
+    component.onDrop(dropEvent([pdfFile()]));
+    fixture.detectChanges();
+    httpMock.expectOne('/api/import/pdf').flush({ jobId: JOB_ID, total: 3 });
+    vi.advanceTimersByTime(1);
+    httpMock.expectOne(`/api/import/${JOB_ID}/status`).flush({
+      status: 'DONE',
+      total: 3,
+      processed: 3,
+      degraded: false,
+    });
+    httpMock.expectOne(`/api/import/${JOB_ID}/transactions`).flush([]);
+
+    const reload = httpMock.expectOne('/api/notifications');
+    expect(reload.request.method).toBe('GET');
+    reload.flush([]);
+  });
+
+  it('keeps the import a success when the bell reload fails', () => {
+    component.onDrop(dropEvent([pdfFile()]));
+    fixture.detectChanges();
+    httpMock.expectOne('/api/import/pdf').flush({ jobId: JOB_ID, total: 3 });
+    vi.advanceTimersByTime(1);
+    httpMock.expectOne(`/api/import/${JOB_ID}/status`).flush({
+      status: 'DONE',
+      total: 3,
+      processed: 3,
+      degraded: false,
+    });
+    httpMock.expectOne(`/api/import/${JOB_ID}/transactions`).flush([]);
+    httpMock
+      .expectOne('/api/notifications')
+      .flush(null, { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+
+    expect(component.importOutcome()).toEqual({ kind: 'success', count: 3, degraded: false });
+  });
+
+  it('does not reload the notification bell when the job fails', () => {
+    component.onDrop(dropEvent([pdfFile()]));
+    fixture.detectChanges();
+    completeImport(12, { status: 'FAILED' });
+
+    httpMock.expectNone('/api/notifications');
   });
 
   /**
@@ -686,6 +736,7 @@ describe('PdfUpload', () => {
       httpMock
         .expectOne(`/api/import/${JOB_ID}/transactions`)
         .flush(null, { status: 500, statusText: 'Server Error' });
+      httpMock.expectOne('/api/notifications').flush([]);
       fixture.detectChanges();
 
       expect(component.importOutcome()).toEqual({ kind: 'success', count: 3, degraded: false });
@@ -774,6 +825,7 @@ describe('PdfUpload', () => {
       fixture.detectChanges();
       // Die Buchungen bleiben offen — genau der Zustand, in dem der Nutzer weitermacht.
       const stale = httpMock.expectOne(`/api/import/${JOB_ID}/transactions`);
+      httpMock.expectOne('/api/notifications').flush([]);
 
       component.onDrop(dropEvent([pdfFile('juli.pdf')]));
       fixture.detectChanges();
@@ -798,6 +850,7 @@ describe('PdfUpload', () => {
         .flush({ status: 'DONE', total: 1, processed: 1, degraded: false });
       fixture.detectChanges();
       const stale = httpMock.expectOne(`/api/import/${JOB_ID}/transactions`);
+      httpMock.expectOne('/api/notifications').flush([]);
 
       component.onDrop(dropEvent([new File(['x'], 'notizen.txt', { type: 'text/plain' })]));
       fixture.detectChanges();

@@ -2,6 +2,8 @@ package com.budgetbuddy.recurring;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.budgetbuddy.notification.NotificationService;
+import com.budgetbuddy.recurring.dto.RecurringExpenseResponse;
 import com.budgetbuddy.support.PostgresTestDatabase;
 import com.budgetbuddy.transaction.ParsedTransaction;
 import com.budgetbuddy.transaction.SwissBankStatementParser;
@@ -27,8 +29,9 @@ import org.springframework.test.context.DynamicPropertySource;
  * {@code TransactionRepository → ExpenseHistoryPort → RecurringExpenseService →
  * recurring_expenses/notifications} im echten Schema zusammenhält — die Ableitung von
  * {@code findByUserIdAndIncomeFalse}, das Schreiben gegen die {@code CHECK}- und
- * {@code UNIQUE}-Constraints aus V11, die Notification mit {@code reference_id} auf die neue Zeile
- * — und die <strong>Mandantentrennung</strong> aus Sicht eines zweiten Users.
+ * {@code UNIQUE}-Constraints aus V11, die eine Bündel-Notification pro Lauf mit
+ * {@code notification_id} auf jeder neuen Zeile (V14, FE-NOTIF-04) — und die
+ * <strong>Mandantentrennung</strong> aus Sicht eines zweiten Users.
  *
  * <p>Die Daten kommen aus dem echten Jahresauszug {@code Post_Kontoauszug_2025_240_Buchungen.pdf},
  * über den {@link SwissBankStatementParser} wie im Import. Dort stehen fünf Abo-Positionen zwölfmal
@@ -69,6 +72,7 @@ class RecurringExpenseDetectionIntegrationTest {
     }
 
     @Autowired private RecurringExpenseService service;
+    @Autowired private NotificationService notificationService;
     @Autowired private JdbcTemplate jdbcTemplate;
 
     private final SwissBankStatementParser parser = new SwissBankStatementParser();
@@ -105,24 +109,49 @@ class RecurringExpenseDetectionIntegrationTest {
         });
     }
 
-    /** AC 4: je Abo eine Notification vom Typ RECURRING_EXPENSE_DETECTED, verknüpft über reference_id. */
+    /**
+     * AC 4 (US-08) im Zuschnitt von FE-NOTIF-04 (#336): <em>eine</em> Notification vom Typ
+     * RECURRING_EXPENSE_DETECTED pro Lauf, an der alle acht Zeilen über {@code notification_id}
+     * hängen. Vorher waren es acht Notifications, verknüpft über {@code reference_id}.
+     */
     @Test
-    void notifiesOncePerDetectedPayee_withTheRowIdAsReference() {
+    void notifiesOncePerRun_andEveryRowPointsToThatNotification() {
         importStatement(lara, POST_JAHR);
 
         service.detect(lara);
 
         List<Map<String, Object>> notifications = jdbcTemplate.queryForList(
-                "SELECT n.type, n.reference_id, n.message, n.read_at, r.payee_key"
-                        + " FROM notifications n"
-                        + " JOIN recurring_expenses r ON r.id = n.reference_id"
-                        + " WHERE n.user_id = ?", lara);
-        assertThat(notifications).hasSize(ERKANNT.size());
-        assertThat(notifications).allSatisfy(n -> {
-            assertThat(n.get("type")).isEqualTo("RECURRING_EXPENSE_DETECTED");
-            assertThat(n.get("read_at")).isNull();
-            assertThat((String) n.get("message")).contains((String) n.get("payee_key"));
-        });
+                "SELECT id, type, reference_id, message, read_at FROM notifications WHERE user_id = ?",
+                lara);
+        assertThat(notifications).hasSize(1);
+        Map<String, Object> bundle = notifications.getFirst();
+        assertThat(bundle.get("type")).isEqualTo("RECURRING_EXPENSE_DETECTED");
+        assertThat(bundle.get("reference_id")).isNull();
+        assertThat(bundle.get("read_at")).isNull();
+        assertThat(bundle.get("message")).isEqualTo(
+                "8 neue Abos erkannt: CSS VERSICHERUNG AG, KONTOFÜHRUNG, MUSTER IMMOBILIEN AG"
+                        + " und 5 weitere");
+
+        List<Long> notificationIds = jdbcTemplate.queryForList(
+                "SELECT notification_id FROM recurring_expenses WHERE user_id = ?", Long.class, lara);
+        assertThat(notificationIds).hasSize(ERKANNT.size()).containsOnly((Long) bundle.get("id"));
+    }
+
+    /**
+     * AC 1 von #336 über die ganze Kette: nach einem Import mit acht erkannten Abos genügt
+     * <em>eine</em> Kenntnisnahme — die der Bündel-Notification —, und kein Eintrag ist mehr «Neu».
+     */
+    @Test
+    void readingTheBundleNotificationClearsNewOnEveryDetectedEntry() {
+        importStatement(lara, POST_JAHR);
+        service.detect(lara);
+        assertThat(service.list(lara)).hasSize(ERKANNT.size()).allMatch(RecurringExpenseResponse::isNew);
+        long bundleId = jdbcTemplate.queryForObject(
+                "SELECT id FROM notifications WHERE user_id = ?", Long.class, lara);
+
+        notificationService.markAsRead(lara, bundleId);
+
+        assertThat(service.list(lara)).hasSize(ERKANNT.size()).noneMatch(RecurringExpenseResponse::isNew);
     }
 
     /** Ein zweiter Lauf über denselben Bestand — der nächste Import — schreibt nichts Neues. */
@@ -134,7 +163,8 @@ class RecurringExpenseDetectionIntegrationTest {
         service.detect(lara);
 
         assertThat(count("recurring_expenses", lara)).isEqualTo(ERKANNT.size());
-        assertThat(count("notifications", lara)).isEqualTo(ERKANNT.size());
+        // Ein Lauf ohne Treffer meldet nichts — es bleibt beim einen Bündel des ersten Laufs.
+        assertThat(count("notifications", lara)).isEqualTo(1);
     }
 
     /** AC 5 im echten Schema: eine DISMISSED-Zeile bleibt die einzige Zeile dieses Empfängers. */
@@ -155,7 +185,9 @@ class RecurringExpenseDetectionIntegrationTest {
         assertThat(netflix).hasSize(1);
         assertThat(netflix.getFirst().get("status")).isEqualTo("DISMISSED");
         assertThat(count("recurring_expenses", lara)).isEqualTo(ERKANNT.size());
-        assertThat(count("notifications", lara)).isEqualTo(ERKANNT.size() - 1);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT message FROM notifications WHERE user_id = ?", String.class, lara))
+                .startsWith("7 neue Abos erkannt: ");
     }
 
     /**

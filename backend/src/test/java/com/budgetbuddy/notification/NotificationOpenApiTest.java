@@ -36,11 +36,13 @@ class NotificationOpenApiTest {
     @Autowired private MockMvc mockMvc;
 
     @Test
-    void bothNotificationEndpointsAppearInTheOpenApiDocument() throws Exception {
+    void allNotificationEndpointsAppearInTheOpenApiDocument() throws Exception {
         mockMvc.perform(get("/v3/api-docs"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.paths['/api/notifications'].get").exists())
-                .andExpect(jsonPath("$.paths['/api/notifications/{id}/read'].post").exists());
+                .andExpect(jsonPath("$.paths['/api/notifications/{id}/read'].post").exists())
+                // FE-NOTIF-04 (#336): DoD «neue Endpoints in Swagger UI sichtbar».
+                .andExpect(jsonPath("$.paths['/api/notifications/read-all'].post").exists());
     }
 
     @Test
@@ -49,6 +51,8 @@ class NotificationOpenApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.paths['/api/notifications'].get.summary").isNotEmpty())
                 .andExpect(jsonPath("$.paths['/api/notifications/{id}/read'].post.summary")
+                        .isNotEmpty())
+                .andExpect(jsonPath("$.paths['/api/notifications/read-all'].post.summary")
                         .isNotEmpty());
     }
 
