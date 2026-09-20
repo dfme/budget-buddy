@@ -1,9 +1,7 @@
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { type APIRequestContext } from '@playwright/test';
-
 import { expect, test } from '../fixtures/auth.fixture';
+import { importFixture } from '../support/import';
 
 /**
  * E2E-Abdeckung der Should-Have-Story US-08 «Wiederkehrende Ausgaben (Abos) erkennen»
@@ -50,54 +48,11 @@ test.describe('Abo-Erkennung', () => {
   const PAYEE = 'STREAMBOX.CH ABO';
 
   /**
-   * Obergrenze für den Import-Job. Die Abo-Erkennung läuft synchron am Ende desselben Jobs
+   * Die Abo-Erkennung läuft synchron am Ende desselben Import-Jobs
    * (`ImportJobRunner.detectRecurringExpenses`, vor `finishSuccessfully`), ein separates Warten
-   * auf die Erkennung ist deshalb nicht nötig — sobald der Poll `DONE` meldet, ist
-   * `GET /api/recurring-expenses` bereits aktuell. Grosszügig wie in `categorization.spec.ts`:
-   * der Watchdog steht auf 300s, in der Testinstanz ohne `ANTHROPIC_API_KEY` dauert der Job aber
-   * Millisekunden.
+   * auf die Erkennung ist deshalb nicht nötig — sobald `importFixture` `DONE` meldet, ist
+   * `GET /api/recurring-expenses` bereits aktuell.
    */
-  const IMPORT_TIMEOUT_MS = 60_000;
-
-  /**
-   * Importiert eine Fixture über die API und wartet, bis der Job einen Endzustand erreicht hat.
-   *
-   * <p>Bewusst nicht durch die Upload-UI: der Import ist Vorbedingung dieses Tests, nicht sein
-   * Gegenstand — dieselbe Begründung wie in `categorization.spec.ts`.
-   */
-  async function importFixture(request: APIRequestContext, fixturePath: string): Promise<void> {
-    const upload = await request.post('/api/import/pdf', {
-      multipart: {
-        file: {
-          name: fixturePath.split(/[/\\]/).pop()!,
-          mimeType: 'application/pdf',
-          buffer: readFileSync(fixturePath),
-        },
-      },
-    });
-    expect(upload.status(), 'Vorbedingung: POST /api/import/pdf').toBe(202);
-
-    const { jobId } = (await upload.json()) as { jobId: number };
-
-    let status = 'RUNNING';
-    await expect
-      .poll(
-        async () => {
-          const response = await request.get(`/api/import/${jobId}/status`);
-          expect(response.status(), `GET /api/import/${jobId}/status`).toBe(200);
-          ({ status } = (await response.json()) as { status: string });
-          return status;
-        },
-        {
-          timeout: IMPORT_TIMEOUT_MS,
-          message: `Import-Job ${jobId} hat keinen Endzustand erreicht`,
-        },
-      )
-      .not.toBe('RUNNING');
-
-    expect(status, `Import-Job ${jobId} endete nicht erfolgreich`).toBe('DONE');
-  }
-
   test('Happy Path: gleicher Empfänger/Betrag in 2 Folgemonaten erscheint mit «Neu»-Label', async ({
     authenticatedContext,
     authenticatedPage: page,
