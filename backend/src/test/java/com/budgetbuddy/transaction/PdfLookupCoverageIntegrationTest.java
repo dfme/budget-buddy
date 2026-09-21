@@ -197,10 +197,13 @@ class PdfLookupCoverageIntegrationTest {
     /**
      * Dieselbe Messung am layouttreuen Auszug — und sie fällt deutlich schlechter aus.
      *
-     * <p>Der 240er-Auszug schreibt den Händler in die Buchungszeile und kommt so auf 60%. Echte
-     * PostFinance-Auszüge schreiben dort die Zahlungsart; der Händler steht in den Detailzeilen,
-     * hinter Kartennummer, IBAN und Anschrift. Damit hängt jeder Treffer daran, dass die
-     * sprechende Zeile den Weg durch das Rauschen und durch {@code MAX_DETAIL_LINES} überlebt.
+     * <p>Beide Auszüge schreiben den Händler in die Detailzeilen, hinter Kartennummer, IBAN und
+     * Anschrift — der 240er seit der Umstellung aufs echte Satzbild ebenso, was {@code
+     * SwissBankStatementParserFixtureTest#everyLookupCandidateSitsInADetailLine_notInTheBookingLine}
+     * festhält. Jeder Treffer hängt also daran, dass die sprechende Zeile den Weg durch das
+     * Rauschen und durch {@code MAX_DETAIL_LINES} überlebt. Was die beiden unterscheidet, ist die
+     * Dichte des Rauschens: Der Juli-Auszug stapelt Label-, Adress- und Referenzzeilen so, dass
+     * die sprechende Zeile öfter unter {@code MAX_DETAIL_LINES} fällt.
      *
      * <p>Der Test hält die Differenz fest, nicht einen Zielwert: 20 Buchungen sind keine
      * belastbare Quote. Die Aussage ist, dass das Satzbild die Trefferrate stärker bestimmt als

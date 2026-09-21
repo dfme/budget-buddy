@@ -381,9 +381,14 @@ class SwissBankStatementParserFixtureTest {
     void everyLookupCandidateSitsInADetailLine_notInTheBookingLine() {
       List<ParsedTransaction> txns = parser.parse(bytes(POST_JAHR));
 
-      // Die Eigenschaft, ohne die die 60%-Quote dieses Auszugs nichts über den Parser aussagt:
+      // Die Eigenschaft, ohne die die Lookup-Quote dieses Auszugs nichts über den Parser aussagt:
       // Kein Händlername steht in der Buchungszeile. Jeder Treffer muss den Weg durch
       // Kartennummer, IBAN, Anschrift und Label-Zeilen bis in fullText() überlebt haben.
+      //
+      // Eine Ausnahme gibt es seit V15 (BE-CAT-17), und sie ist gewollt: BARBEZUG ist selbst ein
+      // Seed und steht in der Buchungszeile. Beim Barbezug IST der Zahlungstyp die Kategorie —
+      // die Migration begründet das. Die Liste unten kennt nur Händlernamen und merkte den
+      // Unterschied nicht, deshalb ist er hier benannt und unten gesondert abgesichert.
       assertThat(txns)
           .extracting(ParsedTransaction::buchungstext)
           .containsOnly(
@@ -404,6 +409,14 @@ class SwissBankStatementParserFixtureTest {
           .anySatisfy(t -> assertThat(t).contains("COOP-1234 BERN"))
           .anySatisfy(t -> assertThat(t).contains("SBB CFF FFS BERN"))
           .anySatisfy(t -> assertThat(t).contains("ALDI SUISSE BERN"));
+
+      // Der Barbezug ist die benannte Ausnahme — für ihn gilt die Eigenschaft trotzdem, nur über
+      // ein anderes Pattern. Ohne diese Zusicherung zählten seine zwölf Treffer auch dann noch,
+      // wenn der Parser jede Detailzeile verlöre, und der Test merkte es nicht.
+      assertThat(txns)
+          .filteredOn(t -> t.buchungstext().equals("BARBEZUG"))
+          .hasSize(12)
+          .allSatisfy(t -> assertThat(t.fullText()).contains("POSTOMAT"));
     }
 
     @Test

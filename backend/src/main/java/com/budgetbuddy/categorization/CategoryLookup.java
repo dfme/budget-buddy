@@ -6,13 +6,13 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 /**
- * JPA-Entity der {@code category_lookup}-Tabelle (Flyway V04, DB-04).
+ * JPA-Entity der {@code category_lookup}-Tabelle (Flyway V04, DB-04; Seeds ergänzt in V15).
  *
  * <p>Bildet ein bekanntes Händler-Pattern ({@code empfaenger_pattern}, zugleich PK) auf einen
  * Kategorie-Label ({@code category}) ab. Das case-insensitive Matching übernimmt die Query im
  * {@link CategoryLookupRepository} explizit via {@code upper(...)}, damit es dialekt-unabhängig ist;
  * gespeichert werden Patterns ausschliesslich in Grossschreibung ({@link CategoryLearningService}
- * normalisiert, die Seeds aus Flyway V04 sind es bereits).
+ * normalisiert, die Seeds aus Flyway V04 und V15 sind es bereits).
  */
 @Entity
 @Table(name = "category_lookup")

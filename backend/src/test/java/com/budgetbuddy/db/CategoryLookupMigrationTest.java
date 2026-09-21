@@ -1,9 +1,12 @@
 package com.budgetbuddy.db;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 import com.budgetbuddy.categorization.Category;
 import com.budgetbuddy.support.PostgresTestDatabase;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -13,10 +16,12 @@ import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Verifiziert die Flyway-Migration V04 (category_lookup-Tabelle inkl. Seed-Daten) gegen eine echte
@@ -146,6 +151,50 @@ class CategoryLookupMigrationTest {
         // Buchungstexte, und findMatching kennt seit BE-CAT-14 keine Wortgrenzen. Steht hier,
         // damit ein späterer Nachtrag eine Entscheidung ist und kein Versehen.
         assertThat(categoryByPattern).doesNotContainKeys("ATM", "STEUERN");
+    }
+
+    /**
+     * Der Grund für das {@code ON CONFLICT} in V15 (Review-Befund zu PR #344).
+     *
+     * <p>{@code category_lookup} enthält nicht nur Seeds: Bis V12 schrieb der Lerneffekt rohe
+     * Buchungstexte in genau diese Tabelle, und ADR-15 lässt diese verwaisten Zeilen auf
+     * Produktion bewusst stehen. {@code empfaenger_pattern} ist PK — träfe eine davon einen der
+     * sieben neuen Keys, scheiterte V15 mit einer PK-Verletzung und Flyway brächte den Deploy
+     * nicht hoch. Auf der Testdatenbank tritt der Fall nie ein, also wird er hier gestellt.
+     *
+     * <p>Geprüft wird das Statement <em>aus der Migrationsdatei selbst</em>, nicht eine Kopie
+     * davon: Ein nachgebautes Upsert wäre am Tag richtig, an dem es geschrieben wird. {@code
+     * @Transactional} rollt die gestellte Zeile danach zurück, damit die übrigen Tests dieser
+     * Klasse die unveränderte Tabelle sehen.
+     */
+    @Test
+    @Transactional
+    void v15SurvivesAnOrphanedLearnedRowAndOverwritesIt() throws IOException {
+        // Die verwaiste Lernzeile, wie sie vor V12 entstanden sein kann: derselbe PK, aber die
+        // Kategorie, die Claude damals geraten hat.
+        jdbcTemplate.update(
+                "UPDATE category_lookup SET category = 'Sonstiges' WHERE empfaenger_pattern = 'BARBEZUG'");
+
+        String insert = seedStatementOfV15();
+
+        // Ohne ON CONFLICT flöge hier eine PK-Verletzung — das ist der eigentliche Test.
+        assertThatCode(() -> jdbcTemplate.execute(insert)).doesNotThrowAnyException();
+
+        // Und DO UPDATE statt DO NOTHING: Der kuratierte Seed gewinnt gegen den Lerneintrag.
+        assertThat(jdbcTemplate.queryForObject(
+                        "SELECT category FROM category_lookup WHERE empfaenger_pattern = 'BARBEZUG'",
+                        String.class))
+                .isEqualTo("Bargeldbezug");
+    }
+
+    /** Das {@code INSERT} aus V15, wörtlich aus der Migration auf dem Classpath. */
+    private static String seedStatementOfV15() throws IOException {
+        String sql = new ClassPathResource(
+                        "db/migration/V15__seed_bargeldbezug_and_steuern_lookup.sql")
+                .getContentAsString(StandardCharsets.UTF_8);
+        int start = sql.indexOf("INSERT INTO category_lookup");
+        assertThat(start).as("INSERT in V15 gefunden").isNotNegative();
+        return sql.substring(start, sql.indexOf(';', start) + 1);
     }
 
     @Test

@@ -19,7 +19,7 @@ Each fixture answers one question the others cannot:
                                           stays reviewable
     Post_Kontoauszug_2025_240_Buchungen   240 bookings over a full calendar year:
                                           volume plus the lookup/Claude ratio,
-                                          built to 60% (ADR-6/ADR-14)
+                                          built to 66.25% (ADR-6/ADR-14)
     UBS_Konto_Bewegungen_2021_Juli.pdf    descending order, 2 pages, 28 bookings
     Kreditkarten Rechnung *.pdf           Viseca layout, foreign currency
     Raiffeisen_..._110_Buchungen.pdf      length: the generic branch at #192 size
@@ -46,8 +46,9 @@ put the merchant in the booking line measure the generator's choice of words
 instead of the parser.
 
 The block builders (_post_card, _post_lsv, _post_giro_in, ...) each declare which
-of their printed lines the parser keeps. That split is what makes the 60% figure
-honest -- otherwise the generator would count hits in lines DETAIL_NOISE discards.
+of their printed lines the parser keeps. That split is what keeps the lookup
+ratio honest -- otherwise the generator would count hits in lines DETAIL_NOISE
+discards.
 Whether the claim holds is not checked here but in
 PdfLookupCoverageIntegrationTest, against the real parser and the real seeds.
 
@@ -612,14 +613,18 @@ def _post_report(name, rows, pages, totals):
 # --------------------- 240 Buchungen, Kalenderjahr 2025 ----------------------
 # Der Mengen- und Quotentest. Er beantwortet eine andere Frage als die beiden
 # kleineren Auszüge: Wie viel eines Jahres erledigt die Lookup-Tabelle gratis,
-# und wie viel muss an Claude? Gebaut auf 60% Lookup — bewusst unter den 70-80%,
-# mit denen ADR-6 rechnet, damit die Claude-Stufe spürbar Last bekommt: 96
-# unbekannte Transaktionen sind bei Bündelgrösse 20 zwölf Requests.
+# und wie viel muss an Claude? Gebaut auf 60% Lookup, seit den Seeds aus V15
+# (BE-CAT-17) bei 66.25% — bewusst unter den 70-80%, mit denen ADR-6 rechnet,
+# damit die Claude-Stufe spürbar Last bekommt: 81 unbekannte Transaktionen sind
+# bei Bündelgrösse 20 zwölf Requests.
 #
 # Seit der Umstellung aufs echte Satzbild ist diese Quote erst aussagekräftig:
-# Die zwölf Treffer pro Monat kommen aus einer DETAILZEILE, nicht aus der
+# Die zwölf Händlertreffer pro Monat kommen aus einer DETAILZEILE, nicht aus der
 # Buchungszeile. Sie messen damit, ob der Händler das Rauschen überlebt — vorher
-# massen sie die Textwahl des Generators.
+# massen sie die Textwahl des Generators. Die eine Ausnahme ist der Barbezug:
+# Seit V15 ist BARBEZUG selbst ein Seed, und der steht in der Buchungszeile. Das
+# ist Absicht (der Zahlungstyp IST dort die Kategorie) und der Grund, warum
+# SwissBankStatementParserFixtureTest ihn gesondert über POSTOMAT absichert.
 #
 # Ein volles Kalenderjahr bedient zugleich US-08 (wiederkehrende Ausgaben) und
 # US-10/US-12 (Monatsvergleich, Monatswechsel): Miete, Krankenkasse, Swisscom,
@@ -691,10 +696,12 @@ POST_YEAR_VARIATIONS = [
 def _post_year_month(month):
     """Die 20 Buchungen eines Monats.
 
-    Zwölf davon tragen einen Händler mit Lookup-Treffer, acht nicht — daraus
-    ergeben sich die 60%. Welche Slots das sind, steht bewusst nicht in einer
-    Tabelle daneben: `_assert_lookup_share` rechnet es gegen die echten Seeds
-    nach und bricht ab, wenn es nicht mehr stimmt.
+    Zwölf davon tragen einen Händler mit Lookup-Treffer, acht nicht. Seit V15
+    (BE-CAT-17) kommt der Barbezug als dreizehnter Treffer dazu, in den Monaten
+    mit Steuerrückerstattung (4, 8, 12) als vierzehnter — 9x13 + 3x14 = 159,
+    also 66.25%. Welche Slots das sind, steht bewusst nicht in einer Tabelle
+    daneben: `_assert_lookup_share` rechnet es gegen die echten Seeds nach und
+    bricht ab, wenn es nicht mehr stimmt.
     """
     from calendar import monthrange
     from datetime import date, timedelta
