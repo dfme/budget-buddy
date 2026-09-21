@@ -114,6 +114,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `FE-NOTIF-02` | [Glocke: Dropdown auf Desktop ausserhalb des Viewports, Icon passt nicht zum Design](FE-NOTIF-02-bell-dropdown-icon.md) | [#308](https://github.com/dfme/budget-buddy/issues/308) | US-08 | Sprint 7 |
 | `FE-NOTIF-03` | [Verneinte Abos bleiben auf /abos sichtbar — Abschnitt «Kein Abo»](FE-NOTIF-03-abo-hinweis-verneinter-eintrag.md) | [#333](https://github.com/dfme/budget-buddy/issues/333) | US-08 | Sprint 7 |
 | `FE-NOTIF-04` | [Viele Abo-Benachrichtigungen auf einmal: Kenntnisnahme nur per Einzelklick](FE-NOTIF-04-bundle-recurring-notifications.md) | [#336](https://github.com/dfme/budget-buddy/issues/336) | US-08 | Sprint 7 |
+| `FE-NOTIF-05` | [Klick auf Import-Benachrichtigung führt zur Import-Seite mit der Übersicht des Imports](FE-NOTIF-05-import-notification-link.md) | [#348](https://github.com/dfme/budget-buddy/issues/348) | US-04 | Sprint 7 |
 | `FE-PDF-01` | [Plan: FE-PDF-01 — PDF-Upload Component](FE-PDF-01-pdf-upload-component.md) | [#27](https://github.com/dfme/budget-buddy/issues/27) | US-04 | Sprint 3 |
 | `FE-PDF-02` | [FE-PDF-02 — Ergebnis-Anzeige nach PDF-Import](FE-PDF-02-import-ergebnis-anzeige.md) | [#28](https://github.com/dfme/budget-buddy/issues/28) | US-04 | Sprint 3 |
 | `FE-PDF-03` | [Duplikat-Dialog](FE-PDF-03-duplikat-dialog.md) | [#29](https://github.com/dfme/budget-buddy/issues/29) | US-04 | Sprint 4 |
