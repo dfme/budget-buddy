@@ -1046,10 +1046,11 @@ describe('PdfUpload', () => {
       );
     });
 
-    // «Zu untersuchen» aus #348: alte Benachrichtigung zu einem Import, den ein späterer
-    // Force-Import ersetzt hat — Status DONE, Buchungen gelöscht. Ein Satz statt einer leeren
-    // Liste; die Erfolgsmeldung bleibt stehen.
-    it('explains an empty list of a DONE job as replaced by a later import', async () => {
+    // Defensiv-Zweig für die Invariante «importedTransactions ist nie eine leere Liste»: DONE mit
+    // total > 0, aber leere Antwort. Praktisch unerreichbar — der Endpoint löst über pdfSha256
+    // auf, nach einem Force-Import zeigt der alte Job die neuen Zeilen (Review-Befund #349) —,
+    // aber falls doch: ein Satz statt einer leeren <ul>, die Erfolgsmeldung bleibt stehen.
+    it('shows a hint instead of an empty list when a DONE job returns no transactions', async () => {
       await recreate({ job: String(JOB_ID) });
 
       flushStatus({});
@@ -1061,20 +1062,18 @@ describe('PdfUpload', () => {
       const notices = Array.from<HTMLElement>(
         fixture.nativeElement.querySelectorAll('app-notice.notice--info'),
       ).map((notice) => notice.textContent);
-      expect(notices.some((text) => text?.includes('erneuten Import desselben Kontoauszugs'))).toBe(
-        true,
-      );
+      expect(notices.some((text) => text?.includes('keine Buchungen mehr vorhanden'))).toBe(true);
     });
 
-    it('clears the replaced hint when the next upload starts', async () => {
+    it('clears the empty-list hint when the next upload starts', async () => {
       await recreate({ job: String(JOB_ID) });
       flushStatus({});
       flushImportedTransactions([]);
-      expect(component.listReplacedMessage()).not.toBeNull();
+      expect(component.listEmptyMessage()).not.toBeNull();
 
       component.onDrop(dropEvent([pdfFile()]));
 
-      expect(component.listReplacedMessage()).toBeNull();
+      expect(component.listEmptyMessage()).toBeNull();
       httpMock.expectOne('/api/import/pdf').flush(null, { status: 500, statusText: 'Error' });
     });
 
@@ -1100,6 +1099,30 @@ describe('PdfUpload', () => {
       // Der nächste Takt des alten Polls wäre jetzt fällig — er kommt nicht mehr.
       vi.advanceTimersByTime(700);
       httpMock.expectNone(`/api/import/${JOB_ID}/status`);
+      expect(component.importOutcome()).toEqual({ kind: 'success', count: 1, degraded: false });
+    });
+
+    // Review-Befund #349: Sidebar-Link auf /import (ohne Parameter), dann erneut die
+    // Benachrichtigung desselben Jobs — die URL ändert sich echt, die Wache gegen das eigene Echo
+    // darf das nicht schlucken. Ohne Parameter bleibt die Seite stehen, nur die Wache löst sich.
+    it('reopens the same job after the URL went through /import without a parameter', async () => {
+      await recreate({ job: String(JOB_ID) });
+      flushStatus({ total: 1, processed: 1 });
+      flushImportedTransactions([transaction()]);
+      expect(fixture.nativeElement.querySelectorAll('.imported__row').length).toBe(1);
+
+      await TestBed.inject(Router).navigate([], { queryParams: {} });
+      fixture.detectChanges();
+      // Die Übersicht bleibt stehen, es wird nichts nachgeladen.
+      expect(fixture.nativeElement.querySelectorAll('.imported__row').length).toBe(1);
+      httpMock.expectNone((req) => req.url.startsWith('/api/import/'));
+
+      await TestBed.inject(Router).navigate([], { queryParams: { job: String(JOB_ID) } });
+      fixture.detectChanges();
+
+      expect(component.uploading()).toBe(true);
+      flushStatus({ total: 1, processed: 1 });
+      flushImportedTransactions([transaction()]);
       expect(component.importOutcome()).toEqual({ kind: 'success', count: 1, degraded: false });
     });
   });

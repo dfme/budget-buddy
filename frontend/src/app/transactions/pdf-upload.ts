@@ -59,18 +59,18 @@ const JOB_FAILED_MESSAGE = 'Der Import ist fehlgeschlagen — bitte versuche es 
 const JOB_NOT_FOUND_MESSAGE = 'Dieser Import ist nicht mehr abrufbar.';
 
 /**
- * Meldung, wenn ein abgeschlossener Import keine Buchungen mehr hat (FE-NOTIF-05).
+ * Meldung, wenn ein abgeschlossener Import mit `total > 0` eine leere Liste liefert
+ * (FE-NOTIF-05).
  *
- * <p>Der einzige Weg dorthin ist «Trotzdem importieren» (FE-PDF-03): Der Force-Lauf löscht die
- * Buchungen des früheren Imports desselben PDFs (`ImportJobRunner`,
- * `deleteByUserIdAndPdfSha256`), der alte Job bleibt aber `DONE` und seine Benachrichtigung in
- * der Glocke. Wer sie später anklickt, sähe sonst eine Erfolgsmeldung mit Anzahl und darunter
- * nichts. Einen Delete-Endpoint für Transaktionen gibt es nicht — der Satz darf deshalb so
- * bestimmt sein.
+ * <p>Ein Defensiv-Zweig für die Invariante «{@link PdfUpload.importedTransactions} ist nie eine
+ * leere Liste», kein bekannter Anwendungsfall: `GET /api/import/{jobId}/transactions` löst die
+ * Buchungen über `userId + pdfSha256` auf, nicht über die Job-ID
+ * (`PdfImportService.listTransactions`). Nach «Trotzdem importieren» (FE-PDF-03) liefert die
+ * Benachrichtigung des *alten* Jobs deshalb die Zeilen des neuesten Imports — nicht nichts. Der
+ * einzige Weg, auf dem Buchungen wirklich verschwinden, ist die Kontolöschung, und die nimmt den
+ * Job mit. Der Satz behauptet darum keine Ursache.
  */
-const LIST_REPLACED_MESSAGE =
-  'Die Buchungen dieses Imports wurden inzwischen durch einen erneuten Import desselben ' +
-  'Kontoauszugs ersetzt.';
+const LIST_EMPTY_MESSAGE = 'Zu diesem Import sind keine Buchungen mehr vorhanden.';
 
 /**
  * Meldung, wenn die Liste der importierten Buchungen nicht geladen werden konnte (FE-PDF-04).
@@ -218,8 +218,8 @@ export class PdfUpload {
    *
    * <p>`null` ist der Normalzustand vor dem ersten Import und nach einem Fehlschlag; eine
    * *leere* Liste ist es nie: Der Nullfall (Auszug ohne Buchungen) fragt gar nicht erst nach,
-   * eine leere Antwort zu einem ersetzten Import wird zum Hinweis ({@link listReplacedMessage}),
-   * und das Template zeigt eine leere Liste auch dann nicht an.
+   * eine leere Antwort trotz `total > 0` wird zum Hinweis ({@link listEmptyMessage}), und das
+   * Template zeigt eine leere Liste auch dann nicht an.
    *
    * <p>Der Inhalt gehört ausschliesslich zu diesem einen Job — die Einschränkung kommt vom
    * Endpoint, der über Job-ID *und* eingeloggten User abfragt, nicht aus einem Filter hier.
@@ -233,11 +233,12 @@ export class PdfUpload {
   readonly saveErrorMessage = signal<string | null>(null);
 
   /**
-   * Hinweis, wenn der Import zwar `DONE` ist, seine Buchungen aber nicht mehr existieren
+   * Hinweis, wenn der Import zwar `DONE` mit `total > 0` ist, die Liste aber leer zurückkommt
    * (FE-NOTIF-05) — {@link importedTransactions} bleibt dann `null`, damit die Invariante «eine
-   * leere Liste ist es nie» weiter gilt.
+   * leere Liste ist es nie» weiter gilt. Siehe {@link LIST_EMPTY_MESSAGE}, warum das praktisch
+   * nicht vorkommt.
    */
-  readonly listReplacedMessage = signal<string | null>(null);
+  readonly listEmptyMessage = signal<string | null>(null);
 
   /**
    * Zähler der Import-Läufe — steigt mit jedem {@link clearImportedTransactions} um eins.
@@ -467,16 +468,19 @@ export class PdfUpload {
   /**
    * Übernimmt den Job aus der URL — beim Erstladen und bei jeder äusseren Änderung.
    *
-   * <p>Ohne Parameter passiert nichts: Die Seite startet leer, und ein Browser-Zurück auf die
-   * parameterlose Adresse lässt stehen, was gerade sichtbar ist. Ein unbrauchbarer Wert (keine
-   * positive Ganzzahl) wird ignoriert und per `replaceUrl` aus der Adresse genommen, damit die
-   * URL nicht etwas behauptet, was die Seite nicht zeigt — wie `CategoryOverview.syncFromUrl` bei
-   * einem kaputten `?month=`. Die Wache gegen {@link trackedJobId} fängt das Echo der eigenen
-   * Navigation aus {@link rememberJobInUrl} ab.
+   * <p>Ohne Parameter bleibt die Seite, wie sie ist: Sie startet leer, und ein Browser-Zurück
+   * oder der Sidebar-Link auf die parameterlose Adresse lässt stehen, was gerade sichtbar ist.
+   * Nur die Wache wird gelöst — sonst schluckte sie den nächsten Klick auf dieselbe
+   * Benachrichtigung, obwohl die URL sich dann echt ändert (Review-Befund #349). Ein unbrauchbarer
+   * Wert (keine positive Ganzzahl) wird ignoriert und per `replaceUrl` aus der Adresse genommen,
+   * damit die URL nicht etwas behauptet, was die Seite nicht zeigt — wie
+   * `CategoryOverview.syncFromUrl` bei einem kaputten `?month=`. Die Wache gegen
+   * {@link trackedJobId} fängt das Echo der eigenen Navigation aus {@link rememberJobInUrl} ab.
    */
   private syncFromUrl(params: ParamMap): void {
     const raw = params.get('job');
     if (raw === null) {
+      this.trackedJobId = null;
       return;
     }
     const jobId = PdfUpload.parseJobId(raw);
@@ -520,9 +524,9 @@ export class PdfUpload {
    * <p>Eine Antwort, die erst nach dem nächsten Aufräumen eintrifft, wird verworfen — sie gehört
    * zu einem Import, den der Nutzer bereits hinter sich gelassen hat ({@link importRun}).
    *
-   * <p>Eine leere Antwort bei `total > 0` heisst: Die Buchungen wurden seither durch einen
-   * Force-Import ersetzt ({@link LIST_REPLACED_MESSAGE}). Sie landet als Hinweis, nicht als
-   * leere Liste — {@link importedTransactions} bleibt `null`.
+   * <p>Eine leere Antwort bei `total > 0` landet als Hinweis ({@link LIST_EMPTY_MESSAGE}), nicht
+   * als leere Liste — {@link importedTransactions} bleibt `null`. Praktisch unerreichbar, siehe
+   * dort; die Wache gilt der Invariante.
    */
   private loadImportedTransactions(jobId: number): void {
     const run = this.importRun;
@@ -535,7 +539,7 @@ export class PdfUpload {
             return;
           }
           if (transactions.length === 0) {
-            this.listReplacedMessage.set(LIST_REPLACED_MESSAGE);
+            this.listEmptyMessage.set(LIST_EMPTY_MESSAGE);
           } else {
             this.importedTransactions.set(transactions);
           }
@@ -588,7 +592,7 @@ export class PdfUpload {
     this.importedTransactions.set(null);
     this.listErrorMessage.set(null);
     this.saveErrorMessage.set(null);
-    this.listReplacedMessage.set(null);
+    this.listEmptyMessage.set(null);
   }
 
   /** Ersetzt die Kategorie einer Buchung in der Liste (neue Objekte wegen OnPush). */

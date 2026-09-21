@@ -123,11 +123,11 @@
     <app-notice class="upload__notice" variant="error">{{ message }}</app-notice>
   }
 
-  @if (listReplacedMessage(); as message) {
+  @if (listEmptyMessage(); as message) {
     <!--
-      Alte Benachrichtigung zu einem Import, dessen Buchungen ein späterer Force-Import ersetzt
-      hat (FE-NOTIF-05): kein Fehler, nur eine Erklärung, warum unter der Erfolgsmeldung keine
-      Liste steht — daher variant="info" (role="status").
+      Abgeschlossener Import mit Anzahl, aber leerer Liste (FE-NOTIF-05): kein Fehler, nur eine
+      Erklärung, warum unter der Erfolgsmeldung keine Liste steht — daher variant="info"
+      (role="status"). Praktisch unerreichbar, siehe LIST_EMPTY_MESSAGE in pdf-upload.ts.
     -->
     <app-notice class="upload__notice" variant="info">{{ message }}</app-notice>
   }

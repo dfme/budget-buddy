@@ -29,11 +29,20 @@ Für Query-Parameter gibt es ein etabliertes Muster: `?month=` in `CategoryOverv
 
 ## Befunde aus der Analyse, die über die ACs hinausgehen
 
-- **Leere Liste nach Force-Replace** («Zu untersuchen» #1) ist real: `ImportJobRunner.java:268`
+- ~~**Leere Liste nach Force-Replace** («Zu untersuchen» #1) ist real: `ImportJobRunner.java:268`
   löscht per `deleteByUserIdAndPdfSha256`, der alte Job bleibt `DONE`. Es ist der **einzige** Weg,
   auf dem Buchungen verschwinden — es gibt keinen Delete-Endpoint für Transaktionen
   (`grep @DeleteMapping` trifft nur `UserController` und `FixedCostController`). Der Hinweis
-  kann deshalb präzise sein.
+  kann deshalb präzise sein.~~
+  **Korrektur nach Review (#349, danielwagner990):** Die Prämisse aus dem Issue-Text war falsch,
+  und ich habe sie nur am Lösch-Pfad geprüft, nicht am Lese-Pfad.
+  `PdfImportService.listTransactions` löst die Buchungen über `userId + pdfSha256` auf, nicht
+  über die Job-ID; das Javadoc von `findByUserIdAndPdfSha256OrderByBuchungsdatumDescIdDesc`
+  sagt es explizit: «liefern dann beide Job-IDs den Bestand des jüngsten Imports». Nach einem
+  Force-Reimport zeigt der Deep-Link auf die alte Benachrichtigung also die **neuen** Zeilen,
+  nicht nichts. Der einzige Weg, auf dem Buchungen verschwinden, ist die Kontolöschung — und die
+  nimmt den Job mit. Die Wache `transactions.length === 0` bleibt als Defensiv-Zweig für die
+  Invariante; ihr Satz behauptet keine Ursache mehr (`LIST_EMPTY_MESSAGE`).
 - **Nullfall-Invariante:** Ein Job mit `total = 0` wird als `DONE` persistiert
   (`PdfImportService.java:126-133`). Ein Resume über `?job=` liefe bisher in
   `loadImportedTransactions`, schriebe `[]` ins Signal und das Template renderte eine leere
@@ -48,9 +57,11 @@ Für Query-Parameter gibt es ein etabliertes Muster: `?month=` in `CategoryOverv
    hat den Happy Path im Feature-PR erweitert. Ein Fall: `importFixture` (INFRA-45) →
    `/dashboard` → Glocke → Klick «Import abgeschlossen» → URL `/import?job=N` → 5 Zeilen mit
    Dropdown.
-2. **Leere Liste (Force-Replace):** ein Satz als `variant="info"` unter der Erfolgsmeldung —
-   «Die Buchungen dieses Imports wurden inzwischen durch einen erneuten Import desselben
-   Kontoauszugs ersetzt.» Die Liste selbst bleibt `null`, die Invariante hält.
+2. **Leere Liste bei `total > 0`:** ein Satz als `variant="info"` unter der Erfolgsmeldung. Die
+   Liste selbst bleibt `null`, die Invariante hält. *Ursprünglich* als Force-Replace-Fall mit
+   dem Satz «… durch einen erneuten Import desselben Kontoauszugs ersetzt» geplant — nach dem
+   Review-Befund oben (der Fall ist so nicht erreichbar) neutral gefasst: «Zu diesem Import sind
+   keine Buchungen mehr vorhanden.»
 3. **Ungültiges `?job=`** (`abc`, `0`, `-1`, `1.5`): ignorieren **und** per `replaceUrl` aus der
    Adresse entfernen — wie `CategoryOverview.syncFromUrl` bei kaputtem `?month=`
    (`category-overview.ts:326-335`).
@@ -64,6 +75,9 @@ Für Query-Parameter gibt es ein etabliertes Muster: `?month=` in `CategoryOverv
    `queryParamMap`-Subscription sieht das und überspringt es (`trackedJobId`-Wache, analog zur
    Gleichheits-Wache in `CategoryOverview`). `?job` wird bei einer client-seitig abgelehnten
    Datei **nicht** gelöscht — ein Reload zeigt dann den letzten erfolgreichen Import.
+   **Ergänzt nach Review (#349):** Eine parameterlose Adresse (Sidebar-Link, Browser-Zurück)
+   löst die Wache (`trackedJobId = null`), sonst schluckte sie den nächsten Klick auf dieselbe
+   Benachrichtigung, obwohl die URL sich dann echt ändert. Die Seite selbst bleibt dabei stehen.
 7. **`reloadNotifications()` im `DONE`-Zweig bleibt unbedingt.** Auf dem Resume-Pfad ist der
    Call bei einem bereits fertigen Job redundant (die Glocke lud bei `NavigationEnd`), bei einem
    per F5 wiederaufgenommenen `RUNNING`-Job aber nötig. Ein GET ist billiger als die
@@ -73,7 +87,8 @@ Für Query-Parameter gibt es ein etabliertes Muster: `?month=` in `CategoryOverv
 9. **Bekannte Grenze:** Ein Klick auf die Benachrichtigung desselben Jobs, der bereits in der URL
    steht, ist für den Router eine identische URL und löst nichts aus — auch wenn die Seite
    inzwischen etwas anderes zeigt (z. B. nach einer abgelehnten Datei). Unwahrscheinlich, nicht
-   behandelt.
+   behandelt. Seit der Ergänzung in Entscheid 6 ist das wirklich nur noch der Fall der
+   identischen URL.
 
 ## Betroffene Dateien
 
