@@ -43,6 +43,19 @@ const RECURRING_UNREAD: NotificationResponse = {
   createdAt: '2026-09-08T10:15:00Z',
 };
 
+/**
+ * Abschluss eines Import-Jobs (BE-PDF-15) — die Glocke führt bei den drei Import-Typen nach
+ * `/import?job=<referenceId>` (FE-NOTIF-05). `referenceId` ist die Job-ID.
+ */
+const IMPORT_UNREAD: NotificationResponse = {
+  id: 4,
+  type: 'IMPORT_COMPLETED',
+  referenceId: 42,
+  message: 'Import abgeschlossen: 5 Transaktionen importiert.',
+  read: false,
+  createdAt: '2026-09-21T09:00:00Z',
+};
+
 /** Navigationsziel für den NavigationEnd-Test. */
 @Component({ template: 'stub' })
 class RouteStub {}
@@ -61,6 +74,7 @@ describe('NotificationBell', () => {
         provideRouter([
           { path: 'dashboard', component: RouteStub },
           { path: 'fixkosten', component: RouteStub },
+          { path: 'import', component: RouteStub },
         ]),
         { provide: LOCALE_ID, useValue: 'de-CH' },
       ],
@@ -322,6 +336,61 @@ describe('NotificationBell', () => {
 
     expect(router.url).toBe('/');
     expect(query('.bell-list')).not.toBeNull();
+  });
+
+  // FE-NOTIF-05 (#348): die Antwort auf «Import abgeschlossen» ist die Übersicht dieses Imports.
+  // Die Import-Seite nimmt den Job über `?job=` auf; ob er dem Nutzer gehört, entscheidet das
+  // Backend mit 404 — die Glocke reicht nur die Job-ID durch.
+  it.each(['IMPORT_COMPLETED', 'IMPORT_DEGRADED', 'IMPORT_FAILED'])(
+    'führt bei %s nach /import?job=<referenceId>, schliesst das Dropdown und markiert parallel als gelesen',
+    async (type) => {
+      create();
+      flushInitialLoad([{ ...IMPORT_UNREAD, type }]);
+      bellButton().click();
+      fixture.detectChanges();
+
+      query<HTMLButtonElement>('.bell-list__item')!.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(router.url).toBe('/import?job=42');
+      expect(query('.bell-list')).toBeNull();
+      // Die Navigation löst den üblichen Reload aus.
+      httpMock.expectOne('/api/notifications').flush([]);
+
+      // Gelesen-Call parallel zur Navigation, nicht davor — wie beim Abo-Sprung (FE-REC-01).
+      httpMock.expectOne('/api/notifications/4/read').flush({ ...IMPORT_UNREAD, type, read: true });
+    },
+  );
+
+  it('führt bei einer bereits gelesenen Import-Benachrichtigung zur Import-Seite, ohne Read-Call', async () => {
+    create();
+    flushInitialLoad([{ ...IMPORT_UNREAD, read: true }]);
+    bellButton().click();
+    fixture.detectChanges();
+
+    query<HTMLButtonElement>('.bell-list__item')!.click();
+    await fixture.whenStable();
+
+    expect(router.url).toBe('/import?job=42');
+    httpMock.expectOne('/api/notifications').flush([]);
+    httpMock.expectNone('/api/notifications/4/read');
+  });
+
+  // Das Backend setzt die Job-ID immer (ImportJobRunner); fehlt sie trotzdem, bleibt die
+  // Import-Seite das sinnvolle Ziel — nur ohne Parameter, statt `?job=null` zu erzeugen.
+  it('führt bei einer Import-Benachrichtigung ohne referenceId nach /import ohne Parameter', async () => {
+    create();
+    flushInitialLoad([{ ...IMPORT_UNREAD, referenceId: null }]);
+    bellButton().click();
+    fixture.detectChanges();
+
+    query<HTMLButtonElement>('.bell-list__item')!.click();
+    await fixture.whenStable();
+
+    expect(router.url).toBe('/import');
+    httpMock.expectOne('/api/notifications').flush([]);
+    httpMock.expectOne('/api/notifications/4/read').flush({ ...IMPORT_UNREAD, read: true });
   });
 
   it('lädt bei einer Navigation erneut (kein Polling, aber Reload bei Navigation)', async () => {

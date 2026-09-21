@@ -1,6 +1,9 @@
+import { Location } from '@angular/common';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideLocationMocks } from '@angular/common/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { Router, provideRouter } from '@angular/router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ImportJobStatusResponse } from './import-response.model';
@@ -60,9 +63,9 @@ describe('PdfUpload', () => {
   }
 
   /**
-   * Beantwortet die Abfrage der importierten Buchungen, die seit FE-PDF-04 auf jedes `DONE`
-   * folgt, und den Reload der Glocke, der seit FE-NOTIF-04 ebenfalls auf `DONE` folgt. Ohne sie
-   * blieben die Requests offen und `httpMock.verify()` liesse den Test scheitern.
+   * Beantwortet die Abfrage der importierten Buchungen, die seit FE-PDF-04 auf jedes `DONE` mit
+   * Buchungen folgt, und den Reload der Glocke, der seit FE-NOTIF-04 ebenfalls auf `DONE` folgt.
+   * Ohne sie blieben die Requests offen und `httpMock.verify()` liesse den Test scheitern.
    */
   function flushImportedTransactions(transactions: Transaction[] = []): void {
     httpMock.expectOne(`/api/import/${JOB_ID}/transactions`).flush(transactions);
@@ -113,7 +116,17 @@ describe('PdfUpload', () => {
     vi.useFakeTimers();
     await TestBed.configureTestingModule({
       imports: [PdfUpload],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        // Ein Catch-all ohne Component: die Komponente wird hier von Hand erzeugt, nicht vom
+        // Router gerendert. Gebraucht wird er trotzdem, weil die Komponente seit FE-NOTIF-05
+        // `?job=` liest und nach dem Upload relativ zur aktuellen Route schreibt — ohne Route
+        // bräche die Navigation ab. provideLocationMocks() hält das im Speicher statt in der
+        // echten History. Dasselbe Setup wie in category-overview.spec.ts.
+        provideRouter([{ path: '**', children: [] }]),
+        provideLocationMocks(),
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(PdfUpload);
@@ -869,6 +882,248 @@ describe('PdfUpload', () => {
 
       expect(component.importedTransactions()).toBeNull();
       expect(fixture.nativeElement.querySelector('.imported')).toBeNull();
+    });
+  });
+
+  // FE-NOTIF-05 (#348): Die Glocke führt bei einer Import-Benachrichtigung nach
+  // `/import?job=<id>`; die Seite nimmt den Job über den bestehenden Poll-Pfad auf.
+  describe('deep link via ?job', () => {
+    /**
+     * Räumt die Instanz aus dem `beforeEach` ab und baut eine neue unter dieser Adresse auf —
+     * der Deep-Link wird beim Aufbau gelesen, ein nachträgliches Setzen träfe die falsche Phase.
+     * Reihenfolge wie in `category-overview.spec.ts`: erst zerstören, dann navigieren, sonst
+     * weckt die Navigation die alte Subscription.
+     */
+    async function recreate(queryParams: Record<string, string>): Promise<void> {
+      fixture.destroy();
+      await TestBed.inject(Router).navigate([], { queryParams });
+      fixture = TestBed.createComponent(PdfUpload);
+      component = fixture.componentInstance;
+      fixture.detectChanges();
+    }
+
+    /** Beantwortet den ersten (und bei einem Endzustand einzigen) Status-Poll. */
+    function flushStatus(patch: Partial<ImportJobStatusResponse>, jobId = JOB_ID): void {
+      vi.advanceTimersByTime(1);
+      httpMock
+        .expectOne(`/api/import/${jobId}/status`)
+        .flush({ status: 'DONE', total: 5, processed: 5, degraded: false, ...patch });
+      fixture.detectChanges();
+    }
+
+    function dropzoneButton(): HTMLButtonElement | null {
+      return fixture.nativeElement.querySelector('.dropzone button');
+    }
+
+    // AC 1: Erfolgsmeldung und Übersicht, wie nach einem frischen Upload — ohne Upload.
+    it('shows the success message and the transaction list for a DONE job', async () => {
+      await recreate({ job: String(JOB_ID) });
+      httpMock.expectNone('/api/import/pdf');
+      // Bis der erste Poll antwortet, ist die Dropzone gesperrt — sonst könnte in dieser Lücke
+      // ein Upload starten, dessen Poll mit diesem um die Signals stritte.
+      expect(component.uploading()).toBe(true);
+
+      flushStatus({ total: 2, processed: 2 });
+      flushImportedTransactions([transaction({ id: 1 }), transaction({ id: 2, betrag: 3 })]);
+
+      expect(component.uploading()).toBe(false);
+      expect(component.importOutcome()).toEqual({ kind: 'success', count: 2, degraded: false });
+      expect(fixture.nativeElement.querySelectorAll('.imported__row').length).toBe(2);
+      expect(fixture.nativeElement.querySelector('.imported__category select')).not.toBeNull();
+      expect(TestBed.inject(Location).path()).toContain(`job=${JOB_ID}`);
+    });
+
+    // AC 1: der degradierte Fall trägt seinen bestehenden Hinweis.
+    it('keeps the degraded hint for a degraded job', async () => {
+      await recreate({ job: String(JOB_ID) });
+
+      flushStatus({ degraded: true });
+      flushImportedTransactions([transaction()]);
+
+      expect(component.importOutcome()).toEqual({ kind: 'success', count: 5, degraded: true });
+      expect(fixture.nativeElement.querySelector('app-notice.notice--info').textContent).toContain(
+        'konnte nicht automatisch kategorisiert werden',
+      );
+    });
+
+    // AC 2: die Fehlermeldung des Fehlschlags, Dropzone frei für einen neuen Versuch.
+    it('shows the job failure message for a FAILED job and keeps the dropzone usable', async () => {
+      await recreate({ job: String(JOB_ID) });
+
+      flushStatus({ status: 'FAILED', processed: 2 });
+
+      expect(component.uploading()).toBe(false);
+      expect(component.importOutcome()).toEqual({
+        kind: 'error',
+        message: 'Der Import ist fehlgeschlagen — bitte versuche es erneut.',
+      });
+      expect(dropzoneButton()).not.toBeNull();
+      httpMock.expectNone(`/api/import/${JOB_ID}/transactions`);
+    });
+
+    // AC 3: unbekannt oder fremd — das Backend antwortet in beiden Fällen mit 404, die Seite
+    // erklärt das statt eines generischen Fehlers. Die Mandantentrennung bleibt im Backend.
+    it('explains a 404 as no longer available and keeps the dropzone usable', async () => {
+      await recreate({ job: '999' });
+
+      vi.advanceTimersByTime(1);
+      httpMock
+        .expectOne('/api/import/999/status')
+        .flush(null, { status: 404, statusText: 'Not Found' });
+      fixture.detectChanges();
+
+      expect(component.uploading()).toBe(false);
+      expect(component.importOutcome()).toEqual({
+        kind: 'error',
+        message: 'Dieser Import ist nicht mehr abrufbar.',
+      });
+      expect(dropzoneButton()).not.toBeNull();
+    });
+
+    // AC 4: keine positive Ganzzahl → wie ohne Parameter, und die Adresse wird bereinigt.
+    it.each(['abc', '0', '-1', '1.5', '', '1e3', ' 7'])(
+      'ignores an invalid job parameter %j and strips it from the URL',
+      async (raw) => {
+        await recreate({ job: raw });
+        // Die Bereinigung der Adresse ist eine Navigation; unter Faketimern lässt erst
+        // advanceTimersByTimeAsync ihre Mikro- und Makrotasks laufen — whenStable() hinge.
+        await vi.advanceTimersByTimeAsync(1);
+
+        expect(component.uploading()).toBe(false);
+        expect(component.importOutcome()).toBeNull();
+        httpMock.expectNone((req) => req.url.startsWith('/api/import/'));
+        expect(TestBed.inject(Location).path()).not.toContain('job=');
+      },
+    );
+
+    // AC 5: nach dem Upload steht der neue Job in der URL — und das Echo der eigenen Navigation
+    // startet den Import nicht neu.
+    it('writes the job into the URL after an upload without restarting the poll', async () => {
+      component.onDrop(dropEvent([pdfFile()]));
+      httpMock.expectOne('/api/import/pdf').flush({ jobId: JOB_ID, total: 3 });
+      // Lässt die Navigation auf ?job= samt ihrem Echo in queryParamMap durchlaufen — und den
+      // timer(0) des Polls.
+      await vi.advanceTimersByTimeAsync(1);
+
+      expect(TestBed.inject(Location).path()).toContain(`job=${JOB_ID}`);
+      // Der Abdruck eines Neustarts aus dem Echo ist nicht ein zweiter Request — den storniert
+      // trackJob beim Wechsel selbst —, sondern der zurückgesetzte Fortschritt: openJob nähme
+      // dem Balken seinen Nenner und zeigte wieder den Spinner (Mutationsprobe: ohne die
+      // trackedJobId-Wache steht hier null).
+      expect(component.progress()).toEqual({ processed: 0, total: 3 });
+
+      httpMock
+        .expectOne(`/api/import/${JOB_ID}/status`)
+        .flush({ status: 'DONE', total: 3, processed: 3, degraded: false });
+      fixture.detectChanges();
+      flushImportedTransactions([transaction()]);
+      expect(component.importOutcome()).toEqual({ kind: 'success', count: 3, degraded: false });
+    });
+
+    it('writes the job into the URL for a zero-transaction upload as well', async () => {
+      component.onDrop(dropEvent([pdfFile()]));
+      httpMock.expectOne('/api/import/pdf').flush({ jobId: JOB_ID, total: 0 });
+      await vi.advanceTimersByTimeAsync(1);
+
+      expect(TestBed.inject(Location).path()).toContain(`job=${JOB_ID}`);
+      httpMock.expectNone(`/api/import/${JOB_ID}/status`);
+    });
+
+    // Ein Auszug ohne Buchungen wird als DONE mit total 0 persistiert (BE-PDF-05). Über ?job=
+    // kommt dieser Fall in trackJob an — anders als nach einem Upload — und darf keine leere
+    // Liste erzeugen.
+    it('requests no transactions for a DONE job with zero transactions', async () => {
+      await recreate({ job: String(JOB_ID) });
+
+      flushStatus({ total: 0, processed: 0 });
+      httpMock.expectOne('/api/notifications').flush([]);
+      fixture.detectChanges();
+
+      httpMock.expectNone(`/api/import/${JOB_ID}/transactions`);
+      expect(component.importedTransactions()).toBeNull();
+      expect(fixture.nativeElement.querySelector('app-notice.notice--info').textContent).toContain(
+        'Keine Transaktionen erkannt',
+      );
+    });
+
+    // Defensiv-Zweig für die Invariante «importedTransactions ist nie eine leere Liste»: DONE mit
+    // total > 0, aber leere Antwort. Praktisch unerreichbar — der Endpoint löst über pdfSha256
+    // auf, nach einem Force-Import zeigt der alte Job die neuen Zeilen (Review-Befund #349) —,
+    // aber falls doch: ein Satz statt einer leeren <ul>, die Erfolgsmeldung bleibt stehen.
+    it('shows a hint instead of an empty list when a DONE job returns no transactions', async () => {
+      await recreate({ job: String(JOB_ID) });
+
+      flushStatus({});
+      flushImportedTransactions([]);
+
+      expect(component.importOutcome()).toEqual({ kind: 'success', count: 5, degraded: false });
+      expect(component.importedTransactions()).toBeNull();
+      expect(fixture.nativeElement.querySelector('ul.imported')).toBeNull();
+      const notices = Array.from<HTMLElement>(
+        fixture.nativeElement.querySelectorAll('app-notice.notice--info'),
+      ).map((notice) => notice.textContent);
+      expect(notices.some((text) => text?.includes('keine Buchungen mehr vorhanden'))).toBe(true);
+    });
+
+    it('clears the empty-list hint when the next upload starts', async () => {
+      await recreate({ job: String(JOB_ID) });
+      flushStatus({});
+      flushImportedTransactions([]);
+      expect(component.listEmptyMessage()).not.toBeNull();
+
+      component.onDrop(dropEvent([pdfFile()]));
+
+      expect(component.listEmptyMessage()).toBeNull();
+      httpMock.expectOne('/api/import/pdf').flush(null, { status: 500, statusText: 'Error' });
+    });
+
+    // Glocke während eines laufenden Imports oder Browser-Zurück auf ein früheres ?job=: der
+    // alte Poll muss aufhören, sonst schreiben zwei Polls abwechselnd in dieselben Signals.
+    it('stops polling the previous job when another job is opened from the URL', async () => {
+      await recreate({ job: String(JOB_ID) });
+      flushStatus({ status: 'RUNNING', processed: 1 });
+      expect(component.progress()).toEqual({ processed: 1, total: 5 });
+
+      await TestBed.inject(Router).navigate([], { queryParams: { job: '8' } });
+      fixture.detectChanges();
+
+      // Job 8 beginnt sofort (timer(0)); sein DONE beendet seinen Poll.
+      flushStatus({ total: 1, processed: 1 }, 8);
+      httpMock.expectOne('/api/import/8/transactions').flush([transaction()]);
+      httpMock.expectOne('/api/notifications').flush([]);
+      fixture.detectChanges();
+
+      expect(component.importOutcome()).toEqual({ kind: 'success', count: 1, degraded: false });
+      expect(fixture.nativeElement.querySelectorAll('.imported__row').length).toBe(1);
+
+      // Der nächste Takt des alten Polls wäre jetzt fällig — er kommt nicht mehr.
+      vi.advanceTimersByTime(700);
+      httpMock.expectNone(`/api/import/${JOB_ID}/status`);
+      expect(component.importOutcome()).toEqual({ kind: 'success', count: 1, degraded: false });
+    });
+
+    // Review-Befund #349: Sidebar-Link auf /import (ohne Parameter), dann erneut die
+    // Benachrichtigung desselben Jobs — die URL ändert sich echt, die Wache gegen das eigene Echo
+    // darf das nicht schlucken. Ohne Parameter bleibt die Seite stehen, nur die Wache löst sich.
+    it('reopens the same job after the URL went through /import without a parameter', async () => {
+      await recreate({ job: String(JOB_ID) });
+      flushStatus({ total: 1, processed: 1 });
+      flushImportedTransactions([transaction()]);
+      expect(fixture.nativeElement.querySelectorAll('.imported__row').length).toBe(1);
+
+      await TestBed.inject(Router).navigate([], { queryParams: {} });
+      fixture.detectChanges();
+      // Die Übersicht bleibt stehen, es wird nichts nachgeladen.
+      expect(fixture.nativeElement.querySelectorAll('.imported__row').length).toBe(1);
+      httpMock.expectNone((req) => req.url.startsWith('/api/import/'));
+
+      await TestBed.inject(Router).navigate([], { queryParams: { job: String(JOB_ID) } });
+      fixture.detectChanges();
+
+      expect(component.uploading()).toBe(true);
+      flushStatus({ total: 1, processed: 1 });
+      flushImportedTransactions([transaction()]);
+      expect(component.importOutcome()).toEqual({ kind: 'success', count: 1, degraded: false });
     });
   });
 

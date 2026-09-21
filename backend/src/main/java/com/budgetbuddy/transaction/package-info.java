@@ -17,5 +17,11 @@
  * mit bereits normalisiertem Empfänger — wo der im Bank-PDF steht, bleibt Wissen dieses Moduls.
  * In der Gegenrichtung stösst {@code ImportJobRunner} die Erkennung über
  * {@code com.budgetbuddy.recurring.RecurringExpenseDetectionPort} an, nach dem Persistieren.
+ *
+ * <p>Dritte ausgehende Kante ist {@code com.budgetbuddy.notification.NotificationPort}: Nach dem
+ * Endstatus eines Import-Jobs legt {@code ImportJobRunner} darüber die Abschluss-Benachrichtigung
+ * für die Glocke an (BE-PDF-15) — Typen {@code IMPORT_COMPLETED}, {@code IMPORT_DEGRADED},
+ * {@code IMPORT_FAILED}, als {@code reference_id} die Job-ID. Wie bei der Abo-Erkennung darf ein
+ * Fehler auf dieser Kante den Import nicht mehr beeinflussen.
  */
 package com.budgetbuddy.transaction;

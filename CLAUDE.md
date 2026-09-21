@@ -26,9 +26,10 @@ echten Transaktionsdaten, nicht aus manueller Eingabe.
 
 **Fallback-Kategorie:** `Sonstiges` (wenn LLM unsicher oder API nicht erreichbar)
 
-**Zwei Tabellen (ADR-15, BE-CAT-12):** `category_lookup` (V04) hält die globalen, kuratierten
-Seeds und wird nur per Migration geändert. Alles Gelernte liegt in `user_category_lookup` (V12)
-mit `user_id` — es wirkt nur auf die Kategorisierung dieses Nutzers und wird bei der Kontolöschung
+**Zwei Tabellen (ADR-15, BE-CAT-12):** `category_lookup` (V04, ergänzt durch V15) hält die
+globalen, kuratierten Seeds und wird nur per Migration geändert. Alles Gelernte liegt in
+`user_category_lookup` (V12) mit `user_id` — es wirkt nur auf die Kategorisierung dieses Nutzers
+und wird bei der Kontolöschung
 über `CategoryLookupCleanupPort` mitgelöscht. `CategorizationPort` und `CategoryLearningPort`
 tragen deshalb die User-ID; beim Matching gewinnt das längste Pattern aus beiden Pools, bei
 gleicher Länge das eigene.
@@ -39,6 +40,16 @@ gleicher Länge das eigene.
 `CLAUDE_SKIPPED` — offener Breaker, fehlender API-Key, überschrittenes Zeitbudget) und ein echtes
 `Sonstiges` vom Modell bleiben draussen. Sonst friert ein einzelner Netzwerkfehler einen Händler
 dauerhaft auf `Sonstiges` ein, weil Stufe 1 ihn künftig vor Claude abfängt.
+
+**Gelernt wird das stabile Präfix (BE-CAT-13):** `CategoryLearningService` schneidet den Text vor
+dem ersten variablen Token ab — Monat mit Jahr, Jahr, Datum, Referenz ab fünf Ziffern, IBAN
+(`LookupPatternExtractor`). Aus `GIRO POST MUSTER IMMOBILIEN AG MIETE JANUAR 2025` wird
+`GIRO POST MUSTER IMMOBILIEN AG MIETE`, und die Februar-Miete trifft ohne Claude-Call. Ein Präfix,
+kein Herausschneiden, weil `findMatching` per `locate(...)` einen Substring braucht. Guard:
+Das Präfix muss mindestens drei Tokens und die Hälfte des Textes behalten, sonst wird der volle
+Text gelernt — ein zu kurzes Pattern (`TWINT KAUF/DIENSTLEISTUNG VOM`) zwänge sonst jede
+TWINT-Zahlung in eine Kategorie. Der Schnitt sitzt im Service, damit **beide** Lernquellen
+denselben Schlüssel schreiben und der Upsert der User-Korrektur greift.
 
 **Bündelung (ADR-14):** Bis zu 20 Transaktionen gehen in *einem* Request hinaus. Der Prompt ist
 eine nummerierte Liste; die Kategorienliste steht **nicht** darin, sondern als `enum`-Constraint

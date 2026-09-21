@@ -18,6 +18,7 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -196,6 +197,37 @@ class PdfImportServiceIntegrationTest {
         BigDecimal income = sum(saved, true);
         assertThat(expenses).isEqualByComparingTo("26970.40");
         assertThat(income).isEqualByComparingTo("40950.00");
+    }
+
+    /**
+     * BE-PDF-15, AC1 gegen die echte Datenbank: die Zeile in {@code notifications}, die der Nutzer
+     * nach dem Verlassen der Import-Seite in der Glocke sieht.
+     *
+     * <p>Der Unit-Test belegt den Aufruf am Port-Mock; dass die Kette
+     * {@code ImportJobRunner → NotificationPort → NotificationService → notifications} im echten
+     * Kontext hält, kann nur dieser Test zeigen — und die anderen Integrationstests hier würden
+     * es nicht merken: {@code notifyFinished} fängt jede {@code RuntimeException} und loggt sie
+     * nur, ein still gescheiterter Insert liesse den Import trotzdem {@code DONE} melden.
+     */
+    @Test
+    void successfulImport_writesTheCompletionNotificationRow() {
+        ImportJob job = importAndAwait(userId, fixture(), false);
+        assertThat(job.getStatus()).isEqualTo(ImportJobStatus.DONE);
+
+        // Alle drei Import-Typen abfragen: genau eine Zeile, und zwar die Erfolgs-Variante.
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT type, reference_id, message, read_at FROM notifications"
+                        + " WHERE user_id = ? AND type IN (?, ?, ?)",
+                userId,
+                ImportJobRunner.NOTIFICATION_TYPE_COMPLETED,
+                ImportJobRunner.NOTIFICATION_TYPE_DEGRADED,
+                ImportJobRunner.NOTIFICATION_TYPE_FAILED);
+        assertThat(rows).hasSize(1);
+        Map<String, Object> row = rows.getFirst();
+        assertThat(row.get("type")).isEqualTo(ImportJobRunner.NOTIFICATION_TYPE_COMPLETED);
+        assertThat(row.get("reference_id")).isEqualTo(job.getId());
+        assertThat((String) row.get("message")).contains("28 Transaktionen importiert.");
+        assertThat(row.get("read_at")).isNull();
     }
 
     /**

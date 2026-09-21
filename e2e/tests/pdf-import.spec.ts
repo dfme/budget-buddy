@@ -1,6 +1,8 @@
 import { join } from 'node:path';
 
 import { expect, test } from '../fixtures/auth.fixture';
+import { importFixture } from '../support/import';
+import { bell } from '../support/notifications';
 
 /**
  * E2E-Abdeckung der Must-Have-Story US-04 «Kontoauszug als PDF hochladen» (E2E-PDF-01).
@@ -11,6 +13,8 @@ import { expect, test } from '../fixtures/auth.fixture';
  * Feature-PR. Der Happy Path wächst mit der Story mit — FE-PDF-04 (#292) hat ihn von der
  * Kategorie-Übersicht auf den Import-Screen zurückgeholt, statt dafür ein eigenes E2E-Issue
  * aufzumachen: Er fasst dieselbe DOM an, und die E2E-Abdeckung wird pro Story erfasst.
+ * FE-NOTIF-05 (#348) ergänzt aus demselben Grund einen dritten Fall: der Weg über die Glocke
+ * zurück zur Übersicht eines abgeschlossenen Imports.
  *
  * Einstieg über `authenticatedPage`: `/import` liegt hinter `authGuard` UND `onboardingGuard`,
  * die Fixture erledigt beides über die API (siehe `fixtures/auth.fixture.ts`).
@@ -84,6 +88,52 @@ test.describe('PDF-Import', () => {
     const firstCategory = rows.first().locator('.imported__category select');
     await expect(firstCategory).toBeVisible();
     await expect(firstCategory.locator('option')).toHaveCount(17);
+  });
+
+  // FE-NOTIF-05 (#348): Wer die Import-Seite verlassen hat, findet den Import über die
+  // Benachrichtigung aus BE-PDF-15 wieder — mit derselben Übersicht wie nach dem Upload.
+  test('Glocke: Klick auf «Import abgeschlossen» führt zur Übersicht dieses Imports', async ({
+    authenticatedContext,
+    authenticatedPage: page,
+  }) => {
+    // Import über die API, nicht durch die Upload-UI: Vorbedingung, nicht Gegenstand — der
+    // Happy Path oben deckt den Upload selbst ab. Danach ist die Import-Seite nie offen gewesen;
+    // die Job-ID kennt nur das Backend.
+    await importFixture(authenticatedContext.request, FIXTURE_PDF, FIXTURE_TRANSACTION_COUNT);
+
+    await page.goto('/dashboard');
+    await bell(page).click();
+    // Über den Text gefiltert: der Import erzeugt daneben eine Abo-Benachrichtigung, sobald die
+    // Fixture wiederkehrende Buchungen enthält — die soll den Klick hier nicht abfangen.
+    const importItem = page
+      .locator('.bell-list__item:visible')
+      .filter({ hasText: /Import abgeschlossen/ });
+    await expect(importItem).toHaveCount(1);
+    await expect(importItem).toHaveClass(/bell-list__item--unread/);
+
+    await importItem.click();
+
+    // Die Job-ID steht in der URL — ein Reload zeigt dieselbe Übersicht.
+    await expect(page).toHaveURL(/\/import\?job=\d+$/);
+    await expect(page.getByRole('heading', { name: 'Import' })).toBeVisible();
+    // Dieselbe Erfolgsmeldung wie nach einem frischen Upload, aus GET /api/import/{jobId}/status.
+    const success = page.locator('app-notice.notice--info[role="status"]');
+    await expect(success).toBeVisible({ timeout: IMPORT_RESULT_TIMEOUT_MS });
+    await expect(success.locator('.notice__body')).toHaveText(
+      `${FIXTURE_TRANSACTION_COUNT} Transaktionen erkannt.`,
+    );
+    // Und dieselbe Liste, inklusive Korrektur-Dropdown (FE-PDF-04).
+    const rows = page.locator('.imported__row');
+    await expect(rows).toHaveCount(FIXTURE_TRANSACTION_COUNT);
+    await expect(rows.first().locator('.imported__category select')).toBeVisible();
+    // Die Dropzone bleibt frei — ein weiterer Import ist von hier aus möglich.
+    await expect(page.getByRole('button', { name: 'Datei wählen' })).toBeVisible();
+
+    // AC 6: der Klick hat die Benachrichtigung gelesen — parallel zur Navigation.
+    await bell(page).click();
+    await expect(
+      page.locator('.bell-list__item:visible').filter({ hasText: /Import abgeschlossen/ }),
+    ).toHaveClass(/bell-list__item--read/);
   });
 
   test('Fehlerpfad: unlesbares PDF meldet einen Fehler und keinen Erfolg', async ({

@@ -2,6 +2,7 @@ import { join } from 'node:path';
 
 import { expect, test } from '../fixtures/auth.fixture';
 import { importFixture } from '../support/import';
+import { bell } from '../support/notifications';
 
 /**
  * E2E-Abdeckung der Should-Have-Story US-08 «Wiederkehrende Ausgaben (Abos) erkennen»
@@ -83,15 +84,6 @@ test.describe('Abo-Erkennung', () => {
     // «CHF»-Präfix (`showCurrency` ist hier nicht gesetzt) — `formatSwissAmount`.
     await expect(row.locator('.expense__amount')).toHaveText('15.90');
   });
-
-  /**
-   * Die Glocke ist zweimal im DOM (mobile Topbar, Desktop-Sidebar — `shell.html`), sichtbar ist
-   * je Viewport nur eine. `filter({ visible: true })` statt `first()`: welche der beiden das
-   * ist, hängt am Projekt-Viewport und soll den Test nicht interessieren.
-   */
-  function bell(page: import('@playwright/test').Page) {
-    return page.getByRole('button', { name: 'Benachrichtigungen' }).filter({ visible: true });
-  }
 
   // FE-NOTIF-04 (#336), AC 1: nach einem Import mit N erkannten Abos genügt eine Aktion.
   test('Bündel: zwei Abos in einem Import ergeben eine Benachrichtigung, ein Klick nimmt beide «Neu»', async ({
