@@ -18,8 +18,10 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 /**
- * Verifiziert die Flyway-Migration V11 (recurring_expenses-Tabelle, DB-09) gegen eine echte
- * PostgreSQL-Datenbank.
+ * Verifiziert die Flyway-Migrationen der {@code recurring_expenses}-Tabelle gegen eine echte
+ * PostgreSQL-Datenbank: V11 (Anlage, DB-09) und V14 (Spalte {@code notification_id},
+ * FE-NOTIF-04 — der Backfill dieser Migration liegt in
+ * {@link RecurringExpensesNotificationIdMigrationTest}).
  *
  * <p>V11 statt V09 wie im Issue-Titel: V09 ({@code add_token_version_to_users}, BE-AUTH-11) und
  * V10 ({@code create_notifications_table}, DB-08) sind auf main vergeben. Der Migrations-Guard
@@ -80,10 +82,11 @@ class RecurringExpensesMigrationTest {
         Map<String, String> typeByColumn = schema().columnTypes(TABLE);
 
         // containsOnlyKeys und nicht containsKeys: Eine zusätzliche Spalte wäre im Schema
-        // genauso ein Befund wie eine fehlende — der AC zählt die sieben abschliessend auf.
+        // genauso ein Befund wie eine fehlende — der AC von DB-09 zählt die sieben abschliessend
+        // auf; notification_id kam mit V14 (FE-NOTIF-04) als achte dazu.
         assertThat(typeByColumn).containsOnlyKeys(
                 "id", "user_id", "payee_key", "amount", "status", "first_detected_month",
-                "created_at");
+                "created_at", "notification_id");
 
         assertThat(typeByColumn.get("id")).isEqualTo("bigint");
         assertThat(typeByColumn.get("user_id")).isEqualTo("bigint");
@@ -93,6 +96,8 @@ class RecurringExpensesMigrationTest {
         // TEXT und nicht DATE: der Wert ist ein Monat (YYYY-MM), kein Datum — siehe Migration.
         assertThat(typeByColumn.get("first_detected_month")).isEqualTo("text");
         assertThat(typeByColumn.get("created_at")).isEqualTo("timestamp with time zone");
+        // FK-loser Verweis auf notifications.id, wie reference_id in V10 — siehe V14.
+        assertThat(typeByColumn.get("notification_id")).isEqualTo("bigint");
     }
 
     @Test
@@ -117,14 +122,17 @@ class RecurringExpensesMigrationTest {
     }
 
     @Test
-    void allColumnsAreNotNull() {
-        // Keine Spalte trägt zum Insert-Zeitpunkt eine sinnvolle Leere. Das unterscheidet die
-        // Tabelle von notifications, wo reference_id und read_at bewusst nullable sind.
+    void allColumnsExceptNotificationIdAreNotNull() {
+        // Keine Spalte aus V11 trägt zum Insert-Zeitpunkt eine sinnvolle Leere. Das unterscheidet
+        // die Tabelle von notifications, wo reference_id und read_at bewusst nullable sind.
         Map<String, Boolean> notNullByColumn = schema().notNullFlags(TABLE);
 
         assertThat(notNullByColumn).containsOnlyKeys(
                 "id", "user_id", "payee_key", "amount", "status", "first_detected_month",
-                "created_at");
+                "created_at", "notification_id");
+        // V14: notification_id ist nullable — Bestandsdaten, deren Einzel-Notification vor der
+        // Migration bereits gelöscht war, bleiben ohne Bündel und gelten nie als «Neu».
+        assertThat(notNullByColumn.remove("notification_id")).isFalse();
         assertThat(notNullByColumn.values()).containsOnly(true);
     }
 

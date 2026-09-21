@@ -49,8 +49,16 @@ test.describe('Abo-Erkennung', () => {
     'kontoauszug-abo-persistenz.pdf',
   );
 
+  /**
+   * Zwei fiktive Empfänger («STREAMBOX.CH ABO» 15.90, «CLOUDBOX.CH ABO» 9.90) in Juni und Juli
+   * 2025 — ein Import, der zwei Abos auf einmal erkennt. Grundlage für FE-NOTIF-04 (#336): eine
+   * Benachrichtigung pro Import statt eine pro Abo.
+   */
+  const FIXTURE_BUNDLE = join(__dirname, '..', 'fixtures', 'pdf', 'kontoauszug-abo-buendel.pdf');
+
   /** Empfängertext ohne Ziffern — überlebt `ExpenseHistoryService.normalise` unverändert. */
   const PAYEE = 'STREAMBOX.CH ABO';
+  const PAYEE_2 = 'CLOUDBOX.CH ABO';
 
   test('Happy Path: gleicher Empfänger/Betrag in 2 Folgemonaten erscheint mit «Neu»-Label', async ({
     authenticatedContext,
@@ -72,6 +80,86 @@ test.describe('Abo-Erkennung', () => {
     // Betrag der jüngsten Belastung (Juli), ohne Vorzeichen (`hidePositiveSign`) und ohne
     // «CHF»-Präfix (`showCurrency` ist hier nicht gesetzt) — `formatSwissAmount`.
     await expect(row.locator('.expense__amount')).toHaveText('15.90');
+  });
+
+  /**
+   * Die Glocke ist zweimal im DOM (mobile Topbar, Desktop-Sidebar — `shell.html`), sichtbar ist
+   * je Viewport nur eine. `filter({ visible: true })` statt `first()`: welche der beiden das
+   * ist, hängt am Projekt-Viewport und soll den Test nicht interessieren.
+   */
+  function bell(page: import('@playwright/test').Page) {
+    return page.getByRole('button', { name: 'Benachrichtigungen' }).filter({ visible: true });
+  }
+
+  // FE-NOTIF-04 (#336), AC 1: nach einem Import mit N erkannten Abos genügt eine Aktion.
+  test('Bündel: zwei Abos in einem Import ergeben eine Benachrichtigung, ein Klick nimmt beide «Neu»', async ({
+    authenticatedContext,
+    authenticatedPage: page,
+  }) => {
+    await importFixture(authenticatedContext.request, FIXTURE_BUNDLE);
+
+    await page.goto('/abos');
+    await expect(page.locator('li.expense')).toHaveCount(2);
+    await expect(page.locator('li.expense .expense__new')).toHaveCount(2);
+
+    // Eine Abo-Benachrichtigung, nicht zwei — sie zählt Läufe, nicht Abos. Über den Text
+    // gefiltert statt alle Einträge gezählt: der Import selbst darf daneben eigene
+    // Benachrichtigungen erzeugen (BE-PDF-15, #337), die dieser Test nicht mitzählen soll.
+    await expect(bell(page).locator('.bell__badge')).toHaveCount(1);
+    await bell(page).click();
+    const aboItems = page.locator('.bell-list__item:visible').filter({ hasText: /Abos? erkannt/ });
+    await expect(aboItems).toHaveCount(1);
+    await expect(aboItems.first()).toHaveClass(/bell-list__item--unread/);
+    await expect(aboItems.first()).toContainText(`2 neue Abos erkannt: ${PAYEE_2}, ${PAYEE}`);
+
+    // AC 2 (FE-NOTIF-01, unverändert): der Einzelklick liest die Benachrichtigung und führt
+    // nach /abos. Die Abo-Benachrichtigung ist danach gelesen …
+    await aboItems.first().click();
+    await expect(page).toHaveURL(/\/abos$/);
+    await bell(page).click();
+    await expect(
+      page.locator('.bell-list__item:visible').filter({ hasText: /Abos? erkannt/ }),
+    ).toHaveClass(/bell-list__item--read/);
+    await page.keyboard.press('Escape');
+
+    // … und nach einem frischen GET tragen beide Einträge kein «Neu» mehr (BE-REC-02: das Label
+    // hängt am Gelesen-Zustand der einen Bündel-Benachrichtigung).
+    await page.reload();
+    await expect(page.locator('li.expense')).toHaveCount(2);
+    await expect(page.locator('li.expense .expense__new')).toHaveCount(0);
+  });
+
+  // FE-NOTIF-04 (#336): mehrere Importe hinterlassen mehrere Bündel — «Alle als gelesen
+  // markieren» nimmt sie in einer Aktion.
+  test('«Alle als gelesen markieren» bringt das Badge über mehrere Importe hinweg auf 0', async ({
+    authenticatedContext,
+    authenticatedPage: page,
+  }) => {
+    // Erster Import erkennt STREAMBOX; der zweite bringt CLOUDBOX dazu (STREAMBOX ist dann
+    // bereits bekannt und wird übersprungen) — zwei Läufe mit je einem Treffer, zwei Bündel.
+    await importFixture(authenticatedContext.request, FIXTURE_DETECTION);
+    await importFixture(authenticatedContext.request, FIXTURE_BUNDLE);
+
+    await page.goto('/abos');
+    await expect(page.locator('li.expense .expense__new')).toHaveCount(2);
+    await expect(bell(page).locator('.bell__badge')).toHaveCount(1);
+
+    await bell(page).click();
+    // Zwei Abo-Benachrichtigungen, je eine pro Lauf — gefiltert wie im Bündel-Test, damit
+    // Import-Benachrichtigungen (BE-PDF-15) den Zähler nicht verfälschen.
+    await expect(
+      page.locator('.bell-list__item:visible').filter({ hasText: /Abos? erkannt/ }),
+    ).toHaveCount(2);
+    await page.getByRole('button', { name: 'Alle als gelesen markieren' }).click();
+
+    // Ohne Navigation: das Dropdown bleibt offen, der Button verschwindet, das Badge auch.
+    await expect(page.getByRole('button', { name: 'Alle als gelesen markieren' })).toHaveCount(0);
+    await expect(page.locator('.bell-list:visible')).toHaveCount(1);
+    await expect(bell(page).locator('.bell__badge')).toHaveCount(0);
+
+    await page.reload();
+    await expect(page.locator('li.expense')).toHaveCount(2);
+    await expect(page.locator('li.expense .expense__new')).toHaveCount(0);
   });
 
   test('Alt-Pfad: «Kein Abo» entfernt den Eintrag dauerhaft, auch nach einem weiteren Import', async ({

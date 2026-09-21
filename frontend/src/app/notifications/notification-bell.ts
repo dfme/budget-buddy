@@ -11,7 +11,8 @@ import { NotificationService } from './notification.service';
 let nextId = 0;
 
 /**
- * Glocke mit Ungelesen-Badge und Dropdown-Liste in der App-Shell (FE-NOTIF-01).
+ * Glocke mit Ungelesen-Badge und Dropdown-Liste in der App-Shell (FE-NOTIF-01), darin
+ * «Alle als gelesen» (FE-NOTIF-04).
  *
  * <p>Wird zweimal gerendert — mobile Topbar und Desktop-Sidebar-Konto-Block —, analog zu
  * Avatar/Initialen in `Shell`: beide Stellen sind laut `shell.scss` nie gleichzeitig sichtbar.
@@ -119,6 +120,32 @@ export class NotificationBell {
       return;
     }
     this.notificationService.markAsRead(notification.id).subscribe({
+      error: (_err: HttpErrorResponse) => {
+        // Siehe Methoden-Doc: bewusst ohne Meldung.
+      },
+    });
+  }
+
+  /**
+   * Markiert alle Benachrichtigungen als gelesen (FE-NOTIF-04, #336) — eine Aktion statt N
+   * Einzelklicks, wenn mehrere Importe je ein Bündel hinterlassen haben. Der Button ist nur
+   * gerendert, solange etwas ungelesen ist; der Guard hier fängt den Klick zwischen zwei
+   * Change-Detection-Läufen ab.
+   *
+   * <p>Das Dropdown bleibt offen, wie beim Einzelklick — der Wechsel auf «gelesen» soll sichtbar
+   * sein. Navigiert wird nicht: anders als bei {@link select} gibt es kein einzelnes Ziel.
+   *
+   * <p>Nimmt als Nebeneffekt jedes «Neu»-Label auf `/abos`: das hängt am selben Gelesen-Zustand
+   * (BE-REC-02). Das ist beabsichtigt und in US-08 AC2 festgehalten.
+   *
+   * <p>Ein Fehler bleibt bewusst still, wie bei {@link select}: das Badge zeigt dann weiterhin
+   * den alten Stand, ein erneuter Klick versucht es wieder.
+   */
+  protected markAllAsRead(): void {
+    if (this.unreadCount() === 0) {
+      return;
+    }
+    this.notificationService.markAllAsRead().subscribe({
       error: (_err: HttpErrorResponse) => {
         // Siehe Methoden-Doc: bewusst ohne Meldung.
       },

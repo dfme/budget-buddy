@@ -41,25 +41,21 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
 
     /**
      * Ungelesene Benachrichtigungen eines Users zu einem Typ — für
-     * {@link NotificationPort#unreadReferenceIds}. Abgeleitete Query genügt hier (anders als bei
+     * {@link NotificationPort#unreadIds}. Abgeleitete Query genügt hier (anders als bei
      * {@link #findByUserIdOrderByUnreadFirstThenNewest}): es wird nur gefiltert, nicht nach
      * {@code read_at} sortiert, das DB-spezifische NULL-Ordering betrifft diese Query also nicht.
      */
     List<Notification> findByUserIdAndTypeAndReadAtIsNull(Long userId, String type);
 
     /**
-     * Ungelesene Benachrichtigungen eines Users zu einem Typ, die auf eine bestimmte
-     * {@code referenceId} zeigen — für {@link NotificationPort#markReadByReference}. Eine Liste,
-     * kein {@code @Modifying}-UPDATE: der Lesezeitpunkt wird über
+     * Alle ungelesenen Benachrichtigungen eines Users — für {@code markAllAsRead}
+     * (FE-NOTIF-04). Eine Liste, kein {@code @Modifying}-UPDATE: der Lesezeitpunkt wird über
      * {@link Notification#markRead(java.time.Instant)} gesetzt, derselbe Pfad wie bei
-     * {@code markAsRead}, damit die Idempotenz-Regel der Entity an einer Stelle bleibt.
-     *
-     * <p>Über {@code userId} gebunden, obwohl die {@code referenceId} eine global eindeutige
-     * Row-ID des aufrufenden Moduls ist: der Verweis ist FK-los (V10) und die Bindung an den User
-     * ist die einzige Zusage, die dieses Repository macht.
+     * {@code markAsRead}, damit die Idempotenz-Regel der Entity an einer Stelle bleibt. Die
+     * Inbox eines Users ist klein (kein Blättern, siehe {@code NotificationController}); ein
+     * Bulk-UPDATE brächte hier nichts als einen zweiten Schreibpfad.
      */
-    List<Notification> findByUserIdAndTypeAndReferenceIdAndReadAtIsNull(
-            Long userId, String type, Long referenceId);
+    List<Notification> findByUserIdAndReadAtIsNull(Long userId);
 
     /**
      * Löscht alle Benachrichtigungen eines Users (Kontolöschung, US-02, nDSG).

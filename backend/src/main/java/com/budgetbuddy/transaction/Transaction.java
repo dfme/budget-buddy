@@ -152,8 +152,8 @@ public class Transaction {
     }
 
     /**
-     * Buchungstext und Detailzeilen als ein String — der Schlüssel, unter dem diese Buchung in
-     * {@code category_lookup} gelernt wird (ADR-6, Schritt 4).
+     * Buchungstext und Detailzeilen als ein String — der Text, aus dem der Schlüssel abgeleitet
+     * wird, unter dem diese Buchung in {@code category_lookup} gelernt wird (ADR-6, Schritt 4).
      *
      * <p><strong>Muss zeichengleich zu {@link ParsedTransaction#fullText()} bleiben.</strong> Beide
      * Lernquellen schreiben in dieselbe Tabelle, deren Primärschlüssel das Pattern selbst ist: Die
@@ -164,6 +164,10 @@ public class Transaction {
      * {@code CategoryLookupRepository#findMatching} statt der Korrektur des Users. Genau das war
      * der Fall, solange hier nur {@code buchungstext} gelernt wurde: Bei jedem Layout mit
      * Detailzeilen schlug der längere Claude-Eintrag die kürzere User-Korrektur.
+     *
+     * <p>Dass {@code CategoryLearningService} seit BE-CAT-13 nur das stabile Präfix dieses Textes
+     * speichert, ändert an der Bedingung nichts — der Schnitt ist deterministisch, und nur wenn
+     * beide Seiten denselben Text hineingeben, kommt derselbe Schlüssel heraus.
      *
      * <p>{@code \n} → Leerzeichen, weil {@link ParsedTransaction#detailsAsText()} die Zeilen mit
      * {@code \n} verbindet und {@code fullText()} mit einem Leerzeichen. Detailzeilen enthalten

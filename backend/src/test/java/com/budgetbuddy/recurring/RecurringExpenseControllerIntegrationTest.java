@@ -1,6 +1,8 @@
 package com.budgetbuddy.recurring;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.is;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -118,10 +120,9 @@ class RecurringExpenseControllerIntegrationTest {
     }
 
     @Test
-    void listMarksEntryAsNewWhileItsNotificationIsUnread() throws Exception {
-        long id = createRecurringExpense(lara, "NETFLIX");
-        notificationRepository.save(new Notification(
-                lara, "RECURRING_EXPENSE_DETECTED", id, "Netflix erkannt", Instant.now()));
+    void listMarksEntryAsNewWhileItsBundleNotificationIsUnread() throws Exception {
+        Notification bundle = createBundleNotification(lara);
+        createRecurringExpense(lara, "NETFLIX", bundle.getId());
 
         mockMvc.perform(get("/api/recurring-expenses").cookie(jwtCookie(lara)))
                 .andExpect(status().isOk())
@@ -129,16 +130,35 @@ class RecurringExpenseControllerIntegrationTest {
     }
 
     @Test
-    void listDoesNotMarkEntryAsNewOnceItsNotificationIsRead() throws Exception {
-        long id = createRecurringExpense(lara, "NETFLIX");
-        Notification notification = notificationRepository.save(new Notification(
-                lara, "RECURRING_EXPENSE_DETECTED", id, "Netflix erkannt", Instant.now()));
-        notification.markRead(Instant.now());
-        notificationRepository.save(notification);
+    void listDoesNotMarkEntryAsNewOnceItsBundleNotificationIsRead() throws Exception {
+        Notification bundle = createBundleNotification(lara);
+        createRecurringExpense(lara, "NETFLIX", bundle.getId());
+        bundle.markRead(Instant.now());
+        notificationRepository.save(bundle);
 
         mockMvc.perform(get("/api/recurring-expenses").cookie(jwtCookie(lara)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].isNew").value(false));
+    }
+
+    /**
+     * FE-NOTIF-04 (#336): Eine Kenntnisnahme für das ganze Bündel — nach {@code read-all} in der
+     * Glocke sind alle Einträge des Imports nicht mehr «Neu», ohne N-mal zu klicken.
+     */
+    @Test
+    void markingAllNotificationsAsReadClearsNewOnEveryEntryOfTheBundle() throws Exception {
+        Notification bundle = createBundleNotification(lara);
+        createRecurringExpense(lara, "NETFLIX", bundle.getId());
+        createRecurringExpense(lara, "SPOTIFY", bundle.getId());
+        createRecurringExpense(lara, "SWISSCOM", bundle.getId());
+
+        mockMvc.perform(post("/api/notifications/read-all").cookie(jwtCookie(lara)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/recurring-expenses").cookie(jwtCookie(lara)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(3))
+                .andExpect(jsonPath("$[*].isNew").value(everyItem(is(false))));
     }
 
     // --- AC2: POST /api/recurring-expenses/{id}/dismiss ---
@@ -159,46 +179,44 @@ class RecurringExpenseControllerIntegrationTest {
     }
 
     @Test
-    void dismissAnswersNotNewEvenWhenItsNotificationWasUnread() throws Exception {
-        long id = createRecurringExpense(lara, "NETFLIX");
-        notificationRepository.save(new Notification(
-                lara, "RECURRING_EXPENSE_DETECTED", id, "Netflix erkannt", Instant.now()));
+    void dismissAnswersNotNewEvenWhenItsBundleNotificationIsUnread() throws Exception {
+        Notification bundle = createBundleNotification(lara);
+        long id = createRecurringExpense(lara, "NETFLIX", bundle.getId());
+        createRecurringExpense(lara, "SPOTIFY", bundle.getId());
 
-        // Die Benachrichtigung ist in demselben Aufruf gelesen worden (BE-REC-03).
+        // Das Bündel bleibt wegen Spotify ungelesen — der verneinte Eintrag ist trotzdem nicht neu.
         mockMvc.perform(post("/api/recurring-expenses/" + id + "/dismiss").cookie(jwtCookie(lara)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.isNew").value(false));
     }
 
-    // --- BE-REC-03: Dismiss markiert die zugehörige Benachrichtigung als gelesen ---
+    // --- BE-REC-03: Dismiss markiert die Bündel-Benachrichtigung als gelesen (FE-NOTIF-04) ---
 
     @Test
-    void dismissMarksTheOwnNotificationAsRead() throws Exception {
-        long id = createRecurringExpense(lara, "NETFLIX");
-        Notification notification = notificationRepository.save(new Notification(
-                lara, "RECURRING_EXPENSE_DETECTED", id, "Netflix erkannt", Instant.now()));
+    void dismissingTheOnlyEntryOfABundleMarksItsNotificationAsRead() throws Exception {
+        Notification bundle = createBundleNotification(lara);
+        long id = createRecurringExpense(lara, "NETFLIX", bundle.getId());
 
         mockMvc.perform(post("/api/recurring-expenses/" + id + "/dismiss").cookie(jwtCookie(lara)))
                 .andExpect(status().isOk());
 
-        assertThat(notificationRepository.findByIdAndUserId(notification.getId(), lara))
+        assertThat(notificationRepository.findByIdAndUserId(bundle.getId(), lara))
                 .get()
                 .extracting(Notification::isRead)
                 .isEqualTo(true);
     }
 
     @Test
-    void dismissLeavesTheNotificationOfAnotherEntryUnread() throws Exception {
-        long netflix = createRecurringExpense(lara, "NETFLIX");
-        long spotify = createRecurringExpense(lara, "SPOTIFY");
-        Notification spotifyNotification = notificationRepository.save(new Notification(
-                lara, "RECURRING_EXPENSE_DETECTED", spotify, "Spotify erkannt", Instant.now()));
+    void dismissingOneEntryOfABundleLeavesItsNotificationUnreadWhileOthersAreOpen() throws Exception {
+        Notification bundle = createBundleNotification(lara);
+        long netflix = createRecurringExpense(lara, "NETFLIX", bundle.getId());
+        createRecurringExpense(lara, "SPOTIFY", bundle.getId());
 
         mockMvc.perform(post("/api/recurring-expenses/" + netflix + "/dismiss")
                         .cookie(jwtCookie(lara)))
                 .andExpect(status().isOk());
 
-        assertThat(notificationRepository.findByIdAndUserId(spotifyNotification.getId(), lara))
+        assertThat(notificationRepository.findByIdAndUserId(bundle.getId(), lara))
                 .get()
                 .extracting(Notification::isRead)
                 .isEqualTo(false);
@@ -212,6 +230,23 @@ class RecurringExpenseControllerIntegrationTest {
                 .andExpect(jsonPath("$[1].payeeKey").value("SPOTIFY"))
                 .andExpect(jsonPath("$[1].status").value("DETECTED"))
                 .andExpect(jsonPath("$[1].isNew").value(true));
+    }
+
+    @Test
+    void dismissingTheLastOpenEntryOfABundleMarksItsNotificationAsRead() throws Exception {
+        Notification bundle = createBundleNotification(lara);
+        long netflix = createRecurringExpense(lara, "NETFLIX", bundle.getId());
+        long spotify = createRecurringExpense(lara, "SPOTIFY", bundle.getId());
+
+        mockMvc.perform(post("/api/recurring-expenses/" + netflix + "/dismiss").cookie(jwtCookie(lara)))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/recurring-expenses/" + spotify + "/dismiss").cookie(jwtCookie(lara)))
+                .andExpect(status().isOk());
+
+        assertThat(notificationRepository.findByIdAndUserId(bundle.getId(), lara))
+                .get()
+                .extracting(Notification::isRead)
+                .isEqualTo(true);
     }
 
     @Test
@@ -299,10 +334,21 @@ class RecurringExpenseControllerIntegrationTest {
         return new Cookie("jwt", jwtService.generateToken(uid));
     }
 
+    /** Ein Eintrag ohne Bündel-Benachrichtigung — Bestandsdaten, die V14 nicht zuordnen konnte. */
     private long createRecurringExpense(long userId, String payeeKey) {
+        return createRecurringExpense(userId, payeeKey, null);
+    }
+
+    private long createRecurringExpense(long userId, String payeeKey, Long notificationId) {
         return recurringExpenseRepository
                 .save(new RecurringExpense(userId, payeeKey, new BigDecimal("20.90"),
-                        YearMonth.of(2026, 6), Instant.now()))
+                        YearMonth.of(2026, 6), Instant.now(), notificationId))
                 .getId();
+    }
+
+    /** Die ungelesene Bündel-Benachrichtigung eines Erkennungslaufs (FE-NOTIF-04). */
+    private Notification createBundleNotification(long userId) {
+        return notificationRepository.save(new Notification(
+                userId, "RECURRING_EXPENSE_DETECTED", null, "Abos erkannt", Instant.now()));
     }
 }

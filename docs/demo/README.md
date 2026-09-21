@@ -73,18 +73,24 @@ Lookup-Tabelle nicht kennt, wird `Sonstiges` (BE-CAT-02). Gemessen am Snapshot:
 
 | | mit Lookup kategorisiert | `Sonstiges` |
 | --- | --- | --- |
-| Lara (130 Buchungen) | 65 (50%) | 65 (50%) |
-| Marc (324 Buchungen) | 154 (48%) | 170 (52%) |
+| Lara (130 Buchungen) | 73 (56%) | 57 (44%) |
+| Marc (324 Buchungen) | 171 (53%) | 153 (47%) |
 
-Betroffen sind unter anderem Miete, Restaurants, Coiffeur und Bargeldbezüge — also genau die
-Posten, an denen die Kategorienansicht interessant wird. **Für die Präsentation deshalb den Key
-setzen**, bevor geseedet wird; das Skript warnt beim Start, wenn er fehlt.
+Betroffen sind unter anderem Miete, Restaurants und Coiffeur — also genau die Posten, an denen
+die Kategorienansicht interessant wird. **Für die Präsentation deshalb den Key setzen**, bevor
+geseedet wird; das Skript warnt beim Start, wenn er fehlt.
+
+Bargeldbezüge standen bis BE-CAT-17 ebenfalls in dieser Aufzählung. Seit `V15` seedet die
+Lookup-Tabelle `BANCOMAT`, `POSTOMAT`, `GELDAUTOMAT`, `BARGELDBEZUG` und `BARBEZUG`; die Bezüge
+beider Personas fallen damit ohne API-Key in `Bargeldbezug` statt in `Sonstiges`. Daher auch der
+Sprung in der Tabelle oben — vorher 65 und 154.
 
 Die Händler sind bewusst gemischt: ein Teil trifft die Seeds aus
 [`V04__create_category_lookup_table.sql`](../../backend/src/main/resources/db/migration/V04__create_category_lookup_table.sql)
-(Migros, Coop, SBB, CSS, Swisscom, Netflix, Zalando, digitec), ein Teil nicht. Ohne unbekannte
-Händler hätte die Demo weder für die Claude-Stufe noch für die manuelle Korrektur (Stufe 3) etwas
-zu zeigen.
+(Migros, Coop, SBB, CSS, Swisscom, Netflix, Zalando, digitec) und
+[`V15__seed_bargeldbezug_and_steuern_lookup.sql`](../../backend/src/main/resources/db/migration/V15__seed_bargeldbezug_and_steuern_lookup.sql)
+(Bancomat), ein Teil nicht. Ohne unbekannte Händler hätte die Demo weder für die Claude-Stufe
+noch für die manuelle Korrektur (Stufe 3) etwas zu zeigen.
 
 ## Login-Daten
 

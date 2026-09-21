@@ -18,6 +18,8 @@ import org.springframework.test.context.DynamicPropertySource;
  * Prüft den Lerneffekt end-to-end: ein gelerntes Pattern wird persistiert und von der
  * {@link LookupTableService} anschliessend ohne Claude-Call gematcht; ein erneutes Lernen desselben
  * Patterns aktualisiert die Kategorie (Upsert auf {@code UNIQUE (user_id, empfaenger_pattern)}).
+ * Seit BE-CAT-13 ist der gespeicherte Schlüssel das stabile Präfix des Textes — die variable
+ * Mitteilung wird vor dem Speichern abgeschnitten ({@link LookupPatternExtractor}).
  *
  * <p>Seit BE-CAT-12 (ADR-15) ist der Lerneffekt mandantengebunden: Die Gegenprobe aus Sicht eines
  * zweiten Users gehört deshalb dazu — ein grüner Happy Path beweist die Trennung nicht.
@@ -105,6 +107,37 @@ class CategoryLearningServiceIntegrationTest {
     }
 
     @Test
+    void variableMessageIsCutOff_soTheNextMonthHitsTheLookup() {
+        // BE-CAT-13: Der Januar-Text wird gelernt, der Februar-Text muss ohne Claude treffen.
+        learningService.learn(lara, "GIRO POST MUSTER IMMOBILIEN AG MIETE JANUAR 2025", Category.WOHNEN);
+
+        assertThat(lookupTableService.categorize(lara, "GIRO POST MUSTER IMMOBILIEN AG MIETE FEBRUAR 2025"))
+                .contains(new CategorizationResult(Category.WOHNEN, CategorizationResult.Source.LOOKUP));
+        assertThat(countLearnedRowsContaining(lara, "GIRO POST MUSTER IMMOBILIEN AG MIETE")).isEqualTo(1);
+    }
+
+    @Test
+    void twelveRentPaymentsBecomeOneRow_andTheCorrectionStillWins() {
+        // Wächst pro Gegenpartei, nicht pro Transaktion (AC 2) — und beide Lernquellen treffen
+        // weiterhin denselben Schlüssel: Die Korrektur nach der Claude-Einstufung ist ein Upsert.
+        for (String month : new String[] {"JANUAR", "FEBRUAR", "MAERZ", "APRIL", "MAI", "JUNI",
+                "JULI", "AUGUST", "SEPTEMBER", "OKTOBER", "NOVEMBER", "DEZEMBER"}) {
+            learningService.learn(lara, "LASTSCHRIFT CSS VERSICHERUNG AG PRAEMIE " + month + " 2025",
+                    Category.SONSTIGES);
+        }
+        assertThat(countLearnedRowsContaining(lara, "CSS VERSICHERUNG AG PRAEMIE")).isEqualTo(1);
+
+        // Der User korrigiert die Juli-Prämie — dieselbe Zeile, kein zweiter Eintrag.
+        learningService.learn(lara, "LASTSCHRIFT CSS VERSICHERUNG AG PRAEMIE JULI 2025",
+                Category.VERSICHERUNG);
+
+        assertThat(countLearnedRowsContaining(lara, "CSS VERSICHERUNG AG PRAEMIE")).isEqualTo(1);
+        assertThat(lookupTableService.categorize(lara, "LASTSCHRIFT CSS VERSICHERUNG AG PRAEMIE AUGUST 2025"))
+                .contains(new CategorizationResult(
+                        Category.VERSICHERUNG, CategorizationResult.Source.LOOKUP));
+    }
+
+    @Test
     void blankPatternIsIgnored() {
         learningService.learn(lara, "   ", Category.LEBENSMITTEL);
 
@@ -116,6 +149,13 @@ class CategoryLearningServiceIntegrationTest {
                 "SELECT COUNT(*) FROM user_category_lookup "
                         + "WHERE user_id = ? AND upper(empfaenger_pattern) = upper(?)",
                 Integer.class, userId, pattern);
+    }
+
+    private Integer countLearnedRowsContaining(long userId, String fragment) {
+        return jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM user_category_lookup "
+                        + "WHERE user_id = ? AND empfaenger_pattern LIKE ?",
+                Integer.class, userId, "%" + fragment + "%");
     }
 
     private int countSeedRows() {
