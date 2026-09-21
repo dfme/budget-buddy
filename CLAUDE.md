@@ -68,10 +68,18 @@ lokal, ihr Input verlässt das System nicht.
 ganzen Text. `maskPersonNames` maskiert dieselben Tokens auch in ihren weiteren Vorkommen, aus
 `LASTSCHRIFT MUSTER, LEA SACKGELD LEA` wird deshalb `LASTSCHRIFT <NAME> SACKGELD <NAME>` — ohne
 Vornamensliste, die die Trefferquote gekostet hätte. Die Regel ist **selbst-bedingt**: ohne
-Personentreffer im selben Text feuert sie nie, und keine der vierzehn Korpuszeilen in
-`PromptSanitizerTest.RealerKorpus` trägt einen. Es bleibt **ein** Rand, und er ist von
-`PERSON_NAME` geerbt, nicht neu: nach einem Fehltreffer der Grundregel (`COOP, BERN` — ein
-reiner Versalien-Händler mit Komma) fielen auch die nachfolgenden Vorkommen weg.
+Personentreffer im selben Text feuert sie nie.
+
+**Bewiesen ist der Token, nicht jedes Vorkommen (#353).** Ein Treffer belegt, dass `MUSTER` ein
+Nachname *ist* — nicht, dass jedes `MUSTER` im selben Text die Person *meint*. Trägt der Text
+denselben Token auch als Firmenbestandteil, fällt der Händler mit:
+`GIRO POST MUSTER, LEA MIETE MUSTER IMMOBILIEN AG` → `GIRO POST <NAME> MIETE <NAME> IMMOBILIEN AG`.
+Das setzt **keinen** Fehltreffer der Grundregel voraus. Eine frühere Fassung dieses Absatzes
+behauptete das Gegenteil; sie war falsch, und `MUSTER IMMOBILIEN AG` steht im Fixture-Korpus. Der
+Korpustest bleibt nur deshalb grün, weil er jede Zeile **einzeln** prüft — die Kollision braucht
+Person und Firma im selben Text. Die vollständige Liste der vier verbleibenden Ränder steht im
+Klassen-Javadoc von `PromptSanitizer`; keiner davon ist ein Abfluss, drei maskieren zu viel und
+einer erkennt zu wenig.
 
 ## Wichtigste Regeln für Claude
 

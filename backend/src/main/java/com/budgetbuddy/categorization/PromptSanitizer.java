@@ -29,18 +29,33 @@ import java.util.regex.Pattern;
  *
  * <p><strong>Bekannte Grenzen.</strong> Die zwei Restexpositionen, die BE-CAT-06 offen liess, sind
  * mit BE-CAT-08 (#233) geschlossen: der nachgestellte Vorname über die Echo-Maskierung in
- * {@link #maskPersonNames} und die Händler-Telefonnummer über {@link #PHONE}. Was bleibt, ist
- * <em>ein</em> Rand, und er ist geerbt, nicht neu:
+ * {@link #maskPersonNames} und die Händler-Telefonnummer über {@link #PHONE}. Was bleibt, sind
+ * vier Ränder. <strong>Keiner davon ist ein Abfluss</strong> — drei maskieren zu viel und kosten
+ * Trefferquote, einer erkennt zu wenig:
  *
  * <ul>
- *   <li>Die Echo-Maskierung hängt vollständig an {@link #PERSON_NAME}. Dessen dokumentierte Kante
- *       — ein reiner Versalien-Händler mit Komma ({@code COOP, BERN}) — wird dadurch breiter:
- *       nach einem solchen Fehltreffer fielen auch die nachfolgenden {@code COOP} und
- *       {@code BERN} weg. Eine <em>neue</em> Kante entsteht nicht; ohne Fehltreffer der
- *       Grundregel gibt es keinen Echo-Fehltreffer. Im Fixture-Korpus kommt die Form nicht vor.
- *   <li>Ein Vorname, der in einer Zweckzeile steht, <em>ohne</em> dass derselbe Text die Form
- *       {@code NACHNAME, VORNAME} trägt, bleibt unerkannt. Das ist Absicht: ohne diesen Anker
- *       bliebe nur eine Vornamensliste, und die kostete Trefferquote (siehe
+ *   <li><strong>Echo auf einen Firmentoken gleichen Namens</strong> (#353, der breiteste der
+ *       vier). Trägt derselbe Text einen Personentreffer <em>und</em> eine Firma, die den
+ *       Nachnamen führt, fällt der Händlertoken mit: aus
+ *       {@code GIRO POST MUSTER, LEA MIETE MUSTER IMMOBILIEN AG} wird
+ *       {@code GIRO POST <NAME> MIETE <NAME> IMMOBILIEN AG}. Das setzt <em>keinen</em>
+ *       Fehltreffer von {@link #PERSON_NAME} voraus — {@code MUSTER, LEA} ist richtig erkannt.
+ *       Genau so sieht eine Miet- oder Lohnbuchung an eine gleichnamige Firma aus, und
+ *       {@code MUSTER IMMOBILIEN AG} steht im Fixture-Korpus. Siehe {@link #maskPersonNames}.
+ *   <li><strong>Geerbte Kante von {@link #PERSON_NAME}</strong>, durch das Echo verbreitert: ein
+ *       reiner Versalien-Händler mit Komma ({@code COOP, BERN}) fiele heraus, und nach einem
+ *       solchen Fehltreffer auch die nachfolgenden {@code COOP} und {@code BERN}. Im
+ *       Fixture-Korpus kommt die Form nicht vor.
+ *   <li><strong>{@link #PHONE} greift auf gruppierte Referenznummern.</strong> Aus
+ *       {@code ESR 21 00000 00003 13947 …} wird {@code ESR 21 <TEL> 13947 …}: zehn Ziffern mit
+ *       führender {@code 0}, nur eben in Fünfergruppen. Richtig maskiert, falsch benannt — das
+ *       Gegenstück zu der Reihenfolge {@link #OPAQUE_REFERENCE} vor {@link #PHONE}, die genau
+ *       diesen Mangel für die <em>kompakte</em> Referenz vermeidet. In der Praxis verwirft
+ *       {@code DETAIL_NOISE} solche Zeilen schon beim Parsen.
+ *   <li><strong>Vorname ohne Anker bleibt unerkannt</strong> — als einziger der vier eine
+ *       Unter-Maskierung. Steht ein Vorname in einer Zweckzeile, <em>ohne</em> dass derselbe
+ *       Text die Form {@code NACHNAME, VORNAME} trägt, sieht ihn keine Regel. Das ist Absicht:
+ *       ohne diesen Anker bliebe nur eine Vornamensliste, und die kostete Trefferquote (siehe
  *       {@code PromptSanitizerTest.RealerKorpus}).
  * </ul>
  */
@@ -127,7 +142,8 @@ final class PromptSanitizer {
 
     /**
      * Schweizer Telefonnummer im Buchungstext: {@code 044 913 2323}, {@code 079 123 45 67},
-     * {@code +41 44 913 23 23} (BE-CAT-08).
+     * {@code +41 44 913 23 23}, {@code +41 (0)44 913 23 23}, {@code 044.913.23.23},
+     * {@code 044-913-23-23} (BE-CAT-08).
      *
      * <p>Sie ist die Nummer des <em>Händlers</em>, nicht des Nutzers, und damit harmloser als
      * alles andere hier. Für die Kategorisierung trägt sie nichts bei — was ohne Verlust
@@ -139,18 +155,35 @@ final class PromptSanitizer {
      * führende {@code 0} ist die eigentliche Bedingung: {@code RECHNUNG 2024 2025} trägt zehn
      * Ziffern in zwei Gruppen und kommt trotzdem nicht in die Nähe.
      *
-     * <p><strong>Kein Punkt als Trennzeichen</strong>, nur Leerzeichen und {@code /}. Mit dem
-     * Punkt ginge {@code 01.02.2026 45} als zehnstellige Nummer durch. Ohne ihn sind
-     * Datumsangaben strukturell ausgeschlossen, statt wie bei {@link #AMOUNT} nachträglich per
-     * Lookbehind abgefangen werden zu müssen.
+     * <p><strong>Vier Trennzeichen, nicht zwei</strong> ({@code ' '}, {@code /}, {@code .},
+     * {@code -}), und das {@code (0)} der gedruckten Auslandform. Die erste Fassung kannte nur
+     * Leerzeichen und {@code /} und liess damit drei gängige Schweizer Schreibweisen durch:
+     * {@code +41 (0)44 913 23 23}, {@code 044.913.23.23} und {@code 044-913-23-23} (#353). Der
+     * Bindestrich ist ungefährlich, weil der Anker die führende {@code 0} bleibt —
+     * {@code RECHNUNG 11-2025} und {@code COOP-1234} haben keine.
+     *
+     * <p><strong>Datumsangaben hält eine Klammer aus zwei Prüfungen heraus</strong>, nicht das
+     * Weglassen des Punktes. Der frühere Absatz hier nannte sie «strukturell ausgeschlossen»;
+     * das galt nie, denn {@code /} stand von Anfang an in der Klasse und
+     * {@code KAUF VOM 01/02/2026 45} ging als zehnstellige Nummer durch. Seit #353 greifen
+     * beide Richtungen, dieselbe Lehre wie bei {@link #AMOUNT}:
+     *
+     * <ul>
+     *   <li>{@code (?!\d{2}[./]\d{2}[./]\d{4})} verwirft eine Fundstelle, die auf einem
+     *       vollständigen Datum aufsetzt — {@code 01.02.2026 45} und {@code 01/02/2026 45}.
+     *   <li>{@code (?<!\d[./])} verwirft den Einstieg <em>mitten</em> in einem Datum. Ohne ihn
+     *       fände die Regel in {@code KAUF VOM 03.07.2026 12 34} hinter dem ersten Punkt noch
+     *       ein {@code 07.2026 12 34} und machte daraus {@code KAUF VOM 03.<TEL>}.
+     * </ul>
      *
      * <p><strong>Der Lookahead schliesst Buchstaben ein</strong> — dieselbe Lehre wie bei
      * {@link #LONG_DIGIT_RUN}. Mit {@code (?!\d)} zerschnitte die Regel
      * {@code 0441234567AB} in {@code <TEL>AB}; mit {@code (?![0-9A-Z])} greift sie dort gar
      * nicht und {@link #OPAQUE_REFERENCE} nimmt den ganzen Token.
      */
-    private static final Pattern PHONE =
-            Pattern.compile("(?<![0-9A-Z+])(?:\\+41|0041|0)(?:[ /]?\\d){9}(?![0-9A-Z])");
+    private static final Pattern PHONE = Pattern.compile(
+            "(?<![0-9A-Z+])(?<!\\d[./])(?!\\d{2}[./]\\d{2}[./]\\d{4})"
+                    + "(?:(?:\\+41|0041)(?:[ .\\-/]?\\(0\\))?|0)(?:[ .\\-/]?\\d){9}(?![0-9A-Z])");
 
     /**
      * Gegenpartei als natürliche Person: {@code MUSTER, LEA}, {@code MUSTER, ANNA}.
@@ -176,11 +209,15 @@ final class PromptSanitizer {
      * zweiteiliger Nachname durchging. Ein durch Leerzeichen getrennter Nachname ist von einem
      * vorangehenden Buchungstyp nicht zu unterscheiden — {@code MUSTER-MEIER, LEA} dagegen schon.
      *
-     * <p><strong>Was diese Regel findet, gilt für den ganzen Text.</strong> Ein Treffer hier ist
-     * kein Verdacht, sondern ein Beweis: die Form {@code NACHNAME, VORNAME} in Versalien kommt
-     * nicht zufällig zustande. {@link #maskPersonNames} nutzt das und maskiert dieselben Tokens
-     * auch in ihren weiteren Vorkommen — so verschwindet das nachgestellte {@code LEA} aus
-     * {@code LASTSCHRIFT MUSTER, LEA SACKGELD LEA}, ohne dass eine Vornamensliste nötig wäre.
+     * <p><strong>Was diese Regel findet, gilt als Token für den ganzen Text.</strong> Ein Treffer
+     * hier ist kein Verdacht, sondern ein Beweis — allerdings ein Beweis über den <em>Token</em>:
+     * die Form {@code NACHNAME, VORNAME} in Versalien kommt nicht zufällig zustande, also ist
+     * {@code LEA} ein Vorname. Dass jedes weitere Vorkommen desselben Tokens auch die Person
+     * meint, folgt daraus <em>nicht</em>. {@link #maskPersonNames} nutzt den Beweis trotzdem und
+     * maskiert dieselben Tokens in ihren weiteren Vorkommen — so verschwindet das nachgestellte
+     * {@code LEA} aus {@code LASTSCHRIFT MUSTER, LEA SACKGELD LEA}, ohne dass eine
+     * Vornamensliste nötig wäre. Den Preis dieser Abkürzung — einen Firmentoken gleichen Namens
+     * — nennt {@link #maskPersonNames} in seinem eigenen Javadoc.
      */
     private static final Pattern PERSON_NAME = Pattern.compile(
             "(?<!\\p{L})\\p{Lu}{2,}(?:-\\p{Lu}{2,})?, ?\\p{Lu}{2,}(?!\\p{L})");
@@ -252,14 +289,37 @@ final class PromptSanitizer {
      * {@code NACHNAME, VORNAME} führt. Ohne diesen Anker passiert nichts — die Methode ist
      * selbst-bedingt und kann einen Text ohne Personentreffer gar nicht verändern.
      *
-     * <p>Das ist der Grund, warum die Trefferquoten-AC unberührt bleibt, und zwar strukturell
-     * und nicht bloss empirisch: keine der vierzehn Zeilen in
-     * {@code PromptSanitizerTest.RealerKorpus}, die unverändert durchgehen müssen, trägt einen
-     * {@link #PERSON_NAME}-Treffer.
+     * <p><strong>Bewiesen ist der Token, nicht jedes seiner Vorkommen.</strong> Die Unterscheidung
+     * ist der eigentliche Rand dieser Methode (#353). Der erste Durchgang belegt, dass
+     * {@code MUSTER} ein Nachname <em>ist</em> — nicht, dass jedes {@code MUSTER} im selben Text
+     * die Person <em>meint</em>. Trägt der Text denselben Token auch als Firmenbestandteil, fällt
+     * der Händler mit:
      *
-     * <p><strong>Die Wortgrenzen schliessen {@code <} und {@code >} ein</strong>, nicht nur
-     * Buchstaben. Sonst träfe ein Nachname {@code NAME} das {@code NAME} in einem bereits
-     * gesetzten {@code <NAME>} und die Ersetzung liefe auf sich selbst.
+     * <pre>{@code
+     * GIRO POST MUSTER, LEA MIETE MUSTER IMMOBILIEN AG
+     *   ==> GIRO POST <NAME> MIETE <NAME> IMMOBILIEN AG
+     * }</pre>
+     *
+     * <p>Das kostet Trefferquote, und zwar ohne dass {@link #PERSON_NAME} sich geirrt hätte —
+     * {@code MUSTER, LEA} ist ein richtiger Treffer. Eine frühere Fassung dieses Absatzes
+     * behauptete das Gegenteil («ohne Fehltreffer der Grundregel gibt es keinen
+     * Echo-Fehltreffer»); das stimmt nicht, und {@code MUSTER IMMOBILIEN AG} wie
+     * {@code MUSTER CONSULTING GMBH} stehen wörtlich im Fixture-Korpus. Getestet ist die Kante in
+     * {@code PromptSanitizerTest.Personenname.firmentokenGleichenNamensFaelltMitDemEcho}.
+     *
+     * <p>Der Korpustest bleibt davon unberührt, aber aus einem schwächeren Grund als zunächst
+     * angenommen: Er prüft jede Zeile <em>einzeln</em>, und keine der vierzehn Zeilen, die
+     * unverändert durchgehen müssen, trägt einen {@link #PERSON_NAME}-Treffer. Die Kollision
+     * braucht Person und Firma im <em>selben</em> Text. Das ist eine empirische Aussage über den
+     * Korpus, keine strukturelle über die Regel.
+     *
+     * <p><strong>Die Wortgrenzen schliessen {@code <}, {@code >} und Ziffern ein</strong>, nicht
+     * nur Buchstaben. {@code <} und {@code >} müssen heraus, sonst träfe ein Nachname
+     * {@code NAME} das {@code NAME} in einem bereits gesetzten {@code <NAME>} und die Ersetzung
+     * liefe auf sich selbst. Die Ziffern kamen mit #353 dazu — dieselbe Lehre wie bei
+     * {@link #LONG_DIGIT_RUN} und {@link #PHONE}: ohne sie zerschnitt das Echo
+     * {@code SACKGELD LEA2} in {@code SACKGELD <NAME>2}, obwohl {@code LEA2} ein anderer Token
+     * ist als der bewiesene Vorname und nicht für ihn steht.
      *
      * <p><strong>Das {@code Pattern.compile} in der Schleife ist kein Versehen</strong>, auch
      * wenn jede andere Regel dieser Klasse ein statisches Feld ist: das Token steht erst zur
@@ -279,7 +339,8 @@ final class PromptSanitizer {
 
         String masked = result.toString();
         for (String token : nameTokens) {
-            masked = Pattern.compile("(?<![\\p{L}<])" + Pattern.quote(token) + "(?![\\p{L}>])")
+            masked = Pattern.compile(
+                            "(?<![\\p{L}0-9<])" + Pattern.quote(token) + "(?![\\p{L}0-9>])")
                     .matcher(masked)
                     .replaceAll("<NAME>");
         }

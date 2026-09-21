@@ -6,6 +6,7 @@ import java.util.List;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
@@ -107,6 +108,11 @@ class PromptSanitizerTest {
         /**
          * Die Gruppierung ist gleichgültig, die Länge nicht: national {@code 0} plus neun
          * Ziffern, international {@code +41}/{@code 0041} plus neun.
+         *
+         * <p>Die letzten vier Formate kamen mit #353 dazu. Die erste Fassung kannte nur
+         * Leerzeichen und {@code /} als Trennzeichen und liess damit die häufigste gedruckte
+         * Auslandform ({@code +41 (0)44 …}) sowie Punkt und Bindestrich durch — AC 3 ist absolut
+         * formuliert und war damit nicht erfüllt.
          */
         @ParameterizedTest
         @ValueSource(strings = {
@@ -116,7 +122,11 @@ class PromptSanitizerTest {
             "079 123 45 67",
             "+41 44 913 23 23",
             "0041 44 913 2323",
-            "044/913 23 23"
+            "044/913 23 23",
+            "+41 (0)44 913 23 23",
+            "0041 (0)44 913 23 23",
+            "044.913.23.23",
+            "044-913-23-23"
         })
         void telefonnummernWerdenMaskiert(String nummer) {
             assertThat(PromptSanitizer.sanitize("DIGITEC GALAXUS AG " + nummer))
@@ -128,6 +138,12 @@ class PromptSanitizerTest {
          * lange harmlos, wie sie Jahreszahlen, Datumsangaben und Filialnummern in Ruhe lässt.
          * {@code RECHNUNG 2024 2025} trägt zehn Ziffern in zwei Gruppen — nur eben ohne
          * führende {@code 0}.
+         *
+         * <p>Die drei Datumsfälle am Ende kamen mit #353 dazu. Sie sind der Grund, warum die
+         * erweiterte Trennzeichenklasse eine Datumsklammer braucht: Ein Datum plus zwei
+         * Zusatzziffern trägt genau die zehn Ziffern mit führender {@code 0}, die die Regel
+         * sucht. {@code 01/02/2026 45} ging schon vor der Erweiterung durch — der Punkt war nie
+         * der einzige Weg dorthin. Der dritte Fall prüft den Einstieg <em>mitten</em> im Datum.
          */
         @ParameterizedTest
         @ValueSource(strings = {
@@ -135,7 +151,10 @@ class PromptSanitizerTest {
             "KAUF VOM 03.07.2026",
             "LASTSCHRIFT SWISSCOM (SCHWEIZ) AG RECHNUNG 11-2025",
             "TWINT COOP-1234 BERN BERN (CH)",
-            "ESR STADTWERKE BERN"
+            "ESR STADTWERKE BERN",
+            "KAUF VOM 01.02.2026 45",
+            "KAUF VOM 01/02/2026 45",
+            "KAUF VOM 03.07.2026 12 34"
         })
         void zahlenOhneTelefonformBleibenStehen(String text) {
             assertThat(PromptSanitizer.sanitize(text)).isEqualTo(text);
@@ -250,6 +269,50 @@ class PromptSanitizerTest {
         void nachnameWirdInSeinemZweitenVorkommenMitmaskiert() {
             assertThat(PromptSanitizer.sanitize("GUTSCHRIFT MUSTER, ANNA RUECKZAHLUNG MUSTER"))
                     .isEqualTo("GUTSCHRIFT <NAME> RUECKZAHLUNG <NAME>");
+        }
+
+        /**
+         * Die Kante der Echo-Maskierung, als Test statt nur als Absatz (#353).
+         *
+         * <p>{@code MUSTER, LEA} ist ein <strong>richtiger</strong> Treffer — die Regel irrt
+         * sich nicht. Trotzdem fällt der Händlertoken, weil der Nachname im selben Text auch
+         * Firmenbestandteil ist. Bewiesen hat der erste Durchgang, dass {@code MUSTER} ein
+         * Nachname <em>ist</em>, nicht dass jedes Vorkommen die Person <em>meint</em>.
+         *
+         * <p>Das ist bewusst festgehaltenes Verhalten, kein akzeptierter Bug: Die Alternative —
+         * das Echo auf den Vornamen-Token zu beschränken — gäbe den Schutz aus
+         * {@link #nachnameWirdInSeinemZweitenVorkommenMitmaskiert} auf. Solange die Entscheidung
+         * so steht, gehört sie unter einen Test, damit ein späterer Umbau sie sichtbar bricht
+         * statt sie still zu drehen.
+         *
+         * <p>Die beiden Firmennamen stehen wörtlich in {@code RealerKorpus.UNVERAENDERT}. Dort
+         * bleiben sie grün, weil der Korpustest jede Zeile einzeln prüft — die Kollision braucht
+         * Person und Firma im selben Text.
+         */
+        @ParameterizedTest
+        @CsvSource(
+                delimiter = ';',
+                value = {
+                    "GIRO POST MUSTER, LEA MIETE MUSTER IMMOBILIEN AG;"
+                            + "GIRO POST <NAME> MIETE <NAME> IMMOBILIEN AG",
+                    "GUTSCHRIFT MUSTER, ANNA MUSTER CONSULTING GMBH LOHN JULI 2026;"
+                            + "GUTSCHRIFT <NAME> <NAME> CONSULTING GMBH LOHN JULI 2026",
+                    "LASTSCHRIFT MEIER, HANS GARAGE MEIER ZUERICH;"
+                            + "LASTSCHRIFT <NAME> GARAGE <NAME> ZUERICH"
+                })
+        void firmentokenGleichenNamensFaelltMitDemEcho(String text, String erwartet) {
+            assertThat(PromptSanitizer.sanitize(text)).isEqualTo(erwartet);
+        }
+
+        /**
+         * Das Echo trifft den Token, nicht seinen Wortanfang (#353). {@code LEA2} ist ein
+         * anderer Token als der bewiesene Vorname; ohne die Ziffer in der Wortgrenze entstünde
+         * das sinnlose {@code <NAME>2}.
+         */
+        @Test
+        void tokenMitAngehaengterZifferTraegtDasEchoNicht() {
+            assertThat(PromptSanitizer.sanitize("LASTSCHRIFT MUSTER, LEA SACKGELD LEA2"))
+                    .isEqualTo("LASTSCHRIFT <NAME> SACKGELD LEA2");
         }
 
         /** Beim Doppelnamen tragen beide Hälften das Echo, nicht nur die erste. */

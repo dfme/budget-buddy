@@ -106,10 +106,10 @@ sind das die 18 Zeilen aus V04 plus die sieben aus V15, nicht mehr V04 allein.
   ([#233](https://github.com/dfme/budget-buddy/issues/233)) geschlossen — `PromptSanitizer`
   maskiert den Namen samt seinem Echo in der Zweckzeile. Für die **Ablage** gilt das
   ausdrücklich nicht: gelernt wird der unmaskierte Text, weil `findMatching` ihn als Substring
-  des realen Buchungstexts braucht. Sie ist kleiner als vor BE-CAT-12 (kein anderer Nutzer sieht die Zeile, die
-  Kontolöschung räumt sie), aber nicht null: Wer die Datenbank liest, liest diese Texte. Das gilt
-  für `transactions` genauso — die Lookup-Tabelle vergrössert die Angriffsfläche nicht um eine
-  neue Datenklasse, sondern um eine zweite Kopie derselben.
+  des realen Buchungstexts braucht. Sie ist kleiner als vor BE-CAT-12 (kein anderer Nutzer sieht
+  die Zeile, die Kontolöschung räumt sie), aber nicht null: Wer die Datenbank liest, liest diese
+  Texte. Das gilt für `transactions` genauso — die Lookup-Tabelle vergrössert die Angriffsfläche
+  nicht um eine neue Datenklasse, sondern um eine zweite Kopie derselben.
 
 ## Alternatives
 

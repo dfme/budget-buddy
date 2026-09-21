@@ -60,8 +60,8 @@ import org.springframework.stereotype.Service;
  * ist nicht der rohe Transaktionstext, sondern seine von {@link PromptSanitizer} maskierte
  * Fassung — IBAN, Karten- und Kontonummern, Beträge, Referenzen, Telefonnummern, E-Mail-Adressen
  * und der Name einer natürlichen Gegenpartei fallen vorher weg, der Vorname auch dort, wo er in
- * der Zweckzeile ein zweites Mal steht. Angewendet wird das in {@link #buildUserPrompt}, weil das die einzige
- * Stelle ist, an der Text in einen Request gerät. Die Lookup-Stufe davor
+ * der Zweckzeile ein zweites Mal steht. Angewendet wird das in {@link #buildUserPrompt}, weil
+ * das die einzige Stelle ist, an der Text in einen Request gerät. Die Lookup-Stufe davor
  * ({@link HybridCategorizationService}) sieht weiterhin den unmaskierten Text: sie ist lokal,
  * und eine Maskierung senkte dort nur die Trefferquote.
  *

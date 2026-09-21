@@ -153,3 +153,45 @@ Nachweis, dass er auf dem Weg zur API überhaupt angewendet wird, existiert bere
       umgestellt statt gelöscht
 - [ ] Die Grenzen-Absätze im Javadoc von `PromptSanitizer` und in `CLAUDE.md` sind auf dem
       neuen Stand
+
+## Korrekturen aus dem Review (PR #353)
+
+Der Plan oben bleibt als Beleg dessen stehen, was zur Planzeit entschieden wurde — dieselbe
+Begründung, aus der dieser PR die datierten Kurs- und Planartefakte nicht nachzieht. Zwei seiner
+Annahmen haben sich am gebauten Code aber als falsch erwiesen. Wer den Plan liest, liest bitte
+diesen Abschnitt mit; der Code und `CLAUDE.md` tragen den korrigierten Stand.
+
+**Zu Entscheid 1 («Der geerbte Rand»).** Der Satz «ohne den Fehltreffer der Grundregel gibt es
+keinen Echo-Fehltreffer» ist widerlegt. Ein **korrekter** `PERSON_NAME`-Treffer genügt: Bewiesen
+ist, dass der Token ein Nachname *ist*, nicht dass jedes seiner Vorkommen die Person *meint*.
+Trägt derselbe Text den Nachnamen auch als Firmenbestandteil, fällt der Händler mit —
+`GIRO POST MUSTER, LEA MIETE MUSTER IMMOBILIEN AG` → `GIRO POST <NAME> MIETE <NAME> IMMOBILIEN AG`.
+`MUSTER IMMOBILIEN AG` und `MUSTER CONSULTING GMBH` stehen wörtlich in `RealerKorpus.UNVERAENDERT`;
+der Korpustest bleibt nur grün, weil er jede Zeile **einzeln** prüft. Damit ist auch die Aussage
+«die Trefferquoten-AC ist strukturell unberührt, nicht bloss empirisch» zu stark: Sie ist
+empirisch unberührt, bezogen auf diesen Korpus.
+
+Das Verhalten bleibt bewusst, wie es ist — festgehalten in
+`Personenname.firmentokenGleichenNamensFaelltMitDemEcho`. Die Alternative, das Echo auf den
+Vornamen-Token zu beschränken, gäbe den Schutz aus `nachnameWirdInSeinemZweitenVorkommenMitmaskiert`
+auf: Ein zweites, alleinstehendes `MUSTER` meint in einer Rückzahlungszeile sehr wohl die Person.
+Der Tausch wäre Trefferquote gegen Vertraulichkeit, und diese Klasse ist die einzige Linie für den
+Gegenpartei-Namen. Die Entscheidung gehört dem Team; bis sie anders fällt, steht sie unter einem
+Test statt nur in einem Absatz.
+
+**Zu Entscheid 4 («Kein Punkt als Trennzeichen»).** Das Weglassen des Punktes schloss Datumsangaben
+nie strukturell aus — `/` stand von Anfang an in der Trennzeichenklasse, und
+`KAUF VOM 01/02/2026 45` ging als zehnstellige Nummer durch. Der Entscheid kaufte also keine
+Sicherheit, kostete aber Abdeckung: `044.913.23.23`, `044-913-23-23` und die häufigste gedruckte
+Auslandform `+41 (0)44 913 23 23` erreichten den Prompt weiterhin, womit AC 3 nicht erfüllt war.
+
+Umgestellt auf alle vier Trennzeichen plus optionales `(0)`, mit einer Datumsklammer aus zwei
+Prüfungen: `(?!\d{2}[./]\d{2}[./]\d{4})` gegen den Einstieg **auf** einem Datum,
+`(?<!\d[./])` gegen den Einstieg **mitten** darin. Beide Richtungen sind in
+`zahlenOhneTelefonformBleibenStehen` als Gegenprobe abgelegt.
+
+**Ebenfalls korrigiert.** Die Echo-Wortgrenzen schliessen jetzt Ziffern ein (`SACKGELD LEA2`
+blieb sonst als `<NAME>2` zurück) — dieselbe Lehre wie bei `LONG_DIGIT_RUN` und `PHONE`. Die
+Liste der verbleibenden Ränder im Klassen-Javadoc nennt statt **einem** nun **vier**, darunter
+den bereits im Review benannten `ESR`-Fall (`PHONE` greift auf gruppierte Referenznummern und
+benennt sie als `<TEL>` statt `<REF>` — Über-Maskierung, kein Abfluss).
