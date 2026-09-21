@@ -56,14 +56,30 @@ eine nummerierte Liste; die Kategorienliste steht **nicht** darin, sondern als `
 im Structured-Output-Schema, das aus dem `Category`-Enum abgeleitet wird — eine Kategorie
 ausserhalb der Liste ist damit strukturell ausgeschlossen.
 
-**Maskierung vor dem Versand (BE-CAT-06):** Was hinausgeht, ist nicht der rohe Buchungstext,
-sondern seine von `PromptSanitizer` maskierte Fassung — IBAN, Karten- und Kontonummern, Beträge,
-undurchsichtige Referenzen, der Name einer natürlichen Gegenpartei und E-Mail-Adressen fallen
-vorher weg. Angewendet wird das in `ClaudeCategorizationService.buildUserPrompt`, der einzigen
-Stelle, an der Text in einen API-Request gerät. Die **Lookup-Stufe davor sieht weiterhin den
-unmaskierten Text** — sie ist lokal, ihr Input verlässt das System nicht. Zwei Restexpositionen
-sind bekannt und in BE-CAT-08 (#233) festgehalten: ein Vorname in einer frei getippten Zweckzeile
-und die Telefonnummer eines Händlers.
+**Maskierung vor dem Versand (BE-CAT-06, BE-CAT-08):** Was hinausgeht, ist nicht der rohe
+Buchungstext, sondern seine von `PromptSanitizer` maskierte Fassung — IBAN, Karten- und
+Kontonummern, Beträge, undurchsichtige Referenzen, Schweizer Telefonnummern, der Name einer
+natürlichen Gegenpartei und E-Mail-Adressen fallen vorher weg. Angewendet wird das in
+`ClaudeCategorizationService.buildUserPrompt`, der einzigen Stelle, an der Text in einen
+API-Request gerät. Die **Lookup-Stufe davor sieht weiterhin den unmaskierten Text** — sie ist
+lokal, ihr Input verlässt das System nicht.
+
+**Echo-Maskierung des Vornamens (BE-CAT-08):** Ein `NACHNAME, VORNAME`-Treffer gilt für den
+ganzen Text. `maskPersonNames` maskiert dieselben Tokens auch in ihren weiteren Vorkommen, aus
+`LASTSCHRIFT MUSTER, LEA SACKGELD LEA` wird deshalb `LASTSCHRIFT <NAME> SACKGELD <NAME>` — ohne
+Vornamensliste, die die Trefferquote gekostet hätte. Die Regel ist **selbst-bedingt**: ohne
+Personentreffer im selben Text feuert sie nie.
+
+**Bewiesen ist der Token, nicht jedes Vorkommen (#353).** Ein Treffer belegt, dass `MUSTER` ein
+Nachname *ist* — nicht, dass jedes `MUSTER` im selben Text die Person *meint*. Trägt der Text
+denselben Token auch als Firmenbestandteil, fällt der Händler mit:
+`GIRO POST MUSTER, LEA MIETE MUSTER IMMOBILIEN AG` → `GIRO POST <NAME> MIETE <NAME> IMMOBILIEN AG`.
+Das setzt **keinen** Fehltreffer der Grundregel voraus. Eine frühere Fassung dieses Absatzes
+behauptete das Gegenteil; sie war falsch, und `MUSTER IMMOBILIEN AG` steht im Fixture-Korpus. Der
+Korpustest bleibt nur deshalb grün, weil er jede Zeile **einzeln** prüft — die Kollision braucht
+Person und Firma im selben Text. Die vollständige Liste der vier verbleibenden Ränder steht im
+Klassen-Javadoc von `PromptSanitizer`; keiner davon ist ein Abfluss, drei maskieren zu viel und
+einer erkennt zu wenig.
 
 ## Wichtigste Regeln für Claude
 

@@ -37,6 +37,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -266,14 +268,52 @@ class ClaudeCategorizationServiceTest {
                 .forEach(category -> assertThat(schema).contains(category.name()));
     }
 
-    /** Der Transaktionstext muss nummeriert im Prompt stehen — daran hängt die Zuordnung. */
+    /**
+     * Der Transaktionstext muss nummeriert im Prompt stehen — daran hängt die Zuordnung.
+     *
+     * <p>Erwartet wird die <strong>maskierte</strong> Fassung: seit BE-CAT-08 nimmt
+     * {@link PromptSanitizer} die Telefonnummer aus {@code TRANSACTION} heraus. Der
+     * Händlertoken, an dem das Modell die Kategorie festmacht, steht weiterhin da — genau das
+     * ist hier zu zeigen, denn eine Maskierung, die die Nummerierung oder den Händler
+     * zerstörte, fiele in {@code PromptSanitizerTest} nicht auf.
+     */
     @Test
     void promptContainsNumberedTransactionTexts() {
         respondWith(Category.SHOPPING);
 
         service.categorize(TRANSACTION);
 
-        assertThat(capturedUserPrompt()).contains("1. " + TRANSACTION);
+        assertThat(capturedUserPrompt()).contains("1. DIGITEC GALAXUS AG <TEL>");
+    }
+
+    /** Die Gegenrichtung zu AC 3: die Nummer selbst erreicht den Request nicht mehr. */
+    @Test
+    void promptContainsNoPhoneNumber() {
+        respondWith(Category.SHOPPING);
+
+        service.categorize(TRANSACTION);
+
+        assertThat(capturedUserPrompt()).doesNotContain("044 913 2323").contains("<TEL>");
+    }
+
+    /**
+     * AC 3 ist absolut formuliert, also wird sie auch für die Schreibweisen am echten Request
+     * geprüft, die die erste Fassung der Regel durchliess (#353).
+     *
+     * <p>Der Test oben deckte nur die durch Leerzeichen getrennte Form ab — genau deshalb blieb
+     * unbemerkt, dass Punkt, Bindestrich und die gedruckte Auslandform {@code +41 (0)44 …} bis
+     * hierher durchkamen. Ein einzelnes Format als Nachweis für eine absolute AC reicht nicht.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"+41 (0)44 913 23 23", "044.913.23.23", "044-913-23-23"})
+    void promptContainsNoPhoneNumberInAnyPrintedForm(String nummer) {
+        respondWith(Category.SHOPPING);
+
+        service.categorize("DIGITEC GALAXUS AG " + nummer);
+
+        assertThat(capturedUserPrompt())
+                .doesNotContain(nummer)
+                .contains("1. DIGITEC GALAXUS AG <TEL>");
     }
 
     // --- Datenminimierung (BE-CAT-06) ---

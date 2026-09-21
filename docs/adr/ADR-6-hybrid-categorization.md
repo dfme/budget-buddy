@@ -77,9 +77,20 @@ zwänge `TWINT KAUF/DIENSTLEISTUNG VOM` jede TWINT-Zahlung eines Kontos in eine 
 Schnitt sitzt im Service und nicht beim Aufrufer, damit beide Quellen denselben Schlüssel
 schreiben.
 
-**PII-Policy für MVP:** Der rohe Transaktionstext (z.B. `"DIGITEC GALAXUS AG 044 913 2323"`) wird ohne Pseudonymisierung an die Anthropic API gesendet. Das ist eine Datenübermittlung an einen US-Dienstleister und fällt unter nDSG Art. 16 (Bekanntgabe ins Ausland).
+**PII-Policy:** Ursprünglich ging der **rohe** Transaktionstext an die Anthropic API. Seit
+BE-CAT-06 ([#134](https://github.com/dfme/budget-buddy/issues/134)) und BE-CAT-08
+([#233](https://github.com/dfme/budget-buddy/issues/233)) ist das nicht mehr so: `PromptSanitizer`
+maskiert vorher IBAN, Karten- und Kontonummern, Beträge, undurchsichtige Referenzen,
+Telefonnummern, E-Mail-Adressen und den Namen einer natürlichen Gegenpartei. Aus
+`"DIGITEC GALAXUS AG 044 913 2323"` wird `"DIGITEC GALAXUS AG <TEL>"`. Angewendet wird das in
+`ClaudeCategorizationService.buildUserPrompt`, der einzigen Stelle, an der Text in einen Request
+gerät.
 
-**Dieser Compliance-Gap wird für das MVP bewusst akzeptiert.** Begründung: Es handelt sich um ein Kurs-Projekt ohne echte Produktionsdaten; ein Data Processing Agreement (DPA) mit Anthropic sowie eine explizite Erwähnung in den Nutzungsbedingungen sind für den Produktionsbetrieb nachzuholen.
+**Der Compliance-Gap ist damit kleiner, aber nicht geschlossen.** Auch der maskierte Text geht an
+einen US-Dienstleister — das bleibt eine Bekanntgabe ins Ausland nach nDSG Art. 16. Ein Data
+Processing Agreement (DPA) mit Anthropic und eine explizite Erwähnung in den Nutzungsbedingungen
+sind für den Produktionsbetrieb weiterhin nachzuholen; für das Kursprojekt ohne echte
+Produktionsdaten wird das bewusst akzeptiert.
 
 ## Consequences
 
