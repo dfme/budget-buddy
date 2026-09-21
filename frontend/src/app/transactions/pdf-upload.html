@@ -123,6 +123,15 @@
     <app-notice class="upload__notice" variant="error">{{ message }}</app-notice>
   }
 
+  @if (listEmptyMessage(); as message) {
+    <!--
+      Abgeschlossener Import mit Anzahl, aber leerer Liste (FE-NOTIF-05): kein Fehler, nur eine
+      Erklärung, warum unter der Erfolgsmeldung keine Liste steht — daher variant="info"
+      (role="status"). Praktisch unerreichbar, siehe LIST_EMPTY_MESSAGE in pdf-upload.ts.
+    -->
+    <app-notice class="upload__notice" variant="info">{{ message }}</app-notice>
+  }
+
   @if (saveErrorMessage(); as message) {
     <app-notice class="upload__notice" variant="error">{{ message }}</app-notice>
   }
