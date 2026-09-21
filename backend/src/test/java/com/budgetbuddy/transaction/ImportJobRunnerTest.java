@@ -236,7 +236,25 @@ class ImportJobRunnerTest {
                 parsed("GIRO POST", List.of(), "850.00", true)), SHA, false);
 
         verify(notificationPort).create(eq(USER_ID), eq(ImportJobRunner.NOTIFICATION_TYPE_COMPLETED),
-                eq(job.getId()), contains("2 Transaktion"));
+                eq(job.getId()), contains("2 Transaktionen importiert."));
+    }
+
+    /**
+     * Die Glocke zeigt Abo- und Import-Benachrichtigungen untereinander; «1 neues Abo erkannt»
+     * neben «1 Transaktion(en) importiert» wäre ein Stilbruch. Deshalb dieselbe
+     * Singular-Unterscheidung wie auf der Import-Seite.
+     */
+    @Test
+    void importOfASingleTransaction_usesTheSingularInTheNotification() {
+        clockNeverExpires();
+        categorizeAllAs(Category.LEBENSMITTEL, CategorizationResult.Source.LOOKUP);
+        ImportJob job = new ImportJob(USER_ID, "sha-fixture", 1, T0);
+
+        runner.run(job, List.of(parsed("ESR", List.of("Stadtwerke Bern"), "78.50", false)), SHA,
+                false);
+
+        verify(notificationPort).create(eq(USER_ID), eq(ImportJobRunner.NOTIFICATION_TYPE_COMPLETED),
+                eq(job.getId()), contains("1 Transaktion importiert."));
     }
 
     /**

@@ -51,6 +51,16 @@ import org.springframework.transaction.support.TransactionTemplate;
  * Transaktionen sind zu diesem Zeitpunkt committet, der Job wird trotzdem {@code DONE} — dieselbe
  * Haltung wie beim Claude-Call (CLAUDE.md: ein einzelner Ausfall darf nie den ganzen Import-Flow
  * blockieren).
+ *
+ * <p><strong>Abschluss-Benachrichtigung (BE-PDF-15):</strong> Nach dem Setzen des Endstatus
+ * meldet der Runner über {@link NotificationPort} das Ergebnis — Erfolg, Erfolg mit
+ * Watchdog-Einschlag oder Fehlschlag — an die Glocke. Nötig, weil das Frontend-Polling mit dem
+ * Verlassen der Import-Seite endet und der Nutzer sonst nie erfährt, wie der Lauf ausging. Sie
+ * läuft bewusst <em>nach</em> {@code save} und ausserhalb der Transaktionsklammer: Ein Fehler beim
+ * Erzeugen der Benachrichtigung kann den bereits geschriebenen Status nicht mehr zurückrollen und
+ * wird — wie bei der Abo-Erkennung — nur geloggt. Zusammen mit der Abo-Benachrichtigung aus
+ * {@code RecurringExpenseService} entstehen pro Import bis zu zwei Einträge in der Glocke; das
+ * sind zwei Ereignisse, keine Dublette.
  */
 @Service
 public class ImportJobRunner {
@@ -294,18 +304,28 @@ public class ImportJobRunner {
         try {
             if (degraded) {
                 notificationPort.create(job.getUserId(), NOTIFICATION_TYPE_DEGRADED, job.getId(),
-                        "Import abgeschlossen: " + count + " Transaktion(en) importiert. Ein Teil"
-                                + " davon konnte nicht automatisch kategorisiert werden und steht"
-                                + " unter «Sonstiges» — die Kategorien lassen sich von Hand"
+                        "Import abgeschlossen: " + imported(count) + " Ein Teil davon konnte"
+                                + " nicht automatisch kategorisiert werden und steht unter"
+                                + " «Sonstiges» — die Kategorien lassen sich von Hand"
                                 + " korrigieren.");
             } else {
                 notificationPort.create(job.getUserId(), NOTIFICATION_TYPE_COMPLETED, job.getId(),
-                        "Import abgeschlossen: " + count + " Transaktion(en) importiert.");
+                        "Import abgeschlossen: " + imported(count));
             }
         } catch (RuntimeException e) {
             log.warn("Import-Job {}: Erfolgs-Benachrichtigung konnte nicht erzeugt werden.",
                     job.getId(), e);
         }
+    }
+
+    /**
+     * «1 Transaktion importiert.» / «N Transaktionen importiert.» — dieselbe Unterscheidung wie
+     * die Erfolgsmeldung der Import-Seite ({@code pdf-upload.ts}) und die Abo-Benachrichtigung
+     * ({@code RecurringExpenseService}), die in derselben Glocke steht. Die Log-Schreibweise
+     * «Transaktion(en)» ist Nutzertext nicht zuzumuten.
+     */
+    private static String imported(int count) {
+        return count == 1 ? "1 Transaktion importiert." : count + " Transaktionen importiert.";
     }
 
     /**
