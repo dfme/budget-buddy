@@ -89,14 +89,67 @@ class PromptSanitizerTest {
         }
 
         /**
-         * Die Telefonnummer im Buchungstext: durch Leerzeichen getrennt, also für die
-         * Ziffernlauf-Regel unsichtbar. Bewusster Nicht-Umfang dieses Tasks (BE-CAT-08) — der
-         * Test hält den Ist-Zustand fest, damit die Entscheidung sichtbar bleibt.
+         * Vormals {@code telefonnummerBleibtStehen_bekannteGrenze}: derselbe Text, die
+         * umgekehrte Erwartung. Bis BE-CAT-08 hielt dieser Test den Ist-Zustand fest — die
+         * Nummer ist durch Leerzeichen getrennt und damit für die Ziffernlauf-Regel unsichtbar.
+         * Jetzt nimmt sie {@code PHONE}, und der Händlertoken davor bleibt trotzdem stehen.
          */
         @Test
-        void telefonnummerBleibtStehen_bekannteGrenze() {
+        void telefonnummerErreichtDenPromptNichtMehr() {
             assertThat(PromptSanitizer.sanitize("DIGITEC GALAXUS AG 044 913 2323"))
-                    .isEqualTo("DIGITEC GALAXUS AG 044 913 2323");
+                    .isEqualTo("DIGITEC GALAXUS AG <TEL>");
+        }
+    }
+
+    @Nested
+    class Telefonnummer {
+
+        /**
+         * Die Gruppierung ist gleichgültig, die Länge nicht: national {@code 0} plus neun
+         * Ziffern, international {@code +41}/{@code 0041} plus neun.
+         */
+        @ParameterizedTest
+        @ValueSource(strings = {
+            "044 913 2323",
+            "044 913 23 23",
+            "0800 123 456",
+            "079 123 45 67",
+            "+41 44 913 23 23",
+            "0041 44 913 2323",
+            "044/913 23 23"
+        })
+        void telefonnummernWerdenMaskiert(String nummer) {
+            assertThat(PromptSanitizer.sanitize("DIGITEC GALAXUS AG " + nummer))
+                    .isEqualTo("DIGITEC GALAXUS AG <TEL>");
+        }
+
+        /**
+         * Die Gegenprobe, und die wichtigere Hälfte: eine Regel über Ziffernfolgen ist genau so
+         * lange harmlos, wie sie Jahreszahlen, Datumsangaben und Filialnummern in Ruhe lässt.
+         * {@code RECHNUNG 2024 2025} trägt zehn Ziffern in zwei Gruppen — nur eben ohne
+         * führende {@code 0}.
+         */
+        @ParameterizedTest
+        @ValueSource(strings = {
+            "RECHNUNG 2024 2025",
+            "KAUF VOM 03.07.2026",
+            "LASTSCHRIFT SWISSCOM (SCHWEIZ) AG RECHNUNG 11-2025",
+            "TWINT COOP-1234 BERN BERN (CH)",
+            "ESR STADTWERKE BERN"
+        })
+        void zahlenOhneTelefonformBleibenStehen(String text) {
+            assertThat(PromptSanitizer.sanitize(text)).isEqualTo(text);
+        }
+
+        /**
+         * Die kompakt gedruckte Nummer erfüllt beide Regeln. Dass sie {@code <REF>} wird und
+         * nicht {@code <TEL>}, ist der Zweck der Reihenfolge: {@code PHONE} läuft nach
+         * {@code OPAQUE_REFERENCE}, damit eine zehnstellige Kontonummer nicht zur Telefonnummer
+         * umbenannt wird. Maskiert ist sie in beiden Fällen.
+         */
+        @Test
+        void kompakteNummerBleibtEineReferenz() {
+            assertThat(PromptSanitizer.sanitize("KONTAKT 0449132323")).isEqualTo("KONTAKT <REF>");
         }
     }
 
@@ -181,13 +234,45 @@ class PromptSanitizerTest {
         }
 
         /**
-         * Die dokumentierte Grenze: der Vorname in der frei getippten Zweckzeile überlebt. Der
-         * Test hält sie fest, statt sie zu verschweigen — offen als BE-CAT-08.
+         * Vormals {@code vornameInDerZweckzeileBleibtStehen_bekannteGrenze}: bis BE-CAT-08 hielt
+         * dieser Test fest, dass das nachgestellte {@code LEA} überlebt. Die Echo-Maskierung
+         * nimmt es jetzt mit — und {@code SACKGELD}, der Zwecktoken, an dem die Kategorisierung
+         * hängt, bleibt stehen.
          */
         @Test
-        void vornameInDerZweckzeileBleibtStehen_bekannteGrenze() {
+        void vornameInDerZweckzeileWirdMitmaskiert() {
             assertThat(PromptSanitizer.sanitize("LASTSCHRIFT MUSTER, LEA SACKGELD LEA"))
-                    .isEqualTo("LASTSCHRIFT <NAME> SACKGELD LEA");
+                    .isEqualTo("LASTSCHRIFT <NAME> SACKGELD <NAME>");
+        }
+
+        /** Auch der Nachname verschwindet, wenn er im Text ein zweites Mal auftaucht. */
+        @Test
+        void nachnameWirdInSeinemZweitenVorkommenMitmaskiert() {
+            assertThat(PromptSanitizer.sanitize("GUTSCHRIFT MUSTER, ANNA RUECKZAHLUNG MUSTER"))
+                    .isEqualTo("GUTSCHRIFT <NAME> RUECKZAHLUNG <NAME>");
+        }
+
+        /** Beim Doppelnamen tragen beide Hälften das Echo, nicht nur die erste. */
+        @Test
+        void beideHaelftenDesDoppelnamensTragenDasEcho() {
+            assertThat(PromptSanitizer.sanitize("LASTSCHRIFT MUSTER-MEIER, LEA MIETE MEIER"))
+                    .isEqualTo("LASTSCHRIFT <NAME> MIETE <NAME>");
+        }
+
+        /**
+         * Die entscheidende Gegenprobe: Die Echo-Maskierung ist selbst-bedingt. Ohne einen
+         * {@code NACHNAME, VORNAME}-Treffer im selben Text kann sie gar nichts anfassen — genau
+         * das ist der Unterschied zu einer Vornamensliste, und der Grund, warum die
+         * Trefferquoten-AC strukturell unberührt bleibt und nicht bloss empirisch.
+         */
+        @ParameterizedTest
+        @ValueSource(strings = {
+            "LASTSCHRIFT SACKGELD LEA",
+            "GUTSCHRIFT MUSTER CONSULTING GMBH LOHN JULI 2026",
+            "KAUF/DIENSTLEISTUNG MIGROS M BERN WANKDORF BERN (CH)"
+        })
+        void echoMaskierungGreiftNurBeiPersonentreffer(String text) {
+            assertThat(PromptSanitizer.sanitize(text)).isEqualTo(text);
         }
     }
 
@@ -276,6 +361,7 @@ class PromptSanitizerTest {
                     .isEqualTo("GUTSCHRIFT <NAME> RUECKZAHLUNG FERIENKASSE");
             assertThat(PromptSanitizer.sanitize("LASTSCHRIFT MUSTER, LEA SACKGELD LEA"))
                     .doesNotContain("MUSTER")
+                    .doesNotContain("LEA")
                     .contains("SACKGELD");
         }
 

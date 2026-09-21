@@ -266,14 +266,32 @@ class ClaudeCategorizationServiceTest {
                 .forEach(category -> assertThat(schema).contains(category.name()));
     }
 
-    /** Der Transaktionstext muss nummeriert im Prompt stehen — daran hängt die Zuordnung. */
+    /**
+     * Der Transaktionstext muss nummeriert im Prompt stehen — daran hängt die Zuordnung.
+     *
+     * <p>Erwartet wird die <strong>maskierte</strong> Fassung: seit BE-CAT-08 nimmt
+     * {@link PromptSanitizer} die Telefonnummer aus {@code TRANSACTION} heraus. Der
+     * Händlertoken, an dem das Modell die Kategorie festmacht, steht weiterhin da — genau das
+     * ist hier zu zeigen, denn eine Maskierung, die die Nummerierung oder den Händler
+     * zerstörte, fiele in {@code PromptSanitizerTest} nicht auf.
+     */
     @Test
     void promptContainsNumberedTransactionTexts() {
         respondWith(Category.SHOPPING);
 
         service.categorize(TRANSACTION);
 
-        assertThat(capturedUserPrompt()).contains("1. " + TRANSACTION);
+        assertThat(capturedUserPrompt()).contains("1. DIGITEC GALAXUS AG <TEL>");
+    }
+
+    /** Die Gegenrichtung zu AC 3: die Nummer selbst erreicht den Request nicht mehr. */
+    @Test
+    void promptContainsNoPhoneNumber() {
+        respondWith(Category.SHOPPING);
+
+        service.categorize(TRANSACTION);
+
+        assertThat(capturedUserPrompt()).doesNotContain("044 913 2323").contains("<TEL>");
     }
 
     // --- Datenminimierung (BE-CAT-06) ---

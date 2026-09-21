@@ -56,14 +56,22 @@ eine nummerierte Liste; die Kategorienliste steht **nicht** darin, sondern als `
 im Structured-Output-Schema, das aus dem `Category`-Enum abgeleitet wird — eine Kategorie
 ausserhalb der Liste ist damit strukturell ausgeschlossen.
 
-**Maskierung vor dem Versand (BE-CAT-06):** Was hinausgeht, ist nicht der rohe Buchungstext,
-sondern seine von `PromptSanitizer` maskierte Fassung — IBAN, Karten- und Kontonummern, Beträge,
-undurchsichtige Referenzen, der Name einer natürlichen Gegenpartei und E-Mail-Adressen fallen
-vorher weg. Angewendet wird das in `ClaudeCategorizationService.buildUserPrompt`, der einzigen
-Stelle, an der Text in einen API-Request gerät. Die **Lookup-Stufe davor sieht weiterhin den
-unmaskierten Text** — sie ist lokal, ihr Input verlässt das System nicht. Zwei Restexpositionen
-sind bekannt und in BE-CAT-08 (#233) festgehalten: ein Vorname in einer frei getippten Zweckzeile
-und die Telefonnummer eines Händlers.
+**Maskierung vor dem Versand (BE-CAT-06, BE-CAT-08):** Was hinausgeht, ist nicht der rohe
+Buchungstext, sondern seine von `PromptSanitizer` maskierte Fassung — IBAN, Karten- und
+Kontonummern, Beträge, undurchsichtige Referenzen, Schweizer Telefonnummern, der Name einer
+natürlichen Gegenpartei und E-Mail-Adressen fallen vorher weg. Angewendet wird das in
+`ClaudeCategorizationService.buildUserPrompt`, der einzigen Stelle, an der Text in einen
+API-Request gerät. Die **Lookup-Stufe davor sieht weiterhin den unmaskierten Text** — sie ist
+lokal, ihr Input verlässt das System nicht.
+
+**Echo-Maskierung des Vornamens (BE-CAT-08):** Ein `NACHNAME, VORNAME`-Treffer gilt für den
+ganzen Text. `maskPersonNames` maskiert dieselben Tokens auch in ihren weiteren Vorkommen, aus
+`LASTSCHRIFT MUSTER, LEA SACKGELD LEA` wird deshalb `LASTSCHRIFT <NAME> SACKGELD <NAME>` — ohne
+Vornamensliste, die die Trefferquote gekostet hätte. Die Regel ist **selbst-bedingt**: ohne
+Personentreffer im selben Text feuert sie nie, und keine der vierzehn Korpuszeilen in
+`PromptSanitizerTest.RealerKorpus` trägt einen. Es bleibt **ein** Rand, und er ist von
+`PERSON_NAME` geerbt, nicht neu: nach einem Fehltreffer der Grundregel (`COOP, BERN` — ein
+reiner Versalien-Händler mit Komma) fielen auch die nachfolgenden Vorkommen weg.
 
 ## Wichtigste Regeln für Claude
 

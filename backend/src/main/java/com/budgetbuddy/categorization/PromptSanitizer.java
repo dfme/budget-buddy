@@ -1,5 +1,8 @@
 package com.budgetbuddy.categorization;
 
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -24,14 +27,21 @@ import java.util.regex.Pattern;
  * deshalb gegen den Korpus aller sechs PDF-Fixtures gegengeprüft — eine Regel, die einen
  * Händlernamen verstümmelt, kostet Trefferquote und ist damit teurer als der Schutz wert wäre.
  *
- * <p><strong>Bekannte Grenzen.</strong> Zwei Dinge löst ein regelbasierter Sanitizer nicht:
+ * <p><strong>Bekannte Grenzen.</strong> Die zwei Restexpositionen, die BE-CAT-06 offen liess, sind
+ * mit BE-CAT-08 (#233) geschlossen: der nachgestellte Vorname über die Echo-Maskierung in
+ * {@link #maskPersonNames} und die Händler-Telefonnummer über {@link #PHONE}. Was bleibt, ist
+ * <em>ein</em> Rand, und er ist geerbt, nicht neu:
  *
  * <ul>
- *   <li>Ein Vorname in einer frei getippten Zweckzeile. Aus {@code LASTSCHRIFT MUSTER, LEA
- *       SACKGELD LEA} wird {@code LASTSCHRIFT <NAME> SACKGELD LEA} — das {@code LEA} dahinter ist
- *       von einem Händlernamen nicht zu unterscheiden. Offen als BE-CAT-08 (#233).
- *   <li>Die Telefonnummer eines Händlers ({@code DIGITEC GALAXUS AG 044 913 2323}). Sie ist kein
- *       Datum des Nutzers; ebenfalls in BE-CAT-08 (#233) vermerkt.
+ *   <li>Die Echo-Maskierung hängt vollständig an {@link #PERSON_NAME}. Dessen dokumentierte Kante
+ *       — ein reiner Versalien-Händler mit Komma ({@code COOP, BERN}) — wird dadurch breiter:
+ *       nach einem solchen Fehltreffer fielen auch die nachfolgenden {@code COOP} und
+ *       {@code BERN} weg. Eine <em>neue</em> Kante entsteht nicht; ohne Fehltreffer der
+ *       Grundregel gibt es keinen Echo-Fehltreffer. Im Fixture-Korpus kommt die Form nicht vor.
+ *   <li>Ein Vorname, der in einer Zweckzeile steht, <em>ohne</em> dass derselbe Text die Form
+ *       {@code NACHNAME, VORNAME} trägt, bleibt unerkannt. Das ist Absicht: ohne diesen Anker
+ *       bliebe nur eine Vornamensliste, und die kostete Trefferquote (siehe
+ *       {@code PromptSanitizerTest.RealerKorpus}).
  * </ul>
  */
 final class PromptSanitizer {
@@ -71,8 +81,10 @@ final class PromptSanitizer {
      *
      * <p>Zwölf ist die Untergrenze, nicht sechzehn: Kontonummern sind kürzer als Kartennummern.
      * Nach oben begrenzt auf 19 (Maestro), damit die Regel nicht zu einem allgemeinen
-     * Ziffernfresser wird. {@code COOP-1234} und {@code 044 913 2323} bleiben unberührt — der
-     * eine ist zu kurz, der andere durch Leerzeichen getrennt.
+     * Ziffernfresser wird. {@code COOP-1234} und {@code 044 913 2323} bleiben <em>von dieser
+     * Regel</em> unberührt — der eine ist zu kurz, der andere durch Leerzeichen getrennt. Die
+     * Telefonnummer nimmt seit BE-CAT-08 {@link #PHONE}; die Filialnummer bleibt stehen, sie ist
+     * Teil des Händlertokens.
      *
      * <p><strong>Die Wortgrenzen schliessen Buchstaben ein, nicht nur Ziffern.</strong> Mit dem
      * naheliegenden {@code (?<!\d)…(?!\d)} zerschnitt die Regel eine Referenz wie
@@ -114,6 +126,33 @@ final class PromptSanitizer {
             Pattern.compile("(?<![0-9A-Z])(?=[0-9A-Z]*\\d)[0-9A-Z]{10,}(?![0-9A-Z])");
 
     /**
+     * Schweizer Telefonnummer im Buchungstext: {@code 044 913 2323}, {@code 079 123 45 67},
+     * {@code +41 44 913 23 23} (BE-CAT-08).
+     *
+     * <p>Sie ist die Nummer des <em>Händlers</em>, nicht des Nutzers, und damit harmloser als
+     * alles andere hier. Für die Kategorisierung trägt sie nichts bei — was ohne Verlust
+     * wegfallen kann, fällt weg.
+     *
+     * <p><strong>Der Anker ist die Nummernlänge, nicht die Gruppierung.</strong> National sind
+     * es {@code 0} plus neun Ziffern, international {@code +41}/{@code 0041} plus neun. Wie sie
+     * gruppiert sind ({@code 044 913 2323} oder {@code 044 913 23 23}), ist gleichgültig. Die
+     * führende {@code 0} ist die eigentliche Bedingung: {@code RECHNUNG 2024 2025} trägt zehn
+     * Ziffern in zwei Gruppen und kommt trotzdem nicht in die Nähe.
+     *
+     * <p><strong>Kein Punkt als Trennzeichen</strong>, nur Leerzeichen und {@code /}. Mit dem
+     * Punkt ginge {@code 01.02.2026 45} als zehnstellige Nummer durch. Ohne ihn sind
+     * Datumsangaben strukturell ausgeschlossen, statt wie bei {@link #AMOUNT} nachträglich per
+     * Lookbehind abgefangen werden zu müssen.
+     *
+     * <p><strong>Der Lookahead schliesst Buchstaben ein</strong> — dieselbe Lehre wie bei
+     * {@link #LONG_DIGIT_RUN}. Mit {@code (?!\d)} zerschnitte die Regel
+     * {@code 0441234567AB} in {@code <TEL>AB}; mit {@code (?![0-9A-Z])} greift sie dort gar
+     * nicht und {@link #OPAQUE_REFERENCE} nimmt den ganzen Token.
+     */
+    private static final Pattern PHONE =
+            Pattern.compile("(?<![0-9A-Z+])(?:\\+41|0041|0)(?:[ /]?\\d){9}(?![0-9A-Z])");
+
+    /**
      * Gegenpartei als natürliche Person: {@code MUSTER, LEA}, {@code MUSTER, ANNA}.
      *
      * <p><strong>Warum beide Teile Versalien tragen müssen.</strong> Die naheliegende Fassung
@@ -136,6 +175,12 @@ final class PromptSanitizer {
      * {@code LASTSCHRIFT MUSTER, LEA} wurde {@code <NAME>}, weil {@code LASTSCHRIFT MUSTER} als
      * zweiteiliger Nachname durchging. Ein durch Leerzeichen getrennter Nachname ist von einem
      * vorangehenden Buchungstyp nicht zu unterscheiden — {@code MUSTER-MEIER, LEA} dagegen schon.
+     *
+     * <p><strong>Was diese Regel findet, gilt für den ganzen Text.</strong> Ein Treffer hier ist
+     * kein Verdacht, sondern ein Beweis: die Form {@code NACHNAME, VORNAME} in Versalien kommt
+     * nicht zufällig zustande. {@link #maskPersonNames} nutzt das und maskiert dieselben Tokens
+     * auch in ihren weiteren Vorkommen — so verschwindet das nachgestellte {@code LEA} aus
+     * {@code LASTSCHRIFT MUSTER, LEA SACKGELD LEA}, ohne dass eine Vornamensliste nötig wäre.
      */
     private static final Pattern PERSON_NAME = Pattern.compile(
             "(?<!\\p{L})\\p{Lu}{2,}(?:-\\p{Lu}{2,})?, ?\\p{Lu}{2,}(?!\\p{L})");
@@ -159,6 +204,12 @@ final class PromptSanitizer {
      *       {@code <KARTE> <KARTE> 5446} statt eines Platzhalters.
      *   <li>{@link #IBAN} vor {@link #OPAQUE_REFERENCE}. Eine kompakt gedruckte IBAN erfüllt auch
      *       die Referenzregel; das Ergebnis wäre richtig maskiert, aber falsch benannt.
+     *   <li>{@link #OPAQUE_REFERENCE} vor {@link #PHONE} — hier ausnahmsweise <em>umgekehrt</em>
+     *       zum vorigen Punkt. Eine kompakt gedruckte Nummer ({@code 0449132323}) erfüllt beide
+     *       Regeln und wird von der Referenzregel schon heute genommen. Liefe {@code PHONE}
+     *       davor, würde jede zehnstellige Kontonummer zu {@code <TEL>} umbenannt. Nachgestellt
+     *       deckt {@code PHONE} genau das ab, was sonst keine Regel fängt: die durch
+     *       Leerzeichen getrennte Nummer.
      * </ul>
      *
      * <p>Die Platzhalter sind so gewählt, dass keine spätere Regel auf einer früheren Ersetzung
@@ -181,12 +232,58 @@ final class PromptSanitizer {
         masked = LONG_DIGIT_RUN.matcher(masked).replaceAll("<KARTE>");
         masked = AMOUNT.matcher(masked).replaceAll("<BETRAG>");
         masked = OPAQUE_REFERENCE.matcher(masked).replaceAll("<REF>");
-        masked = PERSON_NAME.matcher(masked).replaceAll("<NAME>");
+        masked = PHONE.matcher(masked).replaceAll("<TEL>");
+        masked = maskPersonNames(masked);
         masked = EMAIL.matcher(masked).replaceAll("<EMAIL>");
 
         // Mehrfachersetzungen hinterlassen doppelte Leerzeichen; der Prompt bleibt dadurch
         // lesbar und die Tests müssen keine Whitespace-Varianten abdecken.
         return masked.replaceAll("\\s{2,}", " ").trim();
+    }
+
+    /**
+     * Ersetzt jeden {@link #PERSON_NAME}-Treffer durch {@code <NAME>} — und danach dieselben
+     * Namenstokens überall dort, wo sie im selben Text noch einmal alleine stehen (BE-CAT-08).
+     *
+     * <p><strong>Warum das keine Vornamensliste braucht.</strong> Der zweite Durchgang rät
+     * nicht, welches Wort ein Vorname sein <em>könnte</em>. Er verwendet nur, was der erste
+     * Durchgang strukturell bewiesen hat: in {@code LASTSCHRIFT MUSTER, LEA SACKGELD LEA} ist
+     * {@code LEA} nachweislich ein Vorname, weil derselbe Text ihn in der Form
+     * {@code NACHNAME, VORNAME} führt. Ohne diesen Anker passiert nichts — die Methode ist
+     * selbst-bedingt und kann einen Text ohne Personentreffer gar nicht verändern.
+     *
+     * <p>Das ist der Grund, warum die Trefferquoten-AC unberührt bleibt, und zwar strukturell
+     * und nicht bloss empirisch: keine der vierzehn Zeilen in
+     * {@code PromptSanitizerTest.RealerKorpus}, die unverändert durchgehen müssen, trägt einen
+     * {@link #PERSON_NAME}-Treffer.
+     *
+     * <p><strong>Die Wortgrenzen schliessen {@code <} und {@code >} ein</strong>, nicht nur
+     * Buchstaben. Sonst träfe ein Nachname {@code NAME} das {@code NAME} in einem bereits
+     * gesetzten {@code <NAME>} und die Ersetzung liefe auf sich selbst.
+     *
+     * <p><strong>Das {@code Pattern.compile} in der Schleife ist kein Versehen</strong>, auch
+     * wenn jede andere Regel dieser Klasse ein statisches Feld ist: das Token steht erst zur
+     * Laufzeit fest. Die Schleife läuft über zwei bis drei Tokens und nur für Texte, die
+     * überhaupt einen Personentreffer haben — gemessen an dem Netzwerk-Call, für den dieser
+     * Text vorbereitet wird, ist das nicht messbar.
+     */
+    private static String maskPersonNames(String text) {
+        Matcher matcher = PERSON_NAME.matcher(text);
+        Set<String> nameTokens = new LinkedHashSet<>();
+        StringBuilder result = new StringBuilder();
+        while (matcher.find()) {
+            Collections.addAll(nameTokens, matcher.group().split("[,\\s-]+"));
+            matcher.appendReplacement(result, "<NAME>");
+        }
+        matcher.appendTail(result);
+
+        String masked = result.toString();
+        for (String token : nameTokens) {
+            masked = Pattern.compile("(?<![\\p{L}<])" + Pattern.quote(token) + "(?![\\p{L}>])")
+                    .matcher(masked)
+                    .replaceAll("<NAME>");
+        }
+        return masked;
     }
 
     /**
