@@ -221,7 +221,7 @@ class PdfImportServiceIntegrationTest {
                 userId,
                 ImportJobRunner.NOTIFICATION_TYPE_COMPLETED,
                 ImportJobRunner.NOTIFICATION_TYPE_DEGRADED,
-                ImportJobRunner.NOTIFICATION_TYPE_FAILED);
+                ImportFailureNotifier.NOTIFICATION_TYPE_FAILED);
         assertThat(rows).hasSize(1);
         Map<String, Object> row = rows.getFirst();
         assertThat(row.get("type")).isEqualTo(ImportJobRunner.NOTIFICATION_TYPE_COMPLETED);

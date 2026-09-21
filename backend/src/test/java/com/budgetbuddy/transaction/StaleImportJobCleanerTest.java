@@ -5,10 +5,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import ch.qos.logback.classic.Level;
@@ -24,6 +27,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.slf4j.LoggerFactory;
 
 /**
@@ -48,9 +52,11 @@ class StaleImportJobCleanerTest {
             NOW.minus(Duration.ofSeconds(CATEGORIZATION_TIMEOUT_SECONDS + RESERVE_SECONDS));
 
     private final ImportJobRepository repository = mock(ImportJobRepository.class);
+    private final ImportFailureNotifier notifier = mock(ImportFailureNotifier.class);
 
     private final StaleImportJobCleaner cleaner = new StaleImportJobCleaner(
             repository,
+            notifier,
             Clock.fixed(NOW, ZoneOffset.UTC),
             Duration.ofSeconds(CATEGORIZATION_TIMEOUT_SECONDS),
             Duration.ofSeconds(RESERVE_SECONDS),
@@ -267,9 +273,132 @@ class StaleImportJobCleanerTest {
         verify(repository).save(stale);
     }
 
+    // --- Fehlschlags-Benachrichtigung (BE-PDF-16, #341) ---
+
+    /**
+     * AC1 und AC4: Jeder bereinigte Job meldet sich bei seinem eigenen Besitzer — genau einmal.
+     *
+     * <p>Zwei Jobs zweier User in einem Lauf, weil der Fehler, den dieser Test fangen soll, genau
+     * dort sitzt: ein Aufruf, der die User-ID nicht aus dem jeweiligen Job zieht, sondern aus dem
+     * ersten der Liste, schickt Laras Fehlschlag an Marc. Mit nur einem Job wäre das nicht
+     * unterscheidbar.
+     */
+    @Test
+    void notifiesEveryCleanedUpJobsOwnerExactlyOnce() {
+        ImportJob laras = runningJobOf(1L, CUTOFF.minusSeconds(1));
+        ImportJob marcs = runningJobOf(2L, CUTOFF.minusSeconds(60));
+        whenRepositoryReturns(laras, marcs);
+
+        cleaner.cleanUpStaleJobs();
+
+        verify(notifier).notifyFailed(laras);
+        verify(notifier).notifyFailed(marcs);
+        verifyNoMoreInteractions(notifier);
+    }
+
+    /**
+     * AC2: Die Benachrichtigung ist die Folge des Zustandswechsels, nicht seine Bedingung.
+     *
+     * <p>Deshalb steht sie hinter dem {@code saveAll}. Andersherum hinge ein geschriebener
+     * {@code FAILED}-Status daran, dass vorher eine Benachrichtigung gelang — und der verwaiste
+     * Job bliebe bei einem Ausfall der Glocke auf {@code RUNNING} stehen, also genau in dem
+     * Zustand, den diese Komponente auflösen soll.
+     */
+    @Test
+    void writesTheFailedStatusBeforeItNotifies() {
+        ImportJob stale = runningJobCreatedAt(CUTOFF.minusSeconds(1));
+        whenRepositoryReturns(stale);
+
+        cleaner.cleanUpStaleJobs();
+
+        InOrder order = inOrder(repository, notifier);
+        order.verify(repository).saveAll(List.of(stale));
+        order.verify(notifier).notifyFailed(stale);
+    }
+
+    /**
+     * AC2, die Gegenprobe zur Reihenfolge: Selbst wenn die Benachrichtigung wider Erwarten wirft,
+     * steht der {@code FAILED}-Status bereits geschrieben.
+     *
+     * <p>In Produktion kann das nicht passieren — {@link ImportFailureNotifier} schluckt seine
+     * eigenen Fehler, belegt in {@link ImportFailureNotifierTest}. Der Test hält trotzdem fest,
+     * was passiert, wenn diese Zusage je wegfällt: Der Job ist dann trotzdem bereinigt, und die
+     * Sperre des Duplikatchecks ist trotzdem gelöst.
+     */
+    @Test
+    void aThrowingNotificationStillLeavesTheJobFailedAndSaved() {
+        ImportJob stale = runningJobCreatedAt(CUTOFF.minusSeconds(1));
+        whenRepositoryReturns(stale);
+        doThrow(new IllegalStateException("Glocke kaputt")).when(notifier).notifyFailed(stale);
+
+        assertThatThrownBy(cleaner::cleanUpStaleJobs).isInstanceOf(IllegalStateException.class);
+
+        assertThat(stale.getStatus()).isEqualTo(ImportJobStatus.FAILED);
+        verify(repository).saveAll(List.of(stale));
+    }
+
+    /**
+     * AC3: Der Startlauf darf am Notification-Aufruf nicht hängenbleiben — dieselbe Zusage, die
+     * {@link #startupCleanupNeverPropagatesFailures()} für den DB-Zugriff macht. Die Bereinigung
+     * ist Aufräumarbeit; eine klemmende Glocke ist erst recht kein Grund, die Anwendung nicht
+     * starten zu lassen.
+     */
+    @Test
+    void startupCleanupNeverPropagatesNotificationFailures() {
+        ImportJob stale = runningJobCreatedAt(CUTOFF.minusSeconds(1));
+        whenRepositoryReturns(stale);
+        doThrow(new IllegalStateException("Glocke kaputt")).when(notifier).notifyFailed(stale);
+
+        cleaner.onApplicationReady();
+
+        assertThat(stale.getStatus()).isEqualTo(ImportJobStatus.FAILED);
+        assertThat(warnMessages()).anySatisfy(message ->
+                assertThat(message).contains("beim Start fehlgeschlagen"));
+    }
+
+    /** Nichts bereinigt, nichts zu melden — die Glocke bleibt still. */
+    @Test
+    void notifiesNobodyWhenNothingIsStale() {
+        whenRepositoryReturns();
+
+        cleaner.cleanUpStaleJobs();
+
+        verifyNoInteractions(notifier);
+    }
+
+    /**
+     * AC1, zweiter Pfad: Auch der Upload-Pfad meldet. Der Nutzer sieht dort nur, dass sein neuer
+     * Import durchgeht — nicht, dass der alte endgültig verloren ist.
+     */
+    @Test
+    void cleanUpIfStale_notifiesTheOwnerOfTheOrphanedJob() {
+        ImportJob stale = runningJobOf(7L, CUTOFF.minusSeconds(1));
+
+        assertThat(cleaner.cleanUpIfStale(stale)).isTrue();
+
+        InOrder order = inOrder(repository, notifier);
+        order.verify(repository).save(stale);
+        order.verify(notifier).notifyFailed(stale);
+        verifyNoMoreInteractions(notifier);
+    }
+
+    /** Was nicht bereinigt wird, wird auch nicht gemeldet — sonst meldete ein laufender Import. */
+    @Test
+    void cleanUpIfStale_notifiesForNeitherARunningNorAFinishedJob() {
+        ImportJob fresh = runningJobCreatedAt(CUTOFF.plusSeconds(1));
+        ImportJob done = runningJobCreatedAt(CUTOFF.minusSeconds(3600));
+        done.finishSuccessfully(false, NOW);
+
+        assertThat(cleaner.cleanUpIfStale(fresh)).isFalse();
+        assertThat(cleaner.cleanUpIfStale(done)).isFalse();
+
+        verifyNoInteractions(notifier);
+    }
+
     private StaleImportJobCleaner cleanerWithAutomaticCleanup(boolean enabled) {
         return new StaleImportJobCleaner(
                 repository,
+                notifier,
                 Clock.fixed(NOW, ZoneOffset.UTC),
                 Duration.ofSeconds(CATEGORIZATION_TIMEOUT_SECONDS),
                 Duration.ofSeconds(RESERVE_SECONDS),
@@ -282,7 +411,11 @@ class StaleImportJobCleanerTest {
     }
 
     private static ImportJob runningJobCreatedAt(Instant createdAt) {
-        return new ImportJob(42L, "abc123", 20, createdAt);
+        return runningJobOf(42L, createdAt);
+    }
+
+    private static ImportJob runningJobOf(long userId, Instant createdAt) {
+        return new ImportJob(userId, "abc123", 20, createdAt);
     }
 
     private List<String> warnMessages() {

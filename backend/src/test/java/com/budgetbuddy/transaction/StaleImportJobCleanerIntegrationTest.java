@@ -6,6 +6,8 @@ import com.budgetbuddy.support.PostgresTestDatabase;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -65,16 +67,25 @@ class StaleImportJobCleanerIntegrationTest {
 
     private long userId;
 
+    private long otherUserId;
+
     @BeforeEach
     void seed() {
         importJobRepository.deleteAll();
+        jdbcTemplate.update("DELETE FROM notifications");
         jdbcTemplate.update("DELETE FROM users");
         jdbcTemplate.update(
                 "INSERT INTO users (email, password_hash, monthly_income, onboarding_completed)"
                         + " VALUES (?, ?, ?, ?)",
                 "lara@example.ch", "bcrypt-hash", new BigDecimal("4200.00"), true);
+        jdbcTemplate.update(
+                "INSERT INTO users (email, password_hash, monthly_income, onboarding_completed)"
+                        + " VALUES (?, ?, ?, ?)",
+                "marc@example.ch", "bcrypt-hash", new BigDecimal("6100.00"), true);
         userId = jdbcTemplate.queryForObject(
                 "SELECT id FROM users WHERE email = 'lara@example.ch'", Long.class);
+        otherUserId = jdbcTemplate.queryForObject(
+                "SELECT id FROM users WHERE email = 'marc@example.ch'", Long.class);
     }
 
     /** AC1 und AC2 in einem Lauf: Der alte Job fällt, der junge bleibt. */
@@ -154,6 +165,63 @@ class StaleImportJobCleanerIntegrationTest {
 
         assertThat(cleaner.cleanUpStaleJobs()).isZero();
         assertThat(statusOf(done)).isEqualTo(ImportJobStatus.DONE);
+    }
+
+    /**
+     * AC1 und AC4 (BE-PDF-16): Der bereinigte Job erzeugt genau eine {@code IMPORT_FAILED}-Zeile,
+     * beim richtigen User und mit der Job-ID als {@code reference_id}.
+     *
+     * <p>Diesen Nachweis kann {@link StaleImportJobCleanerTest} nicht führen: Dort ist der Job nie
+     * persistiert, {@code getId()} also {@code null} — ein {@code verify(..., eq(job.getId()))}
+     * bestätigt dann nur, dass zweimal {@code null} dasselbe ist. Erst hier steht eine echte ID
+     * dahinter, und erst hier ist belegt, dass der {@code NotificationPort} über den Kontext
+     * tatsächlich verdrahtet ist und die Zeile schreibt.
+     *
+     * <p>Der zweite Job gehört bewusst einem anderen User: Ein Aufruf, der die User-ID nicht aus
+     * dem jeweiligen Job zöge, schickte Laras Fehlschlag an Marc — mit nur einem User wäre das
+     * nicht zu sehen.
+     */
+    @Test
+    void notifiesEachOwnerAboutTheirOwnCleanedUpJob() {
+        Instant longAgo = Instant.now().minus(STALE_AFTER).minusSeconds(60);
+        ImportJob laras = runningJobCreatedAt(longAgo);
+        ImportJob marcs = importJobRepository.save(
+                new ImportJob(otherUserId, "ffff9999eeee8888dddd7777cccc6666", 20, longAgo));
+
+        assertThat(cleaner.cleanUpStaleJobs()).isEqualTo(2);
+
+        assertThat(failureNotifications()).containsExactlyInAnyOrder(
+                Map.entry(userId, laras.getId()), Map.entry(otherUserId, marcs.getId()));
+    }
+
+    /** Derselbe Nachweis am Upload-Pfad — eine Zeile, für den Besitzer des verwaisten Jobs. */
+    @Test
+    void uploadPathNotifiesTheOwnerToo() {
+        ImportJob orphaned =
+                runningJobCreatedAt(Instant.now().minus(STALE_AFTER).minusSeconds(60));
+
+        assertThat(cleaner.cleanUpIfStale(orphaned)).isTrue();
+
+        assertThat(failureNotifications())
+                .containsExactly(Map.entry(userId, orphaned.getId()));
+    }
+
+    /** Ein Job, der noch laufen kann, erzeugt keine Benachrichtigung. */
+    @Test
+    void notifiesNobodyAboutAJobThatMayStillBeRunning() {
+        runningJobCreatedAt(Instant.now().minusSeconds(10));
+
+        assertThat(cleaner.cleanUpStaleJobs()).isZero();
+
+        assertThat(failureNotifications()).isEmpty();
+    }
+
+    /** {@code (user_id, reference_id)} aller {@code IMPORT_FAILED}-Zeilen in der Tabelle. */
+    private List<Map.Entry<Long, Long>> failureNotifications() {
+        return jdbcTemplate.query(
+                "SELECT user_id, reference_id FROM notifications WHERE type = ?",
+                (rs, rowNum) -> Map.entry(rs.getLong("user_id"), rs.getLong("reference_id")),
+                ImportFailureNotifier.NOTIFICATION_TYPE_FAILED);
     }
 
     private boolean isBlockedAsDuplicate() {

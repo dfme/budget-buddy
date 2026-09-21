@@ -64,6 +64,20 @@ import org.springframework.stereotype.Component;
  * Datei — und kostet dabei <strong>keinen einzigen zusätzlichen Weckvorgang</strong>, weil der
  * Duplikatcheck ohnehin läuft und die Datenbank in diesem Moment ohnehin wach ist.
  *
+ * <h2>Der Nutzer erfährt davon (BE-PDF-16)</h2>
+ *
+ * <p>Jeder hier bereinigte Job bekommt über den {@link ImportFailureNotifier} dieselbe
+ * Fehlschlags-Benachrichtigung wie ein im Runner abgebrochener Lauf. Ohne sie träfe genau der
+ * Fall ins Leere, den BE-PDF-15 schliessen wollte: Der Nutzer hat die Import-Seite verlassen, sein
+ * Import ist gescheitert, und er erfährt es nie. Dass die Ursache hier eine andere ist — Prozess
+ * weg statt Exception im Lauf — sieht er nicht und braucht er nicht zu sehen.
+ *
+ * <p>Benachrichtigt wird <strong>nach</strong> dem Schreiben des {@code FAILED}-Status, nie davor.
+ * Und {@link ImportFailureNotifier#notifyFailed(ImportJob)} schluckt seine eigenen Fehler: Dieselbe
+ * Haltung, die unten den Startlauf schützt, gilt auch für diese Kante — eine Benachrichtigung, die
+ * nicht zustande kommt, darf weder den Status zurücknehmen noch die übrigen Jobs der Schleife um
+ * ihre Meldung bringen.
+ *
  * <h2>Die automatischen Läufe sind abschaltbar</h2>
  *
  * <p>{@code budgetbuddy.import.stale-job-cleanup.enabled} (Default {@code true}) gatet
@@ -87,6 +101,7 @@ public class StaleImportJobCleaner {
     private static final Logger log = LoggerFactory.getLogger(StaleImportJobCleaner.class);
 
     private final ImportJobRepository importJobRepository;
+    private final ImportFailureNotifier importFailureNotifier;
     private final Clock clock;
 
     /**
@@ -100,6 +115,7 @@ public class StaleImportJobCleaner {
 
     public StaleImportJobCleaner(
             ImportJobRepository importJobRepository,
+            ImportFailureNotifier importFailureNotifier,
             Clock clock,
             @Value("${budgetbuddy.import.categorization-timeout:300s}")
                     Duration categorizationTimeout,
@@ -107,6 +123,7 @@ public class StaleImportJobCleaner {
             @Value("${budgetbuddy.import.stale-job-cleanup.enabled:true}")
                     boolean automaticCleanupEnabled) {
         this.importJobRepository = importJobRepository;
+        this.importFailureNotifier = importFailureNotifier;
         this.clock = clock;
         this.staleAfter = categorizationTimeout.plus(staleJobReserve);
         this.automaticCleanupEnabled = automaticCleanupEnabled;
@@ -123,6 +140,10 @@ public class StaleImportJobCleaner {
      * Bereinigung ist Aufräumarbeit, kein Startvorbehalt. Eine Datenbank, die im Moment des
      * Hochfahrens klemmt, darf die Anwendung nicht am Starten hindern — der periodische Lauf holt
      * die Bereinigung ohnehin nach.
+     *
+     * <p>Aus demselben Grund darf auch die Benachrichtigung aus BE-PDF-16 das Hochfahren nicht
+     * aufhalten. Sie tut es doppelt nicht: {@link ImportFailureNotifier#notifyFailed(ImportJob)}
+     * fängt schon selbst, und was dort wider Erwarten durchkäme, fängt dieses {@code catch}.
      */
     @EventListener(ApplicationReadyEvent.class)
     public void onApplicationReady() {
@@ -183,6 +204,10 @@ public class StaleImportJobCleaner {
      * Stelle. Die Menge ist klein genug, dass das nichts kostet — es sind die Jobs eines einzelnen
      * abgestürzten Laufs, nicht eine Tabelle.
      *
+     * <p>Jeder bereinigte Job geht anschliessend als Fehlschlags-Benachrichtigung an seinen
+     * Besitzer (BE-PDF-16) — nach dem {@code saveAll}, damit der Status geschrieben ist, bevor
+     * irgendetwas darüber meldet.
+     *
      * @return Anzahl der bereinigten Jobs; {@code 0}, wenn nichts zu tun war.
      */
     public int cleanUpStaleJobs() {
@@ -207,6 +232,13 @@ public class StaleImportJobCleaner {
                         + "einem Neustart oder Absturz ohne laufenden Prozess. Job-IDs: {}.",
                 stale.size(), staleAfter.toSeconds(), stale.stream().map(ImportJob::getId).toList());
 
+        // Ganz zuletzt: Die Benachrichtigung ist die Folge des Zustandswechsels, nicht seine
+        // Bedingung (BE-PDF-16), und sie geht nach aussen — Schreiben und Protokollieren stehen
+        // vorher, damit beides auch dann vollständig ist, wenn die Glocke klemmt. notifyFailed
+        // schluckt seine eigenen Fehler, ein stummer Job kostet die übrigen also nicht ihre
+        // Meldung.
+        stale.forEach(importFailureNotifier::notifyFailed);
+
         return stale.size();
     }
 
@@ -227,6 +259,10 @@ public class StaleImportJobCleaner {
      * garantiert existiert — ihn mit abzuschalten hiesse, das Verhalten im Test von dem in
      * Produktion abweichen zu lassen, und zwar genau im Punkt, der den Nutzer betrifft.
      *
+     * <p>Auch dieser Pfad benachrichtigt (BE-PDF-16): Der Nutzer lädt hier zwar gerade selbst
+     * hoch, aber er sieht nur, dass der neue Import durchgeht — nicht, dass der alte endgültig
+     * verloren ist. Genau das sagt ihm die Meldung.
+     *
      * @param job ein Job, den der Aufrufer bereits geladen hat.
      * @return {@code true}, wenn er verwaist war und jetzt auf {@code FAILED} steht; {@code false},
      *     wenn er noch laufen kann und den Upload zu Recht sperrt.
@@ -242,6 +278,10 @@ public class StaleImportJobCleaner {
         log.warn("Import-Job {} beim Upload als verwaist erkannt und auf FAILED gesetzt — älter "
                         + "als {}s. Der erneute Import derselben Datei ist damit wieder möglich.",
                 job.getId(), staleAfter.toSeconds());
+
+        // Zuletzt, in derselben Reihenfolge wie in cleanUpStaleJobs: erst schreiben, dann
+        // protokollieren, dann nach aussen melden.
+        importFailureNotifier.notifyFailed(job);
         return true;
     }
 

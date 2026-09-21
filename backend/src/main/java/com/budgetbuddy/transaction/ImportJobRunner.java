@@ -55,7 +55,9 @@ import org.springframework.transaction.support.TransactionTemplate;
  * <p><strong>Abschluss-Benachrichtigung (BE-PDF-15):</strong> Nach dem Setzen des Endstatus
  * meldet der Runner über {@link NotificationPort} das Ergebnis — Erfolg, Erfolg mit
  * Watchdog-Einschlag oder Fehlschlag — an die Glocke. Nötig, weil das Frontend-Polling mit dem
- * Verlassen der Import-Seite endet und der Nutzer sonst nie erfährt, wie der Lauf ausging. Sie
+ * Verlassen der Import-Seite endet und der Nutzer sonst nie erfährt, wie der Lauf ausging. Den
+ * Fehlschlag meldet seit BE-PDF-16 der {@link ImportFailureNotifier}, weil ihn auch der
+ * {@link StaleImportJobCleaner} zu melden hat. Sie
  * läuft bewusst <em>nach</em> {@code save} und ausserhalb der Transaktionsklammer: Ein Fehler beim
  * Erzeugen der Benachrichtigung kann den bereits geschriebenen Status nicht mehr zurückrollen und
  * wird — wie bei der Abo-Erkennung — nur geloggt. Zusammen mit der Abo-Benachrichtigung aus
@@ -71,9 +73,6 @@ public class ImportJobRunner {
     /** Wie {@link #NOTIFICATION_TYPE_COMPLETED}, aber der Watchdog hat einen Teil auf Sonstiges gesetzt. */
     public static final String NOTIFICATION_TYPE_DEGRADED = "IMPORT_DEGRADED";
 
-    /** Typ der Fehlschlags-Benachrichtigung (BE-PDF-15). */
-    public static final String NOTIFICATION_TYPE_FAILED = "IMPORT_FAILED";
-
     private static final Logger log = LoggerFactory.getLogger(ImportJobRunner.class);
 
     private final CategorizationPort categorizationPort;
@@ -82,6 +81,7 @@ public class ImportJobRunner {
     private final TransactionTemplate transactionTemplate;
     private final RecurringExpenseDetectionPort recurringExpenseDetectionPort;
     private final NotificationPort notificationPort;
+    private final ImportFailureNotifier importFailureNotifier;
     private final Clock clock;
     private final Duration categorizationTimeout;
     private final int batchSize;
@@ -93,6 +93,7 @@ public class ImportJobRunner {
             TransactionTemplate transactionTemplate,
             RecurringExpenseDetectionPort recurringExpenseDetectionPort,
             NotificationPort notificationPort,
+            ImportFailureNotifier importFailureNotifier,
             Clock clock,
             @Value("${budgetbuddy.import.categorization-timeout:300s}")
                     Duration categorizationTimeout,
@@ -103,6 +104,7 @@ public class ImportJobRunner {
         this.transactionTemplate = transactionTemplate;
         this.recurringExpenseDetectionPort = recurringExpenseDetectionPort;
         this.notificationPort = notificationPort;
+        this.importFailureNotifier = importFailureNotifier;
         this.clock = clock;
         this.categorizationTimeout = categorizationTimeout;
         this.batchSize = batchSize;
@@ -162,26 +164,7 @@ public class ImportJobRunner {
                 job.getId(), cause);
         job.fail(clock.instant());
         importJobRepository.save(job);
-        notifyFailed(job);
-    }
-
-    /**
-     * Benachrichtigt den User über einen gescheiterten Import (BE-PDF-15) — sonst bleibt ein
-     * Fehlschlag nach Verlassen der Import-Seite für ihn unsichtbar.
-     *
-     * <p>Fängt {@link RuntimeException}, aus demselben Grund wie {@link #detectRecurringExpenses}:
-     * ein Fehler hier darf den bereits geschriebenen FAILED-Status nicht zunichtemachen, indem er
-     * aus {@link #markFailed} herauswirft — im {@code Error}-Pfad von {@link #run} würde das die
-     * {@code addSuppressed}-Behandlung des ursprünglichen {@link Error} durchkreuzen.
-     */
-    private void notifyFailed(ImportJob job) {
-        try {
-            notificationPort.create(job.getUserId(), NOTIFICATION_TYPE_FAILED, job.getId(),
-                    "Der Import ist fehlgeschlagen — bitte versuche es erneut.");
-        } catch (RuntimeException e) {
-            log.warn("Import-Job {}: Fehlschlags-Benachrichtigung konnte nicht erzeugt werden.",
-                    job.getId(), e);
-        }
+        importFailureNotifier.notifyFailed(job);
     }
 
     private void categorizeAndPersist(

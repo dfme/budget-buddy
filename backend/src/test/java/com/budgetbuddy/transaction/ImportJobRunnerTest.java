@@ -70,9 +70,18 @@ class ImportJobRunnerTest {
     private final TransactionTemplate transactionTemplate =
             new TransactionTemplate(mock(PlatformTransactionManager.class));
 
+    /**
+     * Echter {@link ImportFailureNotifier} über dem gemockten Port: Die Fehlschlags-Tests unten
+     * prüfen weiterhin, was tatsächlich an der Glocke ankommt. Ein gemockter Notifier verschöbe
+     * ihren Nachweis auf «der Runner hat irgendwen gerufen» und liesse Typ, Text und das Schlucken
+     * des Fehlers ungeprüft — die stehen seit BE-PDF-16 in jener Klasse, nicht mehr hier.
+     */
+    private final ImportFailureNotifier importFailureNotifier =
+            new ImportFailureNotifier(notificationPort);
+
     private final ImportJobRunner runner = new ImportJobRunner(categorizationPort, repository,
             importJobRepository, transactionTemplate, recurringExpenseDetectionPort,
-            notificationPort, clock,
+            notificationPort, importFailureNotifier, clock,
             Duration.ofSeconds(WATCHDOG_SECONDS), BATCH_SIZE);
 
     @BeforeEach
@@ -440,7 +449,7 @@ class ImportJobRunnerTest {
         // einen halb geschriebenen Import wäre falsch.
         verifyNoInteractions(recurringExpenseDetectionPort);
         // AC3: Ein Fehlschlag darf nach Verlassen der Import-Seite nicht unsichtbar bleiben.
-        verify(notificationPort).create(eq(USER_ID), eq(ImportJobRunner.NOTIFICATION_TYPE_FAILED),
+        verify(notificationPort).create(eq(USER_ID), eq(ImportFailureNotifier.NOTIFICATION_TYPE_FAILED),
                 eq(job.getId()), anyString());
     }
 
