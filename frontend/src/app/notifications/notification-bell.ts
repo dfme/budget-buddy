@@ -5,7 +5,11 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router } from '@angular/router';
 import { filter } from 'rxjs';
 
-import { NotificationResponse, RECURRING_EXPENSE_DETECTED } from './notification.model';
+import {
+  IMPORT_NOTIFICATION_TYPES,
+  NotificationResponse,
+  RECURRING_EXPENSE_DETECTED,
+} from './notification.model';
 import { NotificationService } from './notification.service';
 
 let nextId = 0;
@@ -109,11 +113,23 @@ export class NotificationBell {
    * Weg verlangt. Die Glocke selbst markiert trotzdem als gelesen — der Klick ist die
    * Kenntnisnahme der Benachrichtigung, nicht der Grund, warum der Eintrag in der Übersicht sein
    * «Neu» behält.
+   *
+   * <p><strong>Import-Benachrichtigung (FE-NOTIF-05).</strong> Bei {@link IMPORT_NOTIFICATION_TYPES}
+   * führt der Klick nach `/import?job=<referenceId>`: Die Import-Seite nimmt den Job über ihren
+   * bestehenden Poll-Pfad auf und zeigt Erfolgsmeldung samt Buchungen — oder die Fehlermeldung
+   * des Fehlschlags. Die Job-ID ist der `referenceId` aus BE-PDF-15; fehlt sie wider Erwarten,
+   * bleibt die Import-Seite trotzdem das Ziel, nur ohne Parameter. Ob der Job dem Nutzer gehört,
+   * entscheidet das Backend (404), nicht die Glocke. Gelesen-Call wie beim Abo-Sprung parallel.
    */
   protected select(notification: NotificationResponse): void {
     if (notification.type === RECURRING_EXPENSE_DETECTED) {
       this.close();
       void this.router.navigate(['/abos']);
+    } else if (IMPORT_NOTIFICATION_TYPES.has(notification.type)) {
+      this.close();
+      void this.router.navigate(['/import'], {
+        queryParams: notification.referenceId === null ? {} : { job: notification.referenceId },
+      });
     }
 
     if (notification.read) {

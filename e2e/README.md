@@ -85,7 +85,7 @@ die im JAR gebündelte SPA aus«) schlägt dann als Einziger fehl und nennt gena
 | `tests/spa-routing.spec.ts` | Deep-Link-Status-Codes des Artefakts (SPA offen, API geschützt) |
 | `tests/fixed-cost-wizard.spec.ts` | Fixkosten-Wizard (US-03): Happy Path bis in die Liste, Fehlerpfad mit Validierung |
 | `tests/onboarding-completion.spec.ts` | Onboarding-Abschluss (US-03): beide Wege aus dem Wizard aufs Dashboard, mit Gegenprobe über einen Reload |
-| `tests/pdf-import.spec.ts` | PDF-Upload (US-04): Happy Path mit Anzahl-Meldung, Fehlerpfad mit unlesbarem PDF |
+| `tests/pdf-import.spec.ts` | PDF-Upload (US-04): Happy Path mit Anzahl-Meldung, Weg über die Glocke zurück zur Übersicht (FE-NOTIF-05), Fehlerpfad mit unlesbarem PDF |
 | `tests/categorization.spec.ts` | Kategorisierung (US-05): Happy Path mit Korrektur über einen Reload, Fehlerpfad mit 500 auf dem Korrektur-PUT |
 | `tests/safe-to-spend.spec.ts` | Safe-to-Spend (US-06): Happy Path mit Querprobe gegen `GET /budget/safe-to-spend`, Fehlerpfad ohne erfasstes Einkommen |
 | `tests/month-switch.spec.ts` | Monatswechsel (US-12): Happy Path in einen vergangenen Monat mit «Abgeschlossen» auf Dashboard und Kategorie-Übersicht, Fehlerpfad in einen Monat ohne Daten |
@@ -95,6 +95,7 @@ die im JAR gebündelte SPA aus«) schlägt dann als Einziger fehl und nennt gena
 | `support/backend.ts` | Port, Basis-URL, JAR-Auflösung, Test-JWT-Secret |
 | `support/database.ts` | Verbindungsdaten der E2E-Datenbank und `resetDatabase()` |
 | `support/import.ts` | `importFixture()` — PDF-Import über die API anstossen und auf den Job-Endzustand pollen |
+| `support/notifications.ts` | `bell()` — die je Viewport sichtbare Glocke der App-Shell |
 | `global-setup.ts` | Ruft `resetDatabase()` einmal pro Lauf auf, nach dem Start der Instanz |
 | `playwright.config.ts` | Runner-Konfiguration inkl. `webServer` und `globalSetup` |
 

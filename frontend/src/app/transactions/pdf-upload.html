@@ -123,6 +123,15 @@
     <app-notice class="upload__notice" variant="error">{{ message }}</app-notice>
   }
 
+  @if (listReplacedMessage(); as message) {
+    <!--
+      Alte Benachrichtigung zu einem Import, dessen Buchungen ein späterer Force-Import ersetzt
+      hat (FE-NOTIF-05): kein Fehler, nur eine Erklärung, warum unter der Erfolgsmeldung keine
+      Liste steht — daher variant="info" (role="status").
+    -->
+    <app-notice class="upload__notice" variant="info">{{ message }}</app-notice>
+  }
+
   @if (saveErrorMessage(); as message) {
     <app-notice class="upload__notice" variant="error">{{ message }}</app-notice>
   }

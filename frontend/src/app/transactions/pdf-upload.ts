@@ -9,6 +9,8 @@ import {
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, ParamMap, Router } from '@angular/router';
+import { Subscription } from 'rxjs';
 
 import { NotificationService } from '../notifications/notification.service';
 
@@ -45,6 +47,30 @@ const DEGRADED_HINT =
 
 /** Meldung, wenn der Hintergrundlauf selbst gescheitert ist. */
 const JOB_FAILED_MESSAGE = 'Der Import ist fehlgeschlagen — bitte versuche es erneut.';
+
+/**
+ * Meldung, wenn der Status-Endpoint den Job nicht kennt (FE-NOTIF-05).
+ *
+ * <p>Erreichbar über `?job=` aus einer alten Benachrichtigung oder einer editierten Adresse. Das
+ * Backend antwortet für einen unbekannten wie für einen fremden Job gleich mit 404
+ * (`PdfImportController`, `findByIdAndUserId`) — die Meldung unterscheidet das deshalb auch
+ * nicht. Bewusst ohne Retry-Hinweis: es gibt nichts zu wiederholen, nur etwas Neues hochzuladen.
+ */
+const JOB_NOT_FOUND_MESSAGE = 'Dieser Import ist nicht mehr abrufbar.';
+
+/**
+ * Meldung, wenn ein abgeschlossener Import keine Buchungen mehr hat (FE-NOTIF-05).
+ *
+ * <p>Der einzige Weg dorthin ist «Trotzdem importieren» (FE-PDF-03): Der Force-Lauf löscht die
+ * Buchungen des früheren Imports desselben PDFs (`ImportJobRunner`,
+ * `deleteByUserIdAndPdfSha256`), der alte Job bleibt aber `DONE` und seine Benachrichtigung in
+ * der Glocke. Wer sie später anklickt, sähe sonst eine Erfolgsmeldung mit Anzahl und darunter
+ * nichts. Einen Delete-Endpoint für Transaktionen gibt es nicht — der Satz darf deshalb so
+ * bestimmt sein.
+ */
+const LIST_REPLACED_MESSAGE =
+  'Die Buchungen dieses Imports wurden inzwischen durch einen erneuten Import desselben ' +
+  'Kontoauszugs ersetzt.';
 
 /**
  * Meldung, wenn die Liste der importierten Buchungen nicht geladen werden konnte (FE-PDF-04).
@@ -122,6 +148,16 @@ export interface ImportProgress {
  * ein gezielter Reload an der einzigen Stelle, an der das Frontend weiss, dass gerade etwas
  * entstanden sein kann — und bewusst `reload` statt `load`, damit er sich nicht an ein `GET`
  * hängt, das vor dem Abschluss losging und den Stand davor liefern würde.
+ *
+ * <p><strong>Einstieg von aussen über `?job=` (FE-NOTIF-05, #348):</strong> Die Glocke führt bei
+ * einer Import-Benachrichtigung (BE-PDF-15) nach `/import?job=<jobId>`. Die Komponente nimmt
+ * einen so übergebenen Job über denselben {@link trackJob}-Pfad auf wie nach einem Upload: Der
+ * erste Poll liefert den Endzustand, `DONE` lädt die Buchungen nach, `FAILED` zeigt die
+ * Fehlermeldung, ein 404 die Meldung «nicht mehr abrufbar». Umgekehrt schreibt jeder Upload
+ * seine Job-ID in die URL, damit ein Reload dieselbe Übersicht zeigt. Muster wie `?month=` in
+ * `CategoryOverview`: `queryParamMap` → {@link syncFromUrl}, mit einer Wache gegen das Echo der
+ * eigenen Navigation. Ob ein Job dem Nutzer gehört, entscheidet allein das Backend (404 für
+ * fremde Jobs) — hier wird nichts gefiltert.
  */
 @Component({
   selector: 'app-pdf-upload',
@@ -135,6 +171,8 @@ export class PdfUpload {
   private readonly transactionService = inject(TransactionService);
   private readonly notificationService = inject(NotificationService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   /** Die 17 Kategorien des Dropdowns — dieselbe Quelle wie die Kategorie-Übersicht (FE-CAT-03). */
   protected readonly categories = CATEGORIES;
@@ -180,6 +218,7 @@ export class PdfUpload {
    *
    * <p>`null` ist der Normalzustand vor dem ersten Import und nach einem Fehlschlag; eine
    * *leere* Liste ist es nie: Der Nullfall (Auszug ohne Buchungen) fragt gar nicht erst nach,
+   * eine leere Antwort zu einem ersetzten Import wird zum Hinweis ({@link listReplacedMessage}),
    * und das Template zeigt eine leere Liste auch dann nicht an.
    *
    * <p>Der Inhalt gehört ausschliesslich zu diesem einen Job — die Einschränkung kommt vom
@@ -194,6 +233,13 @@ export class PdfUpload {
   readonly saveErrorMessage = signal<string | null>(null);
 
   /**
+   * Hinweis, wenn der Import zwar `DONE` ist, seine Buchungen aber nicht mehr existieren
+   * (FE-NOTIF-05) — {@link importedTransactions} bleibt dann `null`, damit die Invariante «eine
+   * leere Liste ist es nie» weiter gilt.
+   */
+  readonly listReplacedMessage = signal<string | null>(null);
+
+  /**
    * Zähler der Import-Läufe — steigt mit jedem {@link clearImportedTransactions} um eins.
    *
    * <p>Er schliesst das Zeitfenster zwischen Anfrage und Antwort: Wählt der Nutzer eine neue
@@ -205,6 +251,31 @@ export class PdfUpload {
    * abgelehnte Datei hat gar keine, macht die Liste aber genauso ungültig.
    */
   private importRun = 0;
+
+  /**
+   * Der Job, dessen ID die Komponente zuletzt selbst in die URL geschrieben hat oder aus ihr
+   * übernommen hat. Die Wache in {@link syncFromUrl}: Nach dem Upload navigiert die Komponente
+   * auf `?job=<neu>`, und die eigene `queryParamMap`-Subscription sieht das — ohne diese Wache
+   * pollte sie den Job, den {@link upload} gerade schon verfolgt, ein zweites Mal.
+   */
+  private trackedJobId: number | null = null;
+
+  /**
+   * Der laufende Status-Poll. Wird ein anderer Job geöffnet, während einer läuft — Glocke
+   * während eines Imports, Browser-Zurück auf ein früheres `?job=` —, muss der alte Poll
+   * aufhören: zwei Polls schrieben sonst abwechselnd in dieselben Signals, und der langsamere
+   * gewänne.
+   */
+  private pollSubscription: Subscription | null = null;
+
+  constructor() {
+    // `queryParamMap` liefert den aktuellen Stand sofort und danach jede Änderung — Deep-Link
+    // aus der Glocke, Reload, Browser-Zurück auf ein früheres `?job=`. Dieselbe Mechanik wie
+    // `?month=` in `CategoryOverview`.
+    this.route.queryParamMap
+      .pipe(takeUntilDestroyed())
+      .subscribe((params) => this.syncFromUrl(params));
+  }
 
   onDragOver(event: DragEvent): void {
     // Ohne preventDefault löst der Browser das drop-Event nicht aus.
@@ -292,6 +363,7 @@ export class PdfUpload {
         next: (started) => {
           // Ab hier ist das PDF gelesen und die Anzahl bekannt — der Balken hat seinen Nenner.
           this.progress.set({ processed: 0, total: started.total });
+          this.rememberJobInUrl(started.jobId);
           if (started.total === 0) {
             // Erkannter Auszug ohne Buchungen (BE-PDF-05): Es gibt keinen Lauf zu verfolgen.
             this.finish({ kind: 'success', count: 0, degraded: false });
@@ -331,9 +403,15 @@ export class PdfUpload {
       });
   }
 
-  /** Verfolgt den Hintergrundlauf bis zum Endzustand und schreibt den Fortschritt fort. */
+  /**
+   * Verfolgt den Hintergrundlauf bis zum Endzustand und schreibt den Fortschritt fort — nach
+   * einem Upload wie für einen über `?job=` übergebenen Job ({@link openJob}).
+   *
+   * <p>Ein noch laufender Poll eines anderen Jobs wird zuerst beendet ({@link pollSubscription}).
+   */
   private trackJob(jobId: number): void {
-    this.importService
+    this.pollSubscription?.unsubscribe();
+    this.pollSubscription = this.importService
       .pollJob(jobId)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
@@ -342,8 +420,16 @@ export class PdfUpload {
           if (status.status === 'DONE') {
             this.finish({ kind: 'success', count: status.total, degraded: status.degraded });
             // Erst jetzt, nie vorher: Vor `DONE` antwortet der Endpoint mit 409 (BE-PDF-14).
-            // Der Nullfall kommt hier nicht an — er verlässt `upload()` schon vor `trackJob`.
-            this.loadImportedTransactions(jobId);
+            // Nach einem Upload kommt der Nullfall hier nicht an — er verlässt `upload()` schon
+            // vor `trackJob`. Über `?job=` schon: Ein Auszug ohne Buchungen wird als `DONE` mit
+            // `total = 0` persistiert, und die Liste bliebe leer — die das Template nie zeigt.
+            if (status.total > 0) {
+              this.loadImportedTransactions(jobId);
+            }
+            // Auch für einen über `?job=` geöffneten, längst fertigen Job — dort ist der Reload
+            // redundant (die Glocke lud bei `NavigationEnd`), für einen per Reload
+            // wiederaufgenommenen `RUNNING`-Job aber nötig. Ein GET ist billiger als die
+            // Fallunterscheidung.
             this.reloadNotifications();
           } else if (status.status === 'FAILED') {
             this.finish({ kind: 'error', message: JOB_FAILED_MESSAGE });
@@ -353,14 +439,75 @@ export class PdfUpload {
         // unbekannt. Ihn als Erfolg zu melden wäre die schlechtere Lüge: Der Nutzer prüft dann
         // nicht nach.
         error: (error: unknown) =>
-          this.finish({
-            kind: 'error',
-            message:
-              error instanceof ImportPollTimeoutError
-                ? POLL_TIMEOUT_MESSAGE
-                : PdfUpload.importErrorMessage(error),
-          }),
+          this.finish({ kind: 'error', message: PdfUpload.pollErrorMessage(error) }),
       });
+  }
+
+  /**
+   * Nimmt einen über `?job=` übergebenen Job auf (FE-NOTIF-05) — aus der Glocke, per Reload
+   * oder Browser-Zurück.
+   *
+   * <p>Räumt denselben Zustand weg wie {@link selectFile} vor einem Upload: Was noch vom vorigen
+   * Import auf der Seite steht, gehört nicht zu diesem Job. `uploading` sperrt die Dropzone, bis
+   * der erste Poll antwortet — sonst könnte in dieser Lücke ein Upload starten, dessen Poll mit
+   * diesem hier um die Signals stritte. Der Endzustand kommt mit dem ersten Poll (`timer(0)`),
+   * der Spinner ist also nur für einen Roundtrip zu sehen.
+   */
+  private openJob(jobId: number): void {
+    this.trackedJobId = jobId;
+    this.errorMessage.set(null);
+    this.importOutcome.set(null);
+    this.duplicateFile.set(null);
+    this.clearImportedTransactions();
+    this.uploading.set(true);
+    this.progress.set(null);
+    this.trackJob(jobId);
+  }
+
+  /**
+   * Übernimmt den Job aus der URL — beim Erstladen und bei jeder äusseren Änderung.
+   *
+   * <p>Ohne Parameter passiert nichts: Die Seite startet leer, und ein Browser-Zurück auf die
+   * parameterlose Adresse lässt stehen, was gerade sichtbar ist. Ein unbrauchbarer Wert (keine
+   * positive Ganzzahl) wird ignoriert und per `replaceUrl` aus der Adresse genommen, damit die
+   * URL nicht etwas behauptet, was die Seite nicht zeigt — wie `CategoryOverview.syncFromUrl` bei
+   * einem kaputten `?month=`. Die Wache gegen {@link trackedJobId} fängt das Echo der eigenen
+   * Navigation aus {@link rememberJobInUrl} ab.
+   */
+  private syncFromUrl(params: ParamMap): void {
+    const raw = params.get('job');
+    if (raw === null) {
+      return;
+    }
+    const jobId = PdfUpload.parseJobId(raw);
+    if (jobId === null) {
+      void this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { job: null },
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+      });
+      return;
+    }
+    if (jobId === this.trackedJobId) {
+      return;
+    }
+    this.openJob(jobId);
+  }
+
+  /**
+   * Schreibt die Job-ID des soeben gestarteten Imports in die URL, damit ein Reload dieselbe
+   * Übersicht zeigt, die gleich sichtbar sein wird (FE-NOTIF-05). Ein neuer Verlaufseintrag,
+   * kein `replaceUrl`: Browser-Zurück führt so zur Übersicht des vorigen Imports, wie der
+   * Monats-Stepper in `CategoryOverview` zum vorigen Monat.
+   */
+  private rememberJobInUrl(jobId: number): void {
+    this.trackedJobId = jobId;
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { job: jobId },
+      queryParamsHandling: 'merge',
+    });
   }
 
   /**
@@ -372,6 +519,10 @@ export class PdfUpload {
    *
    * <p>Eine Antwort, die erst nach dem nächsten Aufräumen eintrifft, wird verworfen — sie gehört
    * zu einem Import, den der Nutzer bereits hinter sich gelassen hat ({@link importRun}).
+   *
+   * <p>Eine leere Antwort bei `total > 0` heisst: Die Buchungen wurden seither durch einen
+   * Force-Import ersetzt ({@link LIST_REPLACED_MESSAGE}). Sie landet als Hinweis, nicht als
+   * leere Liste — {@link importedTransactions} bleibt `null`.
    */
   private loadImportedTransactions(jobId: number): void {
     const run = this.importRun;
@@ -380,7 +531,12 @@ export class PdfUpload {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (transactions) => {
-          if (run === this.importRun) {
+          if (run !== this.importRun) {
+            return;
+          }
+          if (transactions.length === 0) {
+            this.listReplacedMessage.set(LIST_REPLACED_MESSAGE);
+          } else {
             this.importedTransactions.set(transactions);
           }
         },
@@ -425,13 +581,14 @@ export class PdfUpload {
       });
   }
 
-  /** Räumt die Liste des vorigen Imports samt ihrer beiden Meldungen weg (AC 7). */
+  /** Räumt die Liste des vorigen Imports samt ihrer Meldungen weg (AC 7). */
   private clearImportedTransactions(): void {
     // Entwertet jede noch offene Antwort auf die Buchungen des vorigen Jobs.
     this.importRun++;
     this.importedTransactions.set(null);
     this.listErrorMessage.set(null);
     this.saveErrorMessage.set(null);
+    this.listReplacedMessage.set(null);
   }
 
   /** Ersetzt die Kategorie einer Buchung in der Liste (neue Objekte wegen OnPush). */
@@ -546,6 +703,37 @@ export class PdfUpload {
       }
     }
     return 'Der Import ist fehlgeschlagen — bitte versuche es erneut.';
+  }
+
+  /**
+   * Mappt einen Abbruch der Statusabfrage auf eine Nutzermeldung.
+   *
+   * <p>Der 404 bekommt seit FE-NOTIF-05 eine eigene Meldung: Über `?job=` kann ein Job gemeint
+   * sein, den es für diesen Nutzer nicht (mehr) gibt — «fehlgeschlagen, bitte erneut versuchen»
+   * wäre dann falsch, es gibt nichts zu wiederholen. Nach einem Upload ist ein 404 des Polls
+   * praktisch unerreichbar (der Job wurde eben angelegt); die Meldung stimmte auch dann.
+   */
+  private static pollErrorMessage(error: unknown): string {
+    if (error instanceof ImportPollTimeoutError) {
+      return POLL_TIMEOUT_MESSAGE;
+    }
+    if (error instanceof HttpErrorResponse && error.status === 404) {
+      return JOB_NOT_FOUND_MESSAGE;
+    }
+    return PdfUpload.importErrorMessage(error);
+  }
+
+  /**
+   * Liest eine Job-ID aus `?job=` — nur eine positive Ganzzahl in Dezimalschreibweise gilt.
+   * `Number('')`, `Number('1e3')` oder `Number(' 7 ')` wären sonst alle Zahlen; das Backend
+   * kennt aber nur fortlaufende IDs ab 1.
+   */
+  private static parseJobId(raw: string): number | null {
+    if (!/^[1-9]\d*$/.test(raw)) {
+      return null;
+    }
+    const jobId = Number(raw);
+    return Number.isSafeInteger(jobId) ? jobId : null;
   }
 
   /** Drag-and-Drop liefert den MIME-Type nicht zuverlässig — Dateiendung als Fallback. */
