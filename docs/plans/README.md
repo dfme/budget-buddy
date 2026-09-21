@@ -65,6 +65,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `BE-PDF-11` | [Verwaiste Import-Jobs bleiben nach einem Neustart für immer auf RUNNING](BE-PDF-11-verwaiste-import-jobs.md) | [#197](https://github.com/dfme/budget-buddy/issues/197) | US-04 | Sprint 6 |
 | `BE-PDF-13` | [Gegenpartei-Adresse als einzelne Zeile überlebt DETAIL_NOISE](BE-PDF-13-adresse-detail-noise.md) | [#241](https://github.com/dfme/budget-buddy/issues/241) | US-05 | Sprint 6 |
 | `BE-PDF-14` | [Endpoint: Transaktionen eines Import-Jobs auflisten](BE-PDF-14-import-transactions-endpoint.md) | [#291](https://github.com/dfme/budget-buddy/issues/291) | US-04, US-05 | Sprint 6 |
+| `BE-PDF-15` | [Notification bei Abschluss eines Import-Jobs — auch wenn die Import-Seite verlassen wurde](BE-PDF-15-import-completion-notification.md) | [#337](https://github.com/dfme/budget-buddy/issues/337) | US-04 | Sprint 7 |
 | `BE-REC-01` | [RecurringExpenseService: Erkennung](BE-REC-01-recurring-expense-detection.md) | [#253](https://github.com/dfme/budget-buddy/issues/253) | US-08 | Sprint 6 |
 | `BE-REC-02` | [REST-Endpoints Abo-Übersicht](BE-REC-02-abo-uebersicht-endpoints.md) | [#254](https://github.com/dfme/budget-buddy/issues/254) | US-08 | Sprint 6 |
 | `BE-REC-03` | [Dismiss markiert Benachrichtigung als gelesen](BE-REC-03-dismiss-marks-notification-read.md) | [#324](https://github.com/dfme/budget-buddy/issues/324) | US-08 | Sprint 7 |
