@@ -26,9 +26,10 @@ echten Transaktionsdaten, nicht aus manueller Eingabe.
 
 **Fallback-Kategorie:** `Sonstiges` (wenn LLM unsicher oder API nicht erreichbar)
 
-**Zwei Tabellen (ADR-15, BE-CAT-12):** `category_lookup` (V04) hält die globalen, kuratierten
-Seeds und wird nur per Migration geändert. Alles Gelernte liegt in `user_category_lookup` (V12)
-mit `user_id` — es wirkt nur auf die Kategorisierung dieses Nutzers und wird bei der Kontolöschung
+**Zwei Tabellen (ADR-15, BE-CAT-12):** `category_lookup` (V04, ergänzt durch V15) hält die
+globalen, kuratierten Seeds und wird nur per Migration geändert. Alles Gelernte liegt in
+`user_category_lookup` (V12) mit `user_id` — es wirkt nur auf die Kategorisierung dieses Nutzers
+und wird bei der Kontolöschung
 über `CategoryLookupCleanupPort` mitgelöscht. `CategorizationPort` und `CategoryLearningPort`
 tragen deshalb die User-ID; beim Matching gewinnt das längste Pattern aus beiden Pools, bei
 gleicher Länge das eigene.

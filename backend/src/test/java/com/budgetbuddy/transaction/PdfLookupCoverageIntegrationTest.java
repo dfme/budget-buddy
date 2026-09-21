@@ -35,21 +35,30 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
  * {@link ImportJobRunner}. Geprüft war sie nirgends — die vorhandenen Fixtures sind zu klein und zu
  * händlerlastig, um eine Quote überhaupt aussagekräftig zu machen. {@code
  * Post_Kontoauszug_2025_240_Buchungen.pdf} ist für genau diese Messung gebaut: 240 Buchungen über
- * ein Kalenderjahr, davon 60% mit Lookup-Treffer. 60% liegt bewusst <em>unter</em> der Annahme von
- * ADR-6, damit die Claude-Stufe spürbar Last bekommt statt fast leer zu laufen.
+ * ein Kalenderjahr, davon 66.25% mit Lookup-Treffer. Das liegt bewusst <em>unter</em> der Annahme
+ * von ADR-6, damit die Claude-Stufe spürbar Last bekommt statt fast leer zu laufen.
  *
- * <p>Der Test greift auf die echten Flyway-Seeds aus {@code V04} zu. Ändern sich die Seeds, ändert
- * sich die Quote — das Generator-Skript rechnet sie beim Erzeugen gegen dieselbe Migration und
- * bricht ausserhalb des Zielbands ab, dieser Test hält sie danach fest.
+ * <p>Der Test greift auf die echten Flyway-Seeds zu — {@code V04} plus die Ergänzung {@code V15}
+ * für Bargeldbezug und Steuern. Ändern sich die Seeds, ändert sich die Quote: Das Generator-Skript
+ * rechnet sie beim Erzeugen gegen dieselben Migrationen und bricht ausserhalb des Zielbands ab,
+ * dieser Test hält sie danach fest.
  *
  * <p><strong>Warum hier exakt gepinnt wird und im Generator nur ein Band gilt.</strong> Die
  * Toleranz von ±5 Prozentpunkten im Skript ist für den Fall gedacht, dass jemand die Fixture neu
  * erzeugt, nachdem sich die Seeds geändert haben — sie soll dann nicht wegen eines einzelnen
  * neuen Händlers scheitern. Dieser Test läuft gegen die <em>eingecheckte</em> Fixture, die sich
- * nicht mitbewegt: Kommt ein Seed dazu, der einen ihrer Texte trifft, ist 144 schlicht falsch
- * geworden und soll auffallen. Ein neuer Seed-Eintrag lässt diesen Test also absichtlich reissen;
- * die Antwort darauf ist, die Fixture neu zu erzeugen und die Zahl hier nachzuziehen — nicht,
- * die Assertion aufzuweichen.
+ * nicht mitbewegt: Kommt ein Seed dazu, der einen ihrer Texte trifft, ist die Zahl schlicht
+ * falsch geworden und soll auffallen. Ein neuer Seed-Eintrag lässt diesen Test also absichtlich
+ * reissen; die Antwort darauf ist, die Zahl hier nachzuziehen — nicht, die Assertion
+ * aufzuweichen.
+ *
+ * <p><strong>Der Fall ist mit BE-CAT-17 eingetreten.</strong> {@code V15} seedet Bargeldbezug und
+ * Steuern; 15 Buchungen wechseln dadurch von Claude auf den Lookup — zwölfmal {@code BARBEZUG
+ * POSTOMAT BAHNHOF BERN} und dreimal die Steuerrückerstattung (April, August, Dezember). Aus 144
+ * wurden 159. Die <em>Fixture</em> blieb dabei unverändert, und zwar nicht aus Bequemlichkeit: Die
+ * Seeds gehen nie in die gedruckte Seite ein, {@code via_lookup} liest das Generator-Skript
+ * ausschliesslich für seine Bandprüfung und den Report. Ein Neulauf hätte allein den
+ * PDF-Zeitstempel geändert.
  */
 @SpringBootTest
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
@@ -61,11 +70,11 @@ class PdfLookupCoverageIntegrationTest {
     private static final String LAYOUT_FIXTURE = "/pdf/Post_Kontoauszug_2026_Juli_20_Buchungen.pdf";
 
     private static final int TRANSACTION_COUNT = 240;
-    private static final int EXPECTED_LOOKUP_HITS = 144; // 60%
+    private static final int EXPECTED_LOOKUP_HITS = 159; // 66.25%, seit V15 (BE-CAT-17): vorher 144
     private static final int EXPECTED_CLAUDE_CALLS = TRANSACTION_COUNT - EXPECTED_LOOKUP_HITS;
 
     /** Die gebaute Quote des Jahresauszugs — Vergleichsmass für den layouttreuen Auszug. */
-    private static final double POST_YEAR_LOOKUP_SHARE = 0.60;
+    private static final double POST_YEAR_LOOKUP_SHARE = 0.6625;
 
     /** {@code budgetbuddy.import.batch-size} — hier gespiegelt wie im ImportJobRunner (ADR-14). */
     private static final int BATCH_SIZE = 20;
@@ -90,7 +99,7 @@ class PdfLookupCoverageIntegrationTest {
     @MockitoBean private ClaudeCategorizationService claudeCategorizationService;
 
     @Test
-    void sixtyPercentOfTheYearIsCoveredByTheLookupTable() {
+    void twoThirdsOfTheYearAreCoveredByTheLookupTable() {
         List<String> texts = fullTexts();
 
         assertThat(texts).hasSize(TRANSACTION_COUNT);
@@ -102,7 +111,7 @@ class PdfLookupCoverageIntegrationTest {
 
     @Test
     void knownMerchantsHit_transferAndSalaryBookingsDoNot() {
-        // Die beiden Seiten der Quote an Beispielen — sonst sagt «144» nicht, ob die richtigen
+        // Die beiden Seiten der Quote an Beispielen — sonst sagt «159» nicht, ob die richtigen
         // Buchungen getroffen wurden.
         assertThat(lookupTableService.categorize(USER_ID, "KAUF/DIENSTLEISTUNG MIGROS M BERN WANKDORF"))
                 .map(CategorizationResult::category)
@@ -114,6 +123,32 @@ class PdfLookupCoverageIntegrationTest {
                 .map(CategorizationResult::category)
                 .contains(Category.TELEKOM);
 
+        // Die 15 Buchungen, die V15 (BE-CAT-17) von Claude auf den Lookup holt — im Wortlaut der
+        // Fixture, nicht im Wortlaut der Seeds. Ohne diese Zeilen belegte nur die Zahl 159, dass
+        // sich etwas bewegt hat, aber nicht, dass sich das Richtige bewegt hat.
+        assertThat(lookupTableService.categorize(USER_ID, "BARBEZUG POSTOMAT BAHNHOF BERN"))
+                .map(CategorizationResult::category)
+                .contains(Category.BARGELDBEZUG);
+        assertThat(lookupTableService.categorize(
+                        USER_ID, "GUTSCHRIFT STEUERVERWALTUNG KT. BERN RUECKERSTATTUNG APRIL 2025"))
+                .map(CategorizationResult::category)
+                .contains(Category.STEUERN);
+
+        // Der Wortlaut der anderen Banken, den die 240er-Fixture nicht trägt: UBS und Raiffeisen
+        // buchen «Bezug … Bancomat» (generate_pdf_fixtures.py:842, :1048), die Demo-Auszüge
+        // «BARGELDBEZUG» (generate_demo_statements.py:150).
+        assertThat(lookupTableService.categorize(USER_ID, "Bezug UBS Bancomat"))
+                .map(CategorizationResult::category)
+                .contains(Category.BARGELDBEZUG);
+        assertThat(lookupTableService.categorize(USER_ID, "BARGELDBEZUG BANCOMAT BERN BAHNHOF"))
+                .map(CategorizationResult::category)
+                .contains(Category.BARGELDBEZUG);
+
+        // Gegenprobe zur Auslassung von 'ATM' und 'STEUERN' in V15: Beides sind Substrings
+        // gewöhnlicher Buchungstexte, und das Matching kennt seit BE-CAT-14 keine Wortgrenzen.
+        assertThat(lookupTableService.categorize(USER_ID, "KAUF/DIENSTLEISTUNG BAR ATMOSPHERE BERN")).isEmpty();
+        assertThat(lookupTableService.categorize(USER_ID, "LASTSCHRIFT MUSTER STEUERBERATUNG AG")).isEmpty();
+
         // Genau die Buchungen, für die es die zweite Stufe gibt: Lohn, Miete, Strom, Gebühren —
         // in der Lookup-Tabelle steht kein Pattern, das darauf passt.
         assertThat(lookupTableService.categorize(USER_ID, "GUTSCHRIFT LOHN MAI Muster Consulting GmbH")).isEmpty();
@@ -123,7 +158,7 @@ class PdfLookupCoverageIntegrationTest {
     }
 
     @Test
-    void theRemainingFortyPercentReachesClaude_andNothingElseDoes() {
+    void theRemainingThirdReachesClaude_andNothingElseDoes() {
         when(claudeCategorizationService.categorizeAll(anyList())).thenAnswer(invocation -> {
             List<String> batch = invocation.getArgument(0);
             return Collections.nCopies(batch.size(), Optional.of(
@@ -152,18 +187,23 @@ class PdfLookupCoverageIntegrationTest {
         // Und nichts, was der Lookup gekonnt hätte, landet trotzdem beim (kostenpflichtigen) Call.
         assertThat(toClaude).allSatisfy(t -> assertThat(lookupTableService.categorize(USER_ID, t)).isEmpty());
 
-        // Die Zahl, um die es geht: 96 unbekannte Transaktionen kosten in 20er-Bündeln 12
-        // Requests statt 96 sequentieller Einzel-Calls (ADR-14, #192).
+        // Die Zahl, um die es geht: 81 unbekannte Transaktionen kosten in 20er-Bündeln 12
+        // Requests statt 81 sequentieller Einzel-Calls (ADR-14, #192). Die Bündelzahl hat V15
+        // nicht bewegt: Kein 20er-Schnitt läuft leer, weil jeder Monat weiterhin mindestens
+        // sechs unbekannte Buchungen trägt.
         assertThat(sent.getAllValues()).hasSize(12);
     }
 
     /**
      * Dieselbe Messung am layouttreuen Auszug — und sie fällt deutlich schlechter aus.
      *
-     * <p>Der 240er-Auszug schreibt den Händler in die Buchungszeile und kommt so auf 60%. Echte
-     * PostFinance-Auszüge schreiben dort die Zahlungsart; der Händler steht in den Detailzeilen,
-     * hinter Kartennummer, IBAN und Anschrift. Damit hängt jeder Treffer daran, dass die
-     * sprechende Zeile den Weg durch das Rauschen und durch {@code MAX_DETAIL_LINES} überlebt.
+     * <p>Beide Auszüge schreiben den Händler in die Detailzeilen, hinter Kartennummer, IBAN und
+     * Anschrift — der 240er seit der Umstellung aufs echte Satzbild ebenso, was {@code
+     * SwissBankStatementParserFixtureTest#everyLookupCandidateSitsInADetailLine_notInTheBookingLine}
+     * festhält. Jeder Treffer hängt also daran, dass die sprechende Zeile den Weg durch das
+     * Rauschen und durch {@code MAX_DETAIL_LINES} überlebt. Was die beiden unterscheidet, ist die
+     * Dichte des Rauschens: Der Juli-Auszug stapelt Label-, Adress- und Referenzzeilen so, dass
+     * die sprechende Zeile öfter unter {@code MAX_DETAIL_LINES} fällt.
      *
      * <p>Der Test hält die Differenz fest, nicht einen Zielwert: 20 Buchungen sind keine
      * belastbare Quote. Die Aussage ist, dass das Satzbild die Trefferrate stärker bestimmt als

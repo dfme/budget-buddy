@@ -7,7 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Erster Schritt der Hybrid-Kategorisierung (ADR-6): deterministischer DB-Lookup gegen die
- * globalen Seeds ({@code category_lookup}, V04) und die gelernten Patterns des Users
+ * globalen Seeds ({@code category_lookup}, V04 und V15) und die gelernten Patterns des Users
  * ({@code user_category_lookup}, V12).
  *
  * <p>Ein Transaktionstext wird einer Kategorie zugeordnet, wenn eines der bekannten Händler-Pattern

@@ -45,6 +45,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `BE-CAT-11` | [Lerneffekt bereits bei erfolgreicher Claude-Kategorisierung, nicht erst bei manueller Korrektur](BE-CAT-11-lerneffekt-claude-erfolg.md) | [#314](https://github.com/dfme/budget-buddy/issues/314) | US-05 | Sprint 7 |
 | `BE-CAT-12` | [category_lookup überlebt die Kontolöschung — und wächst seit BE-CAT-11 ohne Zutun des Users](BE-CAT-12-category-lookup-mandantentrennung.md) | [#319](https://github.com/dfme/budget-buddy/issues/319) | US-02 | Sprint 7 |
 | `BE-CAT-14` | [LIKE-Wildcards (%, _) in gelernten Lookup-Patterns werden nicht escaped](BE-CAT-14-lookup-literal-matching.md) | [#322](https://github.com/dfme/budget-buddy/issues/322) | US-05 | Sprint 7 |
+| `BE-CAT-17` | [Lookup-Seeds für Bargeldbezug und Steuern](BE-CAT-17-lookup-seeds-bargeld-steuern.md) | [#325](https://github.com/dfme/budget-buddy/issues/325) | US-05 | Sprint 7 |
 | `BE-FC-01` | [FixedCost Entity und Repository](BE-FC-01-fixedcost-entity.md) | [#10](https://github.com/dfme/budget-buddy/issues/10) | US-03 | Sprint 4 |
 | `BE-FC-02` | [FixedCostService: CRUD und Normalisierung](BE-FC-02-fixedcost-service.md) | [#11](https://github.com/dfme/budget-buddy/issues/11) | US-03 | Sprint 4 |
 | `BE-FC-03` | [REST-Endpoints für Fixkosten](BE-FC-03-fixed-costs-endpoints.md) | [#12](https://github.com/dfme/budget-buddy/issues/12) | US-03 | Sprint 4 |
