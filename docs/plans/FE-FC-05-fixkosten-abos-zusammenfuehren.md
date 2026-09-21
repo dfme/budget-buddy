@@ -109,3 +109,23 @@ Nicht Teil dieses PRs (per Issue): Datenmodell-Merge, Promotion Abo → Fixkoste
       Doppelzählung)
 - [ ] Bestehende Fixkosten-CRUD-Funktionalität (Edit/Delete, Onboarding-Erstellung) ist unverändert
       funktionsfähig
+
+## Review-Runde PR #345 (2026-09-21)
+
+Zwei blockierende Befunde (danielwagner990), beide mit derselben Wurzel — `recurring_expenses.amount`
+ist eine nie aktualisierte Momentaufnahme, die dieser Task zum finanziellen Eingabewert macht:
+
+1. **Abweichende Abbuchung zählte doppelt.** Die Erkennung erlaubt ±2 %, der Matcher strich
+   rappengenau. Fix: `RecurringExpenseAmountPort.withinTolerance` als eine Regel für Erkennung
+   und Matcher; `FixedCostDebitMatcher.match` liefert beide Summanden aus einem Durchgang und
+   zählt auf der Fixkosten-Seite den gestrichenen Betrag. Die Deduplizierung gegen Positionen
+   nutzt dieselbe Toleranz (statt rappengenau wie geplant).
+2. **Eine beendete Abo-Zeile minderte den Safe-to-Spend dauerhaft.** Fix: `detectedAmounts(userId,
+   month)` liefert nur Abos mit einer Abbuchung in `[month − 2, month]`, über die gefensterte
+   `ExpenseHistoryPort.expenseHistory(userId, from, to)`. Die Wurzel (Neubewertung beim Import)
+   ist [#350](https://github.com/dfme/budget-buddy/issues/350) (BE-REC-04).
+
+Nicht blockierend, im PR behoben: Intro-Text präzisiert, `pathMatch: 'full'` am Redirect.
+Folge-Issues: [#351](https://github.com/dfme/budget-buddy/issues/351) (FE-FC-06,
+Anchor-Scrolling), [#352](https://github.com/dfme/budget-buddy/issues/352) (FE-UI-10,
+Heading-Level an `app-card`).

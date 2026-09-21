@@ -268,6 +268,39 @@ class SafeToSpendServiceTest {
     }
 
     @Test
+    void aRecurringExpenseDebitedWithinToleranceCountsOnceAtTheDebitedAmount() {
+        // Review PR #345: SALT erkannt mit 59.00, Rechnung dieses Monats 59.90 (innerhalb ±2 %).
+        // Rappengenau bliebe 59.90 variable Ausgabe UND 59.00 zählte dazu — 59.00 zu viel.
+        //
+        //   falsch:  3000 − 59.00 − (59.90 + 300) = 2581.10 ÷ 4 = 645.275 → 645.28
+        //   richtig: 3000 − 59.90 −          300  = 2640.10 ÷ 4 = 660.025 → 660.03
+        givenToday("2026-02-01");
+        givenIncome("3000.00");
+        givenFixedCosts("0.00");
+        givenRecurringExpenses("59.00");
+        givenExpenseAmounts("59.90", "300.00");
+
+        assertThat(service.calculate(USER_ID).amount()).isEqualByComparingTo("660.03");
+    }
+
+    @Test
+    void aRecurringExpenseWithinToleranceOfAFixedCostDoesNotCountTwice() {
+        // Krankenkasse im Wizard mit 350.00 erfasst, erkannt mit 351.20 — dieselbe Verpflichtung.
+        // Das Abo zählt nicht; die Abbuchung 351.20 bleibt im Abbuchungsmonat variable Ausgabe,
+        // weil die Position rappengenau streicht (ADR-13) — der Zustand vor FE-FC-05, nicht
+        // schlechter.
+        //
+        //   3000 − 350 − 0 − (351.20 + 300) = 1998.80 ÷ 4 = 499.70
+        givenToday("2026-02-01");
+        givenIncome("3000.00");
+        givenFixedCostPositions("350.00", position("Krankenkasse", "350.00", "monatlich", "350.00"));
+        givenRecurringExpenses("351.20");
+        givenExpenseAmounts("351.20", "300.00");
+
+        assertThat(service.calculate(USER_ID).amount()).isEqualByComparingTo("499.70");
+    }
+
+    @Test
     void withoutDetectedRecurringExpensesTheFormulaIsUnchanged() {
         // Leere Liste vom Port: dasselbe Ergebnis wie das US-06-Beispiel oben. Explizit gestubbt,
         // damit der Aufruf des Ports belegt ist und nicht nur Mockitos Default greift.
@@ -278,7 +311,7 @@ class SafeToSpendServiceTest {
         givenExpenses("400.00");
 
         assertThat(service.calculate(USER_ID).amount()).isEqualByComparingTo("200.00");
-        verify(recurringExpenseAmountPort).detectedAmounts(USER_ID);
+        verify(recurringExpenseAmountPort).detectedAmounts(USER_ID, YearMonth.of(2026, 2));
     }
 
     // --- AC2: Divisor ist mindestens 1 (kein Division-by-Zero) ---
@@ -377,7 +410,7 @@ class SafeToSpendServiceTest {
         // Eingabewerte gar nicht erst gelesen werden. Ein null-Betrag allein zeigte das nicht.
         verify(fixedCostService, never()).list(anyLong());
         verify(monthlyExpensePort, never()).expenseAmounts(anyLong(), any());
-        verify(recurringExpenseAmountPort, never()).detectedAmounts(anyLong());
+        verify(recurringExpenseAmountPort, never()).detectedAmounts(anyLong(), any());
     }
 
     // --- BE-STS-02: Einkommens-Vorschlag ---
@@ -455,7 +488,7 @@ class SafeToSpendServiceTest {
         verify(userIncomePort).findMonthlyIncome(USER_ID);
         verify(fixedCostService).list(USER_ID);
         verify(monthlyExpensePort).expenseAmounts(USER_ID, YearMonth.of(2026, 8));
-        verify(recurringExpenseAmountPort).detectedAmounts(USER_ID);
+        verify(recurringExpenseAmountPort).detectedAmounts(USER_ID, YearMonth.of(2026, 8));
     }
 
     // --- BE-STS-06 / US-12: Monat als Parameter ---
@@ -530,7 +563,7 @@ class SafeToSpendServiceTest {
         verify(userIncomePort, never()).findMonthlyIncome(anyLong());
         verify(fixedCostService, never()).list(anyLong());
         verify(monthlyExpensePort, never()).expenseAmounts(anyLong(), any());
-        verify(recurringExpenseAmountPort, never()).detectedAmounts(anyLong());
+        verify(recurringExpenseAmountPort, never()).detectedAmounts(anyLong(), any());
         verify(incomeSuggestionPort, never()).suggestMonthlyIncome(anyLong());
     }
 
@@ -563,7 +596,7 @@ class SafeToSpendServiceTest {
         verify(userIncomePort, never()).findMonthlyIncome(anyLong());
         verify(fixedCostService, never()).list(anyLong());
         verify(monthlyExpensePort, never()).expenseAmounts(anyLong(), any());
-        verify(recurringExpenseAmountPort, never()).detectedAmounts(anyLong());
+        verify(recurringExpenseAmountPort, never()).detectedAmounts(anyLong(), any());
     }
 
     // --- Zonengrenze: welcher Monat der laufende ist, entscheidet Europe/Zurich ---
@@ -628,9 +661,13 @@ class SafeToSpendServiceTest {
                 .thenReturn(List.of(betraege).stream().map(BigDecimal::new).toList());
     }
 
-    /** Stellt die erkannten, nicht verneinten Abos ein, wie der Port sie liefert (FE-FC-05). */
+    /**
+     * Stellt die erkannten, nicht verneinten und aktiven Abos ein, wie der Port sie liefert
+     * (FE-FC-05). Das Aktivitätsfenster liegt im Port und ist im
+     * {@code RecurringExpenseServiceTest} abgedeckt — hier zählt nur, was ankommt.
+     */
     private void givenRecurringExpenses(String... betraege) {
-        when(recurringExpenseAmountPort.detectedAmounts(USER_ID))
+        when(recurringExpenseAmountPort.detectedAmounts(eq(USER_ID), any()))
                 .thenReturn(List.of(betraege).stream().map(BigDecimal::new).toList());
     }
 

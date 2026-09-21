@@ -35,8 +35,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
  * müssen demselben User gehören. Das deckt
  * {@link #aForeignUsersFixedCostPositionNeverExcludesAnOwnDebit()} ab. Seit FE-FC-05 kommt eine
  * dritte Kante dazu ({@code RecurringExpenseAmountPort} aus {@code recurring}): erkannte Abos
- * mindern den Betrag, verneinte nicht, fremde nie —
- * {@link #aForeignUsersRecurringExpenseNeverLowersTheResult()}.
+ * mindern den Betrag, verneinte nicht, beendete nicht, fremde nie —
+ * {@link #aForeignUsersRecurringExpenseNeverLowersTheResult()} und
+ * {@link #aForeignUsersDebitNeverActivatesAnOwnStaleRecurringExpense()}.
  *
  * <p>Die {@link Clock} ist als {@link MockitoBean} auf einen festen Zeitpunkt gestellt: sonst hinge
  * das Ergebnis am Kalendertag des CI-Laufs und der Test wäre an 11 von 12 Monaten grün und einmal
@@ -216,9 +217,11 @@ class SafeToSpendServiceIntegrationTest {
 
     @Test
     void aDetectedRecurringExpenseLowersTheResultEvenBeforeItsDebit() {
-        // Netflix erkannt, im August (noch) nicht abgebucht: vorher zählte es nicht.
+        // Netflix erkannt, im Juli abgebucht, im August (noch) nicht: vorher zählte es im August
+        // nicht. Die Juli-Abbuchung hält das Abo im Aktivitätsfenster (Jun–Aug).
         long lara = insertUser("lara-sts-abo@example.com", new BigDecimal("3000.00"));
         insertRecurringExpense(lara, "NETFLIX", new BigDecimal("17.90"), "DETECTED");
+        insertExpense(lara, LocalDate.of(2026, 7, 2), "NETFLIX", new BigDecimal("17.90"));
         insertExpense(lara, LocalDate.of(2026, 8, 3), "COOP BERN", new BigDecimal("300.00"));
 
         // (3000.00 − 0 − 17.90 − 300.00) ÷ 3 = 894.03
@@ -235,6 +238,32 @@ class SafeToSpendServiceIntegrationTest {
 
         // (3000.00 − 17.90 − 300.00) ÷ 3 = 894.03 — dasselbe wie ohne Abbuchung, nicht 888.07.
         assertThat(service.calculate(lara).amount()).isEqualByComparingTo("894.03");
+    }
+
+    @Test
+    void aRecurringExpenseDebitedWithinToleranceCountsOnceAtTheDebitedAmount() {
+        // Review PR #345: SALT erkannt mit 59.00, im August 59.90 abgebucht (±2 %). Gestrichen
+        // wird im Band, gezählt der gestrichene Betrag — nicht 59.00 + 59.90.
+        long lara = insertUser("lara-sts-abo-toleranz@example.com", new BigDecimal("3000.00"));
+        insertRecurringExpense(lara, "SALT", new BigDecimal("59.00"), "DETECTED");
+        insertExpense(lara, LocalDate.of(2026, 8, 5), "SALT", new BigDecimal("59.90"));
+        insertExpense(lara, LocalDate.of(2026, 8, 6), "COOP BERN", new BigDecimal("300.00"));
+
+        // (3000.00 − 59.90 − 300.00) ÷ 3 = 880.03 — mit Doppelzählung wären es 860.37.
+        assertThat(service.calculate(lara).amount()).isEqualByComparingTo("880.03");
+    }
+
+    @Test
+    void aRecurringExpenseWithoutADebitInTheActivityWindowDoesNotLowerTheResult() {
+        // Review PR #345: gekündigtes Netflix — zuletzt im Mai abgebucht, die Zeile bleibt
+        // DETECTED. Ohne Abbuchung in Jun–Aug gilt sie als beendet und zählt nicht mehr.
+        long marc = insertUser("marc-sts-abo-beendet@example.com", new BigDecimal("3000.00"));
+        insertRecurringExpense(marc, "NETFLIX", new BigDecimal("17.90"), "DETECTED");
+        insertExpense(marc, LocalDate.of(2026, 5, 2), "NETFLIX", new BigDecimal("17.90"));
+        insertExpense(marc, LocalDate.of(2026, 8, 3), "SBB", new BigDecimal("300.00"));
+
+        // (3000.00 − 0 − 0 − 300.00) ÷ 3 = 900.00
+        assertThat(service.calculate(marc).amount()).isEqualByComparingTo("900.00");
     }
 
     @Test
@@ -255,6 +284,7 @@ class SafeToSpendServiceIntegrationTest {
         fixedCostService.create(lara,
                 new FixedCostRequest("Handy", new BigDecimal("59.00"), "monatlich"));
         insertRecurringExpense(lara, "SWISSCOM", new BigDecimal("59.00"), "DETECTED");
+        insertExpense(lara, LocalDate.of(2026, 7, 1), "SWISSCOM", new BigDecimal("59.00"));
         insertExpense(lara, LocalDate.of(2026, 8, 1), "SWISSCOM", new BigDecimal("59.00"));
         insertExpense(lara, LocalDate.of(2026, 8, 3), "COOP BERN", new BigDecimal("300.00"));
 
@@ -271,11 +301,28 @@ class SafeToSpendServiceIntegrationTest {
 
         long marc = insertUser("marc-sts-abo-fremd@example.com", new BigDecimal("5000.00"));
         insertRecurringExpense(marc, "NETFLIX", new BigDecimal("17.90"), "DETECTED");
+        insertExpense(marc, LocalDate.of(2026, 7, 2), "NETFLIX", new BigDecimal("17.90"));
 
         // Lara: (3000.00 − 0 − 0 − 17.90) ÷ 3 = 994.03 — die 17.90 bleiben variable Ausgabe.
         assertThat(service.calculate(lara).amount()).isEqualByComparingTo("994.03");
-        // Marc: (5000.00 − 0 − 17.90 − 0) ÷ 3 = 1660.70
+        // Marc: (5000.00 − 0 − 17.90 − 0) ÷ 3 = 1660.70 — aktiv über seine Juli-Abbuchung.
         assertThat(service.calculate(marc).amount()).isEqualByComparingTo("1660.70");
+    }
+
+    @Test
+    void aForeignUsersDebitNeverActivatesAnOwnStaleRecurringExpense() {
+        // Laras Netflix ist beendet (keine Abbuchung im Fenster); Marc bucht NETFLIX im August.
+        // Griffe die Aktivitätsprüfung über den User hinweg, würde Marcs Abbuchung Laras Zeile
+        // wiederbeleben und ihr Betrag um 17.90 sinken.
+        long lara = insertUser("lara-sts-abo-fremd-aktiv@example.com", new BigDecimal("3000.00"));
+        insertRecurringExpense(lara, "NETFLIX", new BigDecimal("17.90"), "DETECTED");
+        insertExpense(lara, LocalDate.of(2026, 8, 3), "COOP BERN", new BigDecimal("300.00"));
+
+        long marc = insertUser("marc-sts-abo-fremd-aktiv@example.com", new BigDecimal("5000.00"));
+        insertExpense(marc, LocalDate.of(2026, 8, 2), "NETFLIX", new BigDecimal("17.90"));
+
+        // (3000.00 − 0 − 0 − 300.00) ÷ 3 = 900.00
+        assertThat(service.calculate(lara).amount()).isEqualByComparingTo("900.00");
     }
 
     // --- Mandantentrennung: Gegenprobe mit einem zweiten User im selben Monat ---

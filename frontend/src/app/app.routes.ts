@@ -41,8 +41,10 @@ export const routes: Routes = [
   {
     // FE-FC-05: die Abo-Übersicht ist ein Abschnitt auf /fixkosten. Der alte Pfad bleibt als
     // Umleitung, damit Bookmarks und ältere Links nicht im Catch-all aufs Dashboard landen.
-    // Guards braucht die Umleitung nicht — /fixkosten bringt seine eigenen mit.
+    // Guards braucht die Umleitung nicht — /fixkosten bringt seine eigenen mit. `pathMatch:
+    // 'full'`, weil ein Redirect sonst als Präfix greift und /abos/x nach /fixkosten/x schickte.
     path: 'abos',
+    pathMatch: 'full',
     redirectTo: 'fixkosten',
   },
   {

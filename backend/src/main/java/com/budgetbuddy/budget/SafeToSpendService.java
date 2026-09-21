@@ -15,7 +15,6 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,10 +27,11 @@ import org.springframework.transaction.annotation.Transactional;
  * <pre>{@code
  * amount = (monthly_income − Fixkosten (Monatssumme) − erkannte Abos − variable Ausgaben) ÷ weeksLeft
  *
- * erkannte Abos     = Σ Beträge der DETECTED-Abos ohne betragsgleiche Fixkosten-Position
+ * erkannte Abos     = je aktivem DETECTED-Abo ohne Fixkosten-Position im Toleranzband:
+ *                     die gestrichene Abbuchung, ohne Abbuchung der erkannte Betrag
  * variable Ausgaben = Belastungen des laufenden Monats
  *                     − je Fixkosten-Position eine betragsgleiche Belastung
- *                     − je erkanntem Abo (ohne Position) eine betragsgleiche Belastung
+ *                     − je erkanntem Abo (ohne Position) eine Belastung im Toleranzband
  * }</pre>
  *
  * <p><strong>Divisor.</strong> {@code weeksLeft} ist die aufgerundete Zahl der verbleibenden Wochen
@@ -89,15 +89,17 @@ import org.springframework.transaction.annotation.Transactional;
  * belastet. Ausgenommen ist sie nur aus <em>diesem</em> Summanden — dieselbe Trennung, die
  * {@code docs/prompts/02_01_mvp-requirements.md} als Auflösung von Risiko 2 vorgeschlagen hat.
  *
- * <p><strong>Erkannte Abos (FE-FC-05, US-08).</strong> Ein erkanntes, nicht verneintes Abo wirkt
- * wie eine Fixkosten-Position: sein Betrag geht auf der Fixkosten-Seite ab — von Monatsbeginn an,
- * nicht erst, wenn die Abbuchung im Auszug steht —, und der {@link FixedCostDebitMatcher} streicht
- * die Abbuchung aus dem Ausgaben-Summanden. Vorher zählte ein Abo nur als variable Ausgabe des
- * Monats, in dem es abging: bis dahin war der Safe-to-Spend um den Abo-Betrag zu hoch. Ein Abo,
- * das der User bereits als Position erfasst hat, zählt nicht doppelt — erkannt am gleichen Betrag
- * ({@link FixedCostDebitMatcher#uncoveredRecurringExpenses}); die Begründung steht dort und im
- * ADR-13-Nachtrag. Die Beträge kommen über {@link RecurringExpenseAmountPort} aus dem
- * recurring-Modul — nur Beträge, kein Empfänger.
+ * <p><strong>Erkannte Abos (FE-FC-05, US-08).</strong> Ein erkanntes, nicht verneintes und noch
+ * aktives Abo wirkt wie eine Fixkosten-Position: sein Betrag geht auf der Fixkosten-Seite ab —
+ * von Monatsbeginn an, nicht erst, wenn die Abbuchung im Auszug steht —, und der
+ * {@link FixedCostDebitMatcher} streicht die Abbuchung aus dem Ausgaben-Summanden. Vorher zählte
+ * ein Abo nur als variable Ausgabe des Monats, in dem es abging: bis dahin war der Safe-to-Spend
+ * um den Abo-Betrag zu hoch. Ein Abo, das der User bereits als Position erfasst hat, zählt nicht
+ * doppelt — erkannt am Betrag im Toleranzband; die Regel, die Toleranz und die Begründung stehen
+ * im Matcher und im ADR-13-Nachtrag. Die Beträge kommen über {@link RecurringExpenseAmountPort}
+ * aus dem recurring-Modul — nur Beträge, kein Empfänger, und nur Abos, die in den letzten
+ * Monaten noch abgebucht wurden: eine Zeile verfällt nie von selbst, und ein gekündigtes Abo darf
+ * nicht dauerhaft abgezogen werden (Review PR #345).
  *
  * <p>Sämtliche Beträge sind {@link BigDecimal} (ADR-9) — nie {@code double}/{@code float}.
  *
@@ -252,26 +254,19 @@ public class SafeToSpendService {
         FixedCostSummaryResponse fixedCostSummary = fixedCostService.list(userId);
         BigDecimal fixedCosts = fixedCostSummary.summeMonatlich();
 
-        // Erkannte Abos wirken wie Fixkosten-Positionen (FE-FC-05) — ohne die, die der User
-        // bereits als Position erfasst hat, erkannt am gleichen Betrag. Dieselbe Liste geht in
-        // beide Summanden: was hier abgezogen wird, streicht unten seine Abbuchung, und nur das.
-        List<BigDecimal> abos = FixedCostDebitMatcher.uncoveredRecurringExpenses(
-                recurringExpenseAmountPort.detectedAmounts(userId), fixedCostSummary.fixedCosts());
-        BigDecimal recurringExpenses = abos.stream()
-                .reduce(BigDecimal.ZERO.setScale(RAPPEN_SCALE), BigDecimal::add);
-
-        // Die per Dauerauftrag bezahlten Fixkosten und die Abbuchungen der Abos fallen aus dem
-        // Ausgaben-Summanden — sonst stünden sie in beiden und minderten den Betrag zweimal
-        // (BE-STS-04, ADR-13).
-        BigDecimal expenses = FixedCostDebitMatcher.variableExpenses(
+        // Die per Dauerauftrag bezahlten Fixkosten und die Abbuchungen der erkannten Abos fallen
+        // aus dem Ausgaben-Summanden — sonst stünden sie in beiden und minderten den Betrag
+        // zweimal (BE-STS-04, ADR-13). Die Abos (FE-FC-05) zählen dafür auf der Fixkosten-Seite,
+        // in der Höhe der gestrichenen Abbuchung; beides kommt aus einem Durchgang.
+        FixedCostDebitMatcher.Result matched = FixedCostDebitMatcher.match(
                 monthlyExpensePort.expenseAmounts(userId, month),
                 fixedCostSummary.fixedCosts(),
-                abos);
+                recurringExpenseAmountPort.detectedAmounts(userId, month));
 
         BigDecimal verfuegbar = monthlyIncome.get()
                 .subtract(fixedCosts)
-                .subtract(recurringExpenses)
-                .subtract(expenses);
+                .subtract(matched.recurringExpenses())
+                .subtract(matched.variableExpenses());
         // HALF_UP wie in FixedCostService: die Skala-2-Rundung ist damit im ganzen budget-Modul
         // dieselbe. Der Divisor ist ein int und nie 0 — siehe weeksLeft(...).
         BigDecimal amount = verfuegbar.divide(

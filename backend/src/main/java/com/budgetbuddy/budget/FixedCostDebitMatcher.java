@@ -2,9 +2,11 @@ package com.budgetbuddy.budget;
 
 import com.budgetbuddy.budget.dto.FixedCostResponse;
 import com.budgetbuddy.money.ChfAmounts;
+import com.budgetbuddy.recurring.RecurringExpenseAmountPort;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,11 +19,12 @@ import java.util.Map;
  * <em>und</em> die Ausgaben des laufenden Monats. Eine Miete, die per Dauerauftrag abgeht, steht
  * nach dem PDF-Import in beiden Summanden und mindert den Safe-to-Spend zweimal.
  *
- * <p><strong>Die Regel.</strong> Je Fixkosten-Position wird höchstens <em>eine</em> betragsgleiche
- * Belastung des Monats aus dem Summanden gestrichen; die Fixkosten-Seite bleibt unverändert. Die
- * Position mindert den Betrag damit genau einmal. Das Matching ist eine
+ * <p><strong>Die Regel für Fixkosten-Positionen.</strong> Je Position wird höchstens <em>eine</em>
+ * betragsgleiche Belastung des Monats aus dem Summanden gestrichen; die Fixkosten-Seite bleibt
+ * unverändert. Die Position mindert den Betrag damit genau einmal. Das Matching ist eine
  * <strong>Multiset-Schnittmenge</strong>: zwei Positionen zu je 59.00 streichen zwei Belastungen
- * über 59.00, eine einzelne Position niemals zwei.
+ * über 59.00, eine einzelne Position niemals zwei. Verglichen wird <em>rappengenau</em>: ein
+ * Dauerauftrag geht immer gleich ab, und eine Toleranz vergrösserte nur das Falsch-Positiv-Risiko.
  *
  * <p><strong>Verglichen wird gegen {@link FixedCostResponse#betrag()}, nicht gegen
  * {@link FixedCostResponse#monatsbetrag()}</strong> — gegen die tatsächliche Abbuchung also, nicht
@@ -30,20 +33,34 @@ import java.util.Map;
  * Fixkosten-Seite in jedem der zwölf Monate 100 stehen. Über das Jahr ergibt das exakt 1'200. Bei
  * {@code monatlich} sind beide Werte ohnehin identisch.
  *
- * <p><strong>Erkannte Abos (FE-FC-05).</strong> Ein erkanntes, nicht verneintes Abo (US-08) ist
- * eine bekannte Verpflichtung wie eine Fixkosten-Position: es mindert den Safe-to-Spend von
- * Monatsbeginn an — nicht erst, wenn seine Abbuchung im Auszug steht — und seine Abbuchung fällt
- * mit derselben Regel aus dem Ausgaben-Summanden. Die Abos gehen deshalb in dasselbe Multiset wie
- * die Fixkosten-Positionen, je Abo höchstens eine Belastung.
+ * <p><strong>Die Regel für erkannte Abos (FE-FC-05).</strong> Ein erkanntes, nicht verneintes Abo
+ * (US-08) ist eine bekannte Verpflichtung wie eine Fixkosten-Position: es mindert den
+ * Safe-to-Spend von Monatsbeginn an — nicht erst, wenn seine Abbuchung im Auszug steht —, und
+ * seine Abbuchung fällt aus dem Ausgaben-Summanden. Zwei Dinge sind anders als bei den Positionen,
+ * beide aus demselben Grund: der gelieferte Abo-Betrag ist eine <em>Momentaufnahme</em> der
+ * Erkennung, die ±{@value RecurringExpenseAmountPort#TOLERANCE_PERCENT}&nbsp;% Abweichung
+ * zwischen den Monaten zulässt und die Zeile danach nie aktualisiert
+ * ({@link RecurringExpenseAmountPort}).
  *
- * <p>Ein Abo, das der User <em>zusätzlich</em> als Fixkosten-Position erfasst hat — Handy, Krankenkasse,
- * Streaming sind die typischen Fälle, die sowohl im Wizard eingetragen als auch aus dem Auszug
- * erkannt werden —, darf nicht zweimal zählen. Woran das System die Überschneidung erkennt, ist
- * dieselbe Frage wie in ADR-13, und die Antwort ist dieselbe: der Betrag. {@link
- * #uncoveredRecurringExpenses} bildet die Multiset-Differenz der Abo-Beträge gegen die
- * Fixkosten-Beträge; nur der Rest wirkt zusätzlich. Ein Abo über 59.00 neben einer Position über
- * 59.00 ist damit «bereits erfasst» — die Position zählt, das Abo nicht. Zwei Abos über 59.00 neben
- * einer Position über 59.00 lassen eines zusätzlich stehen.
+ * <ul>
+ *   <li><strong>Gestrichen wird mit der Toleranz der Erkennung</strong>
+ *       ({@link RecurringExpenseAmountPort#withinTolerance}), nicht rappengenau. Ein Handy-Abo,
+ *       erkannt mit 59.00 und diesen Monat mit 59.90 abgebucht, ist genau die Klasse von Abos,
+ *       für die die Toleranz existiert; rappengenau bliebe die Abbuchung als variable Ausgabe
+ *       stehen und das Abo zählte doppelt (Review PR #345). Trifft mehr als eine Belastung ins
+ *       Band, nimmt das Abo die nächstliegende.
+ *   <li><strong>Auf der Fixkosten-Seite zählt der gestrichene Betrag</strong>, nicht der
+ *       gelieferte: wurde 59.90 gestrichen, wird 59.90 abgezogen. Nur ohne Abbuchung im Monat —
+ *       das Abo ist noch nicht fällig — zählt der gelieferte Betrag als Erwartung.
+ * </ul>
+ *
+ * <p><strong>Ein Abo, das der User zusätzlich als Fixkosten-Position erfasst hat</strong> — Handy,
+ * Krankenkasse, Streaming sind die typischen Fälle, die sowohl im Wizard eingetragen als auch aus
+ * dem Auszug erkannt werden —, darf nicht zweimal zählen. Woran das System die Überschneidung
+ * erkennt, ist dieselbe Frage wie in ADR-13, und die Antwort ist dieselbe: der Betrag, hier mit
+ * derselben Toleranz, weil der Wizard-Betrag gerundet sein kann («Krankenkasse 350», real
+ * 351.20). Je Position wird höchstens ein Abo als abgedeckt gewertet — die Position zählt, das
+ * Abo nicht. Zwei Abos über 59.00 neben einer Position über 59.00 lassen eines zusätzlich stehen.
  *
  * <p><strong>Warum der Betrag und nicht der Empfänger.</strong> Ein Dauerauftrag trägt in
  * {@code transactions.buchungstext} nur den Buchungs<em>typ</em> — bei Post-Auszügen etwa
@@ -57,9 +74,15 @@ import java.util.Map;
  * Fixkosten-Position trifft, wird mitgestrichen; der Safe-to-Spend fällt dann um diesen Betrag zu
  * hoch aus. Der Fehler ist auf eine Position begrenzt und tritt nur bei rappengenauer Gleichheit
  * auf. Der heutige Zustand ohne Matching ist systematisch falsch — um die volle Fixkosten-Summe und
- * in jedem Monat. ADR-13 wägt das gegeneinander ab. Die Abo-Deduplizierung hat dieselbe
- * Fehlerrichtung: ein Abo, das nur zufällig den Betrag einer fremden Fixkosten-Position trifft,
- * zählt nicht — der Safe-to-Spend ist um diesen Betrag zu hoch.
+ * in jedem Monat. ADR-13 wägt das gegeneinander ab. Bei den Abos ist das Band breiter (±2 %),
+ * die Fehlerrichtung dieselbe: eine fremde Ausgabe im Band eines Abos wird als dessen Abbuchung
+ * gewertet, und ein fremdes Abo im Band einer Position gilt als abgedeckt — beides macht den
+ * Safe-to-Spend um den Betrag zu hoch. Die Gegenrichtung — Abbuchung ausserhalb des Bands, etwa
+ * nach einem Preissprung — zählt doppelt, bis die Erkennung die Zeile neu bewertet (BE-REC-04).
+ *
+ * <p><strong>Deterministisch.</strong> Abos werden aufsteigend nach Betrag verarbeitet, Belastungen
+ * aufsteigend durchsucht: welches Abo welche Belastung nimmt, hängt damit nicht an der
+ * Zeilenreihenfolge zweier Queries, die keine Zusage tragen.
  *
  * <p>Sämtliche Beträge sind {@link BigDecimal} (ADR-9) — nie {@code double}/{@code float}.
  *
@@ -76,102 +99,108 @@ final class FixedCostDebitMatcher {
     }
 
     /**
-     * Die erkannten Abos, die <em>nicht</em> bereits als Fixkosten-Position erfasst sind
-     * (FE-FC-05) — Multiset-Differenz der Abo-Beträge gegen {@link FixedCostResponse#betrag()}.
+     * Die beiden Summanden, die aus der Zuordnung hervorgehen — zusammen, weil sie aus
+     * <em>einem</em> Durchgang stammen und nur zusammen stimmen: was hier als Abo abgezogen wird,
+     * ist genau das, was dort aus den Belastungen gestrichen wurde.
      *
-     * <p>Das Ergebnis ist die Liste, die auf der Fixkosten-Seite zusätzlich zur Monatssumme
-     * abgezogen wird <em>und</em> die {@link #variableExpenses} als {@code abos} bekommt. Beide
-     * Stellen müssen dieselbe Menge sehen — sonst würde ein abgedecktes Abo zwar nicht abgezogen,
-     * seine Abbuchung aber trotzdem ein zweites Mal gestrichen.
-     *
-     * @param abos Beträge der erkannten, nicht verneinten Abos des Users.
-     * @param fixkosten Fixkosten-Positionen des Users — verglichen wird
-     *     {@link FixedCostResponse#betrag()}.
-     * @return die Beträge der Abos ohne betragsgleiche Position, auf Rappen normalisiert; leer,
-     *     wenn es keine Abos gibt oder jedes von einer Position abgedeckt ist. Die Reihenfolge
-     *     ist die der Eingabe.
+     * @param variableExpenses Summe der verbleibenden Belastungen in CHF, Skala 2; {@code 0.00},
+     *     wenn nichts übrig bleibt. Nie negativ — es wird gestrichen, nicht subtrahiert.
+     * @param recurringExpenses Summe der Abo-Verpflichtungen in CHF, Skala 2 — je nicht
+     *     abgedecktem Abo der gestrichene Betrag, ohne Abbuchung der gelieferte; {@code 0.00}
+     *     ohne Abos.
      */
-    static List<BigDecimal> uncoveredRecurringExpenses(
-            List<BigDecimal> abos, List<FixedCostResponse> fixkosten) {
-        Map<BigDecimal, Integer> erfasst = new HashMap<>();
-        for (FixedCostResponse position : fixkosten) {
-            erfasst.merge(rappen(position.betrag()), 1, Integer::sum);
-        }
-
-        List<BigDecimal> uncovered = new ArrayList<>();
-        for (BigDecimal abo : abos) {
-            BigDecimal schluessel = rappen(abo);
-            if (!consume(erfasst, schluessel)) {
-                uncovered.add(schluessel);
-            }
-        }
-        return List.copyOf(uncovered);
-    }
+    record Result(BigDecimal variableExpenses, BigDecimal recurringExpenses) {}
 
     /**
-     * Summiert die Belastungen des Monats <em>ohne</em> die als Fixkosten- oder Abo-Zahlung
-     * erkannten.
+     * Ordnet die Belastungen des Monats den Fixkosten-Positionen und den erkannten Abos zu.
      *
      * @param belastungen Beträge aller Belastungen des Monats, jeder Wert positiv. Die Reihenfolge
-     *     ist unerheblich: gestrichen wird über Betragsgleichheit, nicht über Position.
+     *     ist unerheblich.
      * @param fixkosten Fixkosten-Positionen des Users — verglichen wird
      *     {@link FixedCostResponse#betrag()}.
-     * @param abos Beträge der erkannten Abos, die nicht bereits als Position erfasst sind — das
-     *     Ergebnis von {@link #uncoveredRecurringExpenses}, nie die rohe Liste vom Port. Je Abo
-     *     wird höchstens eine betragsgleiche Belastung gestrichen.
-     * @return Summe der verbleibenden Belastungen in CHF, Skala 2; {@code 0.00}, wenn nichts übrig
-     *     bleibt oder die Liste leer war. Nie negativ — es wird gestrichen, nicht subtrahiert.
+     * @param abos Beträge der erkannten, nicht verneinten und aktiven Abos, wie
+     *     {@link RecurringExpenseAmountPort#detectedAmounts} sie liefert.
+     * @return beide Summanden, siehe {@link Result}.
      */
-    static BigDecimal variableExpenses(
+    static Result match(
             List<BigDecimal> belastungen, List<FixedCostResponse> fixkosten, List<BigDecimal> abos) {
-        BigDecimal summe = BigDecimal.ZERO.setScale(RAPPEN_SCALE);
-        if (belastungen.isEmpty()) {
-            return summe;
-        }
+        List<BigDecimal> offen = new ArrayList<>(belastungen.stream().map(FixedCostDebitMatcher::rappen)
+                .sorted().toList());
+        List<BigDecimal> positionen = fixkosten.stream()
+                .map(position -> rappen(position.betrag())).sorted().toList();
 
-        // Offene Streichungen als Multiset: Betrag → wie viele Belastungen dieser Höhe noch
-        // gestrichen werden dürfen. Der Schlüssel ist der auf Rappen normalisierte Betrag —
-        // BigDecimal.equals() unterscheidet sonst 1200 (Skala 0) von 1200.00 (Skala 2), und die
-        // Seiten kommen aus verschiedenen Schreibpfaden. Fixkosten und Abos landen im selben
-        // Multiset: für die Streichung ist gleichgültig, woher die Verpflichtung stammt.
-        Map<BigDecimal, Integer> offen = new HashMap<>();
-        for (FixedCostResponse position : fixkosten) {
-            offen.merge(rappen(position.betrag()), 1, Integer::sum);
-        }
-        for (BigDecimal abo : abos) {
-            offen.merge(rappen(abo), 1, Integer::sum);
-        }
+        strikeFixedCostDebits(offen, positionen);
 
-        for (BigDecimal belastung : belastungen) {
-            BigDecimal schluessel = rappen(belastung);
-            if (consume(offen, schluessel)) {
-                // Treffer: diese Belastung ist die Zahlung einer Position und fällt aus dem
-                // Summanden. Der Zähler ist gesunken, damit dieselbe Position nicht ein zweites
-                // Mal streicht.
+        BigDecimal recurringExpenses = BigDecimal.ZERO.setScale(RAPPEN_SCALE);
+        List<BigDecimal> unbelegtePositionen = new ArrayList<>(positionen);
+        for (BigDecimal abo : abos.stream().map(FixedCostDebitMatcher::rappen).sorted().toList()) {
+            // Bereits als Position erfasst? Dann zählt die Position (Monatssumme) und nicht das
+            // Abo — und die Abbuchung hat die Position oben schon gestrichen, falls sie
+            // rappengenau war.
+            if (takeClosestWithinTolerance(unbelegtePositionen, abo) != null) {
                 continue;
             }
-            summe = summe.add(schluessel);
+            BigDecimal abbuchung = takeClosestWithinTolerance(offen, abo);
+            recurringExpenses = recurringExpenses.add(abbuchung != null ? abbuchung : abo);
         }
-        return summe;
+
+        BigDecimal variableExpenses = BigDecimal.ZERO.setScale(RAPPEN_SCALE);
+        for (BigDecimal belastung : offen) {
+            variableExpenses = variableExpenses.add(belastung);
+        }
+        return new Result(variableExpenses, recurringExpenses);
     }
 
     /**
-     * Verbraucht einen Eintrag des Multisets, falls einer für {@code schluessel} offen ist.
+     * Streicht je Position höchstens eine rappengenau gleiche Belastung (ADR-13).
      *
-     * @return {@code true}, wenn ein Eintrag verbraucht wurde; {@code false}, wenn für diesen
-     *     Betrag nichts (mehr) offen war.
+     * <p>Offene Streichungen als Multiset: Betrag → wie viele Belastungen dieser Höhe noch
+     * gestrichen werden dürfen. Der Schlüssel ist der auf Rappen normalisierte Betrag —
+     * {@code BigDecimal.equals()} unterscheidet sonst 1200 (Skala 0) von 1200.00 (Skala 2), und
+     * die Seiten kommen aus verschiedenen Schreibpfaden.
      */
-    private static boolean consume(Map<BigDecimal, Integer> multiset, BigDecimal schluessel) {
-        Integer verbleibend = multiset.get(schluessel);
-        if (verbleibend == null) {
-            return false;
+    private static void strikeFixedCostDebits(List<BigDecimal> offen, List<BigDecimal> positionen) {
+        Map<BigDecimal, Integer> streichungen = new HashMap<>();
+        for (BigDecimal position : positionen) {
+            streichungen.merge(position, 1, Integer::sum);
         }
-        if (verbleibend == 1) {
-            multiset.remove(schluessel);
-        } else {
-            multiset.put(schluessel, verbleibend - 1);
+        offen.removeIf(belastung -> {
+            Integer verbleibend = streichungen.get(belastung);
+            if (verbleibend == null) {
+                return false;
+            }
+            // Treffer: diese Belastung ist die Zahlung einer Position und fällt aus dem
+            // Summanden. Der Zähler sinkt, damit dieselbe Position nicht ein zweites Mal streicht.
+            if (verbleibend == 1) {
+                streichungen.remove(belastung);
+            } else {
+                streichungen.put(belastung, verbleibend - 1);
+            }
+            return true;
+        });
+    }
+
+    /**
+     * Entnimmt aus {@code kandidaten} den Betrag, der {@code referenz} am nächsten liegt und
+     * innerhalb der Abo-Toleranz ist — oder {@code null}, wenn keiner im Band liegt. Bei
+     * Gleichstand der Abstände gewinnt der kleinere Betrag, weil die Liste aufsteigend sortiert
+     * ist und ein späterer Kandidat nur bei echt kleinerem Abstand übernimmt.
+     */
+    private static BigDecimal takeClosestWithinTolerance(List<BigDecimal> kandidaten, BigDecimal referenz) {
+        int bester = -1;
+        BigDecimal besterAbstand = null;
+        for (int i = 0; i < kandidaten.size(); i++) {
+            BigDecimal kandidat = kandidaten.get(i);
+            if (!RecurringExpenseAmountPort.withinTolerance(referenz, kandidat)) {
+                continue;
+            }
+            BigDecimal abstand = kandidat.subtract(referenz).abs();
+            if (besterAbstand == null || abstand.compareTo(besterAbstand) < 0) {
+                bester = i;
+                besterAbstand = abstand;
+            }
         }
-        return true;
+        return bester < 0 ? null : kandidaten.remove(bester);
     }
 
     /**
@@ -179,8 +208,8 @@ final class FixedCostDebitMatcher {
      *
      * <p>Alle Seiten liefern heute bereits Skala 2 — {@code FixedCostService.toResponse(...)},
      * {@link com.budgetbuddy.transaction.MonthlyExpensePort#expenseAmounts(long, java.time.YearMonth)}
-     * und {@link com.budgetbuddy.recurring.RecurringExpenseAmountPort#detectedAmounts(long)} sagen
-     * sie zu. Die Normalisierung hier verlässt sich nicht darauf: {@link BigDecimal#equals}
+     * und {@link RecurringExpenseAmountPort#detectedAmounts(long, java.time.YearMonth)} sagen sie
+     * zu. Die Normalisierung hier verlässt sich nicht darauf: {@link BigDecimal#equals}
      * unterscheidet {@code 1200} (Skala 0) von {@code 1200.00} (Skala 2), und ein Vergleich, der an
      * der Skala einer anderen Klasse hängt, bricht lautlos, wenn dort etwas geändert wird. Ein
      * stiller Fehltreffer ist hier teurer als eine redundante Zeile.

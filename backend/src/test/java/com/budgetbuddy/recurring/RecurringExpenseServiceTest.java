@@ -437,29 +437,66 @@ class RecurringExpenseServiceTest {
 
     // --- FE-FC-05: detectedAmounts() für den Safe-to-Spend ---
 
+    private static final YearMonth AUGUST = YearMonth.of(2026, 8);
+
+    /** Belastungen im Aktivitätsfenster Jun–Aug 2026, wie der gefensterte Port sie liefert. */
+    private void windowHistory(ExpenseEntry... entries) {
+        when(expenseHistoryPort.expenseHistory(USER_ID, YearMonth.of(2026, 6), AUGUST))
+                .thenReturn(List.of(entries));
+    }
+
     /**
-     * Nur die Beträge, nur {@code DETECTED}: der Port fragt das Repository mit dem Status ab und
-     * reicht keine Entities weiter. Dass verneinte Einträge nicht mitkommen, belegt die
-     * Repository-Query selbst — über echte Daten im {@code SafeToSpendServiceIntegrationTest}.
+     * Nur die Beträge, nur {@code DETECTED}, nur aktiv: der Port fragt das Repository mit dem
+     * Status ab, prüft die Empfänger gegen das Fenster {@code [month − 2, month]} und reicht keine
+     * Entities weiter. Dass verneinte Einträge nicht mitkommen, belegt die Repository-Query
+     * selbst — über echte Daten im {@code SafeToSpendServiceIntegrationTest}.
      */
     @Test
-    void detectedAmountsReturnsTheAmountsOfDetectedEntriesOnly() {
+    void detectedAmountsReturnsTheAmountsOfActiveDetectedEntriesOnly() {
         when(repository.findByUserIdAndStatus(USER_ID, RecurringExpenseStatus.DETECTED))
                 .thenReturn(List.of(withId(NETFLIX, "20.90", 200L), withId("SWISSCOM", "59.00", 201L)));
+        // Netflix zuletzt im Juli (im Fenster), Swisscom nur ausserhalb — die Historie im Fenster
+        // kennt Swisscom nicht.
+        windowHistory(entry(NETFLIX, "20.90", 2026, 7));
 
-        List<BigDecimal> result = service.detectedAmounts(USER_ID);
+        List<BigDecimal> result = service.detectedAmounts(USER_ID, AUGUST);
 
-        assertThat(result).containsExactly(new BigDecimal("20.90"), new BigDecimal("59.00"));
+        assertThat(result).containsExactly(new BigDecimal("20.90"));
         verify(repository).findByUserIdAndStatus(USER_ID, RecurringExpenseStatus.DETECTED);
         verify(repository, never()).findByUserIdAndStatus(USER_ID, RecurringExpenseStatus.DISMISSED);
+        verify(expenseHistoryPort).expenseHistory(USER_ID, YearMonth.of(2026, 6), AUGUST);
+    }
+
+    // Review PR #345: eine Zeile verfällt nie von selbst — ein gekündigtes Abo darf nicht
+    // dauerhaft abgezogen werden. Ohne Abbuchung im Fenster gilt es als beendet.
+    @Test
+    void detectedAmountsDropsAnEntryWithoutADebitInTheWindow() {
+        when(repository.findByUserIdAndStatus(USER_ID, RecurringExpenseStatus.DETECTED))
+                .thenReturn(List.of(withId(NETFLIX, "20.90", 200L)));
+        windowHistory(entry("COOP", "45.60", 2026, 8));
+
+        assertThat(service.detectedAmounts(USER_ID, AUGUST)).isEmpty();
+    }
+
+    // Aktiv heisst «hat im Fenster abgebucht», unabhängig vom Betrag: ob die Abbuchung die des
+    // Abos ist, entscheidet der Aufrufer mit der Toleranz. Und der Schlüssel wird wie beim
+    // Schreiben in Grossschreibung verglichen.
+    @Test
+    void detectedAmountsMatchesPayeesCaseInsensitivelyAndRegardlessOfAmount() {
+        when(repository.findByUserIdAndStatus(USER_ID, RecurringExpenseStatus.DETECTED))
+                .thenReturn(List.of(withId(NETFLIX, "20.90", 200L)));
+        windowHistory(entry(NETFLIX.toLowerCase(java.util.Locale.ROOT), "21.20", 2026, 6));
+
+        assertThat(service.detectedAmounts(USER_ID, AUGUST)).containsExactly(new BigDecimal("20.90"));
     }
 
     @Test
-    void detectedAmountsIsEmptyForAUserWithoutDetectedEntries() {
+    void detectedAmountsLoadsNoHistoryForAUserWithoutDetectedEntries() {
         when(repository.findByUserIdAndStatus(USER_ID, RecurringExpenseStatus.DETECTED))
                 .thenReturn(List.of());
 
-        assertThat(service.detectedAmounts(USER_ID)).isEmpty();
+        assertThat(service.detectedAmounts(USER_ID, AUGUST)).isEmpty();
+        verify(expenseHistoryPort, never()).expenseHistory(anyLong(), any(), any());
     }
 
     // --- BE-REC-02: dismiss() ---

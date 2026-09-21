@@ -46,4 +46,19 @@ public interface ExpenseHistoryPort {
      *     Reihenfolge trägt keine Zusage.
      */
     List<ExpenseEntry> expenseHistory(long userId);
+
+    /**
+     * Wie {@link #expenseHistory(long)}, aber auf das Fenster {@code [from, to]} begrenzt — beide
+     * Monate inklusive. Für die Aktivitätsprüfung der Abos im Safe-to-Spend
+     * ({@code RecurringExpenseAmountPort.detectedAmounts}, FE-FC-05): dort zählt nur, ob ein
+     * Empfänger in den jüngsten Monaten noch abgebucht hat, und der Dashboard-Pfad soll dafür
+     * nicht die ganze Historie laden. Die Erkennung selbst bleibt beim ungefensterten Aufruf.
+     *
+     * @param userId ID des eingeloggten Users.
+     * @param from erster Monat des Fensters.
+     * @param to letzter Monat des Fensters.
+     * @return je Belastung im Fenster ein Eintrag; leere Liste, wenn keine vorliegt. Die
+     *     Reihenfolge trägt keine Zusage.
+     */
+    List<ExpenseEntry> expenseHistory(long userId, YearMonth from, YearMonth to);
 }

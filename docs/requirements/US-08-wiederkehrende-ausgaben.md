@@ -8,7 +8,7 @@
 
 ## Acceptance Criteria
 
-> Die Abo-Übersicht ist seit FE-FC-05 ([#338](https://github.com/dfme/budget-buddy/issues/338)) der Abschnitt «Erkannte Abos» auf `/fixkosten`, keine eigene Seite mehr; `/abos` leitet dorthin um. Erkannte, nicht verneinte Abos fliessen seither wie Fixkosten in den Safe-to-Spend ein ([US-06](US-06-safe-to-spend.md)).
+> Die Abo-Übersicht ist seit FE-FC-05 ([#338](https://github.com/dfme/budget-buddy/issues/338)) der Abschnitt «Erkannte Abos» auf `/fixkosten`, keine eigene Seite mehr; `/abos` leitet dorthin um. Erkannte, nicht verneinte Abos fliessen seither wie Fixkosten in den Safe-to-Spend ein, solange sie abgebucht werden ([US-06](US-06-safe-to-spend.md)).
 
 **Given** importierte Transaktionen, **When** ich die Abo-Übersicht öffne, **Then** werden alle Transaktionen gruppiert angezeigt, die vom selben Empfänger in mindestens 2 aufeinanderfolgenden Monaten mit demselben Betrag (Toleranz ±2%) verbucht wurden.
 

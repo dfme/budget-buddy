@@ -108,7 +108,7 @@ backend/
         ├── categorization/ (CategorizationService, LookupTable, CategorizationPort)
         ├── budget/         (BudgetController, SafeToSpendService, SavingsGoalService)
         ├── notification/   (NotificationController, NotificationService, NotificationPort — In-App-Benachrichtigungen)
-        ├── recurring/      (RecurringExpenseService, RecurringExpenseDetectionPort — Abo-Erkennung, US-08)
+        ├── recurring/      (RecurringExpenseService, RecurringExpenseDetectionPort, RecurringExpenseAmountPort — Abo-Erkennung, US-08; Abo-Beträge für den Safe-to-Spend)
         ├── report/         (ReportController, AiReportService)
         ├── config/         (SecurityConfig, ClockConfig, OpenApiConfig — Spring-Verdrahtung)
         └── money/          (ChfAmounts — geteilte CHF-Betragsregel, ADR-9-Nachtrag)
