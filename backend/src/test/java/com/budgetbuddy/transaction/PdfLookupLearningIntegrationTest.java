@@ -33,10 +33,16 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
  *
  * <p>Dieselbe Fixture und dieselbe Bündelung wie in {@link PdfLookupCoverageIntegrationTest},
  * aber in einer eigenen Datenbank: Hier lernt die Tabelle absichtlich, und die 144er-Quote dort
- * hängt an den unveränderten Seeds. Der Claude-Mock antwortet nur für die drei Gegenparteien mit
- * Monatsmitteilung (Miete, Lohn, Steuerrückerstattung) mit einer echten Kategorie — für alles
- * andere mit {@code Sonstiges}, das nach BE-CAT-11 nicht gelernt wird. So bleibt die Messung auf
- * genau die Zeilen beschränkt, um die es in BE-CAT-13 geht.
+ * hängt an den unveränderten Seeds. Der Claude-Mock antwortet nur für die zwei Gegenparteien mit
+ * Monatsmitteilung, die Claude überhaupt erreichen (Miete, Lohn), mit einer echten Kategorie — für
+ * alles andere mit {@code Sonstiges}, das nach BE-CAT-11 nicht gelernt wird. So bleibt die Messung
+ * auf genau die Zeilen beschränkt, um die es in BE-CAT-13 geht.
+ *
+ * <p>Die dritte Gegenpartei mit Monatsmitteilung, die Steuerrückerstattung ({@code STEUERVERWALTUNG
+ * KT. BERN}), zählt seit V15 (BE-CAT-17) nicht mehr: {@code STEUERVERWALTUNG} ist dort ein globaler
+ * Seed, Stufe 1 fängt sie ab, und was Claude nie sieht, wird auch nicht gelernt. Der Test hält das
+ * ausdrücklich fest, damit ein Rückbau des Seeds hier sichtbar würde — und nicht als stiller Anstieg
+ * der gelernten Zeilen durchginge.
  *
  * <p><strong>Warum schon der erste Import zählt.</strong> Der {@code ImportJobRunner} lernt pro
  * Bündel. Die Januar-Miete steht im ersten Bündel; ab dem zweiten trifft {@code GIRO POST MUSTER
@@ -52,6 +58,9 @@ class PdfLookupLearningIntegrationTest {
 
     /** Die zwölf Mieten, das AC-Beispiel aus #321. */
     private static final String RENT = "MUSTER IMMOBILIEN AG MIETE";
+
+    /** Die drei Steuerrückerstattungen — seit V15 ein Seed-Treffer, kein Claude-Fall mehr. */
+    private static final String TAX_REFUND = "STEUERVERWALTUNG";
 
     @DynamicPropertySource
     static void datasourceProperties(DynamicPropertyRegistry registry) {
@@ -94,7 +103,7 @@ class PdfLookupLearningIntegrationTest {
         if (text.contains("IMMOBILIEN")) {
             return Category.WOHNEN;
         }
-        if (text.contains("CONSULTING") || text.contains("STEUERVERWALTUNG")) {
+        if (text.contains("CONSULTING")) {
             return Category.EINKOMMEN;
         }
         return Category.SONSTIGES;
@@ -107,8 +116,10 @@ class PdfLookupLearningIntegrationTest {
         assertThat(texts).filteredOn(t -> t.contains(RENT)).hasSize(12);
 
         // Erster Import: Claude sieht die Miete genau einmal — Bündel 1 lernt, Bündel 2–12 treffen.
+        // Die Steuerrückerstattung sieht Claude gar nicht: Seit V15 fängt der Seed sie in Stufe 1 ab.
         List<Optional<CategorizationResult>> first = importInBatches(texts);
         assertThat(sentToClaude).filteredOn(t -> t.contains(RENT)).hasSize(1);
+        assertThat(sentToClaude).noneMatch(t -> t.contains(TAX_REFUND));
         assertThat(first).hasSize(240);
 
         // Zweiter Import desselben Auszugs (AC 1): keine Miete mehr bei Claude, alle zwölf aus
@@ -124,9 +135,11 @@ class PdfLookupLearningIntegrationTest {
             }
         }
 
-        // AC 2: eine Zeile je Gegenpartei — Miete, Lohn, Steuerrückerstattung —, und der zweite
-        // Import hat keine einzige hinzugefügt.
-        assertThat(countLookupRows()).isEqualTo(rowsBefore + 3);
+        // AC 2: eine Zeile je Gegenpartei, die Claude erreicht hat — Miete, Lohn —, und der zweite
+        // Import hat keine einzige hinzugefügt. Die Steuerrückerstattung fehlt bewusst: Ein
+        // Seed-Treffer aus Stufe 1 wird nicht gelernt (siehe Klassen-Javadoc).
+        assertThat(countLookupRows()).isEqualTo(rowsBefore + 2);
+        assertThat(countLookupRowsContaining(TAX_REFUND)).isZero();
         assertThat(countLookupRowsContaining(RENT)).isEqualTo(1);
         assertThat(jdbcTemplate.queryForObject(
                         "SELECT empfaenger_pattern FROM user_category_lookup "
