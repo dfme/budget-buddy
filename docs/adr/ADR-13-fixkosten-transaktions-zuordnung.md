@@ -183,6 +183,103 @@ Etwa «Wohnen» und «Versicherung» gar nicht als variable Ausgaben zählen.
 variable Ausgaben verschlucken und den Safe-to-Spend unbegrenzt zu hoch ausweisen — ohne jede
 Obergrenze, anders als beim betragsbasierten Matching.
 
+## Nachtrag FE-FC-05 (#338): Erkannte Abos wirken wie Fixkosten-Positionen
+
+**Datum:** 2026-09-21 (Review-Runde PR #345 eingearbeitet)
+
+Seit US-08 erkennt das System wiederkehrende Ausgaben (`recurring_expenses`, Status `DETECTED`
+oder `DISMISSED`). Bis FE-FC-05 zählte ein erkanntes Abo im Safe-to-Spend nur als variable
+Ausgabe des Monats, in dem seine Abbuchung lag: vor der Abbuchung war der Betrag um das Abo zu
+hoch, danach stimmte er. Eine Fixkosten-Position dagegen mindert den Betrag von Monatsbeginn an.
+
+**Entscheid:** Erkannte, nicht verneinte, noch aktive Abos gehen denselben Weg wie
+Fixkosten-Positionen:
+
+```
+fixedCosts = Σ monatsbetrag aller Positionen
+           + Σ je Abo ohne Position im Toleranzband:
+               die gestrichene Abbuchung, ohne Abbuchung der erkannte Betrag
+expenses   = Σ Belastungen des Monats
+             − je Position eine rappengenau gleiche Belastung
+             − je Abo (ohne Position) eine Belastung im Toleranzband
+```
+
+### Was ein Abo-Betrag ist — und warum die Regeln davon abhängen
+
+`recurring_expenses.amount` ist eine **Momentaufnahme**: der Betrag des jüngsten qualifizierenden
+Monatspaars zum Zeitpunkt der Erkennung. Die Zeile wird danach nie aktualisiert — `detect()`
+überspringt bekannte Empfänger (BE-REC-01) — und verfällt nie von selbst; ausser `dismiss` gibt
+es keinen Schreibzugriff. Die Erkennung lässt zwischen zwei Monaten **±2 %** Abweichung zu.
+Beides war folgenlos, solange die Zeile nur in einer Liste stand. Mit FE-FC-05 wird sie zum
+finanziellen Eingabewert, und beide Eigenschaften müssen mitgedacht sein (Review PR #345). Vier
+Festlegungen kommen zu den bestehenden dazu:
+
+**4. Abos werden mit der Toleranz der Erkennung gestrichen, Positionen rappengenau.** Ein
+Handy-Abo, erkannt mit 59.00 und diesen Monat mit 59.90 abgebucht, ist genau die Klasse von
+Abos, für die die Toleranz existiert (Verbrauchsanteil, Prämienanpassung). Rappengenau bliebe
+59.90 als variable Ausgabe stehen *und* 59.00 zählte auf der Fixkosten-Seite — 59.00 zu viel, in
+jedem Monat mit abweichendem Betrag. Die Regel ist eine einzige:
+`RecurringExpenseAmountPort.withinTolerance`, von Erkennung und Matcher gleichermassen benutzt.
+Für Positionen bleibt es bei rappengenau (Festlegung 1): ein Dauerauftrag geht immer gleich ab.
+Trifft mehr als eine Belastung ins Band, nimmt das Abo die nächstliegende.
+
+**5. Auf der Fixkosten-Seite zählt der gestrichene Betrag.** Wurde 59.90 gestrichen, werden
+59.90 abgezogen — nicht die erkannten 59.00. Nur ohne Abbuchung im Monat zählt der erkannte
+Betrag als Erwartung. Damit zählt die Abbuchung exakt einmal, in ihrer tatsächlichen Höhe.
+`FixedCostDebitMatcher.match` liefert deshalb beide Summanden aus *einem* Durchgang.
+
+**6. Ein Abo im Toleranzband einer Position gilt als bereits erfasst.** Handy, Krankenkasse,
+Streaming werden typischerweise sowohl im Wizard eingetragen als auch aus dem Auszug erkannt —
+und der Wizard-Betrag ist oft gerundet («Krankenkasse 350», real 351.20). Ohne Deduplizierung
+stünde die Verpflichtung zweimal auf der Fixkosten-Seite. Woran das System die Überschneidung
+erkennt, ist dieselbe Frage wie in diesem ADR, und die Antwort ist dieselbe: der Betrag, mit
+derselben Toleranz wie in Festlegung 4. Je Position höchstens ein Abo; verglichen wird gegen
+`betrag`, nicht `monatsbetrag` (Festlegung 2).
+
+**7. Nur aktive Abos zählen: mindestens eine Abbuchung im laufenden Monat oder den zwei
+Monaten davor.** Ein gekündigtes Netflix bleibt `DETECTED`, weil die Zeile nie neu bewertet
+wird; ohne diese Grenze würde es von Monatsbeginn an abgezogen, jeden Monat, dauerhaft — und
+«Kein Abo» ist der falsche Ausweg, das sagt «das war nie ein Abo». Die Aktivität prüft das
+recurring-Modul selbst (`detectedAmounts(userId, month)`), über die gefensterte
+`ExpenseHistoryPort.expenseHistory(userId, from, to)` — nur, ob der Empfänger im Fenster
+abgebucht hat, unabhängig vom Betrag. Drei Monate und nicht zwei: Auszüge kommen rückdatiert,
+der des Vormonats liegt in den ersten Tagen des Monats oft noch nicht vor.
+
+`DISMISSED` zählt nie: «Kein Abo» (US-08 AC3) ist die Aussage des Nutzers, dass dies keine
+Verpflichtung ist.
+
+**Modulkante.** Das budget-Modul liest die Beträge über den neuen
+`recurring.RecurringExpenseAmountPort` — Interface im liefernden Modul, nur Beträge, keine
+Entities, kein Empfänger. Die Zuordnungsregel bleibt im budget-Modul, wo sie schon für die
+Positionen liegt; die Toleranzregel steht am Port, weil beide Seiten dieselbe brauchen.
+
+### Grenzen
+
+- **Abbuchung ausserhalb des Bands zählt doppelt.** Nach einem Preissprung über 2 % (Netflix
+  17.90 → 19.90) trifft die Abbuchung das Band nicht mehr: sie bleibt variable Ausgabe, und der
+  erkannte Betrag zählt dazu — bis die Erkennung die Zeile neu bewertet. Das ist die gleiche
+  Wurzel wie bei Festlegung 7 und der Gegenstand von **BE-REC-04** ([#350](https://github.com/dfme/budget-buddy/issues/350)): Abo-Zeilen beim Import neu
+  bewerten (Betrag aktualisieren, beendete Abos erkennen) statt bekannte Empfänger zu
+  überspringen. Mit BE-REC-04 werden Festlegung 7 und dieser Punkt gegenstandslos.
+- **Nachlauf von bis zu zwei Monaten.** Ein gekündigtes Abo zählt nach der letzten Abbuchung
+  noch in den zwei Folgemonaten (Festlegung 7). Umgekehrt: wer mehr als zwei Monate keinen Auszug
+  importiert, verliert die Abzüge — der Safe-to-Spend fällt dann auf den Zustand vor FE-FC-05
+  zurück, was ohne aktuelle Ausgaben ohnehin die einzig ehrliche Zahl ist.
+- **Wizard-Betrag ≠ Abbuchung, Position ohne Abo.** Krankenkasse 350.00 erfasst, real 351.20
+  abgebucht: die Position streicht rappengenau nichts, die Abbuchung zählt im Abbuchungsmonat
+  doppelt — die bekannte Grenze aus dem ursprünglichen ADR, durch Festlegung 6 nicht verändert
+  (das Abo ist abgedeckt und hilft dort nicht mit).
+- **Fehlerrichtung des breiteren Bands.** Eine fremde Ausgabe im ±2 %-Band eines Abos wird als
+  dessen Abbuchung gewertet, ein fremdes Abo im Band einer Position als abgedeckt — beides macht
+  den Safe-to-Spend um den Betrag zu hoch. Dieselbe Abwägung wie im ursprünglichen ADR; das Band
+  ist breiter, der Fehler bleibt auf einen Eintrag begrenzt.
+- Die Warnung «Fixkosten übersteigen dein Einkommen» (`FixedCostService.list`) bezieht die Abos
+  nicht ein; das bleibt bewusst offen.
+
+Ein Abo bleibt weiterhin nicht zu einer editierbaren Fixkosten-Position promovierbar
+(#338 grenzt das aus). Sobald #159 den Empfänger persistiert, ist er auch für die
+Deduplizierung das trennschärfere Kriterium — derselbe Upgrade-Pfad wie oben.
+
 ## Related
 
 - [ADR-9](ADR-9-bigdecimal-money.md) — alle Beträge als `BigDecimal`; das Matching vergleicht auf

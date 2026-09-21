@@ -64,7 +64,18 @@ public class ExpenseHistoryService implements ExpenseHistoryPort {
     @Override
     @Transactional(readOnly = true)
     public List<ExpenseEntry> expenseHistory(long userId) {
-        return transactionRepository.findByUserIdAndIncomeFalse(userId).stream()
+        return toEntries(transactionRepository.findByUserIdAndIncomeFalse(userId));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ExpenseEntry> expenseHistory(long userId, YearMonth from, YearMonth to) {
+        return toEntries(transactionRepository.findByUserIdAndIncomeFalseAndBuchungsdatumBetween(
+                userId, from.atDay(1), to.atEndOfMonth()));
+    }
+
+    private static List<ExpenseEntry> toEntries(List<Transaction> transactions) {
+        return transactions.stream()
                 .map(tx -> new ExpenseEntry(
                         payeeKey(tx), tx.getBetrag(), YearMonth.from(tx.getBuchungsdatum())))
                 .toList();

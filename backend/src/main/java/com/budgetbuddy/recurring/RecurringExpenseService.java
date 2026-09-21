@@ -30,7 +30,8 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p><strong>Regel.</strong> Ein Empfänger gilt als wiederkehrend, wenn er in zwei
  * <em>aufeinanderfolgenden</em> Kalendermonaten je eine Belastung trägt, deren Beträge um höchstens
- * {@value #TOLERANCE_PERCENT}&nbsp;% auseinanderliegen — Basis ist der frühere Betrag. Januar und
+ * {@value RecurringExpenseAmountPort#TOLERANCE_PERCENT}&nbsp;% auseinanderliegen — Basis ist der
+ * frühere Betrag ({@link RecurringExpenseAmountPort#withinTolerance}). Januar und
  * März genügen nicht, auch nicht mit identischem Betrag; Januar und Februar genügen, auch wenn
  * dazwischen 20.90 und 21.20 stehen. Der Empfänger kommt bereits normalisiert über den
  * {@link ExpenseHistoryPort}; welche Zeile des Bank-PDFs ihn trägt, weiss dieses Modul nicht.
@@ -67,25 +68,30 @@ import org.springframework.transaction.annotation.Transactional;
  * wie im {@code FixedCostDebitMatcher} — {@link BigDecimal#compareTo} statt {@code equals}, damit
  * die Skala des Vergleichs nicht an der Skala einer anderen Klasse hängt.
  *
- * <p><strong>Mandantentrennung:</strong> beide Lesezugriffe — {@link ExpenseHistoryPort} und
- * {@link RecurringExpenseRepository#findByUserId} — sind auf den übergebenen User eingeschränkt;
- * geschrieben wird mit derselben ID.
+ * <p><strong>Safe-to-Spend (FE-FC-05).</strong> Erkannte Abos mindern seit FE-FC-05 den
+ * Safe-to-Spend wie Fixkosten-Positionen. Das budget-Modul liest dafür über
+ * {@link RecurringExpenseAmountPort#detectedAmounts} nur die Beträge der {@code DETECTED}-Zeilen,
+ * die im Aktivitätsfenster noch abgebucht wurden — eine Zeile verfällt nie von selbst, und ein
+ * gekündigtes Abo darf nicht dauerhaft abgezogen werden. Die Zuordnung zur Abbuchung des Monats
+ * und die Regel gegen Doppelzählung liegen drüben ({@code FixedCostDebitMatcher},
+ * ADR-13-Nachtrag); die Toleranz dafür ist dieselbe wie hier bei der Erkennung.
+ *
+ * <p><strong>Mandantentrennung:</strong> alle Lesezugriffe — beide Fassungen von
+ * {@link ExpenseHistoryPort#expenseHistory}, {@link RecurringExpenseRepository#findByUserId} und
+ * {@link RecurringExpenseRepository#findByUserIdAndStatus} — sind auf den übergebenen User
+ * eingeschränkt; geschrieben wird mit derselben ID.
  *
  * <p><strong>Logging:</strong> nur Zähler. Empfängernamen sind Transaktionsdaten und gehören nicht
  * ins Log (BE-PDF-06, CONVENTIONS «Logging-Kontext»).
  */
 @Service
-public class RecurringExpenseService implements RecurringExpenseDetectionPort {
+public class RecurringExpenseService
+        implements RecurringExpenseDetectionPort, RecurringExpenseAmountPort {
 
     /** Typ der Benachrichtigung — der Wert, den {@code NotificationPort} als freien String führt. */
     public static final String NOTIFICATION_TYPE = "RECURRING_EXPENSE_DETECTED";
 
-    /** ±2 % — die Toleranz aus US-08. */
-    static final int TOLERANCE_PERCENT = 2;
-
     private static final Logger log = LoggerFactory.getLogger(RecurringExpenseService.class);
-
-    private static final BigDecimal TOLERANCE = new BigDecimal("0.02");
 
     /** Rappen — Zielskala aller Beträge (ADR-9). */
     private static final int RAPPEN_SCALE = ChfAmounts.RAPPEN_SCALE;
@@ -229,18 +235,12 @@ public class RecurringExpenseService implements RecurringExpenseDetectionPort {
     }
 
     /**
-     * {@code |later − earlier| ≤ earlier × 2 %}. Der frühere Betrag ist die Basis, weil er der
-     * bekannte Vergleichswert ist — der Betrag, den der Nutzer bisher gezahlt hat.
-     *
-     * <p>Ein nicht positiver früherer Betrag qualifiziert nie: Bei {@code 0.00} wäre das Band
-     * leer und ein Paar aus Nullbuchungen hiesse «Abo über CHF 0.00».
+     * Der frühere Betrag ist die Basis, weil er der bekannte Vergleichswert ist — der Betrag, den
+     * der Nutzer bisher gezahlt hat. Die Regel selbst steht am Port, weil der Safe-to-Spend
+     * dieselbe braucht (siehe Klassen-Javadoc).
      */
     private static boolean withinTolerance(BigDecimal earlier, BigDecimal later) {
-        if (earlier.signum() <= 0) {
-            return false;
-        }
-        BigDecimal maxAbweichung = earlier.multiply(TOLERANCE);
-        return later.subtract(earlier).abs().compareTo(maxAbweichung) <= 0;
+        return RecurringExpenseAmountPort.withinTolerance(earlier, later);
     }
 
     /**
@@ -271,6 +271,46 @@ public class RecurringExpenseService implements RecurringExpenseDetectionPort {
                 .findByUserIdOrderByPayeeKeyAsc(userId)
                 .stream()
                 .map(expense -> toResponse(expense, isNew(expense, unread)))
+                .toList();
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Aktiv heisst: der Empfänger der Zeile hat im Fenster {@code [month −
+     * (ACTIVE_WINDOW_MONTHS − 1), month]} mindestens eine Belastung — unabhängig vom Betrag. Der
+     * Betrag wird hier nicht verglichen, weil das die Aufgabe des Aufrufers ist: er entscheidet
+     * mit {@link RecurringExpenseAmountPort#withinTolerance}, welche Belastung die Abbuchung des
+     * Abos ist. Verglichen wird der Schlüssel, so wie {@link #detect(long)} ihn speichert
+     * (Grossschreibung, V11).
+     *
+     * <p>Erst die Zeilen, dann die Historie — ohne {@code DETECTED}-Zeile wird die Historie gar
+     * nicht geladen: der häufigste Fall auf dem Dashboard ist ein User ohne erkannte Abos.
+     *
+     * <p><strong>Mandantentrennung:</strong>
+     * {@link RecurringExpenseRepository#findByUserIdAndStatus} und die gefensterte
+     * {@link ExpenseHistoryPort#expenseHistory(long, YearMonth, YearMonth)} sind auf den
+     * übergebenen User eingeschränkt. Es gehen nur Beträge über die Kante — der Safe-to-Spend
+     * braucht weder Empfänger noch «Neu»-Flag, und beides hätte im budget-Modul nichts zu suchen.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<BigDecimal> detectedAmounts(long userId, YearMonth month) {
+        List<RecurringExpense> detected = recurringExpenseRepository
+                .findByUserIdAndStatus(userId, RecurringExpenseStatus.DETECTED);
+        if (detected.isEmpty()) {
+            return List.of();
+        }
+
+        YearMonth from = month.minusMonths(RecurringExpenseAmountPort.ACTIVE_WINDOW_MONTHS - 1);
+        Set<String> activePayees = new HashSet<>();
+        for (ExpenseEntry entry : expenseHistoryPort.expenseHistory(userId, from, month)) {
+            activePayees.add(entry.payeeKey().toUpperCase(Locale.ROOT));
+        }
+
+        return detected.stream()
+                .filter(expense -> activePayees.contains(expense.getPayeeKey().toUpperCase(Locale.ROOT)))
+                .map(RecurringExpense::getAmount)
                 .toList();
     }
 

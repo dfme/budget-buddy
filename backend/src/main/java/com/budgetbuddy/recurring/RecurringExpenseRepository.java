@@ -9,8 +9,8 @@ import org.springframework.data.repository.query.Param;
 
 /**
  * Repository-Zugriff auf {@link RecurringExpense} (recurring-intern, kein modulübergreifender
- * Zugriff — andere Module gehen über {@link RecurringExpenseDetectionPort} und
- * {@link RecurringExpenseCleanupPort}).
+ * Zugriff — andere Module gehen über {@link RecurringExpenseDetectionPort},
+ * {@link RecurringExpenseAmountPort} und {@link RecurringExpenseCleanupPort}).
  */
 public interface RecurringExpenseRepository extends JpaRepository<RecurringExpense, Long> {
 
@@ -34,6 +34,14 @@ public interface RecurringExpenseRepository extends JpaRepository<RecurringExpen
      * User eindeutig (V11), die Sortierung damit total.
      */
     List<RecurringExpense> findByUserIdOrderByPayeeKeyAsc(Long userId);
+
+    /**
+     * Alle Einträge eines Users in einem Status — für {@link RecurringExpenseAmountPort}
+     * (FE-FC-05): der Safe-to-Spend braucht genau die {@code DETECTED}-Zeilen, die verneinten
+     * dürfen ihn nicht mindern. Der Index kommt wie oben aus dem {@code user_id}-Präfix der
+     * {@code UNIQUE}-Constraint (V11); die Menge pro User ist klein.
+     */
+    List<RecurringExpense> findByUserIdAndStatus(Long userId, RecurringExpenseStatus status);
 
     /**
      * Einzelner Eintrag eines Users — für {@code dismiss} (BE-REC-02).

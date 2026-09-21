@@ -18,5 +18,11 @@
  * <p>Welche dieser Belastungen die Zahlung einer Fixkosten-Position ist, entscheidet der
  * {@code FixedCostDebitMatcher} — bewusst hier und nicht im transaction-Modul: die Regel vergleicht
  * gegen Fixkosten-Beträge und ist damit Fachlogik dieses Moduls (BE-STS-04, ADR-13).
+ *
+ * <p>Seit FE-FC-05 gehen erkannte Abos (US-08) denselben Weg: der {@code SafeToSpendService} liest
+ * ihre Beträge über {@code com.budgetbuddy.recurring.RecurringExpenseAmountPort} — kein Zugriff
+ * auf das {@code RecurringExpenseRepository} — und der {@code FixedCostDebitMatcher} behandelt sie
+ * wie Positionen, abzüglich derer, die der User bereits als Fixkosten-Position erfasst hat
+ * (ADR-13-Nachtrag).
  */
 package com.budgetbuddy.budget;

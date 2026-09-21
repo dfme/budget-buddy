@@ -8,7 +8,7 @@
  * REST-Endpoints der Abo-Übersicht (BE-REC-02) — Auflisten und «Kein Abo» markieren — liegen im
  * selben Modul.
  *
- * <p>Drei Kanten zu anderen Modulen, alle über Interfaces (Modulgrenze, CLAUDE.md):
+ * <p>Vier Kanten zu anderen Modulen, alle über Interfaces (Modulgrenze, CLAUDE.md):
  *
  * <ul>
  *   <li>{@code ImportJobRunner} (transaction) stösst die Erkennung über den
@@ -23,6 +23,11 @@
  *       hält deren ID in {@code notification_id} (V14). Derselbe Port liefert auch das «Neu»-Flag
  *       der Abo-Übersicht zurück (BE-REC-02), aus dem Gelesen-Zustand dieser Notification
  *       abgeleitet statt in einem eigenen Feld dupliziert.
+ *   <li>Der {@code SafeToSpendService} (budget) liest über den
+ *       {@link com.budgetbuddy.recurring.RecurringExpenseAmountPort} die Beträge der erkannten,
+ *       nicht verneinten Abos — sie mindern den Safe-to-Spend seit FE-FC-05 wie
+ *       Fixkosten-Positionen. Nur Beträge, keine Entities; die Zuordnung zur Abbuchung des
+ *       Monats bleibt im budget-Modul (ADR-13-Nachtrag).
  * </ul>
  *
  * <p>Die Kontolöschung (US-02, nDSG) räumt über den

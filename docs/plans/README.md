@@ -110,6 +110,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `FE-FC-02` | [Route Guard für Onboarding](FE-FC-02-onboarding-guard.md) | [#25](https://github.com/dfme/budget-buddy/issues/25) | US-03 | Sprint 4 |
 | `FE-FC-03` | [Fixkosten-Liste](FE-FC-03-fixkosten-liste.md) | [#26](https://github.com/dfme/budget-buddy/issues/26) | US-03 | Sprint 4 |
 | `FE-FC-04` | [Fixkosten-Tabelle läuft auf schmalen Viewports über die Card hinaus](FE-FC-04-tabelle-overflow.md) | [#172](https://github.com/dfme/budget-buddy/issues/172) | — | Sprint 5 |
+| `FE-FC-05` | [Fixkosten- und Abo-Ansicht zusammenführen](FE-FC-05-fixkosten-abos-zusammenfuehren.md) | [#338](https://github.com/dfme/budget-buddy/issues/338) | US-03, US-08 | — |
 | `FE-NOTIF-01` | [Notification-Glocke in der App-Shell](FE-NOTIF-01-notification-bell.md) | [#247](https://github.com/dfme/budget-buddy/issues/247) | US-08 | Sprint 6 |
 | `FE-NOTIF-02` | [Glocke: Dropdown auf Desktop ausserhalb des Viewports, Icon passt nicht zum Design](FE-NOTIF-02-bell-dropdown-icon.md) | [#308](https://github.com/dfme/budget-buddy/issues/308) | US-08 | Sprint 7 |
 | `FE-NOTIF-03` | [Verneinte Abos bleiben auf /abos sichtbar — Abschnitt «Kein Abo»](FE-NOTIF-03-abo-hinweis-verneinter-eintrag.md) | [#333](https://github.com/dfme/budget-buddy/issues/333) | US-08 | Sprint 7 |

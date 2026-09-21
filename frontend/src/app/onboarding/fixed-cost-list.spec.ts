@@ -63,7 +63,17 @@ describe('FixedCostList', () => {
   function flushInitialLoad(summary: FixedCostSummary): void {
     fixture.detectChanges();
     httpMock.expectOne('/api/fixed-costs').flush(summary);
+    flushRecurringExpenses();
     fixture.detectChanges();
+  }
+
+  /**
+   * Der eingebettete Abschnitt «Erkannte Abos» (FE-FC-05) lädt beim Aufbau seine eigene Liste.
+   * Hier leer beantwortet: was er damit macht, prüft `recurring-expense-list.spec.ts` — dieser
+   * Test kümmert sich nur darum, dass der Request nicht offen bleibt (`httpMock.verify()`).
+   */
+  function flushRecurringExpenses(): void {
+    httpMock.expectOne('/api/recurring-expenses').flush([]);
   }
 
   function text(): string {
@@ -133,10 +143,56 @@ describe('FixedCostList', () => {
     httpMock
       .expectOne('/api/fixed-costs')
       .flush('boom', { status: 500, statusText: 'Internal Server Error' });
+    flushRecurringExpenses();
     fixture.detectChanges();
 
     expect(component.errorMessage()).not.toBeNull();
     expect(text()).toContain('konnten nicht geladen werden');
+  });
+
+  // FE-FC-05: die Abo-Übersicht ist ein Abschnitt dieser Seite. Zwei getrennte Requests, zwei
+  // getrennte Zustände — ein Fehler in der Fixkosten-Liste nimmt den Abo-Abschnitt nicht mit.
+  describe('Abschnitt «Erkannte Abos» (FE-FC-05)', () => {
+    function recurringSection(): HTMLElement | null {
+      return (fixture.nativeElement as HTMLElement).querySelector('app-recurring-expense-list');
+    }
+
+    it('rendert den Abschnitt unterhalb der Fixkosten-Tabelle', () => {
+      flushInitialLoad(summaryOf([MIETE], 3000, false));
+
+      const section = recurringSection();
+      expect(section).not.toBeNull();
+      expect(section?.querySelector('h2')?.textContent?.trim()).toBe('Erkannte Abos');
+      // Reihenfolge im DOM: erst die Fixkosten-Tabelle, dann der Abo-Abschnitt.
+      const table = (fixture.nativeElement as HTMLElement).querySelector('table');
+      expect(
+        table!.compareDocumentPosition(section!) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
+
+    it('zeigt den Abschnitt auch, wenn die Fixkosten nicht geladen werden konnten', () => {
+      fixture.detectChanges();
+      httpMock
+        .expectOne('/api/fixed-costs')
+        .flush('boom', { status: 500, statusText: 'Internal Server Error' });
+      httpMock.expectOne('/api/recurring-expenses').flush([
+        {
+          id: 1,
+          payeeKey: 'NETFLIX',
+          amount: 17.9,
+          status: 'DETECTED',
+          firstDetectedMonth: '2026-07',
+          createdAt: '2026-09-08T10:15:00Z',
+          isNew: false,
+        },
+      ]);
+      fixture.detectChanges();
+
+      expect(text()).toContain('konnten nicht geladen werden');
+      expect(recurringSection()?.querySelector('.expense__payee')?.textContent).toContain(
+        'NETFLIX',
+      );
+    });
   });
 
   // --- AC4: Warnung Fixkosten >= Einkommen ---
