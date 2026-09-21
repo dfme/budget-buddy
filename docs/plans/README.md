@@ -40,6 +40,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `BE-CAT-05` | [GET /transactions/summary](BE-CAT-05-transactions-summary.md) | [#20](https://github.com/dfme/budget-buddy/issues/20) | US-05 | Sprint 3 |
 | `BE-CAT-06` | [Transaktionstext vor Claude-Call maskieren (Datenminimierung)](BE-CAT-06-prompt-sanitizer.md) | [#134](https://github.com/dfme/budget-buddy/issues/134) | US-05 | Sprint 5 |
 | `BE-CAT-07` | [AnthropicStartupHealthCheckTest ist ordnungsabhängig und macht einen echten Netzwerk-Call](BE-CAT-07-healthcheck-test-isolation.md) | [#162](https://github.com/dfme/budget-buddy/issues/162) | — | Sprint 5 |
+| `BE-CAT-08` | [Restexposition im Claude-Prompt: Vorname in Zweckzeilen und Händler-Telefonnummer](BE-CAT-08-prompt-restexposition.md) | [#233](https://github.com/dfme/budget-buddy/issues/233) | US-05 | Sprint 7 |
 | `BE-CAT-09` | [Token-Verbrauch und Kosten der Claude-Kategorisierung loggen](BE-CAT-09-token-usage-logging.md) | [#243](https://github.com/dfme/budget-buddy/issues/243) | — | Sprint 6 |
 | `BE-CAT-10` | [Vier neue Kategorien (Persönliches, Steuern, Bargeldbezug, Reisen) plus ein Icon je Kategorie](BE-CAT-10-kategorien-icons.md) | [#266](https://github.com/dfme/budget-buddy/issues/266) | US-05 | Sprint 7 |
 | `BE-CAT-11` | [Lerneffekt bereits bei erfolgreicher Claude-Kategorisierung, nicht erst bei manueller Korrektur](BE-CAT-11-lerneffekt-claude-erfolg.md) | [#314](https://github.com/dfme/budget-buddy/issues/314) | US-05 | Sprint 7 |
