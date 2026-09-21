@@ -28,13 +28,20 @@ package com.budgetbuddy.categorization;
  * <p>Die Reihenfolge entscheidet, und das ist so gewollt: Eine manuelle Korrektur, die nach einer
  * Claude-Einstufung kommt, überschreibt sie. Der User hat in dieser Tabelle das letzte Wort.
  *
- * <p><strong>Das setzt voraus, dass beide Quellen denselben Schlüssel schreiben</strong> —
+ * <p><strong>Das setzt voraus, dass beide Quellen denselben Text übergeben</strong> —
  * Buchungstext samt Detailzeilen, mit Leerzeichen verbunden. Der Primärschlüssel dieser Tabelle
- * ist das Pattern selbst; schreiben die Quellen verschiedene Schlüssel, greift kein Upsert,
+ * ist das Pattern selbst; übergeben die Quellen verschiedene Texte, greift kein Upsert,
  * sondern es entstehen zwei Zeilen, und die Längensortierung in
  * {@link CategoryLookupRepository#findMatching} lässt den längeren Claude-Eintrag über die
- * User-Korrektur gewinnen. Auf beiden Seiten liefert {@code fullText()} den Schlüssel
+ * User-Korrektur gewinnen. Auf beiden Seiten liefert {@code fullText()} den Text
  * ({@code ParsedTransaction} beim Import, {@code Transaction} bei der Korrektur).
+ *
+ * <p><strong>Gespeichert wird davon das stabile Präfix, nicht der volle Text</strong>
+ * (BE-CAT-13): Die Implementierung schneidet die variable Mitteilung — Monat, Jahr, Datum,
+ * Referenz — ab, bevor sie schreibt ({@link LookupPatternExtractor}). Aus zwölf Mietzahlungen
+ * eines Jahres wird so eine Zeile, die ab dem zweiten Bündel trifft. Für die Aufrufer ändert
+ * das nichts: Sie übergeben weiterhin {@code fullText()}, und weil beide Quellen durch denselben
+ * Schnitt gehen, bleibt der Upsert intakt.
  */
 public interface CategoryLearningPort {
 
@@ -44,10 +51,10 @@ public interface CategoryLearningPort {
      * dieses Pattern, wird seine Kategorie überschrieben (Upsert) — der jüngste Aufruf gewinnt.
      *
      * @param userId User, dem das gelernte Pattern gehört.
-     * @param merchantPattern Händler-Pattern, das (case-insensitiv, als Substring) im
-     *     Transaktionstext gematcht wird — bei beiden Quellen der volle Transaktionstext aus
-     *     Buchungstext und Detailzeilen ({@code fullText()}), bei BE-CAT-04 der der korrigierten
-     *     Transaktion, bei BE-CAT-11 der, den die Claude-Stufe eingestuft hat.
+     * @param merchantPattern der volle Transaktionstext aus Buchungstext und Detailzeilen
+     *     ({@code fullText()}) — bei BE-CAT-04 der der korrigierten Transaktion, bei BE-CAT-11
+     *     der, den die Claude-Stufe eingestuft hat. Gespeichert wird sein stabiles Präfix, das
+     *     (case-insensitiv, als Substring) in künftigen Transaktionstexten gematcht wird.
      * @param category die Zielkategorie — vom User bestätigt (BE-CAT-04) oder von Claude ermittelt
      *     (BE-CAT-11).
      */

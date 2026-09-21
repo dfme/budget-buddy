@@ -44,6 +44,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `BE-CAT-10` | [Vier neue Kategorien (Persönliches, Steuern, Bargeldbezug, Reisen) plus ein Icon je Kategorie](BE-CAT-10-kategorien-icons.md) | [#266](https://github.com/dfme/budget-buddy/issues/266) | US-05 | Sprint 7 |
 | `BE-CAT-11` | [Lerneffekt bereits bei erfolgreicher Claude-Kategorisierung, nicht erst bei manueller Korrektur](BE-CAT-11-lerneffekt-claude-erfolg.md) | [#314](https://github.com/dfme/budget-buddy/issues/314) | US-05 | Sprint 7 |
 | `BE-CAT-12` | [category_lookup überlebt die Kontolöschung — und wächst seit BE-CAT-11 ohne Zutun des Users](BE-CAT-12-category-lookup-mandantentrennung.md) | [#319](https://github.com/dfme/budget-buddy/issues/319) | US-02 | Sprint 7 |
+| `BE-CAT-13` | [Gelernte Lookup-Patterns mit variabler Mitteilung treffen nie wieder — Tabelle wächst pro Transaktion statt pro Händler](BE-CAT-13-lookup-pattern-extraction.md) | [#321](https://github.com/dfme/budget-buddy/issues/321) | US-05 | Sprint 7 |
 | `BE-CAT-14` | [LIKE-Wildcards (%, _) in gelernten Lookup-Patterns werden nicht escaped](BE-CAT-14-lookup-literal-matching.md) | [#322](https://github.com/dfme/budget-buddy/issues/322) | US-05 | Sprint 7 |
 | `BE-CAT-17` | [Lookup-Seeds für Bargeldbezug und Steuern](BE-CAT-17-lookup-seeds-bargeld-steuern.md) | [#325](https://github.com/dfme/budget-buddy/issues/325) | US-05 | Sprint 7 |
 | `BE-FC-01` | [FixedCost Entity und Repository](BE-FC-01-fixedcost-entity.md) | [#10](https://github.com/dfme/budget-buddy/issues/10) | US-03 | Sprint 4 |

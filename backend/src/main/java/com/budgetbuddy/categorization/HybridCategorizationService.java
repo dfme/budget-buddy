@@ -131,12 +131,14 @@ public class HybridCategorizationService implements CategorizationPort {
      * ist ein Call pro unklarem Händler und Import — bewusst gezahlt, damit ein später besseres
      * Modell den Händler noch einmal sehen kann.
      *
-     * <p>Gelernt wird der <strong>rohe</strong> Text, nicht die von {@link PromptSanitizer}
+     * <p>Übergeben wird der <strong>rohe</strong> Text, nicht die von {@link PromptSanitizer}
      * maskierte Fassung: Die Lookup-Stufe matcht gegen den rohen Text, und die Patterns aus der
      * manuellen Korrektur (BE-CAT-04) sind ebenfalls roh. Gelernt wird deshalb <strong>pro
      * User</strong> (BE-CAT-12, ADR-15): Der rohe Händlertext ist ein Datum des Users, dessen
      * Auszug ihn enthielt — er landet in {@code user_category_lookup}, wirkt nur auf seine
-     * Kategorisierung und wird mit seinem Konto gelöscht ({@code UserService#deleteUser}).
+     * Kategorisierung und wird mit seinem Konto gelöscht ({@code UserService#deleteUser}). Was
+     * davon gespeichert wird — das stabile Präfix ohne die variable Mitteilung —, entscheidet
+     * {@link CategoryLearningService} für beide Quellen gleich (BE-CAT-13).
      *
      * <p><strong>Ein Fehler hier darf die Kategorisierung nicht kosten.</strong> Die Ergebnisse
      * stehen zu diesem Zeitpunkt vollständig in {@code results}; eine nicht erreichbare Datenbank
@@ -154,8 +156,11 @@ public class HybridCategorizationService implements CategorizationPort {
             List<Optional<CategorizationResult>> results,
             List<Integer> positions) {
 
-        // Derselbe Händler steht auf einem Auszug oft mehrfach. Ohne diese Menge liefe pro
-        // Vorkommen ein eigener Upsert auf denselben Primärschlüssel.
+        // Derselbe Text steht auf einem Auszug oft mehrfach (Kartenzahlungen). Die Menge spart den
+        // Upsert pro Vorkommen. Sie dedupliziert den rohen Text, nicht das gelernte Präfix — der
+        // Schnitt sitzt bewusst nur hinter dem Port (BE-CAT-13). Texte, die erst dort auf denselben
+        // Schlüssel fallen (Miete Januar und Februar im selben Bündel), laufen als je ein
+        // idempotenter Upsert; das ist gewollt und harmlos.
         Set<String> alreadyLearned = new HashSet<>();
         int failed = 0;
         RuntimeException lastFailure = null;
