@@ -23,5 +23,11 @@
  * für die Glocke an (BE-PDF-15) — Typen {@code IMPORT_COMPLETED}, {@code IMPORT_DEGRADED},
  * {@code IMPORT_FAILED}, als {@code reference_id} die Job-ID. Wie bei der Abo-Erkennung darf ein
  * Fehler auf dieser Kante den Import nicht mehr beeinflussen.
+ *
+ * <p>{@code IMPORT_FAILED} hat seit BE-PDF-16 zwei Erzeuger: den Runner für den abgebrochenen Lauf
+ * und den {@code StaleImportJobCleaner} für den Job, dessen Prozess weg ist. Beide gehen über
+ * {@code ImportFailureNotifier}, in dem Typ, Text und das Schlucken des Fehlers <em>einmal</em>
+ * stehen. Sie schliessen sich gegenseitig aus — der Cleaner fasst nur an, was noch auf
+ * {@code RUNNING} steht.
  */
 package com.budgetbuddy.transaction;

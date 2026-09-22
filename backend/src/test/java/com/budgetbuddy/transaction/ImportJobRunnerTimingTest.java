@@ -56,7 +56,7 @@ class ImportJobRunnerTimingTest {
 
     private final ImportJobRunner runner = new ImportJobRunner(categorizationPort, repository,
             importJobRepository, transactionTemplate, mock(RecurringExpenseDetectionPort.class),
-            mock(NotificationPort.class), Clock.systemUTC(),
+            mock(NotificationPort.class), mock(ImportFailureNotifier.class), Clock.systemUTC(),
             Duration.ofSeconds(WATCHDOG_SECONDS), BATCH_SIZE);
 
     private static List<ParsedTransaction> unknownTransactions(int count) {
