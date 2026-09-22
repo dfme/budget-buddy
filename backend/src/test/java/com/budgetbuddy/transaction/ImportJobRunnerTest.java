@@ -6,6 +6,8 @@ import static org.assertj.core.groups.Tuple.tuple;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -17,6 +19,7 @@ import static org.mockito.Mockito.when;
 import com.budgetbuddy.categorization.CategorizationPort;
 import com.budgetbuddy.categorization.CategorizationResult;
 import com.budgetbuddy.categorization.Category;
+import com.budgetbuddy.notification.NotificationPort;
 import com.budgetbuddy.recurring.RecurringExpenseDetectionPort;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -56,6 +59,7 @@ class ImportJobRunnerTest {
     private final ImportJobRepository importJobRepository = mock(ImportJobRepository.class);
     private final RecurringExpenseDetectionPort recurringExpenseDetectionPort =
             mock(RecurringExpenseDetectionPort.class);
+    private final NotificationPort notificationPort = mock(NotificationPort.class);
     private final Clock clock = mock(Clock.class);
 
     /**
@@ -66,8 +70,18 @@ class ImportJobRunnerTest {
     private final TransactionTemplate transactionTemplate =
             new TransactionTemplate(mock(PlatformTransactionManager.class));
 
+    /**
+     * Echter {@link ImportFailureNotifier} über dem gemockten Port: Die Fehlschlags-Tests unten
+     * prüfen weiterhin, was tatsächlich an der Glocke ankommt. Ein gemockter Notifier verschöbe
+     * ihren Nachweis auf «der Runner hat irgendwen gerufen» und liesse Typ, Text und das Schlucken
+     * des Fehlers ungeprüft — die stehen seit BE-PDF-16 in jener Klasse, nicht mehr hier.
+     */
+    private final ImportFailureNotifier importFailureNotifier =
+            new ImportFailureNotifier(notificationPort);
+
     private final ImportJobRunner runner = new ImportJobRunner(categorizationPort, repository,
-            importJobRepository, transactionTemplate, recurringExpenseDetectionPort, clock,
+            importJobRepository, transactionTemplate, recurringExpenseDetectionPort,
+            notificationPort, importFailureNotifier, clock,
             Duration.ofSeconds(WATCHDOG_SECONDS), BATCH_SIZE);
 
     @BeforeEach
@@ -214,6 +228,82 @@ class ImportJobRunnerTest {
         assertThat(job.getFinishedAt()).isEqualTo(T0);
     }
 
+    // --- Notifications (BE-PDF-15) ---
+
+    /**
+     * AC1: Der User erfährt vom Abschluss über die Glocke — auch wenn er die Import-Seite bereits
+     * verlassen hat, das Backend also gar nicht weiss, ob noch jemand pollt.
+     */
+    @Test
+    void successfulImport_sendsNotificationWithTransactionCount() {
+        clockNeverExpires();
+        categorizeAllAs(Category.LEBENSMITTEL, CategorizationResult.Source.LOOKUP);
+        ImportJob job = new ImportJob(USER_ID, "sha-fixture", 2, T0);
+
+        runner.run(job, List.of(
+                parsed("ESR", List.of("Stadtwerke Bern"), "78.50", false),
+                parsed("GIRO POST", List.of(), "850.00", true)), SHA, false);
+
+        verify(notificationPort).create(eq(USER_ID), eq(ImportJobRunner.NOTIFICATION_TYPE_COMPLETED),
+                eq(job.getId()), contains("2 Transaktionen importiert."));
+    }
+
+    /**
+     * Die Glocke zeigt Abo- und Import-Benachrichtigungen untereinander; «1 neues Abo erkannt»
+     * neben «1 Transaktion(en) importiert» wäre ein Stilbruch. Deshalb dieselbe
+     * Singular-Unterscheidung wie auf der Import-Seite.
+     */
+    @Test
+    void importOfASingleTransaction_usesTheSingularInTheNotification() {
+        clockNeverExpires();
+        categorizeAllAs(Category.LEBENSMITTEL, CategorizationResult.Source.LOOKUP);
+        ImportJob job = new ImportJob(USER_ID, "sha-fixture", 1, T0);
+
+        runner.run(job, List.of(parsed("ESR", List.of("Stadtwerke Bern"), "78.50", false)), SHA,
+                false);
+
+        verify(notificationPort).create(eq(USER_ID), eq(ImportJobRunner.NOTIFICATION_TYPE_COMPLETED),
+                eq(job.getId()), contains("1 Transaktion importiert."));
+    }
+
+    /**
+     * AC2: Der Watchdog-Fall braucht seine eigene Benachrichtigung mit dem Korrektur-Hinweis —
+     * sonst hält der Nutzer «Sonstiges» für das echte Ergebnis der Kategorisierung.
+     */
+    @Test
+    void degradedImport_sendsNotificationMentioningManualCorrection() {
+        Instant tooLate = T0.plusSeconds(WATCHDOG_SECONDS + 1);
+        when(clock.instant()).thenReturn(T0, T0, tooLate);
+        categorizeAllAs(Category.LEBENSMITTEL, CategorizationResult.Source.CLAUDE);
+        ImportJob job = new ImportJob(USER_ID, "sha-fixture", 6, T0);
+
+        runner.run(job, unknownTransactions(6), SHA, false);
+
+        verify(notificationPort).create(eq(USER_ID), eq(ImportJobRunner.NOTIFICATION_TYPE_DEGRADED),
+                eq(job.getId()), contains("von Hand"));
+        verify(notificationPort, never())
+                .create(anyLong(), eq(ImportJobRunner.NOTIFICATION_TYPE_COMPLETED), any(), anyString());
+    }
+
+    /**
+     * Gegenprobe zu {@link #successfulImport_sendsNotificationWithTransactionCount}: Ein Fehler
+     * beim Erzeugen der Benachrichtigung darf einen ansonsten erfolgreichen Import nicht auf
+     * FAILED kippen (analog {@link #failingRecurringExpenseDetection_leavesTheImportSuccessful}).
+     */
+    @Test
+    void failingSuccessNotification_leavesTheImportSuccessful() {
+        clockNeverExpires();
+        categorizeAllAs(Category.SONSTIGES, CategorizationResult.Source.LOOKUP);
+        doThrow(new IllegalStateException("Notification-Service kaputt"))
+                .when(notificationPort).create(anyLong(), anyString(), any(), anyString());
+        ImportJob job = new ImportJob(USER_ID, "sha-fixture", 1, T0);
+
+        runner.run(job, List.of(parsed("GIRO POST", List.of(), "850.00", false)), SHA, false);
+
+        assertThat(capturePersisted()).hasSize(1);
+        assertThat(job.getStatus()).isEqualTo(ImportJobStatus.DONE);
+    }
+
     /**
      * Der Kategorisierung wird der volle Text übergeben — Buchungszeile plus Detailzeilen. Der
      * Empfänger steht oft erst in den Details, und ohne ihn kann weder Lookup noch Claude etwas
@@ -358,6 +448,29 @@ class ImportJobRunnerTest {
         // Ohne persistierte Transaktionen gibt es nichts zu erkennen — und eine Erkennung über
         // einen halb geschriebenen Import wäre falsch.
         verifyNoInteractions(recurringExpenseDetectionPort);
+        // AC3: Ein Fehlschlag darf nach Verlassen der Import-Seite nicht unsichtbar bleiben.
+        verify(notificationPort).create(eq(USER_ID), eq(ImportFailureNotifier.NOTIFICATION_TYPE_FAILED),
+                eq(job.getId()), anyString());
+    }
+
+    /**
+     * Ein Fehler beim Erzeugen der Fehlschlags-Benachrichtigung darf {@link
+     * ImportJobRunner#markFailed} nicht verlassen — sonst würde er im {@code RuntimeException}-Catch
+     * von {@code run} unbehandelt hochsteigen und den bereits geschriebenen FAILED-Status nicht
+     * ändern, aber die Methode selbst kaputt aussehen lassen.
+     */
+    @Test
+    void failingFailureNotification_stillLeavesTheJobMarkedFailed() {
+        clockNeverExpires();
+        when(categorizationPort.categorizeAll(anyLong(), any()))
+                .thenThrow(new IllegalStateException("kaputt"));
+        doThrow(new IllegalStateException("Notification-Service kaputt"))
+                .when(notificationPort).create(anyLong(), anyString(), any(), anyString());
+        ImportJob job = new ImportJob(USER_ID, "sha-fixture", 1, T0);
+
+        runner.run(job, List.of(parsed("GIRO POST", List.of(), "850.00", false)), SHA, false);
+
+        assertThat(job.getStatus()).isEqualTo(ImportJobStatus.FAILED);
     }
 
     // --- Abo-Erkennung (BE-REC-01, US-08) ---

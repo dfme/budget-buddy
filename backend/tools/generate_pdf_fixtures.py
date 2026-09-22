@@ -19,7 +19,7 @@ Each fixture answers one question the others cannot:
                                           stays reviewable
     Post_Kontoauszug_2025_240_Buchungen   240 bookings over a full calendar year:
                                           volume plus the lookup/Claude ratio,
-                                          built to 60% (ADR-6/ADR-14)
+                                          built to 66.25% (ADR-6/ADR-14)
     UBS_Konto_Bewegungen_2021_Juli.pdf    descending order, 2 pages, 28 bookings
     Kreditkarten Rechnung *.pdf           Viseca layout, foreign currency
     Raiffeisen_..._110_Buchungen.pdf      length: the generic branch at #192 size
@@ -46,18 +46,19 @@ put the merchant in the booking line measure the generator's choice of words
 instead of the parser.
 
 The block builders (_post_card, _post_lsv, _post_giro_in, ...) each declare which
-of their printed lines the parser keeps. That split is what makes the 60% figure
-honest -- otherwise the generator would count hits in lines DETAIL_NOISE discards.
+of their printed lines the parser keeps. That split is what keeps the lookup
+ratio honest -- otherwise the generator would count hits in lines DETAIL_NOISE
+discards.
 Whether the claim holds is not checked here but in
 PdfLookupCoverageIntegrationTest, against the real parser and the real seeds.
 
 IMPORTANT: The fixture test asserts the exact printed totals (Total/Umsatztotal
 lines). If you change any amount here, keep every balance chain consistent and
 update the assertions in SwissBankStatementParserFixtureTest accordingly. The
-240-booking statement additionally pins its 60% lookup share in
+240-booking statement additionally pins its lookup share (66.25% since V15) in
 PdfLookupCoverageIntegrationTest -- the generator recomputes that share against
-V04__create_category_lookup_table.sql on every run and refuses to write a
-fixture that drifted out of the target band.
+the seed INSERTs of ALL migrations on every run and refuses to write a fixture
+that drifted out of the target band.
 
 NOTE: reportlab stamps a creation date into every PDF, so a run rewrites ALL
 fixtures byte-wise even when their content is unchanged. Restore the files you
@@ -171,25 +172,47 @@ def _post_amount(amount):
     return _swiss(amount, sep=" ")
 
 
-def _lookup_patterns():
-    """Liest die Seed-Patterns aus V04__create_category_lookup_table.sql.
+# Ein INSERT in category_lookup, von "INSERT INTO category_lookup" bis zum
+# Semikolon. Nur was hier drinsteht, ist ein Seed — siehe _lookup_patterns.
+_SEED_INSERT = re.compile(
+    r"INSERT\s+INTO\s+category_lookup\b.*?;", re.IGNORECASE | re.DOTALL)
 
-    Bewusst aus der Migration statt aus einer Kopie hier im Skript: Eine Kopie
+# ('MCDONALD''S', 'Restaurant') — doppelte Apostrophe sind SQL-Escapes. Nur das
+# Pattern zählt hier; welche Kategorie es trägt, ist für die Quote gleichgültig.
+_SEED_TUPLE = re.compile(r"\('((?:[^']|'')*)'\s*,\s*'(?:[^']|'')*'\)")
+
+
+def _lookup_patterns():
+    """Liest die Seed-Patterns aus ALLEN Flyway-Migrationen.
+
+    Bewusst aus den Migrationen statt aus einer Kopie hier im Skript: Eine Kopie
     wäre am Tag richtig, an dem sie geschrieben wird, und danach nie wieder
-    nachweisbar. Fehlt die Datei, bricht der Lauf ab — eine stillschweigend
+    nachweisbar. Findet sich kein Seed, bricht der Lauf ab — eine stillschweigend
     leere Pattern-Liste würde jede Buchung als "unbekannt" zählen und die
     Quotenprüfung wertlos machen.
+
+    Bis BE-CAT-17 las diese Funktion nur V04. Das war richtig, solange V04 die
+    einzige Migration mit Seeds war, und wurde mit V15 (Bargeldbezug, Steuern)
+    still falsch: Die Quotenprüfung hätte weiter gegen den alten Pattern-Satz
+    gerechnet und nichts mehr geschützt.
+
+    Der Schnitt läuft über INSERT-Blöcke, nicht über die ganze Datei. Die
+    Tupel-Regex allein griffe daneben — V11 enthält
+    CHECK (status IN ('DETECTED', 'DISMISSED')) und passt auf dieselbe Form.
     """
-    sql_path = os.path.normpath(os.path.join(
+    migration_dir = os.path.normpath(os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "..", "src", "main", "resources",
-        "db", "migration", "V04__create_category_lookup_table.sql"))
-    with open(sql_path, encoding="utf-8") as f:
-        sql = f.read()
-    # ('MCDONALD''S', 'Restaurant') — doppelte Apostrophe sind SQL-Escapes. Nur das
-    # Pattern zählt hier; welche Kategorie es trägt, ist für die Quote gleichgültig.
-    patterns = re.findall(r"\('((?:[^']|'')*)'\s*,\s*'(?:[^']|'')*'\)", sql)
+        "db", "migration"))
+    patterns = []
+    for name in sorted(os.listdir(migration_dir)):
+        if not name.endswith(".sql"):
+            continue
+        with open(os.path.join(migration_dir, name), encoding="utf-8") as f:
+            sql = f.read()
+        for insert in _SEED_INSERT.findall(sql):
+            patterns += _SEED_TUPLE.findall(insert)
     if not patterns:
-        raise SystemExit(f"Keine Seed-Patterns in {sql_path} gefunden")
+        raise SystemExit(f"Keine Seed-Patterns in {migration_dir} gefunden")
     return [p.replace("''", "'").upper() for p in patterns]
 
 
@@ -590,14 +613,18 @@ def _post_report(name, rows, pages, totals):
 # --------------------- 240 Buchungen, Kalenderjahr 2025 ----------------------
 # Der Mengen- und Quotentest. Er beantwortet eine andere Frage als die beiden
 # kleineren Auszüge: Wie viel eines Jahres erledigt die Lookup-Tabelle gratis,
-# und wie viel muss an Claude? Gebaut auf 60% Lookup — bewusst unter den 70-80%,
-# mit denen ADR-6 rechnet, damit die Claude-Stufe spürbar Last bekommt: 96
-# unbekannte Transaktionen sind bei Bündelgrösse 20 zwölf Requests.
+# und wie viel muss an Claude? Gebaut auf 60% Lookup, seit den Seeds aus V15
+# (BE-CAT-17) bei 66.25% — bewusst unter den 70-80%, mit denen ADR-6 rechnet,
+# damit die Claude-Stufe spürbar Last bekommt: 81 unbekannte Transaktionen sind
+# bei Bündelgrösse 20 zwölf Requests.
 #
 # Seit der Umstellung aufs echte Satzbild ist diese Quote erst aussagekräftig:
-# Die zwölf Treffer pro Monat kommen aus einer DETAILZEILE, nicht aus der
+# Die zwölf Händlertreffer pro Monat kommen aus einer DETAILZEILE, nicht aus der
 # Buchungszeile. Sie messen damit, ob der Händler das Rauschen überlebt — vorher
-# massen sie die Textwahl des Generators.
+# massen sie die Textwahl des Generators. Die eine Ausnahme ist der Barbezug:
+# Seit V15 ist BARBEZUG selbst ein Seed, und der steht in der Buchungszeile. Das
+# ist Absicht (der Zahlungstyp IST dort die Kategorie) und der Grund, warum
+# SwissBankStatementParserFixtureTest ihn gesondert über POSTOMAT absichert.
 #
 # Ein volles Kalenderjahr bedient zugleich US-08 (wiederkehrende Ausgaben) und
 # US-10/US-12 (Monatsvergleich, Monatswechsel): Miete, Krankenkasse, Swisscom,
@@ -608,10 +635,20 @@ POST_YEAR_FILENAME = "Post_Kontoauszug_2025_240_Buchungen.pdf"
 POST_YEAR_COUNT = 240
 POST_YEAR_START_SALDO = Decimal("8450.00")
 
-# Zielband der Lookup-Quote. Kein exakter Wert: Ein neuer Seed-Eintrag in V04
-# darf die Fixture verschieben, ohne den Build zu brechen — aber nicht beliebig
-# weit, sonst testet der Auszug nicht mehr das, wofür er gebaut wurde.
-POST_YEAR_LOOKUP_TARGET = 0.60
+# Zielband der Lookup-Quote. Kein exakter Wert: Ein neuer Seed-Eintrag darf die
+# Fixture verschieben, ohne den Build zu brechen — aber nicht beliebig weit,
+# sonst testet der Auszug nicht mehr das, wofür er gebaut wurde.
+#
+# Stand seit BE-CAT-17: 0.65 statt der ursprünglichen 0.60. Die Seeds für
+# Bargeldbezug und Steuern (V15) heben die Quote auf 66.25% — zwölf Postomat-
+# Bezüge und drei Steuerrückerstattungen im Jahr, die vorher an Claude gingen.
+# Verschoben wurde das Band und nicht die Fixture, weil der Grund für den
+# tieferen Wert trägt: Die Quote soll UNTER den 70-80% aus ADR-6 liegen, damit
+# die Claude-Stufe spürbar Last bekommt. Bei 66.25% sind das noch 81
+# Transaktionen in zwölf Bündeln. Die Alternative — drei Treffer pro Jahr im
+# Generator zu Unbekannten umbauen — hätte Beträge und Saldokette verändert und
+# die gedruckten Totale in SwissBankStatementParserFixtureTest mitgerissen.
+POST_YEAR_LOOKUP_TARGET = 0.65
 POST_YEAR_LOOKUP_TOLERANCE = 0.05
 
 MONTHS_DE = ["", "JANUAR", "FEBRUAR", "MAERZ", "APRIL", "MAI", "JUNI",
@@ -659,10 +696,12 @@ POST_YEAR_VARIATIONS = [
 def _post_year_month(month):
     """Die 20 Buchungen eines Monats.
 
-    Zwölf davon tragen einen Händler mit Lookup-Treffer, acht nicht — daraus
-    ergeben sich die 60%. Welche Slots das sind, steht bewusst nicht in einer
-    Tabelle daneben: `_assert_lookup_share` rechnet es gegen die echten Seeds
-    nach und bricht ab, wenn es nicht mehr stimmt.
+    Zwölf davon tragen einen Händler mit Lookup-Treffer, acht nicht. Seit V15
+    (BE-CAT-17) kommt der Barbezug als dreizehnter Treffer dazu, in den Monaten
+    mit Steuerrückerstattung (4, 8, 12) als vierzehnter — 9x13 + 3x14 = 159,
+    also 66.25%. Welche Slots das sind, steht bewusst nicht in einer Tabelle
+    daneben: `_assert_lookup_share` rechnet es gegen die echten Seeds nach und
+    bricht ab, wenn es nicht mehr stimmt.
     """
     from calendar import monthrange
     from datetime import date, timedelta
@@ -995,7 +1034,8 @@ RAIFFEISEN_COUNT = 110
 RAIFFEISEN_START_SALDO = Decimal("12000.00")
 
 # Wiederkehrende Schweizer Händler — die Fixture prüft damit zugleich die
-# Lookup-Tabelle (US-05): ein Teil dieser Namen steht in den Seeds von V04.
+# Lookup-Tabelle (US-05): ein Teil dieser Namen steht in den Seeds von V04, der
+# Bancomat-Bezug seit BE-CAT-17 in denen von V15.
 RAIFFEISEN_MERCHANTS = [
     ("Kartenzahlung Migros M Bern", "45.60"),
     ("Kartenzahlung Coop-2001 Bern", "38.90"),

@@ -134,33 +134,30 @@ class NotificationRepositoryIntegrationTest {
     }
 
     @Test
-    void findByUserIdAndTypeAndReferenceIdAndReadAtIsNullDoesNotLeakAForeignEntry() {
-        Long lara = insertUser("lara-reference@example.com");
-        Long marc = insertUser("marc-reference@example.com");
-        // Dieselbe referenceId bei beiden — sie ist eine Row-ID des aufrufenden Moduls und global
-        // eindeutig, im Test aber frei wählbar (FK-loser Verweis, V10). Genau dieser Fall muss
-        // über userId getrennt bleiben.
-        repository.save(new Notification(lara, "A", 200L, "Laras Meldung", Instant.now()));
-        repository.save(new Notification(marc, "A", 200L, "Marcs Meldung", Instant.now()));
+    void findByUserIdAndReadAtIsNullDoesNotLeakAForeignEntry() {
+        Long lara = insertUser("lara-unread@example.com");
+        Long marc = insertUser("marc-unread@example.com");
+        repository.save(new Notification(lara, "A", null, "Laras Meldung", Instant.now()));
+        repository.save(new Notification(marc, "A", null, "Marcs Meldung", Instant.now()));
 
-        assertThat(repository.findByUserIdAndTypeAndReferenceIdAndReadAtIsNull(lara, "A", 200L))
+        assertThat(repository.findByUserIdAndReadAtIsNull(lara))
                 .extracting(Notification::getMessage)
                 .containsExactly("Laras Meldung");
     }
 
     @Test
-    void findByUserIdAndTypeAndReferenceIdAndReadAtIsNullSkipsReadEntriesAndOtherTypes() {
+    void findByUserIdAndReadAtIsNullSkipsReadEntries() {
         Long lara = insertUser("lara-filter@example.com");
-        Notification read = new Notification(lara, "A", 200L, "Gelesen", Instant.now());
+        Notification read = new Notification(lara, "A", null, "Gelesen", Instant.now());
         read.markRead(Instant.now());
         repository.save(read);
-        repository.save(new Notification(lara, "B", 200L, "Anderer Typ", Instant.now()));
-        repository.save(new Notification(lara, "A", 201L, "Andere Referenz", Instant.now()));
-        repository.save(new Notification(lara, "A", 200L, "Treffer", Instant.now()));
+        repository.save(new Notification(lara, "B", null, "Anderer Typ, ungelesen", Instant.now()));
+        repository.save(new Notification(lara, "A", null, "Ungelesen", Instant.now()));
 
-        assertThat(repository.findByUserIdAndTypeAndReferenceIdAndReadAtIsNull(lara, "A", 200L))
+        // Typ-unabhängig: «Alle als gelesen» (FE-NOTIF-04) meint alle.
+        assertThat(repository.findByUserIdAndReadAtIsNull(lara))
                 .extracting(Notification::getMessage)
-                .containsExactly("Treffer");
+                .containsExactlyInAnyOrder("Anderer Typ, ungelesen", "Ungelesen");
     }
 
     // deleteAllByUserId (@Modifying, ohne eigenes @Transactional — Begründung in

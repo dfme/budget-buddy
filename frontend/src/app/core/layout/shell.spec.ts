@@ -40,7 +40,7 @@ describe('Shell', () => {
           { path: 'dashboard', component: RouteStub },
           { path: 'categories', component: RouteStub },
           { path: 'import', component: RouteStub },
-          { path: 'fixkosten', component: RouteStub },
+          { path: 'ausgaben', component: RouteStub },
           { path: 'einstellungen', component: RouteStub },
           { path: 'login', component: RouteStub },
         ]),
@@ -121,13 +121,13 @@ describe('Shell', () => {
       '/dashboard',
       '/categories',
       '/import',
-      '/fixkosten',
+      '/ausgaben',
     ]);
     expect(links.map((a) => a.textContent?.trim().replace(/\s+/g, ' '))).toEqual([
       '◎ Übersicht',
       '≡ Transaktionen',
       '↑ Import',
-      '▦ Fixkosten',
+      '▦ Ausgaben',
     ]);
   });
 

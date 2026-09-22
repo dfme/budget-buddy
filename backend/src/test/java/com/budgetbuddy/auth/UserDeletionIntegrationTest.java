@@ -130,7 +130,7 @@ class UserDeletionIntegrationTest {
                 Instant.now()));
         recurringExpenseRepository.save(new RecurringExpense(
                 userId, "NETFLIX INTERNATIONAL BV", new BigDecimal("20.90"),
-                YearMonth.of(2026, 7), Instant.now()));
+                YearMonth.of(2026, 7), Instant.now(), null));
         // Über den Port statt per INSERT: derselbe Weg, den manuelle Korrektur und Claude-Stufe
         // produktiv nehmen (BE-CAT-04, BE-CAT-11).
         categoryLearningPort.learn(userId, "BAECKEREI MUELLER", Category.LEBENSMITTEL);

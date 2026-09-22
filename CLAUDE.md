@@ -26,9 +26,10 @@ echten Transaktionsdaten, nicht aus manueller Eingabe.
 
 **Fallback-Kategorie:** `Sonstiges` (wenn LLM unsicher oder API nicht erreichbar)
 
-**Zwei Tabellen (ADR-15, BE-CAT-12):** `category_lookup` (V04) hält die globalen, kuratierten
-Seeds und wird nur per Migration geändert. Alles Gelernte liegt in `user_category_lookup` (V12)
-mit `user_id` — es wirkt nur auf die Kategorisierung dieses Nutzers und wird bei der Kontolöschung
+**Zwei Tabellen (ADR-15, BE-CAT-12):** `category_lookup` (V04, ergänzt durch V15) hält die
+globalen, kuratierten Seeds und wird nur per Migration geändert. Alles Gelernte liegt in
+`user_category_lookup` (V12) mit `user_id` — es wirkt nur auf die Kategorisierung dieses Nutzers
+und wird bei der Kontolöschung
 über `CategoryLookupCleanupPort` mitgelöscht. `CategorizationPort` und `CategoryLearningPort`
 tragen deshalb die User-ID; beim Matching gewinnt das längste Pattern aus beiden Pools, bei
 gleicher Länge das eigene.
@@ -40,19 +41,45 @@ gleicher Länge das eigene.
 `Sonstiges` vom Modell bleiben draussen. Sonst friert ein einzelner Netzwerkfehler einen Händler
 dauerhaft auf `Sonstiges` ein, weil Stufe 1 ihn künftig vor Claude abfängt.
 
+**Gelernt wird das stabile Präfix (BE-CAT-13):** `CategoryLearningService` schneidet den Text vor
+dem ersten variablen Token ab — Monat mit Jahr, Jahr, Datum, Referenz ab fünf Ziffern, IBAN
+(`LookupPatternExtractor`). Aus `GIRO POST MUSTER IMMOBILIEN AG MIETE JANUAR 2025` wird
+`GIRO POST MUSTER IMMOBILIEN AG MIETE`, und die Februar-Miete trifft ohne Claude-Call. Ein Präfix,
+kein Herausschneiden, weil `findMatching` per `locate(...)` einen Substring braucht. Guard:
+Das Präfix muss mindestens drei Tokens und die Hälfte des Textes behalten, sonst wird der volle
+Text gelernt — ein zu kurzes Pattern (`TWINT KAUF/DIENSTLEISTUNG VOM`) zwänge sonst jede
+TWINT-Zahlung in eine Kategorie. Der Schnitt sitzt im Service, damit **beide** Lernquellen
+denselben Schlüssel schreiben und der Upsert der User-Korrektur greift.
+
 **Bündelung (ADR-14):** Bis zu 20 Transaktionen gehen in *einem* Request hinaus. Der Prompt ist
 eine nummerierte Liste; die Kategorienliste steht **nicht** darin, sondern als `enum`-Constraint
 im Structured-Output-Schema, das aus dem `Category`-Enum abgeleitet wird — eine Kategorie
 ausserhalb der Liste ist damit strukturell ausgeschlossen.
 
-**Maskierung vor dem Versand (BE-CAT-06):** Was hinausgeht, ist nicht der rohe Buchungstext,
-sondern seine von `PromptSanitizer` maskierte Fassung — IBAN, Karten- und Kontonummern, Beträge,
-undurchsichtige Referenzen, der Name einer natürlichen Gegenpartei und E-Mail-Adressen fallen
-vorher weg. Angewendet wird das in `ClaudeCategorizationService.buildUserPrompt`, der einzigen
-Stelle, an der Text in einen API-Request gerät. Die **Lookup-Stufe davor sieht weiterhin den
-unmaskierten Text** — sie ist lokal, ihr Input verlässt das System nicht. Zwei Restexpositionen
-sind bekannt und in BE-CAT-08 (#233) festgehalten: ein Vorname in einer frei getippten Zweckzeile
-und die Telefonnummer eines Händlers.
+**Maskierung vor dem Versand (BE-CAT-06, BE-CAT-08):** Was hinausgeht, ist nicht der rohe
+Buchungstext, sondern seine von `PromptSanitizer` maskierte Fassung — IBAN, Karten- und
+Kontonummern, Beträge, undurchsichtige Referenzen, Schweizer Telefonnummern, der Name einer
+natürlichen Gegenpartei und E-Mail-Adressen fallen vorher weg. Angewendet wird das in
+`ClaudeCategorizationService.buildUserPrompt`, der einzigen Stelle, an der Text in einen
+API-Request gerät. Die **Lookup-Stufe davor sieht weiterhin den unmaskierten Text** — sie ist
+lokal, ihr Input verlässt das System nicht.
+
+**Echo-Maskierung des Vornamens (BE-CAT-08):** Ein `NACHNAME, VORNAME`-Treffer gilt für den
+ganzen Text. `maskPersonNames` maskiert dieselben Tokens auch in ihren weiteren Vorkommen, aus
+`LASTSCHRIFT MUSTER, LEA SACKGELD LEA` wird deshalb `LASTSCHRIFT <NAME> SACKGELD <NAME>` — ohne
+Vornamensliste, die die Trefferquote gekostet hätte. Die Regel ist **selbst-bedingt**: ohne
+Personentreffer im selben Text feuert sie nie.
+
+**Bewiesen ist der Token, nicht jedes Vorkommen (#353).** Ein Treffer belegt, dass `MUSTER` ein
+Nachname *ist* — nicht, dass jedes `MUSTER` im selben Text die Person *meint*. Trägt der Text
+denselben Token auch als Firmenbestandteil, fällt der Händler mit:
+`GIRO POST MUSTER, LEA MIETE MUSTER IMMOBILIEN AG` → `GIRO POST <NAME> MIETE <NAME> IMMOBILIEN AG`.
+Das setzt **keinen** Fehltreffer der Grundregel voraus. Eine frühere Fassung dieses Absatzes
+behauptete das Gegenteil; sie war falsch, und `MUSTER IMMOBILIEN AG` steht im Fixture-Korpus. Der
+Korpustest bleibt nur deshalb grün, weil er jede Zeile **einzeln** prüft — die Kollision braucht
+Person und Firma im selben Text. Die vollständige Liste der vier verbleibenden Ränder steht im
+Klassen-Javadoc von `PromptSanitizer`; keiner davon ist ein Abfluss, drei maskieren zu viel und
+einer erkennt zu wenig.
 
 ## Wichtigste Regeln für Claude
 

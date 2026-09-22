@@ -95,6 +95,31 @@
   }
 }
 
+// FE-NOTIF-04: Kopfzeile über der Liste mit «Alle als gelesen markieren». Rechtsbündig und
+// als Textlink gesetzt, nicht als Primär-Button — eine Nebenaktion, die die Liste nicht
+// dominieren soll. Die untere Linie trennt sie vom ersten Eintrag, der selbst ohne
+// `border-top` kommt (`.bell-list__item:first-child`).
+.bell-list__actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: $sp-1 $sp-3 $sp-2;
+  border-bottom: 1px solid $c-line;
+}
+
+.bell-list__read-all {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: $c-accent;
+  font-size: $fs-xs;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
 .bell-list__empty {
   padding: $sp-3;
   color: $c-ink-3;
@@ -123,6 +148,13 @@
 
   &--unread {
     background: $c-accent-soft;
+  }
+
+  // FE-NOTIF-04: Gelesene bleiben in der Liste (Inbox, kein Löschen — siehe FE-NOTIF-03), sind
+  // aber deutlich als erledigt erkennbar: Text in der Meta-Farbe statt nur ohne Akzent-Hintergrund.
+  // Nach «Alle als gelesen markieren» wäre sonst kaum sichtbar, dass sich etwas getan hat.
+  &--read .bell-list__message {
+    color: $c-ink-3;
   }
 }
 

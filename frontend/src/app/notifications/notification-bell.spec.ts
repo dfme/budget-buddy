@@ -43,6 +43,19 @@ const RECURRING_UNREAD: NotificationResponse = {
   createdAt: '2026-09-08T10:15:00Z',
 };
 
+/**
+ * Abschluss eines Import-Jobs (BE-PDF-15) — die Glocke führt bei den drei Import-Typen nach
+ * `/import?job=<referenceId>` (FE-NOTIF-05). `referenceId` ist die Job-ID.
+ */
+const IMPORT_UNREAD: NotificationResponse = {
+  id: 4,
+  type: 'IMPORT_COMPLETED',
+  referenceId: 42,
+  message: 'Import abgeschlossen: 5 Transaktionen importiert.',
+  read: false,
+  createdAt: '2026-09-21T09:00:00Z',
+};
+
 /** Navigationsziel für den NavigationEnd-Test. */
 @Component({ template: 'stub' })
 class RouteStub {}
@@ -60,7 +73,8 @@ describe('NotificationBell', () => {
         provideHttpClientTesting(),
         provideRouter([
           { path: 'dashboard', component: RouteStub },
-          { path: 'abos', component: RouteStub },
+          { path: 'ausgaben', component: RouteStub },
+          { path: 'import', component: RouteStub },
         ]),
         { provide: LOCALE_ID, useValue: 'de-CH' },
       ],
@@ -217,6 +231,60 @@ describe('NotificationBell', () => {
     httpMock.expectNone('/api/notifications/2/read');
   });
 
+  // FE-NOTIF-04 (#336): eine Aktion für alle ungelesenen statt N Einzelklicks.
+  it('zeigt «Alle als gelesen markieren» nur, solange etwas ungelesen ist', () => {
+    create();
+    flushInitialLoad([READ]);
+    bellButton().click();
+    fixture.detectChanges();
+
+    expect(query('.bell-list__read-all')).toBeNull();
+  });
+
+  it('markiert per «Alle als gelesen markieren» alle als gelesen, Badge weg, Dropdown bleibt offen', () => {
+    create();
+    flushInitialLoad([UNREAD, RECURRING_UNREAD]);
+    bellButton().click();
+    fixture.detectChanges();
+    expect(query('.bell__badge')?.textContent?.trim()).toBe('2');
+
+    query<HTMLButtonElement>('.bell-list__read-all')!.click();
+
+    const req = httpMock.expectOne('/api/notifications/read-all');
+    expect(req.request.method).toBe('POST');
+    req.flush([
+      { ...UNREAD, read: true },
+      { ...RECURRING_UNREAD, read: true },
+    ]);
+    fixture.detectChanges();
+
+    expect(query('.bell__badge')).toBeNull();
+    expect(query('.bell-list__item--unread')).toBeNull();
+    // Gelesene bleiben stehen (Inbox), aber als erledigt markiert.
+    expect(el().querySelectorAll('.bell-list__item--read').length).toBe(2);
+    expect(query('.bell-list__read-all')).toBeNull();
+    expect(query('.bell-list')).not.toBeNull();
+    // Kein Ziel für alle zusammen — anders als beim Einzelklick auf eine Abo-Benachrichtigung.
+    expect(router.url).not.toBe('/ausgaben');
+  });
+
+  it('bleibt bei einem fehlschlagenden read-all-Call still, Badge unverändert', () => {
+    create();
+    flushInitialLoad([UNREAD]);
+    bellButton().click();
+    fixture.detectChanges();
+
+    query<HTMLButtonElement>('.bell-list__read-all')!.click();
+
+    httpMock
+      .expectOne('/api/notifications/read-all')
+      .flush(null, { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+
+    expect(query('.bell__badge')?.textContent?.trim()).toBe('1');
+    expect(query('.bell-list__read-all')).not.toBeNull();
+  });
+
   // FE-REC-01: die Antwort auf «Netflix wurde als Abo erkannt» ist die Abo-Übersicht.
   it('führt bei einer Abo-Benachrichtigung sofort in die Abo-Übersicht und schliesst das Dropdown', async () => {
     create();
@@ -231,7 +299,7 @@ describe('NotificationBell', () => {
     // Sofort navigiert, nicht erst nach dem Gelesen-Call: Käme die Übersicht erst nach dessen
     // Abschluss an, stünde der Eintrag dort bereits als gelesen und das «Neu»-Label liefe leer
     // (US-08 AC2).
-    expect(router.url).toBe('/abos');
+    expect(router.url).toBe('/ausgaben');
     expect(query('.bell-list')).toBeNull();
     // Die Navigation löst den üblichen Reload aus.
     httpMock.expectOne('/api/notifications').flush([]);
@@ -249,7 +317,7 @@ describe('NotificationBell', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(router.url).toBe('/abos');
+    expect(router.url).toBe('/ausgaben');
     httpMock.expectOne('/api/notifications').flush([]);
 
     httpMock
@@ -268,6 +336,61 @@ describe('NotificationBell', () => {
 
     expect(router.url).toBe('/');
     expect(query('.bell-list')).not.toBeNull();
+  });
+
+  // FE-NOTIF-05 (#348): die Antwort auf «Import abgeschlossen» ist die Übersicht dieses Imports.
+  // Die Import-Seite nimmt den Job über `?job=` auf; ob er dem Nutzer gehört, entscheidet das
+  // Backend mit 404 — die Glocke reicht nur die Job-ID durch.
+  it.each(['IMPORT_COMPLETED', 'IMPORT_DEGRADED', 'IMPORT_FAILED'])(
+    'führt bei %s nach /import?job=<referenceId>, schliesst das Dropdown und markiert parallel als gelesen',
+    async (type) => {
+      create();
+      flushInitialLoad([{ ...IMPORT_UNREAD, type }]);
+      bellButton().click();
+      fixture.detectChanges();
+
+      query<HTMLButtonElement>('.bell-list__item')!.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(router.url).toBe('/import?job=42');
+      expect(query('.bell-list')).toBeNull();
+      // Die Navigation löst den üblichen Reload aus.
+      httpMock.expectOne('/api/notifications').flush([]);
+
+      // Gelesen-Call parallel zur Navigation, nicht davor — wie beim Abo-Sprung (FE-REC-01).
+      httpMock.expectOne('/api/notifications/4/read').flush({ ...IMPORT_UNREAD, type, read: true });
+    },
+  );
+
+  it('führt bei einer bereits gelesenen Import-Benachrichtigung zur Import-Seite, ohne Read-Call', async () => {
+    create();
+    flushInitialLoad([{ ...IMPORT_UNREAD, read: true }]);
+    bellButton().click();
+    fixture.detectChanges();
+
+    query<HTMLButtonElement>('.bell-list__item')!.click();
+    await fixture.whenStable();
+
+    expect(router.url).toBe('/import?job=42');
+    httpMock.expectOne('/api/notifications').flush([]);
+    httpMock.expectNone('/api/notifications/4/read');
+  });
+
+  // Das Backend setzt die Job-ID immer (ImportJobRunner); fehlt sie trotzdem, bleibt die
+  // Import-Seite das sinnvolle Ziel — nur ohne Parameter, statt `?job=null` zu erzeugen.
+  it('führt bei einer Import-Benachrichtigung ohne referenceId nach /import ohne Parameter', async () => {
+    create();
+    flushInitialLoad([{ ...IMPORT_UNREAD, referenceId: null }]);
+    bellButton().click();
+    fixture.detectChanges();
+
+    query<HTMLButtonElement>('.bell-list__item')!.click();
+    await fixture.whenStable();
+
+    expect(router.url).toBe('/import');
+    httpMock.expectOne('/api/notifications').flush([]);
+    httpMock.expectOne('/api/notifications/4/read').flush({ ...IMPORT_UNREAD, read: true });
   });
 
   it('lädt bei einer Navigation erneut (kein Polling, aber Reload bei Navigation)', async () => {

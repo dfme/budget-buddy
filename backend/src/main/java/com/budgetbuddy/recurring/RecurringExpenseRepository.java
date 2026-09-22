@@ -9,8 +9,8 @@ import org.springframework.data.repository.query.Param;
 
 /**
  * Repository-Zugriff auf {@link RecurringExpense} (recurring-intern, kein modulübergreifender
- * Zugriff — andere Module gehen über {@link RecurringExpenseDetectionPort} und
- * {@link RecurringExpenseCleanupPort}).
+ * Zugriff — andere Module gehen über {@link RecurringExpenseDetectionPort},
+ * {@link RecurringExpenseAmountPort} und {@link RecurringExpenseCleanupPort}).
  */
 public interface RecurringExpenseRepository extends JpaRepository<RecurringExpense, Long> {
 
@@ -36,6 +36,14 @@ public interface RecurringExpenseRepository extends JpaRepository<RecurringExpen
     List<RecurringExpense> findByUserIdOrderByPayeeKeyAsc(Long userId);
 
     /**
+     * Alle Einträge eines Users in einem Status — für {@link RecurringExpenseAmountPort}
+     * (FE-FC-05): der Safe-to-Spend braucht genau die {@code DETECTED}-Zeilen, die verneinten
+     * dürfen ihn nicht mindern. Der Index kommt wie oben aus dem {@code user_id}-Präfix der
+     * {@code UNIQUE}-Constraint (V11); die Menge pro User ist klein.
+     */
+    List<RecurringExpense> findByUserIdAndStatus(Long userId, RecurringExpenseStatus status);
+
+    /**
      * Einzelner Eintrag eines Users — für {@code dismiss} (BE-REC-02).
      *
      * @return leer, wenn die ID nicht existiert <em>oder</em> einem anderen User gehört. Beide
@@ -43,6 +51,19 @@ public interface RecurringExpenseRepository extends JpaRepository<RecurringExpen
      *     {@code RecurringExpenseNotFoundException}).
      */
     Optional<RecurringExpense> findByIdAndUserId(Long id, Long userId);
+
+    /**
+     * Alle Einträge eines Users, die an derselben Bündel-Benachrichtigung hängen — für
+     * {@code dismiss} (FE-NOTIF-04): erst wenn keiner davon mehr {@code DETECTED} ist, wird das
+     * Bündel als gelesen markiert. Eine Liste statt eines {@code exists}-Counts, damit der Aufrufer
+     * die soeben in derselben Persistence-Context geänderte Zeile mitzählt, ohne auf das
+     * Flush-Verhalten der Query angewiesen zu sein.
+     *
+     * <p>Über {@code userId} gebunden, obwohl die {@code notificationId} global eindeutig ist —
+     * dieselbe Zusage wie bei allen Methoden hier; der Index kommt aus dem {@code user_id}-Präfix
+     * der {@code UNIQUE}-Constraint (V11, V14).
+     */
+    List<RecurringExpense> findByUserIdAndNotificationId(Long userId, Long notificationId);
 
     /**
      * Löscht alle Einträge eines Users (Kontolöschung, US-02, nDSG).

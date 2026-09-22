@@ -29,6 +29,11 @@ import java.time.YearMonth;
  * {@code YYYY-MM}-Text, wie die Spalte es vorsieht; {@link YearMonth#toString()} und
  * {@link YearMonth#parse(CharSequence)} sind für dieses Format zueinander invers.
  *
+ * <p>{@code notificationId} zeigt FK-los auf die Benachrichtigung, die diesen Eintrag zusammen
+ * mit den anderen desselben Erkennungslaufs gemeldet hat (V14, FE-NOTIF-04). Aus ihrem
+ * Gelesen-Zustand leitet {@code RecurringExpenseService.list} das «Neu»-Flag ab. {@code null}
+ * für Zeilen ohne Bündel — die gelten nie als neu.
+ *
  * <p>{@code amount} ist {@link BigDecimal} (ADR-9) — nie {@code double}/{@code float}.
  */
 @Entity
@@ -58,6 +63,9 @@ public class RecurringExpense {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
+    @Column(name = "notification_id")
+    private Long notificationId;
+
     protected RecurringExpense() {
         // JPA
     }
@@ -70,15 +78,17 @@ public class RecurringExpense {
      * @param amount Betrag der jüngsten erkannten Belastung, Skala 2.
      * @param firstDetectedMonth erster Monat der Abo-Reihe in den Daten.
      * @param createdAt Zeitpunkt des Erkennungslaufs aus der injizierten {@code Clock}.
+     * @param notificationId ID der Bündel-Benachrichtigung dieses Erkennungslaufs.
      */
     public RecurringExpense(Long userId, String payeeKey, BigDecimal amount,
-            YearMonth firstDetectedMonth, Instant createdAt) {
+            YearMonth firstDetectedMonth, Instant createdAt, Long notificationId) {
         this.userId = userId;
         this.payeeKey = payeeKey;
         this.amount = amount;
         this.status = RecurringExpenseStatus.DETECTED;
         this.firstDetectedMonth = firstDetectedMonth.toString();
         this.createdAt = createdAt;
+        this.notificationId = notificationId;
     }
 
     public Long getId() {
@@ -107,6 +117,10 @@ public class RecurringExpense {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public Long getNotificationId() {
+        return notificationId;
     }
 
     /**

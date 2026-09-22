@@ -1084,7 +1084,7 @@ describe('Dashboard', () => {
       expectSafeToSpendRequest(httpMock).flush(NORMAL);
       fixture.detectChanges();
 
-      expect(teaser().getAttribute('href')).toBe('/abos');
+      expect(teaser().getAttribute('href')).toBe('/ausgaben');
       expect(teaser().querySelector('.recurring-teaser__text')?.textContent).toBe('3 Abos erkannt');
     });
 
@@ -1101,7 +1101,7 @@ describe('Dashboard', () => {
       expectSafeToSpendRequest(httpMock).flush(NORMAL);
       fixture.detectChanges();
 
-      expect(teaser().getAttribute('href')).toBe('/abos');
+      expect(teaser().getAttribute('href')).toBe('/ausgaben');
       expect(teaser().querySelector('.recurring-teaser__text')?.textContent).toBe(
         'Keine Abos erkannt',
       );

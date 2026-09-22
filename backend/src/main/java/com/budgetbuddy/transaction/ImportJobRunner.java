@@ -4,6 +4,7 @@ import com.budgetbuddy.categorization.CategorizationPort;
 import com.budgetbuddy.categorization.CategorizationResult;
 import com.budgetbuddy.categorization.Category;
 import com.budgetbuddy.config.AsyncConfig;
+import com.budgetbuddy.notification.NotificationPort;
 import com.budgetbuddy.recurring.RecurringExpenseDetectionPort;
 import java.time.Clock;
 import java.time.Duration;
@@ -50,9 +51,27 @@ import org.springframework.transaction.support.TransactionTemplate;
  * Transaktionen sind zu diesem Zeitpunkt committet, der Job wird trotzdem {@code DONE} — dieselbe
  * Haltung wie beim Claude-Call (CLAUDE.md: ein einzelner Ausfall darf nie den ganzen Import-Flow
  * blockieren).
+ *
+ * <p><strong>Abschluss-Benachrichtigung (BE-PDF-15):</strong> Nach dem Setzen des Endstatus
+ * meldet der Runner über {@link NotificationPort} das Ergebnis — Erfolg, Erfolg mit
+ * Watchdog-Einschlag oder Fehlschlag — an die Glocke. Nötig, weil das Frontend-Polling mit dem
+ * Verlassen der Import-Seite endet und der Nutzer sonst nie erfährt, wie der Lauf ausging. Den
+ * Fehlschlag meldet seit BE-PDF-16 der {@link ImportFailureNotifier}, weil ihn auch der
+ * {@link StaleImportJobCleaner} zu melden hat. Sie
+ * läuft bewusst <em>nach</em> {@code save} und ausserhalb der Transaktionsklammer: Ein Fehler beim
+ * Erzeugen der Benachrichtigung kann den bereits geschriebenen Status nicht mehr zurückrollen und
+ * wird — wie bei der Abo-Erkennung — nur geloggt. Zusammen mit der Abo-Benachrichtigung aus
+ * {@code RecurringExpenseService} entstehen pro Import bis zu zwei Einträge in der Glocke; das
+ * sind zwei Ereignisse, keine Dublette.
  */
 @Service
 public class ImportJobRunner {
+
+    /** Typ der Erfolgs-Benachrichtigung (BE-PDF-15) — der freie String, den der {@code NotificationPort} führt. */
+    public static final String NOTIFICATION_TYPE_COMPLETED = "IMPORT_COMPLETED";
+
+    /** Wie {@link #NOTIFICATION_TYPE_COMPLETED}, aber der Watchdog hat einen Teil auf Sonstiges gesetzt. */
+    public static final String NOTIFICATION_TYPE_DEGRADED = "IMPORT_DEGRADED";
 
     private static final Logger log = LoggerFactory.getLogger(ImportJobRunner.class);
 
@@ -61,6 +80,8 @@ public class ImportJobRunner {
     private final ImportJobRepository importJobRepository;
     private final TransactionTemplate transactionTemplate;
     private final RecurringExpenseDetectionPort recurringExpenseDetectionPort;
+    private final NotificationPort notificationPort;
+    private final ImportFailureNotifier importFailureNotifier;
     private final Clock clock;
     private final Duration categorizationTimeout;
     private final int batchSize;
@@ -71,6 +92,8 @@ public class ImportJobRunner {
             ImportJobRepository importJobRepository,
             TransactionTemplate transactionTemplate,
             RecurringExpenseDetectionPort recurringExpenseDetectionPort,
+            NotificationPort notificationPort,
+            ImportFailureNotifier importFailureNotifier,
             Clock clock,
             @Value("${budgetbuddy.import.categorization-timeout:300s}")
                     Duration categorizationTimeout,
@@ -80,6 +103,8 @@ public class ImportJobRunner {
         this.importJobRepository = importJobRepository;
         this.transactionTemplate = transactionTemplate;
         this.recurringExpenseDetectionPort = recurringExpenseDetectionPort;
+        this.notificationPort = notificationPort;
+        this.importFailureNotifier = importFailureNotifier;
         this.clock = clock;
         this.categorizationTimeout = categorizationTimeout;
         this.batchSize = batchSize;
@@ -139,6 +164,7 @@ public class ImportJobRunner {
                 job.getId(), cause);
         job.fail(clock.instant());
         importJobRepository.save(job);
+        importFailureNotifier.notifyFailed(job);
     }
 
     private void categorizeAndPersist(
@@ -234,6 +260,7 @@ public class ImportJobRunner {
         Instant end = clock.instant();
         job.finishSuccessfully(degraded, end);
         importJobRepository.save(job);
+        notifyFinished(job, entities.size(), degraded);
 
         // Eine Summary-Zeile pro Import (BE-PDF-06) — bewusst keine Zeile pro Transaktion,
         // application-prod.properties fährt com.budgetbuddy=INFO. Anders als vor ADR-14 steht sie
@@ -244,6 +271,44 @@ public class ImportJobRunner {
                         + "{} via Lookup, {} via Claude, {} ohne Call{}).",
                 job.getId(), entities.size(), Duration.between(start, end).toMillis(),
                 viaLookup, viaClaude, ohneCall, degraded ? ", Zeitbudget überschritten" : "");
+    }
+
+    /**
+     * Benachrichtigt den User über einen erfolgreich abgeschlossenen Import (BE-PDF-15) — auch
+     * dann, wenn er die Import-Seite bereits verlassen hat und das Frontend-Polling deshalb längst
+     * gestoppt ist.
+     *
+     * <p>Fängt {@link RuntimeException} aus demselben Grund wie {@link #detectRecurringExpenses}:
+     * Die Transaktionen sind zu diesem Zeitpunkt bereits committet und der Job steht auf
+     * {@code DONE} — ein Fehler beim Erzeugen der Benachrichtigung darf daraus keinen
+     * fehlgeschlagenen Import machen.
+     */
+    private void notifyFinished(ImportJob job, int count, boolean degraded) {
+        try {
+            if (degraded) {
+                notificationPort.create(job.getUserId(), NOTIFICATION_TYPE_DEGRADED, job.getId(),
+                        "Import abgeschlossen: " + imported(count) + " Ein Teil davon konnte"
+                                + " nicht automatisch kategorisiert werden und steht unter"
+                                + " «Sonstiges» — die Kategorien lassen sich von Hand"
+                                + " korrigieren.");
+            } else {
+                notificationPort.create(job.getUserId(), NOTIFICATION_TYPE_COMPLETED, job.getId(),
+                        "Import abgeschlossen: " + imported(count));
+            }
+        } catch (RuntimeException e) {
+            log.warn("Import-Job {}: Erfolgs-Benachrichtigung konnte nicht erzeugt werden.",
+                    job.getId(), e);
+        }
+    }
+
+    /**
+     * «1 Transaktion importiert.» / «N Transaktionen importiert.» — dieselbe Unterscheidung wie
+     * die Erfolgsmeldung der Import-Seite ({@code pdf-upload.ts}) und die Abo-Benachrichtigung
+     * ({@code RecurringExpenseService}), die in derselben Glocke steht. Die Log-Schreibweise
+     * «Transaktion(en)» ist Nutzertext nicht zuzumuten.
+     */
+    private static String imported(int count) {
+        return count == 1 ? "1 Transaktion importiert." : count + " Transaktionen importiert.";
     }
 
     /**

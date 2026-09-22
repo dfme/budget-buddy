@@ -237,14 +237,15 @@
   </app-card>
 
   <!--
-    Abo-Teaser (FE-REC-01, US-08): der Einstieg in die Abo-Übersicht. Die ganze Card ist der
-    Link, nicht nur ein Wort darin — auf dem Handy ist die Fläche das Ziel. Steht zuunterst: sie
+    Abo-Teaser (FE-REC-01, US-08): der Einstieg in die Abo-Übersicht, die seit FE-FC-05 ein
+    Abschnitt auf der Ausgaben-Seite ist (/ausgaben, FE-FC-07). Die ganze Card ist der Link,
+    nicht nur ein Wort darin — auf dem Handy ist die Fläche das Ziel. Steht zuunterst: sie
     ordnet nichts ein, sie führt weiter.
   -->
-  <a class="recurring-teaser" routerLink="/abos">
+  <a class="recurring-teaser" routerLink="/ausgaben">
     <app-card title="Abos">
       <p class="recurring-teaser__text">{{ recurringTeaserText() }}</p>
-      <span class="recurring-teaser__cta">Zur Abo-Übersicht →</span>
+      <span class="recurring-teaser__cta">Zu Ausgaben →</span>
     </app-card>
   </a>
 </section>

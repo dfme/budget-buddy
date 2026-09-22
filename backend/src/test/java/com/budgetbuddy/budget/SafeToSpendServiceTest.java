@@ -14,6 +14,7 @@ import com.budgetbuddy.budget.dto.FixedCostResponse;
 import com.budgetbuddy.budget.dto.FixedCostSummaryResponse;
 import com.budgetbuddy.budget.dto.SafeToSpendResponse;
 import com.budgetbuddy.budget.dto.SafeToSpendStatus;
+import com.budgetbuddy.recurring.RecurringExpenseAmountPort;
 import com.budgetbuddy.transaction.IncomeSuggestionPort;
 import com.budgetbuddy.transaction.MonthlyExpensePort;
 import java.math.BigDecimal;
@@ -31,9 +32,13 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
- * Unit-Test des {@link SafeToSpendService} (BE-STS-01, US-06). Beide Ports, der
+ * Unit-Test des {@link SafeToSpendService} (BE-STS-01, US-06). Alle Ports, der
  * {@link FixedCostService} und die {@link Clock} sind gemockt; der Pfad über echtes PostgreSQL
  * inklusive Mandantentrennungs-Gegenprobe liegt im {@link SafeToSpendServiceIntegrationTest}.
+ *
+ * <p>Der {@link RecurringExpenseAmountPort} (FE-FC-05) bleibt in den Fällen ohne Abos ungestubbt:
+ * Mockito liefert dann eine leere Liste, und die Rechnung ist dieselbe wie vor FE-FC-05 — genau
+ * das ist der Regressionsnachweis, dass Abos ohne Abos nichts verändern.
  *
  * <p>{@link MockitoExtension} mit Strict Stubs wie im {@link FixedCostServiceTest}: ein Stub, den
  * der getestete Pfad nicht mehr aufruft, wird rot statt still ins Leere zu laufen. Für den
@@ -49,6 +54,7 @@ class SafeToSpendServiceTest {
     @Mock private UserIncomePort userIncomePort;
     @Mock private FixedCostService fixedCostService;
     @Mock private MonthlyExpensePort monthlyExpensePort;
+    @Mock private RecurringExpenseAmountPort recurringExpenseAmountPort;
     @Mock private IncomeSuggestionPort incomeSuggestionPort;
     @Mock private Clock clock;
 
@@ -197,6 +203,117 @@ class SafeToSpendServiceTest {
         assertThat(result.amount()).isEqualByComparingTo("445.50");
     }
 
+    // --- FE-FC-05: erkannte Abos wirken wie Fixkosten-Positionen ---
+
+    @Test
+    void aDetectedRecurringExpenseIsDeductedBeforeItsDebitArrives() {
+        // Der Grund für FE-FC-05: Netflix 17.90 ist erkannt, aber in diesem Monat noch nicht
+        // abgebucht. Vorher zählte es gar nicht — der Safe-to-Spend war um 17.90 zu hoch.
+        //
+        //   3000 − 0 − 17.90 − 300 = 2682.10 ÷ 4 = 670.525 → 670.53
+        givenToday("2026-02-01");
+        givenIncome("3000.00");
+        givenFixedCosts("0.00");
+        givenRecurringExpenses("17.90");
+        givenExpenseAmounts("300.00");
+
+        assertThat(service.calculate(USER_ID).amount()).isEqualByComparingTo("670.53");
+    }
+
+    @Test
+    void aDetectedRecurringExpenseCountsExactlyOnceWhenItsDebitIsInTheMonth() {
+        // Netflix 17.90 erkannt UND abgebucht: die Belastung fällt aus dem Summanden, das Abo
+        // zählt über die Fixkosten-Seite — genau einmal, wie eine Position nach ADR-13.
+        //
+        //   ohne Streichung: 3000 − 17.90 − (17.90 + 300) = 2664.20 ÷ 4 = 666.05
+        //   richtig:         3000 − 17.90 −          300  = 2682.10 ÷ 4 = 670.53
+        givenToday("2026-02-01");
+        givenIncome("3000.00");
+        givenFixedCosts("0.00");
+        givenRecurringExpenses("17.90");
+        givenExpenseAmounts("17.90", "300.00");
+
+        assertThat(service.calculate(USER_ID).amount()).isEqualByComparingTo("670.53");
+    }
+
+    @Test
+    void aRecurringExpenseAlreadyEnteredAsFixedCostDoesNotCountTwice() {
+        // Handy 59.00 im Wizard erfasst UND als SWISSCOM 59.00 erkannt, dazu die Abbuchung. Die
+        // Position zählt, das betragsgleiche Abo nicht; gestrichen wird die eine Belastung.
+        //
+        //   doppelt:  3000 − 59 − 59 − (359 − 59) = 2582 ÷ 4 = 645.50
+        //   richtig:  3000 − 59 −  0 − (359 − 59) = 2641 ÷ 4 = 660.25
+        givenToday("2026-02-01");
+        givenIncome("3000.00");
+        givenFixedCostPositions("59.00", position("Handy", "59.00", "monatlich", "59.00"));
+        givenRecurringExpenses("59.00");
+        givenExpenseAmounts("59.00", "300.00");
+
+        assertThat(service.calculate(USER_ID).amount()).isEqualByComparingTo("660.25");
+    }
+
+    @Test
+    void anUncoveredRecurringExpenseNextToACoveredOneCountsOnce() {
+        // Position 59.00, zwei Abos: SWISSCOM 59.00 (abgedeckt) und NETFLIX 17.90 (nicht).
+        // Beide Abbuchungen im Monat. Gezählt: 59 (Position) + 17.90 (Abo); gestrichen: 59, 17.90.
+        //
+        //   3000 − 59 − 17.90 − (59 + 17.90 + 300 − 59 − 17.90) = 2623.10 ÷ 4 = 655.775 → 655.78
+        givenToday("2026-02-01");
+        givenIncome("3000.00");
+        givenFixedCostPositions("59.00", position("Handy", "59.00", "monatlich", "59.00"));
+        givenRecurringExpenses("59.00", "17.90");
+        givenExpenseAmounts("59.00", "17.90", "300.00");
+
+        assertThat(service.calculate(USER_ID).amount()).isEqualByComparingTo("655.78");
+    }
+
+    @Test
+    void aRecurringExpenseDebitedWithinToleranceCountsOnceAtTheDebitedAmount() {
+        // Review PR #345: SALT erkannt mit 59.00, Rechnung dieses Monats 59.90 (innerhalb ±2 %).
+        // Rappengenau bliebe 59.90 variable Ausgabe UND 59.00 zählte dazu — 59.00 zu viel.
+        //
+        //   falsch:  3000 − 59.00 − (59.90 + 300) = 2581.10 ÷ 4 = 645.275 → 645.28
+        //   richtig: 3000 − 59.90 −          300  = 2640.10 ÷ 4 = 660.025 → 660.03
+        givenToday("2026-02-01");
+        givenIncome("3000.00");
+        givenFixedCosts("0.00");
+        givenRecurringExpenses("59.00");
+        givenExpenseAmounts("59.90", "300.00");
+
+        assertThat(service.calculate(USER_ID).amount()).isEqualByComparingTo("660.03");
+    }
+
+    @Test
+    void aRecurringExpenseWithinToleranceOfAFixedCostDoesNotCountTwice() {
+        // Krankenkasse im Wizard mit 350.00 erfasst, erkannt mit 351.20 — dieselbe Verpflichtung.
+        // Das Abo zählt nicht; die Abbuchung 351.20 bleibt im Abbuchungsmonat variable Ausgabe,
+        // weil die Position rappengenau streicht (ADR-13) — der Zustand vor FE-FC-05, nicht
+        // schlechter.
+        //
+        //   3000 − 350 − 0 − (351.20 + 300) = 1998.80 ÷ 4 = 499.70
+        givenToday("2026-02-01");
+        givenIncome("3000.00");
+        givenFixedCostPositions("350.00", position("Krankenkasse", "350.00", "monatlich", "350.00"));
+        givenRecurringExpenses("351.20");
+        givenExpenseAmounts("351.20", "300.00");
+
+        assertThat(service.calculate(USER_ID).amount()).isEqualByComparingTo("499.70");
+    }
+
+    @Test
+    void withoutDetectedRecurringExpensesTheFormulaIsUnchanged() {
+        // Leere Liste vom Port: dasselbe Ergebnis wie das US-06-Beispiel oben. Explizit gestubbt,
+        // damit der Aufruf des Ports belegt ist und nicht nur Mockitos Default greift.
+        givenToday("2026-02-01");
+        givenIncome("2000.00");
+        givenFixedCosts("800.00");
+        givenRecurringExpenses();
+        givenExpenses("400.00");
+
+        assertThat(service.calculate(USER_ID).amount()).isEqualByComparingTo("200.00");
+        verify(recurringExpenseAmountPort).detectedAmounts(USER_ID, YearMonth.of(2026, 2));
+    }
+
     // --- AC2: Divisor ist mindestens 1 (kein Division-by-Zero) ---
 
     @Test
@@ -293,6 +410,7 @@ class SafeToSpendServiceTest {
         // Eingabewerte gar nicht erst gelesen werden. Ein null-Betrag allein zeigte das nicht.
         verify(fixedCostService, never()).list(anyLong());
         verify(monthlyExpensePort, never()).expenseAmounts(anyLong(), any());
+        verify(recurringExpenseAmountPort, never()).detectedAmounts(anyLong(), any());
     }
 
     // --- BE-STS-02: Einkommens-Vorschlag ---
@@ -370,6 +488,7 @@ class SafeToSpendServiceTest {
         verify(userIncomePort).findMonthlyIncome(USER_ID);
         verify(fixedCostService).list(USER_ID);
         verify(monthlyExpensePort).expenseAmounts(USER_ID, YearMonth.of(2026, 8));
+        verify(recurringExpenseAmountPort).detectedAmounts(USER_ID, YearMonth.of(2026, 8));
     }
 
     // --- BE-STS-06 / US-12: Monat als Parameter ---
@@ -444,6 +563,7 @@ class SafeToSpendServiceTest {
         verify(userIncomePort, never()).findMonthlyIncome(anyLong());
         verify(fixedCostService, never()).list(anyLong());
         verify(monthlyExpensePort, never()).expenseAmounts(anyLong(), any());
+        verify(recurringExpenseAmountPort, never()).detectedAmounts(anyLong(), any());
         verify(incomeSuggestionPort, never()).suggestMonthlyIncome(anyLong());
     }
 
@@ -476,6 +596,7 @@ class SafeToSpendServiceTest {
         verify(userIncomePort, never()).findMonthlyIncome(anyLong());
         verify(fixedCostService, never()).list(anyLong());
         verify(monthlyExpensePort, never()).expenseAmounts(anyLong(), any());
+        verify(recurringExpenseAmountPort, never()).detectedAmounts(anyLong(), any());
     }
 
     // --- Zonengrenze: welcher Monat der laufende ist, entscheidet Europe/Zurich ---
@@ -537,6 +658,16 @@ class SafeToSpendServiceTest {
     /** Stellt die Belastungen des Monats als einzelne Buchungen ein (BE-STS-04). */
     private void givenExpenseAmounts(String... betraege) {
         when(monthlyExpensePort.expenseAmounts(eq(USER_ID), any()))
+                .thenReturn(List.of(betraege).stream().map(BigDecimal::new).toList());
+    }
+
+    /**
+     * Stellt die erkannten, nicht verneinten und aktiven Abos ein, wie der Port sie liefert
+     * (FE-FC-05). Das Aktivitätsfenster liegt im Port und ist im
+     * {@code RecurringExpenseServiceTest} abgedeckt — hier zählt nur, was ankommt.
+     */
+    private void givenRecurringExpenses(String... betraege) {
+        when(recurringExpenseAmountPort.detectedAmounts(eq(USER_ID), any()))
                 .thenReturn(List.of(betraege).stream().map(BigDecimal::new).toList());
     }
 

@@ -40,11 +40,14 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `BE-CAT-05` | [GET /transactions/summary](BE-CAT-05-transactions-summary.md) | [#20](https://github.com/dfme/budget-buddy/issues/20) | US-05 | Sprint 3 |
 | `BE-CAT-06` | [Transaktionstext vor Claude-Call maskieren (Datenminimierung)](BE-CAT-06-prompt-sanitizer.md) | [#134](https://github.com/dfme/budget-buddy/issues/134) | US-05 | Sprint 5 |
 | `BE-CAT-07` | [AnthropicStartupHealthCheckTest ist ordnungsabhängig und macht einen echten Netzwerk-Call](BE-CAT-07-healthcheck-test-isolation.md) | [#162](https://github.com/dfme/budget-buddy/issues/162) | — | Sprint 5 |
+| `BE-CAT-08` | [Restexposition im Claude-Prompt: Vorname in Zweckzeilen und Händler-Telefonnummer](BE-CAT-08-prompt-restexposition.md) | [#233](https://github.com/dfme/budget-buddy/issues/233) | US-05 | Sprint 7 |
 | `BE-CAT-09` | [Token-Verbrauch und Kosten der Claude-Kategorisierung loggen](BE-CAT-09-token-usage-logging.md) | [#243](https://github.com/dfme/budget-buddy/issues/243) | — | Sprint 6 |
 | `BE-CAT-10` | [Vier neue Kategorien (Persönliches, Steuern, Bargeldbezug, Reisen) plus ein Icon je Kategorie](BE-CAT-10-kategorien-icons.md) | [#266](https://github.com/dfme/budget-buddy/issues/266) | US-05 | Sprint 7 |
 | `BE-CAT-11` | [Lerneffekt bereits bei erfolgreicher Claude-Kategorisierung, nicht erst bei manueller Korrektur](BE-CAT-11-lerneffekt-claude-erfolg.md) | [#314](https://github.com/dfme/budget-buddy/issues/314) | US-05 | Sprint 7 |
 | `BE-CAT-12` | [category_lookup überlebt die Kontolöschung — und wächst seit BE-CAT-11 ohne Zutun des Users](BE-CAT-12-category-lookup-mandantentrennung.md) | [#319](https://github.com/dfme/budget-buddy/issues/319) | US-02 | Sprint 7 |
+| `BE-CAT-13` | [Gelernte Lookup-Patterns mit variabler Mitteilung treffen nie wieder — Tabelle wächst pro Transaktion statt pro Händler](BE-CAT-13-lookup-pattern-extraction.md) | [#321](https://github.com/dfme/budget-buddy/issues/321) | US-05 | Sprint 7 |
 | `BE-CAT-14` | [LIKE-Wildcards (%, _) in gelernten Lookup-Patterns werden nicht escaped](BE-CAT-14-lookup-literal-matching.md) | [#322](https://github.com/dfme/budget-buddy/issues/322) | US-05 | Sprint 7 |
+| `BE-CAT-17` | [Lookup-Seeds für Bargeldbezug und Steuern](BE-CAT-17-lookup-seeds-bargeld-steuern.md) | [#325](https://github.com/dfme/budget-buddy/issues/325) | US-05 | Sprint 7 |
 | `BE-FC-01` | [FixedCost Entity und Repository](BE-FC-01-fixedcost-entity.md) | [#10](https://github.com/dfme/budget-buddy/issues/10) | US-03 | Sprint 4 |
 | `BE-FC-02` | [FixedCostService: CRUD und Normalisierung](BE-FC-02-fixedcost-service.md) | [#11](https://github.com/dfme/budget-buddy/issues/11) | US-03 | Sprint 4 |
 | `BE-FC-03` | [REST-Endpoints für Fixkosten](BE-FC-03-fixed-costs-endpoints.md) | [#12](https://github.com/dfme/budget-buddy/issues/12) | US-03 | Sprint 4 |
@@ -63,6 +66,8 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `BE-PDF-11` | [Verwaiste Import-Jobs bleiben nach einem Neustart für immer auf RUNNING](BE-PDF-11-verwaiste-import-jobs.md) | [#197](https://github.com/dfme/budget-buddy/issues/197) | US-04 | Sprint 6 |
 | `BE-PDF-13` | [Gegenpartei-Adresse als einzelne Zeile überlebt DETAIL_NOISE](BE-PDF-13-adresse-detail-noise.md) | [#241](https://github.com/dfme/budget-buddy/issues/241) | US-05 | Sprint 6 |
 | `BE-PDF-14` | [Endpoint: Transaktionen eines Import-Jobs auflisten](BE-PDF-14-import-transactions-endpoint.md) | [#291](https://github.com/dfme/budget-buddy/issues/291) | US-04, US-05 | Sprint 6 |
+| `BE-PDF-15` | [Notification bei Abschluss eines Import-Jobs — auch wenn die Import-Seite verlassen wurde](BE-PDF-15-import-completion-notification.md) | [#337](https://github.com/dfme/budget-buddy/issues/337) | US-04 | Sprint 7 |
+| `BE-PDF-16` | [Notification auch für Import-Jobs, die der Stale-Cleaner auf FAILED setzt](BE-PDF-16-stale-cleaner-notification.md) | [#341](https://github.com/dfme/budget-buddy/issues/341) | US-04 | Sprint 7 |
 | `BE-REC-01` | [RecurringExpenseService: Erkennung](BE-REC-01-recurring-expense-detection.md) | [#253](https://github.com/dfme/budget-buddy/issues/253) | US-08 | Sprint 6 |
 | `BE-REC-02` | [REST-Endpoints Abo-Übersicht](BE-REC-02-abo-uebersicht-endpoints.md) | [#254](https://github.com/dfme/budget-buddy/issues/254) | US-08 | Sprint 6 |
 | `BE-REC-03` | [Dismiss markiert Benachrichtigung als gelesen](BE-REC-03-dismiss-marks-notification-read.md) | [#324](https://github.com/dfme/budget-buddy/issues/324) | US-08 | Sprint 7 |
@@ -107,9 +112,13 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `FE-FC-02` | [Route Guard für Onboarding](FE-FC-02-onboarding-guard.md) | [#25](https://github.com/dfme/budget-buddy/issues/25) | US-03 | Sprint 4 |
 | `FE-FC-03` | [Fixkosten-Liste](FE-FC-03-fixkosten-liste.md) | [#26](https://github.com/dfme/budget-buddy/issues/26) | US-03 | Sprint 4 |
 | `FE-FC-04` | [Fixkosten-Tabelle läuft auf schmalen Viewports über die Card hinaus](FE-FC-04-tabelle-overflow.md) | [#172](https://github.com/dfme/budget-buddy/issues/172) | — | Sprint 5 |
+| `FE-FC-05` | [Fixkosten- und Abo-Ansicht zusammenführen](FE-FC-05-fixkosten-abos-zusammenfuehren.md) | [#338](https://github.com/dfme/budget-buddy/issues/338) | US-03, US-08 | — |
+| `FE-FC-07` | [Fixkosten-Seite zu «Ausgaben» umbenennen (Route, Nav, Titel) und kombiniertes Total anzeigen](FE-FC-07-ausgaben-seite.md) | [#355](https://github.com/dfme/budget-buddy/issues/355) | US-08 | Sprint 7 |
 | `FE-NOTIF-01` | [Notification-Glocke in der App-Shell](FE-NOTIF-01-notification-bell.md) | [#247](https://github.com/dfme/budget-buddy/issues/247) | US-08 | Sprint 6 |
 | `FE-NOTIF-02` | [Glocke: Dropdown auf Desktop ausserhalb des Viewports, Icon passt nicht zum Design](FE-NOTIF-02-bell-dropdown-icon.md) | [#308](https://github.com/dfme/budget-buddy/issues/308) | US-08 | Sprint 7 |
 | `FE-NOTIF-03` | [Verneinte Abos bleiben auf /abos sichtbar — Abschnitt «Kein Abo»](FE-NOTIF-03-abo-hinweis-verneinter-eintrag.md) | [#333](https://github.com/dfme/budget-buddy/issues/333) | US-08 | Sprint 7 |
+| `FE-NOTIF-04` | [Viele Abo-Benachrichtigungen auf einmal: Kenntnisnahme nur per Einzelklick](FE-NOTIF-04-bundle-recurring-notifications.md) | [#336](https://github.com/dfme/budget-buddy/issues/336) | US-08 | Sprint 7 |
+| `FE-NOTIF-05` | [Klick auf Import-Benachrichtigung führt zur Import-Seite mit der Übersicht des Imports](FE-NOTIF-05-import-notification-link.md) | [#348](https://github.com/dfme/budget-buddy/issues/348) | US-04 | Sprint 7 |
 | `FE-PDF-01` | [Plan: FE-PDF-01 — PDF-Upload Component](FE-PDF-01-pdf-upload-component.md) | [#27](https://github.com/dfme/budget-buddy/issues/27) | US-04 | Sprint 3 |
 | `FE-PDF-02` | [FE-PDF-02 — Ergebnis-Anzeige nach PDF-Import](FE-PDF-02-import-ergebnis-anzeige.md) | [#28](https://github.com/dfme/budget-buddy/issues/28) | US-04 | Sprint 3 |
 | `FE-PDF-03` | [Duplikat-Dialog](FE-PDF-03-duplikat-dialog.md) | [#29](https://github.com/dfme/budget-buddy/issues/29) | US-04 | Sprint 4 |

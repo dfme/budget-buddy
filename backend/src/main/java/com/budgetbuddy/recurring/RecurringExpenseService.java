@@ -8,6 +8,7 @@ import com.budgetbuddy.transaction.ExpenseHistoryPort.ExpenseEntry;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
+import java.time.Instant;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -29,16 +30,21 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p><strong>Regel.</strong> Ein Empfänger gilt als wiederkehrend, wenn er in zwei
  * <em>aufeinanderfolgenden</em> Kalendermonaten je eine Belastung trägt, deren Beträge um höchstens
- * {@value #TOLERANCE_PERCENT}&nbsp;% auseinanderliegen — Basis ist der frühere Betrag. Januar und
+ * {@value RecurringExpenseAmountPort#TOLERANCE_PERCENT}&nbsp;% auseinanderliegen — Basis ist der
+ * frühere Betrag ({@link RecurringExpenseAmountPort#withinTolerance}). Januar und
  * März genügen nicht, auch nicht mit identischem Betrag; Januar und Februar genügen, auch wenn
  * dazwischen 20.90 und 21.20 stehen. Der Empfänger kommt bereits normalisiert über den
  * {@link ExpenseHistoryPort}; welche Zeile des Bank-PDFs ihn trägt, weiss dieses Modul nicht.
  *
  * <p><strong>Was geschrieben wird.</strong> Pro neu erkanntem Empfänger genau eine Zeile mit
  * {@link RecurringExpenseStatus#DETECTED}: der Betrag des <em>jüngsten</em> qualifizierenden
- * Monatspaars und der erste Monat der Reihe in den Daten. Dazu eine Benachrichtigung vom Typ
- * {@value #NOTIFICATION_TYPE} mit der ID der Zeile als {@code referenceId} — der «Neu»-Hinweis aus
- * US-08.
+ * Monatspaars und der erste Monat der Reihe in den Daten. Dazu <em>pro Lauf</em> eine
+ * Benachrichtigung vom Typ {@value #NOTIFICATION_TYPE}, die alle Treffer des Laufs bündelt
+ * («3 neue Abos erkannt: …») — der «Neu»-Hinweis aus US-08. Jede Zeile trägt die ID dieser
+ * Benachrichtigung ({@code notification_id}, V14); der Verweis läuft seit FE-NOTIF-04 (#336) von
+ * der Zeile zur Benachrichtigung und nicht mehr umgekehrt, weil eine Benachrichtigung jetzt
+ * mehrere Zeilen meldet. Ein Import, der 27 Abos auf einmal erkennt, erzeugte vorher 27
+ * Benachrichtigungen, die nur einzeln als gelesen zu markieren waren.
  *
  * <p><strong>Was nicht angefasst wird.</strong> Ein Empfänger, für den bereits eine Zeile existiert,
  * wird übersprungen — in beiden Status. Bei {@code DISMISSED} ist das die Regel aus US-08 («künftige
@@ -62,25 +68,30 @@ import org.springframework.transaction.annotation.Transactional;
  * wie im {@code FixedCostDebitMatcher} — {@link BigDecimal#compareTo} statt {@code equals}, damit
  * die Skala des Vergleichs nicht an der Skala einer anderen Klasse hängt.
  *
- * <p><strong>Mandantentrennung:</strong> beide Lesezugriffe — {@link ExpenseHistoryPort} und
- * {@link RecurringExpenseRepository#findByUserId} — sind auf den übergebenen User eingeschränkt;
- * geschrieben wird mit derselben ID.
+ * <p><strong>Safe-to-Spend (FE-FC-05).</strong> Erkannte Abos mindern seit FE-FC-05 den
+ * Safe-to-Spend wie Fixkosten-Positionen. Das budget-Modul liest dafür über
+ * {@link RecurringExpenseAmountPort#detectedAmounts} nur die Beträge der {@code DETECTED}-Zeilen,
+ * die im Aktivitätsfenster noch abgebucht wurden — eine Zeile verfällt nie von selbst, und ein
+ * gekündigtes Abo darf nicht dauerhaft abgezogen werden. Die Zuordnung zur Abbuchung des Monats
+ * und die Regel gegen Doppelzählung liegen drüben ({@code FixedCostDebitMatcher},
+ * ADR-13-Nachtrag); die Toleranz dafür ist dieselbe wie hier bei der Erkennung.
+ *
+ * <p><strong>Mandantentrennung:</strong> alle Lesezugriffe — beide Fassungen von
+ * {@link ExpenseHistoryPort#expenseHistory}, {@link RecurringExpenseRepository#findByUserId} und
+ * {@link RecurringExpenseRepository#findByUserIdAndStatus} — sind auf den übergebenen User
+ * eingeschränkt; geschrieben wird mit derselben ID.
  *
  * <p><strong>Logging:</strong> nur Zähler. Empfängernamen sind Transaktionsdaten und gehören nicht
  * ins Log (BE-PDF-06, CONVENTIONS «Logging-Kontext»).
  */
 @Service
-public class RecurringExpenseService implements RecurringExpenseDetectionPort {
+public class RecurringExpenseService
+        implements RecurringExpenseDetectionPort, RecurringExpenseAmountPort {
 
     /** Typ der Benachrichtigung — der Wert, den {@code NotificationPort} als freien String führt. */
     public static final String NOTIFICATION_TYPE = "RECURRING_EXPENSE_DETECTED";
 
-    /** ±2 % — die Toleranz aus US-08. */
-    static final int TOLERANCE_PERCENT = 2;
-
     private static final Logger log = LoggerFactory.getLogger(RecurringExpenseService.class);
-
-    private static final BigDecimal TOLERANCE = new BigDecimal("0.02");
 
     /** Rappen — Zielskala aller Beträge (ADR-9). */
     private static final int RAPPEN_SCALE = ChfAmounts.RAPPEN_SCALE;
@@ -104,9 +115,12 @@ public class RecurringExpenseService implements RecurringExpenseDetectionPort {
     /**
      * {@inheritDoc}
      *
-     * <p>Eine Transaktion für Lesen, Schreiben und Benachrichtigen: entweder stehen Zeile und
-     * Notification zusammen in der Datenbank oder keines von beiden. Eine Notification, deren
-     * {@code referenceId} auf nichts zeigt, wäre der schlechtere Zustand.
+     * <p>Eine Transaktion für Lesen, Schreiben und Benachrichtigen: entweder stehen Zeilen und
+     * Notification zusammen in der Datenbank oder keines von beiden. Eine Zeile, deren
+     * {@code notificationId} auf nichts zeigt, hiesse ein Abo, das nie «Neu» war.
+     *
+     * <p>Die Notification entsteht <em>vor</em> den Zeilen, weil diese ihre ID tragen — und nur,
+     * wenn es mindestens einen Treffer gibt: ein Lauf ohne Ergebnis meldet nichts.
      */
     @Override
     @Transactional
@@ -131,23 +145,28 @@ public class RecurringExpenseService implements RecurringExpenseDetectionPort {
             byPayee.computeIfAbsent(key, k -> new ArrayList<>()).add(entry);
         }
 
-        int detected = 0;
+        // Erst sammeln, dann schreiben: die Benachrichtigung nennt die Zahl und die Namen aller
+        // Treffer, und die Zeilen tragen ihre ID — beides steht erst nach dem Durchgang fest.
+        // TreeMap auch hier, damit die Reihenfolge in Text und Tabelle die der Empfänger ist.
+        Map<String, Detection> detections = new TreeMap<>();
         for (Map.Entry<String, List<ExpenseEntry>> group : byPayee.entrySet()) {
-            Optional<Detection> detection = qualify(group.getValue());
-            if (detection.isEmpty()) {
-                continue;
+            qualify(group.getValue()).ifPresent(d -> detections.put(group.getKey(), d));
+        }
+
+        if (!detections.isEmpty()) {
+            long notificationId = notificationPort.create(userId, NOTIFICATION_TYPE, null,
+                    message(List.copyOf(detections.keySet())));
+            Instant now = clock.instant();
+            for (Map.Entry<String, Detection> detection : detections.entrySet()) {
+                recurringExpenseRepository.save(new RecurringExpense(
+                        userId, detection.getKey(), detection.getValue().amount(),
+                        detection.getValue().firstMonth(), now, notificationId));
             }
-            RecurringExpense saved = recurringExpenseRepository.save(new RecurringExpense(
-                    userId, group.getKey(), detection.get().amount(),
-                    detection.get().firstMonth(), clock.instant()));
-            notificationPort.create(userId, NOTIFICATION_TYPE, saved.getId(),
-                    message(saved.getPayeeKey(), saved.getAmount()));
-            detected++;
         }
 
         log.info("Abo-Erkennung: {} neue wiederkehrende Ausgabe(n) aus {} Belastung(en), "
                         + "{} Empfänger bereits bekannt oder ausgeschlossen.",
-                detected, history.size(), known.size());
+                detections.size(), history.size(), known.size());
     }
 
     /**
@@ -216,18 +235,12 @@ public class RecurringExpenseService implements RecurringExpenseDetectionPort {
     }
 
     /**
-     * {@code |later − earlier| ≤ earlier × 2 %}. Der frühere Betrag ist die Basis, weil er der
-     * bekannte Vergleichswert ist — der Betrag, den der Nutzer bisher gezahlt hat.
-     *
-     * <p>Ein nicht positiver früherer Betrag qualifiziert nie: Bei {@code 0.00} wäre das Band
-     * leer und ein Paar aus Nullbuchungen hiesse «Abo über CHF 0.00».
+     * Der frühere Betrag ist die Basis, weil er der bekannte Vergleichswert ist — der Betrag, den
+     * der Nutzer bisher gezahlt hat. Die Regel selbst steht am Port, weil der Safe-to-Spend
+     * dieselbe braucht (siehe Klassen-Javadoc).
      */
     private static boolean withinTolerance(BigDecimal earlier, BigDecimal later) {
-        if (earlier.signum() <= 0) {
-            return false;
-        }
-        BigDecimal maxAbweichung = earlier.multiply(TOLERANCE);
-        return later.subtract(earlier).abs().compareTo(maxAbweichung) <= 0;
+        return RecurringExpenseAmountPort.withinTolerance(earlier, later);
     }
 
     /**
@@ -253,34 +266,89 @@ public class RecurringExpenseService implements RecurringExpenseDetectionPort {
      */
     @Transactional(readOnly = true)
     public List<RecurringExpenseResponse> list(long userId) {
-        Set<Long> unread = notificationPort.unreadReferenceIds(userId, NOTIFICATION_TYPE);
+        Set<Long> unread = notificationPort.unreadIds(userId, NOTIFICATION_TYPE);
         return recurringExpenseRepository
                 .findByUserIdOrderByPayeeKeyAsc(userId)
                 .stream()
-                .map(expense -> toResponse(expense, unread.contains(expense.getId())))
+                .map(expense -> toResponse(expense, isNew(expense, unread)))
                 .toList();
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Aktiv heisst: der Empfänger der Zeile hat im Fenster {@code [month −
+     * (ACTIVE_WINDOW_MONTHS − 1), month]} mindestens eine Belastung — unabhängig vom Betrag. Der
+     * Betrag wird hier nicht verglichen, weil das die Aufgabe des Aufrufers ist: er entscheidet
+     * mit {@link RecurringExpenseAmountPort#withinTolerance}, welche Belastung die Abbuchung des
+     * Abos ist. Verglichen wird der Schlüssel, so wie {@link #detect(long)} ihn speichert
+     * (Grossschreibung, V11).
+     *
+     * <p>Erst die Zeilen, dann die Historie — ohne {@code DETECTED}-Zeile wird die Historie gar
+     * nicht geladen: der häufigste Fall auf dem Dashboard ist ein User ohne erkannte Abos.
+     *
+     * <p><strong>Mandantentrennung:</strong>
+     * {@link RecurringExpenseRepository#findByUserIdAndStatus} und die gefensterte
+     * {@link ExpenseHistoryPort#expenseHistory(long, YearMonth, YearMonth)} sind auf den
+     * übergebenen User eingeschränkt. Es gehen nur Beträge über die Kante — der Safe-to-Spend
+     * braucht weder Empfänger noch «Neu»-Flag, und beides hätte im budget-Modul nichts zu suchen.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<BigDecimal> detectedAmounts(long userId, YearMonth month) {
+        List<RecurringExpense> detected = recurringExpenseRepository
+                .findByUserIdAndStatus(userId, RecurringExpenseStatus.DETECTED);
+        if (detected.isEmpty()) {
+            return List.of();
+        }
+
+        YearMonth from = month.minusMonths(RecurringExpenseAmountPort.ACTIVE_WINDOW_MONTHS - 1);
+        Set<String> activePayees = new HashSet<>();
+        for (ExpenseEntry entry : expenseHistoryPort.expenseHistory(userId, from, month)) {
+            activePayees.add(entry.payeeKey().toUpperCase(Locale.ROOT));
+        }
+
+        return detected.stream()
+                .filter(expense -> activePayees.contains(expense.getPayeeKey().toUpperCase(Locale.ROOT)))
+                .map(RecurringExpense::getAmount)
+                .toList();
+    }
+
+    /**
+     * «Neu», solange die Bündel-Benachrichtigung des Eintrags ungelesen ist. Ein Eintrag ohne
+     * Bündel ({@code notificationId == null}) ist nie neu — der Fall existiert nur für
+     * Bestandsdaten, deren Einzel-Notification vor V14 bereits gelöscht war.
+     */
+    private static boolean isNew(RecurringExpense expense, Set<Long> unreadNotificationIds) {
+        return expense.getNotificationId() != null
+                && unreadNotificationIds.contains(expense.getNotificationId());
     }
 
     /**
      * Markiert einen Eintrag des Users als «Kein Abo» und liefert seinen aktuellen Zustand
      * (BE-REC-02). Der zugehörige {@code payee_key} bleibt damit dauerhaft von künftiger Erkennung
      * ausgeschlossen — das leistet bereits {@link #detect(long)} (siehe Klassen-Javadoc), hier
-     * wird der Status umgestellt und die zugehörige Benachrichtigung als gelesen markiert
-     * (BE-REC-03): eine Glocke, die weiter für ein «erkanntes Abo» wirbt, das gerade verneint
-     * wurde, zählt ins Badge, obwohl es nichts Neues gibt. In {@link #list(long)} bleibt der
-     * Eintrag mit {@code status=DISMISSED} enthalten (FE-NOTIF-03).
+     * wird der Status umgestellt. In {@link #list(long)} bleibt der Eintrag mit
+     * {@code status=DISMISSED} enthalten (FE-NOTIF-03).
+     *
+     * <p><strong>Bündel-Benachrichtigung (BE-REC-03, seit FE-NOTIF-04 auf das Bündel bezogen).</strong>
+     * Die Benachrichtigung meldet alle Treffer eines Laufs zusammen. Sie wird als gelesen markiert,
+     * sobald <em>keiner</em> dieser Treffer mehr {@code DETECTED} ist — eine Glocke, die weiter für
+     * «erkannte Abos» wirbt, die alle verneint wurden, zählt ins Badge, obwohl es nichts Neues
+     * gibt. Solange ein anderer Eintrag des Bündels offen ist, bleibt sie ungelesen: der ist noch
+     * «Neu», und die Benachrichtigung ist sein Hinweis.
      *
      * <p>Status und Gelesen-Marke stehen in <em>einer</em> Transaktion — zusammen in der
-     * Datenbank oder keines von beiden, dieselbe Klammer wie bei Zeile und Notification in
+     * Datenbank oder keines von beiden, dieselbe Klammer wie bei Zeilen und Notification in
      * {@link #detect(long)}.
      *
-     * <p>{@code isNew} ist in der Antwort immer {@code false}: die Benachrichtigung ist in
-     * demselben Aufruf gelesen worden. Ein Nachfragen beim {@code NotificationPort} wäre eine
-     * Abfrage, deren Ergebnis vor dem Aufruf feststeht.
+     * <p>{@code isNew} ist in der Antwort immer {@code false}: ein verneinter Eintrag ist nicht
+     * neu, unabhängig davon, ob sein Bündel noch offen ist. Die Übersicht zeigt für
+     * {@code DISMISSED} ohnehin kein «Neu».
      *
      * <p>Idempotent: ein zweiter Aufruf auf einen bereits {@code DISMISSED}-Eintrag ändert nichts
      * (siehe {@link RecurringExpense#dismiss()}); die Benachrichtigung behält ihren ersten
-     * Lesezeitpunkt ({@link NotificationPort#markReadByReference}).
+     * Lesezeitpunkt ({@link NotificationPort#markRead}).
      *
      * @throws RecurringExpenseNotFoundException wenn die ID nicht existiert oder einem anderen
      *     User gehört.
@@ -291,8 +359,17 @@ public class RecurringExpenseService implements RecurringExpenseDetectionPort {
                 .findByIdAndUserId(recurringExpenseId, userId)
                 .orElseThrow(() -> new RecurringExpenseNotFoundException(userId, recurringExpenseId));
         expense.dismiss();
-        notificationPort.markReadByReference(userId, NOTIFICATION_TYPE, expense.getId());
+        if (expense.getNotificationId() != null && bundleIsClosed(userId, expense.getNotificationId())) {
+            notificationPort.markRead(userId, expense.getNotificationId());
+        }
         return toResponse(expense, false);
+    }
+
+    /** {@code true}, wenn kein Eintrag des Bündels mehr {@code DETECTED} ist. */
+    private boolean bundleIsClosed(long userId, long notificationId) {
+        return recurringExpenseRepository.findByUserIdAndNotificationId(userId, notificationId)
+                .stream()
+                .noneMatch(e -> e.getStatus() == RecurringExpenseStatus.DETECTED);
     }
 
     private static RecurringExpenseResponse toResponse(RecurringExpense expense, boolean isNew) {
@@ -316,10 +393,27 @@ public class RecurringExpenseService implements RecurringExpenseDetectionPort {
         return betrag.setScale(RAPPEN_SCALE, RoundingMode.HALF_UP);
     }
 
-    /** Anzeigetext der Benachrichtigung — Deutsch wie die gesamte Oberfläche. */
-    private static String message(String payeeKey, BigDecimal amount) {
-        return "Wiederkehrende Ausgabe erkannt: " + payeeKey + " — CHF "
-                + rappen(amount).toPlainString() + " pro Monat";
+    /** Mehr Empfänger als das nennt der Anzeigetext nicht beim Namen — das Dropdown der Glocke ist schmal. */
+    static final int NAMED_PAYEES_IN_MESSAGE = 3;
+
+    /**
+     * Anzeigetext der Bündel-Benachrichtigung — Deutsch wie die gesamte Oberfläche. Nennt bis zu
+     * {@value #NAMED_PAYEES_IN_MESSAGE} Empfänger beim Namen und fasst den Rest als «und N weitere»
+     * zusammen; die Beträge stehen in der Übersicht, nicht hier.
+     *
+     * @param payeeKeys die Empfänger des Laufs, in der Reihenfolge, in der die Zeilen entstehen.
+     */
+    static String message(List<String> payeeKeys) {
+        int count = payeeKeys.size();
+        StringBuilder text = new StringBuilder()
+                .append(count)
+                .append(count == 1 ? " neues Abo erkannt: " : " neue Abos erkannt: ")
+                .append(String.join(", ", payeeKeys.subList(0, Math.min(count, NAMED_PAYEES_IN_MESSAGE))));
+        int rest = count - NAMED_PAYEES_IN_MESSAGE;
+        if (rest > 0) {
+            text.append(" und ").append(rest).append(rest == 1 ? " weiteres" : " weitere");
+        }
+        return text.toString();
     }
 
     /**

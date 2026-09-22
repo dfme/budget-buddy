@@ -64,7 +64,7 @@ test.describe('Fixkosten-Wizard', () => {
     // Gegenprobe zur Erfolgsmeldung: die trägt nur die Bezeichnung aus der HTTP-Response. Dass die
     // Position wirklich persistiert ist und über einen zweiten Endpoint wieder herauskommt, zeigt
     // erst die Liste.
-    await page.goto('/fixkosten');
+    await page.goto('/ausgaben');
 
     const row = page.getByRole('row').filter({ hasText: POSITION.bezeichnung });
     await expect(row).toHaveCount(1);
@@ -108,7 +108,7 @@ test.describe('Fixkosten-Wizard', () => {
 
     // Und der eigentliche Beleg für «kein Speichern»: die Liste ist leer. Dass im Formular keine
     // Erfolgsmeldung steht, zeigt das nicht — ein Request könnte trotzdem rausgegangen sein.
-    await page.goto('/fixkosten');
+    await page.goto('/ausgaben');
     await expect(page.getByText('Noch keine Fixkosten erfasst.')).toBeVisible();
   });
 });

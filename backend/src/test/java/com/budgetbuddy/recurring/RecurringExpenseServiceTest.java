@@ -6,7 +6,6 @@ import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -42,6 +41,8 @@ class RecurringExpenseServiceTest {
     private static final long USER_ID = 42L;
     private static final Instant NOW = Instant.parse("2026-09-11T10:00:00Z");
     private static final String NETFLIX = "NETFLIX INTERNATIONAL BV";
+    /** Die ID, die der gemockte {@link NotificationPort} für jede Bündel-Benachrichtigung liefert. */
+    private static final long BUNDLE_ID = 7L;
 
     private final ExpenseHistoryPort expenseHistoryPort = mock(ExpenseHistoryPort.class);
     private final RecurringExpenseRepository repository = mock(RecurringExpenseRepository.class);
@@ -56,13 +57,15 @@ class RecurringExpenseServiceTest {
     @BeforeEach
     void repositoryAssignsIdsOnSave() {
         when(repository.findByUserId(USER_ID)).thenReturn(List.of());
-        // IDENTITY-Spalte simuliert: save() vergibt eine ID, die als referenceId der
-        // Notification wieder auftauchen muss.
+        // IDENTITY-Spalte simuliert: save() vergibt eine ID.
         when(repository.save(any(RecurringExpense.class))).thenAnswer(invocation -> {
             RecurringExpense entity = invocation.getArgument(0);
             setId(entity, nextId.getAndIncrement());
             return entity;
         });
+        // Die Bündel-Benachrichtigung bekommt ihre ID vom Notification-Modul; die Zeilen müssen
+        // sie tragen (FE-NOTIF-04).
+        when(notificationPort.create(anyLong(), anyString(), any(), anyString())).thenReturn(BUNDLE_ID);
     }
 
     private static ExpenseEntry entry(String payee, String amount, int year, int month) {
@@ -95,9 +98,11 @@ class RecurringExpenseServiceTest {
         assertThat(saved.getStatus()).isEqualTo(RecurringExpenseStatus.DETECTED);
         assertThat(saved.getFirstDetectedMonth()).isEqualTo(YearMonth.of(2026, 6));
         assertThat(saved.getCreatedAt()).isEqualTo(NOW);
+        assertThat(saved.getNotificationId()).isEqualTo(BUNDLE_ID);
 
+        // Kein referenceId mehr: der Verweis läuft seit FE-NOTIF-04 von der Zeile zur Notification.
         verify(notificationPort).create(USER_ID, RecurringExpenseService.NOTIFICATION_TYPE,
-                saved.getId(), "Wiederkehrende Ausgabe erkannt: NETFLIX INTERNATIONAL BV — CHF 20.90 pro Monat");
+                null, "1 neues Abo erkannt: NETFLIX INTERNATIONAL BV");
     }
 
     /** «aufeinanderfolgend» heisst Kalender-Folgemonat: Januar und März reichen nicht. */
@@ -256,9 +261,13 @@ class RecurringExpenseServiceTest {
         verify(repository, never()).save(any());
     }
 
-    /** Pro Empfänger genau eine Zeile und eine Notification, in stabiler Reihenfolge. */
+    /**
+     * FE-NOTIF-04 (#336): Pro Empfänger genau eine Zeile, in stabiler Reihenfolge — aber pro Lauf
+     * nur <em>eine</em> Notification, an der alle Zeilen hängen. Vorher war es eine pro Zeile;
+     * 27 erkannte Abos ergaben 27 Benachrichtigungen, die nur einzeln zu lesen waren.
+     */
     @Test
-    void severalRecurringPayees_eachGetOneRowAndOneNotification() {
+    void severalRecurringPayees_eachGetOneRowButShareOneNotification() {
         history(entry("SPOTIFY AB", "12.95", 2026, 6), entry("SPOTIFY AB", "12.95", 2026, 7),
                 entry(NETFLIX, "20.90", 2026, 6), entry(NETFLIX, "20.90", 2026, 7));
 
@@ -268,8 +277,42 @@ class RecurringExpenseServiceTest {
         verify(repository, org.mockito.Mockito.times(2)).save(captor.capture());
         assertThat(captor.getAllValues()).extracting(RecurringExpense::getPayeeKey)
                 .containsExactly(NETFLIX, "SPOTIFY AB");
-        verify(notificationPort).create(eq(USER_ID), anyString(), eq(100L), anyString());
-        verify(notificationPort).create(eq(USER_ID), anyString(), eq(101L), anyString());
+        assertThat(captor.getAllValues()).extracting(RecurringExpense::getNotificationId)
+                .containsOnly(BUNDLE_ID);
+        verify(notificationPort, org.mockito.Mockito.times(1))
+                .create(anyLong(), anyString(), any(), anyString());
+        verify(notificationPort).create(USER_ID, RecurringExpenseService.NOTIFICATION_TYPE, null,
+                "2 neue Abos erkannt: NETFLIX INTERNATIONAL BV, SPOTIFY AB");
+    }
+
+    /** Die Notification entsteht vor den Zeilen — sie tragen ihre ID; ohne Treffer gar nicht. */
+    @Test
+    void theNotificationIsCreatedBeforeTheRowsThatReferenceIt() {
+        history(entry(NETFLIX, "20.90", 2026, 6), entry(NETFLIX, "20.90", 2026, 7));
+
+        service.detect(USER_ID);
+
+        org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(notificationPort, repository);
+        inOrder.verify(notificationPort).create(anyLong(), anyString(), any(), anyString());
+        inOrder.verify(repository).save(any(RecurringExpense.class));
+    }
+
+    // --- Anzeigetext der Bündel-Benachrichtigung ---
+
+    @Test
+    void messageNamesUpToThreePayees() {
+        assertThat(RecurringExpenseService.message(List.of("A")))
+                .isEqualTo("1 neues Abo erkannt: A");
+        assertThat(RecurringExpenseService.message(List.of("A", "B", "C")))
+                .isEqualTo("3 neue Abos erkannt: A, B, C");
+    }
+
+    @Test
+    void messageSummarisesTheRestBeyondThreePayees() {
+        assertThat(RecurringExpenseService.message(List.of("A", "B", "C", "D")))
+                .isEqualTo("4 neue Abos erkannt: A, B, C und 1 weiteres");
+        assertThat(RecurringExpenseService.message(List.of("A", "B", "C", "D", "E", "F", "G")))
+                .isEqualTo("7 neue Abos erkannt: A, B, C und 4 weitere");
     }
 
     // --- Bekannte Empfänger ---
@@ -292,7 +335,7 @@ class RecurringExpenseServiceTest {
     void alreadyDetectedPayee_isNotDetectedAgain() {
         when(repository.findByUserId(USER_ID)).thenReturn(List.of(
                 new RecurringExpense(USER_ID, NETFLIX, new BigDecimal("20.90"),
-                        YearMonth.of(2026, 6), NOW)));
+                        YearMonth.of(2026, 6), NOW, BUNDLE_ID)));
         history(entry(NETFLIX, "20.90", 2026, 6), entry(NETFLIX, "20.90", 2026, 7),
                 entry(NETFLIX, "20.90", 2026, 8));
 
@@ -349,7 +392,7 @@ class RecurringExpenseServiceTest {
         dismissed.dismiss();
         when(repository.findByUserIdOrderByPayeeKeyAsc(USER_ID))
                 .thenReturn(List.of(detected, dismissed));
-        when(notificationPort.unreadReferenceIds(USER_ID, RecurringExpenseService.NOTIFICATION_TYPE))
+        when(notificationPort.unreadIds(USER_ID, RecurringExpenseService.NOTIFICATION_TYPE))
                 .thenReturn(Set.of());
 
         List<RecurringExpenseResponse> result = service.list(USER_ID);
@@ -361,31 +404,99 @@ class RecurringExpenseServiceTest {
         verify(repository).findByUserIdOrderByPayeeKeyAsc(USER_ID);
     }
 
-    /** Das «Neu»-Flag kommt aus der ungelesenen Notification, nicht aus einem eigenen Feld. */
+    /**
+     * Das «Neu»-Flag kommt aus der ungelesenen Bündel-Notification, nicht aus einem eigenen Feld
+     * — alle Zeilen eines Bündels sind gemeinsam neu oder gemeinsam nicht (FE-NOTIF-04).
+     */
     @Test
-    void listMarksEntriesWithAnUnreadNotificationAsNew() {
-        RecurringExpense withUnread = withId(NETFLIX, "20.90", 200L);
-        RecurringExpense withoutUnread = withId("SPOTIFY AB", "12.95", 201L);
+    void listMarksEntriesOfAnUnreadBundleAsNew() {
+        RecurringExpense inUnreadBundle = withId(NETFLIX, "20.90", 200L, BUNDLE_ID);
+        RecurringExpense alsoInUnreadBundle = withId("SPOTIFY AB", "12.95", 201L, BUNDLE_ID);
+        RecurringExpense inReadBundle = withId("SWISSCOM", "59.00", 202L, 8L);
+        RecurringExpense withoutBundle = withId("ZALANDO", "30.00", 203L, null);
         when(repository.findByUserIdOrderByPayeeKeyAsc(USER_ID))
-                .thenReturn(List.of(withUnread, withoutUnread));
-        when(notificationPort.unreadReferenceIds(USER_ID, RecurringExpenseService.NOTIFICATION_TYPE))
-                .thenReturn(Set.of(200L));
+                .thenReturn(List.of(inUnreadBundle, alsoInUnreadBundle, inReadBundle, withoutBundle));
+        when(notificationPort.unreadIds(USER_ID, RecurringExpenseService.NOTIFICATION_TYPE))
+                .thenReturn(Set.of(BUNDLE_ID));
 
         List<RecurringExpenseResponse> result = service.list(USER_ID);
 
-        assertThat(result).filteredOn(r -> r.id() == 200L).extracting("isNew")
-                .containsExactly(true);
-        assertThat(result).filteredOn(r -> r.id() == 201L).extracting("isNew")
-                .containsExactly(false);
+        assertThat(result).extracting(RecurringExpenseResponse::id, RecurringExpenseResponse::isNew)
+                .containsExactly(
+                        tuple(200L, true), tuple(201L, true), tuple(202L, false), tuple(203L, false));
     }
 
     @Test
     void listReturnsEmptyForAUserWithoutEntries() {
         when(repository.findByUserIdOrderByPayeeKeyAsc(USER_ID)).thenReturn(List.of());
-        when(notificationPort.unreadReferenceIds(USER_ID, RecurringExpenseService.NOTIFICATION_TYPE))
+        when(notificationPort.unreadIds(USER_ID, RecurringExpenseService.NOTIFICATION_TYPE))
                 .thenReturn(Set.of());
 
         assertThat(service.list(USER_ID)).isEmpty();
+    }
+
+    // --- FE-FC-05: detectedAmounts() für den Safe-to-Spend ---
+
+    private static final YearMonth AUGUST = YearMonth.of(2026, 8);
+
+    /** Belastungen im Aktivitätsfenster Jun–Aug 2026, wie der gefensterte Port sie liefert. */
+    private void windowHistory(ExpenseEntry... entries) {
+        when(expenseHistoryPort.expenseHistory(USER_ID, YearMonth.of(2026, 6), AUGUST))
+                .thenReturn(List.of(entries));
+    }
+
+    /**
+     * Nur die Beträge, nur {@code DETECTED}, nur aktiv: der Port fragt das Repository mit dem
+     * Status ab, prüft die Empfänger gegen das Fenster {@code [month − 2, month]} und reicht keine
+     * Entities weiter. Dass verneinte Einträge nicht mitkommen, belegt die Repository-Query
+     * selbst — über echte Daten im {@code SafeToSpendServiceIntegrationTest}.
+     */
+    @Test
+    void detectedAmountsReturnsTheAmountsOfActiveDetectedEntriesOnly() {
+        when(repository.findByUserIdAndStatus(USER_ID, RecurringExpenseStatus.DETECTED))
+                .thenReturn(List.of(withId(NETFLIX, "20.90", 200L), withId("SWISSCOM", "59.00", 201L)));
+        // Netflix zuletzt im Juli (im Fenster), Swisscom nur ausserhalb — die Historie im Fenster
+        // kennt Swisscom nicht.
+        windowHistory(entry(NETFLIX, "20.90", 2026, 7));
+
+        List<BigDecimal> result = service.detectedAmounts(USER_ID, AUGUST);
+
+        assertThat(result).containsExactly(new BigDecimal("20.90"));
+        verify(repository).findByUserIdAndStatus(USER_ID, RecurringExpenseStatus.DETECTED);
+        verify(repository, never()).findByUserIdAndStatus(USER_ID, RecurringExpenseStatus.DISMISSED);
+        verify(expenseHistoryPort).expenseHistory(USER_ID, YearMonth.of(2026, 6), AUGUST);
+    }
+
+    // Review PR #345: eine Zeile verfällt nie von selbst — ein gekündigtes Abo darf nicht
+    // dauerhaft abgezogen werden. Ohne Abbuchung im Fenster gilt es als beendet.
+    @Test
+    void detectedAmountsDropsAnEntryWithoutADebitInTheWindow() {
+        when(repository.findByUserIdAndStatus(USER_ID, RecurringExpenseStatus.DETECTED))
+                .thenReturn(List.of(withId(NETFLIX, "20.90", 200L)));
+        windowHistory(entry("COOP", "45.60", 2026, 8));
+
+        assertThat(service.detectedAmounts(USER_ID, AUGUST)).isEmpty();
+    }
+
+    // Aktiv heisst «hat im Fenster abgebucht», unabhängig vom Betrag: ob die Abbuchung die des
+    // Abos ist, entscheidet der Aufrufer mit der Toleranz. Und der Schlüssel wird wie beim
+    // Schreiben in Grossschreibung verglichen.
+    @Test
+    void detectedAmountsMatchesPayeesCaseInsensitivelyAndRegardlessOfAmount() {
+        when(repository.findByUserIdAndStatus(USER_ID, RecurringExpenseStatus.DETECTED))
+                .thenReturn(List.of(withId(NETFLIX, "20.90", 200L)));
+        windowHistory(entry(NETFLIX.toLowerCase(java.util.Locale.ROOT), "21.20", 2026, 6));
+
+        assertThat(service.detectedAmounts(USER_ID, AUGUST)).containsExactly(new BigDecimal("20.90"));
+    }
+
+    @Test
+    void detectedAmountsLoadsNoHistoryForAUserWithoutDetectedEntries() {
+        when(repository.findByUserIdAndStatus(USER_ID, RecurringExpenseStatus.DETECTED))
+                .thenReturn(List.of());
+
+        assertThat(service.detectedAmounts(USER_ID, AUGUST)).isEmpty();
+        verify(expenseHistoryPort, never()).expenseHistory(anyLong(), any(), any());
     }
 
     // --- BE-REC-02: dismiss() ---
@@ -401,36 +512,69 @@ class RecurringExpenseServiceTest {
         assertThat(response.status()).isEqualTo(RecurringExpenseStatus.DISMISSED);
     }
 
-    // --- BE-REC-03: dismiss() markiert die Benachrichtigung als gelesen ---
+    // --- BE-REC-03: dismiss() markiert die Bündel-Benachrichtigung als gelesen (FE-NOTIF-04) ---
 
+    /** Der letzte offene Eintrag des Bündels wird verneint → die Benachrichtigung ist erledigt. */
     @Test
-    void dismissMarksTheOwnNotificationAsReadAndAnswersNotNew() {
-        RecurringExpense entity = withId(NETFLIX, "20.90", 200L);
+    void dismissingTheLastOpenEntryOfABundleMarksItsNotificationAsRead() {
+        RecurringExpense entity = withId(NETFLIX, "20.90", 200L, BUNDLE_ID);
+        RecurringExpense alreadyDismissed = withId("SPOTIFY AB", "12.95", 201L, BUNDLE_ID);
+        alreadyDismissed.dismiss();
         when(repository.findByIdAndUserId(200L, USER_ID)).thenReturn(Optional.of(entity));
+        when(repository.findByUserIdAndNotificationId(USER_ID, BUNDLE_ID))
+                .thenReturn(List.of(entity, alreadyDismissed));
 
         RecurringExpenseResponse response = service.dismiss(USER_ID, 200L);
 
-        verify(notificationPort).markReadByReference(
-                USER_ID, RecurringExpenseService.NOTIFICATION_TYPE, 200L);
-        // Die Benachrichtigung ist in demselben Aufruf gelesen worden — ein Nachfragen wäre eine
-        // Abfrage, deren Ergebnis feststeht.
+        verify(notificationPort).markRead(USER_ID, BUNDLE_ID);
+        // Ein verneinter Eintrag ist nie neu — ein Nachfragen beim Port wäre eine Abfrage, deren
+        // Ergebnis feststeht.
         assertThat(response.isNew()).isFalse();
-        verify(notificationPort, never()).unreadReferenceIds(anyLong(), anyString());
+        verify(notificationPort, never()).unreadIds(anyLong(), anyString());
+    }
+
+    /** Solange ein anderer Eintrag des Bündels offen ist, bleibt die Benachrichtigung ungelesen. */
+    @Test
+    void dismissingOneOfSeveralOpenEntriesLeavesTheNotificationUnread() {
+        RecurringExpense entity = withId(NETFLIX, "20.90", 200L, BUNDLE_ID);
+        RecurringExpense stillOpen = withId("SPOTIFY AB", "12.95", 201L, BUNDLE_ID);
+        when(repository.findByIdAndUserId(200L, USER_ID)).thenReturn(Optional.of(entity));
+        when(repository.findByUserIdAndNotificationId(USER_ID, BUNDLE_ID))
+                .thenReturn(List.of(entity, stillOpen));
+
+        RecurringExpenseResponse response = service.dismiss(USER_ID, 200L);
+
+        assertThat(entity.getStatus()).isEqualTo(RecurringExpenseStatus.DISMISSED);
+        assertThat(response.isNew()).isFalse();
+        verify(notificationPort, never()).markRead(anyLong(), anyLong());
+    }
+
+    /** Bestandsdaten ohne Bündel (V14-Backfill fand keine Notification): kein Port-Aufruf. */
+    @Test
+    void dismissingAnEntryWithoutABundleDoesNotTouchTheNotificationPort() {
+        RecurringExpense entity = withId(NETFLIX, "20.90", 200L, null);
+        when(repository.findByIdAndUserId(200L, USER_ID)).thenReturn(Optional.of(entity));
+
+        service.dismiss(USER_ID, 200L);
+
+        assertThat(entity.getStatus()).isEqualTo(RecurringExpenseStatus.DISMISSED);
+        verify(notificationPort, never()).markRead(anyLong(), anyLong());
+        verify(repository, never()).findByUserIdAndNotificationId(anyLong(), anyLong());
     }
 
     @Test
     void dismissIsIdempotent() {
-        RecurringExpense entity = withId(NETFLIX, "20.90", 200L);
+        RecurringExpense entity = withId(NETFLIX, "20.90", 200L, BUNDLE_ID);
         entity.dismiss();
         when(repository.findByIdAndUserId(200L, USER_ID)).thenReturn(Optional.of(entity));
+        when(repository.findByUserIdAndNotificationId(USER_ID, BUNDLE_ID)).thenReturn(List.of(entity));
 
         RecurringExpenseResponse response = service.dismiss(USER_ID, 200L);
 
         assertThat(response.status()).isEqualTo(RecurringExpenseStatus.DISMISSED);
         // Auch beim zweiten Mal wird markiert — der Port ist idempotent, ein Abbruch hier würde
         // eine beim ersten Mal fehlgeschlagene Markierung nie nachholen.
-        verify(notificationPort).markReadByReference(
-                USER_ID, RecurringExpenseService.NOTIFICATION_TYPE, 200L);
+        verify(notificationPort).markRead(USER_ID, BUNDLE_ID);
     }
 
     @Test
@@ -443,10 +587,15 @@ class RecurringExpenseServiceTest {
 
     // --- Helfer ---
 
-    /** Eine DETECTED-Zeile mit gesetzter ID, wie sie aus der Datenbank käme. */
+    /** Eine DETECTED-Zeile mit gesetzter ID im Bündel {@link #BUNDLE_ID}, wie sie aus der Datenbank käme. */
     private static RecurringExpense withId(String payeeKey, String amount, long id) {
+        return withId(payeeKey, amount, id, BUNDLE_ID);
+    }
+
+    /** Eine DETECTED-Zeile mit gesetzter ID und explizitem Bündel ({@code null} = ohne). */
+    private static RecurringExpense withId(String payeeKey, String amount, long id, Long notificationId) {
         RecurringExpense entity = new RecurringExpense(USER_ID, payeeKey, new BigDecimal(amount),
-                YearMonth.of(2026, 1), NOW);
+                YearMonth.of(2026, 1), NOW, notificationId);
         setField(entity, "id", id);
         return entity;
     }
@@ -454,7 +603,7 @@ class RecurringExpenseServiceTest {
     /** Eine DISMISSED-Zeile, über {@link RecurringExpense#dismiss()} (BE-REC-02). */
     private static RecurringExpense dismissed(String payeeKey, String amount) {
         RecurringExpense entity = new RecurringExpense(USER_ID, payeeKey, new BigDecimal(amount),
-                YearMonth.of(2026, 1), NOW);
+                YearMonth.of(2026, 1), NOW, BUNDLE_ID);
         entity.dismiss();
         return entity;
     }

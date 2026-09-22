@@ -5,13 +5,18 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router } from '@angular/router';
 import { filter } from 'rxjs';
 
-import { NotificationResponse, RECURRING_EXPENSE_DETECTED } from './notification.model';
+import {
+  IMPORT_NOTIFICATION_TYPES,
+  NotificationResponse,
+  RECURRING_EXPENSE_DETECTED,
+} from './notification.model';
 import { NotificationService } from './notification.service';
 
 let nextId = 0;
 
 /**
- * Glocke mit Ungelesen-Badge und Dropdown-Liste in der App-Shell (FE-NOTIF-01).
+ * Glocke mit Ungelesen-Badge und Dropdown-Liste in der App-Shell (FE-NOTIF-01), darin
+ * «Alle als gelesen» (FE-NOTIF-04).
  *
  * <p>Wird zweimal gerendert — mobile Topbar und Desktop-Sidebar-Konto-Block —, analog zu
  * Avatar/Initialen in `Shell`: beide Stellen sind laut `shell.scss` nie gleichzeitig sichtbar.
@@ -99,8 +104,9 @@ export class NotificationBell {
    * — der sichere Fallback, ein erneuter Klick versucht es wieder.
    *
    * <p><strong>Abo-Benachrichtigung (FE-REC-01).</strong> Trägt sie den Typ
-   * {@link RECURRING_EXPENSE_DETECTED}, führt der Klick zusätzlich in die Abo-Übersicht und
-   * schliesst das Dropdown — dort steht der Eintrag, und das ist die Antwort auf die Meldung.
+   * {@link RECURRING_EXPENSE_DETECTED}, führt der Klick zusätzlich in die Abo-Übersicht — seit
+   * FE-FC-05 der Abschnitt «Erkannte Abos» auf `/ausgaben` — und schliesst das Dropdown: dort
+   * steht der Eintrag, und das ist die Antwort auf die Meldung.
    * Navigiert wird sofort, der Gelesen-Call läuft parallel im Hintergrund weiter: Die Übersicht
    * leitet ihr «Neu»-Label aus genau dieser Benachrichtigung ab (BE-REC-02) — würde erst auf den
    * Abschluss des Gelesen-Calls gewartet, wäre der Eintrag beim Eintreffen in der Übersicht
@@ -108,17 +114,55 @@ export class NotificationBell {
    * Weg verlangt. Die Glocke selbst markiert trotzdem als gelesen — der Klick ist die
    * Kenntnisnahme der Benachrichtigung, nicht der Grund, warum der Eintrag in der Übersicht sein
    * «Neu» behält.
+   *
+   * <p><strong>Import-Benachrichtigung (FE-NOTIF-05).</strong> Bei {@link IMPORT_NOTIFICATION_TYPES}
+   * führt der Klick nach `/import?job=<referenceId>`: Die Import-Seite nimmt den Job über ihren
+   * bestehenden Poll-Pfad auf und zeigt Erfolgsmeldung samt Buchungen — oder die Fehlermeldung
+   * des Fehlschlags. Die Job-ID ist der `referenceId` aus BE-PDF-15; fehlt sie wider Erwarten,
+   * bleibt die Import-Seite trotzdem das Ziel, nur ohne Parameter. Ob der Job dem Nutzer gehört,
+   * entscheidet das Backend (404), nicht die Glocke. Gelesen-Call wie beim Abo-Sprung parallel.
    */
   protected select(notification: NotificationResponse): void {
     if (notification.type === RECURRING_EXPENSE_DETECTED) {
       this.close();
-      void this.router.navigate(['/abos']);
+      void this.router.navigate(['/ausgaben']);
+    } else if (IMPORT_NOTIFICATION_TYPES.has(notification.type)) {
+      this.close();
+      void this.router.navigate(['/import'], {
+        queryParams: notification.referenceId === null ? {} : { job: notification.referenceId },
+      });
     }
 
     if (notification.read) {
       return;
     }
     this.notificationService.markAsRead(notification.id).subscribe({
+      error: (_err: HttpErrorResponse) => {
+        // Siehe Methoden-Doc: bewusst ohne Meldung.
+      },
+    });
+  }
+
+  /**
+   * Markiert alle Benachrichtigungen als gelesen (FE-NOTIF-04, #336) — eine Aktion statt N
+   * Einzelklicks, wenn mehrere Importe je ein Bündel hinterlassen haben. Der Button ist nur
+   * gerendert, solange etwas ungelesen ist; der Guard hier fängt den Klick zwischen zwei
+   * Change-Detection-Läufen ab.
+   *
+   * <p>Das Dropdown bleibt offen, wie beim Einzelklick — der Wechsel auf «gelesen» soll sichtbar
+   * sein. Navigiert wird nicht: anders als bei {@link select} gibt es kein einzelnes Ziel.
+   *
+   * <p>Nimmt als Nebeneffekt jedes «Neu»-Label auf `/ausgaben`: das hängt am selben Gelesen-Zustand
+   * (BE-REC-02). Das ist beabsichtigt und in US-08 AC2 festgehalten.
+   *
+   * <p>Ein Fehler bleibt bewusst still, wie bei {@link select}: das Badge zeigt dann weiterhin
+   * den alten Stand, ein erneuter Klick versucht es wieder.
+   */
+  protected markAllAsRead(): void {
+    if (this.unreadCount() === 0) {
+      return;
+    }
+    this.notificationService.markAllAsRead().subscribe({
       error: (_err: HttpErrorResponse) => {
         // Siehe Methoden-Doc: bewusst ohne Meldung.
       },

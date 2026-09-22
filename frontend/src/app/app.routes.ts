@@ -29,22 +29,31 @@ export const routes: Routes = [
     loadComponent: () => import('./transactions/pdf-upload').then((m) => m.PdfUpload),
   },
   {
-    // Vor INFRA-17 kollidierte `/fixed-costs` mit dem gleichnamigen API-Prefix von
-    // FixedCostController (ein Angular-Pfad hätte beim Hard-Reload den Backend-Endpoint statt
-    // index.html getroffen). Seit alle REST-Endpoints unter /api/** liegen, wäre der Name
-    // frei — bleibt trotzdem `fixkosten`, eine Umbenennung hätte hier keinen Mehrwert und
-    // würde nur Links/Bookmarks brechen.
-    path: 'fixkosten',
+    // FE-FC-07: Die Seite zeigt seit FE-FC-05 Fixkosten-Tabelle UND «Erkannte Abos» — der
+    // Name «Fixkosten» passte seither nicht mehr, deshalb heisst sie «Ausgaben» (Route,
+    // Nav-Label, h1). Bis FE-FC-07 stand hier, eine Umbenennung hätte «keinen Mehrwert» und
+    // bräche nur Bookmarks; #355 hat das bewusst umgekehrt, die Bookmarks fangen die beiden
+    // Redirects darunter auf. (Der historische Name `fixkosten` stammt aus der Zeit vor
+    // INFRA-17, als `/fixed-costs` mit dem API-Prefix von FixedCostController kollidierte.)
+    path: 'ausgaben',
     canActivate: [authGuard, onboardingGuard],
     loadComponent: () => import('./onboarding/fixed-cost-list').then((m) => m.FixedCostList),
   },
   {
-    // Kein Eintrag in der Hauptnavigation — der Einstieg läuft über die Teaser-Card auf dem
-    // Dashboard und über die Abo-Benachrichtigung in der Glocke (FE-REC-01, US-08).
+    // Alter Pfad der Seite (bis FE-FC-07). Bleibt als Umleitung, damit Bookmarks und ältere
+    // Links nicht im Catch-all aufs Dashboard landen. Guards braucht die Umleitung nicht —
+    // /ausgaben bringt seine eigenen mit. `pathMatch: 'full'`, weil ein Redirect sonst als
+    // Präfix greift und /fixkosten/x nach /ausgaben/x schickte.
+    path: 'fixkosten',
+    pathMatch: 'full',
+    redirectTo: 'ausgaben',
+  },
+  {
+    // Alter Pfad der Abo-Übersicht (bis FE-FC-05 eigene Seite, seither Abschnitt auf der
+    // Ausgaben-Seite). Gleiche Begründung wie /fixkosten.
     path: 'abos',
-    canActivate: [authGuard, onboardingGuard],
-    loadComponent: () =>
-      import('./recurring/recurring-expense-list').then((m) => m.RecurringExpenseList),
+    pathMatch: 'full',
+    redirectTo: 'ausgaben',
   },
   {
     path: 'einstellungen',

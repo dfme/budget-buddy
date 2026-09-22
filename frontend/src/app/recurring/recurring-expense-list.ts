@@ -28,9 +28,16 @@ function toRow(expense: RecurringExpenseResponse): ExpenseRow {
 }
 
 /**
- * Abo-Übersicht: erkannte wiederkehrende Ausgaben mit «Neu»-Label und «Kein Abo»-Button
- * (FE-REC-01, US-08), darunter die verneinten Einträge in einem eigenen Abschnitt «Kein Abo»
- * (FE-NOTIF-03).
+ * Abschnitt «Erkannte Abos» auf `/ausgaben`: erkannte wiederkehrende Ausgaben mit «Neu»-Label
+ * und «Kein Abo»-Button (FE-REC-01, US-08), darunter die verneinten Einträge in einem eigenen
+ * Abschnitt «Kein Abo» (FE-NOTIF-03).
+ *
+ * <p>Bis FE-FC-05 war das eine eigene Seite unter `/abos`. Seither bettet `FixedCostList` die
+ * Komponente unter der Fixkosten-Tabelle ein — manuell erfasste Fixkosten und automatisch
+ * erkannte Abos sind verwandte Inhalte, und seit FE-FC-05 wirken beide gleich auf den
+ * Safe-to-Spend. Die Komponente blieb eigenständig statt ins Fixkosten-Template zu wandern: sie
+ * hat eigenen Lade- und Fehlerzustand, eigene Tests, und `RecurringExpenseService` zählt dieselbe
+ * Liste weiterhin für die Teaser-Card des Dashboards.
  *
  * <p>Jede Zeile ist eine erkannte <em>Gruppe</em> — derselbe Empfänger, in mindestens zwei
  * aufeinanderfolgenden Monaten mit demselben Betrag belastet. Die Einzelbuchungen zeigt die
@@ -42,7 +49,8 @@ function toRow(expense: RecurringExpenseResponse): ExpenseRow {
  * nur als gelesen). Stünde der Eintrag dann nirgends, landete der Klick auf einer Seite ohne
  * ihn — genau das schliesst #333 AC1 aus. US-08 AC3 («wird aus der Abo-Übersicht entfernt»)
  * heisst seither: aus der Liste der Abos, nicht von der Seite. Ohne verneinte Einträge fehlt der
- * Abschnitt ganz.
+ * Abschnitt ganz. Der Klick führt seit FE-FC-05 auf die Seite mit diesem Abschnitt (seit FE-FC-07
+ * `/ausgaben`).
  *
  * <p>Der State liegt im {@link RecurringExpenseService}, weil die Teaser-Card des Dashboards
  * dieselbe Liste zählt. Hier liegt nur, was allein diese Seite betrifft: Lade- und

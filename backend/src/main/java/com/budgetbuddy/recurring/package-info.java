@@ -8,7 +8,7 @@
  * REST-Endpoints der Abo-Übersicht (BE-REC-02) — Auflisten und «Kein Abo» markieren — liegen im
  * selben Modul.
  *
- * <p>Drei Kanten zu anderen Modulen, alle über Interfaces (Modulgrenze, CLAUDE.md):
+ * <p>Vier Kanten zu anderen Modulen, alle über Interfaces (Modulgrenze, CLAUDE.md):
  *
  * <ul>
  *   <li>{@code ImportJobRunner} (transaction) stösst die Erkennung über den
@@ -18,9 +18,16 @@
  *       herein, mit bereits normalisiertem Empfänger. Der Zyklus transaction ↔ recurring besteht
  *       nur aus diesen beiden Interfaces, wie heute schon auth ↔ budget.
  *   <li>Benachrichtigt wird über {@code com.budgetbuddy.notification.NotificationPort} mit dem Typ
- *       {@link com.budgetbuddy.recurring.RecurringExpenseService#NOTIFICATION_TYPE}; derselbe Port
- *       liefert auch das «Neu»-Flag der Abo-Übersicht zurück (BE-REC-02), aus dem Gelesen-Zustand
- *       der Notification abgeleitet statt in einem eigenen Feld dupliziert.
+ *       {@link com.budgetbuddy.recurring.RecurringExpenseService#NOTIFICATION_TYPE} — eine
+ *       Benachrichtigung pro Erkennungslauf, die alle Treffer bündelt (FE-NOTIF-04); jede Zeile
+ *       hält deren ID in {@code notification_id} (V14). Derselbe Port liefert auch das «Neu»-Flag
+ *       der Abo-Übersicht zurück (BE-REC-02), aus dem Gelesen-Zustand dieser Notification
+ *       abgeleitet statt in einem eigenen Feld dupliziert.
+ *   <li>Der {@code SafeToSpendService} (budget) liest über den
+ *       {@link com.budgetbuddy.recurring.RecurringExpenseAmountPort} die Beträge der erkannten,
+ *       nicht verneinten Abos — sie mindern den Safe-to-Spend seit FE-FC-05 wie
+ *       Fixkosten-Positionen. Nur Beträge, keine Entities; die Zuordnung zur Abbuchung des
+ *       Monats bleibt im budget-Modul (ADR-13-Nachtrag).
  * </ul>
  *
  * <p>Die Kontolöschung (US-02, nDSG) räumt über den

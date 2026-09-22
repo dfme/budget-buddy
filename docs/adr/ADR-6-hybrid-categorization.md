@@ -32,8 +32,8 @@ Wir nutzen einen **Hybrid-Ansatz: Lookup-Tabelle + Claude API**:
      `HybridCategorizationService`)
 
    Beide schreiben seit BE-CAT-12 **pro Nutzer** in `user_category_lookup` (V12), nicht mehr in
-   die globale Seed-Tabelle `category_lookup` (V04) — Entscheid und Matching-Regel in
-   [ADR-15](ADR-15-mandantengebundener-lerneffekt.md).
+   die globale Seed-Tabelle `category_lookup` (V04, ergänzt durch V15) — Entscheid und
+   Matching-Regel in [ADR-15](ADR-15-mandantengebundener-lerneffekt.md).
 
 **Warum zwei Quellen.** Bis BE-CAT-11 lernte nur die Korrektur. Ein Händler, den Claude auf Anhieb
 richtig einstufte und den deshalb niemand korrigierte, löste bei jedem Import wieder einen Call
@@ -54,18 +54,43 @@ Beide Quellen schreiben mit Upsert-Semantik in dieselbe Tabelle (pro Nutzer und 
 Zeile). Kommt eine manuelle Korrektur nach einer Claude-Einstufung, überschreibt sie diese — der
 User hat das letzte Wort.
 
-**Der Schlüssel ist auf beiden Seiten derselbe:** Buchungstext samt Detailzeilen, mit Leerzeichen
+**Der Text ist auf beiden Seiten derselbe:** Buchungstext samt Detailzeilen, mit Leerzeichen
 verbunden — `ParsedTransaction.fullText()` beim Import, `Transaction.fullText()` bei der Korrektur.
-Das ist Bedingung, keine Kosmetik: Primärschlüssel der Tabelle ist das Pattern selbst. Schreiben
-die Quellen verschiedene Schlüssel, greift kein Upsert, es entstehen zwei Zeilen, und die
+Das ist Bedingung, keine Kosmetik: Primärschlüssel der Tabelle ist das Pattern selbst. Übergeben
+die Quellen verschiedene Texte, greift kein Upsert, es entstehen zwei Zeilen, und die
 Sortierung nach Pattern-Länge in `findMatching` lässt den längeren Claude-Eintrag über die
 User-Korrektur gewinnen — das Gegenteil des letzten Wortes. Bei Layouts mit Detailzeilen
 (PostFinance, UBS, Kreditkarte) war genau das der Fall, solange die Korrektur nur den
 `buchungstext` lernte.
 
-**PII-Policy für MVP:** Der rohe Transaktionstext (z.B. `"DIGITEC GALAXUS AG 044 913 2323"`) wird ohne Pseudonymisierung an die Anthropic API gesendet. Das ist eine Datenübermittlung an einen US-Dienstleister und fällt unter nDSG Art. 16 (Bekanntgabe ins Ausland).
+**Gespeichert wird das stabile Präfix, nicht der volle Text** (BE-CAT-13, #321). Für
+Kartenzahlungen ist der volle Text stabil; für Überweisungen mit Mitteilung nicht — `GIRO POST
+MUSTER IMMOBILIEN AG MIETE JANUAR 2025` traf `… MIETE FEBRUAR 2025` nie, und die Tabelle wuchs
+pro Monat um eine Zeile, die nie wieder traf. `CategoryLearningService` schneidet den Text
+deshalb vor dem ersten variablen Token ab (Monat mit Jahr, alleinstehendes Jahr, numerisches
+Datum, Referenz mit fünf und mehr Ziffern, IBAN — `LookupPatternExtractor`). Ein Präfix statt
+einer Maskierung, weil `findMatching` per `locate(...)` einen zusammenhängenden Substring
+braucht (Substring-Suche ohne Wildcards seit BE-CAT-14 — nicht auf `LIKE` zurückbauen). Ein
+Guard hält generische Patterns heraus: Das Präfix muss mindestens drei Tokens und
+mindestens die Hälfte des Textes behalten, sonst wird wie bisher der volle Text gelernt — sonst
+zwänge `TWINT KAUF/DIENSTLEISTUNG VOM` jede TWINT-Zahlung eines Kontos in eine Kategorie. Der
+Schnitt sitzt im Service und nicht beim Aufrufer, damit beide Quellen denselben Schlüssel
+schreiben.
 
-**Dieser Compliance-Gap wird für das MVP bewusst akzeptiert.** Begründung: Es handelt sich um ein Kurs-Projekt ohne echte Produktionsdaten; ein Data Processing Agreement (DPA) mit Anthropic sowie eine explizite Erwähnung in den Nutzungsbedingungen sind für den Produktionsbetrieb nachzuholen.
+**PII-Policy:** Ursprünglich ging der **rohe** Transaktionstext an die Anthropic API. Seit
+BE-CAT-06 ([#134](https://github.com/dfme/budget-buddy/issues/134)) und BE-CAT-08
+([#233](https://github.com/dfme/budget-buddy/issues/233)) ist das nicht mehr so: `PromptSanitizer`
+maskiert vorher IBAN, Karten- und Kontonummern, Beträge, undurchsichtige Referenzen,
+Telefonnummern, E-Mail-Adressen und den Namen einer natürlichen Gegenpartei. Aus
+`"DIGITEC GALAXUS AG 044 913 2323"` wird `"DIGITEC GALAXUS AG <TEL>"`. Angewendet wird das in
+`ClaudeCategorizationService.buildUserPrompt`, der einzigen Stelle, an der Text in einen Request
+gerät.
+
+**Der Compliance-Gap ist damit kleiner, aber nicht geschlossen.** Auch der maskierte Text geht an
+einen US-Dienstleister — das bleibt eine Bekanntgabe ins Ausland nach nDSG Art. 16. Ein Data
+Processing Agreement (DPA) mit Anthropic und eine explizite Erwähnung in den Nutzungsbedingungen
+sind für den Produktionsbetrieb weiterhin nachzuholen; für das Kursprojekt ohne echte
+Produktionsdaten wird das bewusst akzeptiert.
 
 ## Consequences
 
@@ -79,7 +104,12 @@ User-Korrektur gewinnen — das Gegenteil des letzten Wortes. Bei Layouts mit De
 - **Robust:** Claude-Fehler → Fallback zu "Sonstiges" (nie Import blockieren)
 - **Learning:** Erfolgreiche Claude-Kategorisierungen und User-Korrekturen erweitern beide den
   Lookup → jeder Händler kostet pro Nutzer höchstens einen Claude-Call, danach ist er für diesen
-  Nutzer deterministisch (ADR-15)
+  Nutzer deterministisch (ADR-15). Das gilt für Kartenzahlungen (stabiler Text) und für
+  Überweisungen, deren Mitteilung mit einem variablen Token beginnt — Monat und Jahr, Datum,
+  Referenz (BE-CAT-13). Es gilt **nicht** für drei Fälle: eine Mitteilung, die ohne solches Token
+  variiert (`SACKGELD LEA` / `TASCHENGELD LEA`); einen Text, der unter den Guard fällt (Präfix
+  unter drei Tokens oder unter der Hälfte); und ein echtes `Sonstiges` vom Modell, das bewusst
+  nicht gelernt wird — dort kostet der Händler einen Call pro Import
 
 ### Negative
 
