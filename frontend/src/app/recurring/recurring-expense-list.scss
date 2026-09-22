@@ -27,6 +27,7 @@ h2 {
 }
 
 .expenses,
+.ended-expenses,
 .dismissed-expenses {
   margin: 0;
   padding: 0;
@@ -36,6 +37,7 @@ h2 {
 // Eine Zeile: Empfänger + «seit» links, Betrag und Button rechts. Auf schmalen Schirmen bricht
 // der Button in eine eigene Zeile, statt Empfänger und Betrag zu quetschen.
 .expense,
+.ended-expense,
 .dismissed-expense {
   display: flex;
   flex-wrap: wrap;
@@ -102,19 +104,22 @@ h2 {
   color: $c-ink-2;
 }
 
-// Abschnitt «Kein Abo» (FE-NOTIF-03): eigene Card unter der Abo-Liste, Zeilen gedämpft — das
-// sind erledigte Einträge, keine Abos.
+// Abschnitt «Beendet» (BE-REC-04) und Abschnitt «Kein Abo» (FE-NOTIF-03): eigene Cards unter der
+// Abo-Liste, Zeilen gedämpft — das sind erledigte Einträge, keine laufenden Abos.
+.ended,
 .dismissed {
   display: block;
   margin-top: $sp-4;
 }
 
+.ended__intro,
 .dismissed__intro {
   margin: 0 0 $sp-2;
   color: $c-ink-2;
   font-size: $fs-sm;
 }
 
+.ended-expense,
 .dismissed-expense {
   color: $c-ink-2;
 }

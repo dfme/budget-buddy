@@ -10,13 +10,20 @@ export interface RecurringExpenseResponse {
   id: number;
   /** Normalisierter Empfänger, in Grossschreibung — so, wie das Backend ihn gruppiert hat. */
   payeeKey: string;
-  /** Betrag der jüngsten erkannten Belastung, in CHF. */
+  /**
+   * Betrag der jüngsten erkannten Belastung, in CHF — seit BE-REC-04 zieht ihn jeder Import nach,
+   * ein Preissprung eingeschlossen.
+   */
   amount: number;
   /**
-   * `GET` liefert beide Status (FE-NOTIF-03): `DETECTED` ist ein erkanntes Abo, `DISMISSED` ein
-   * per «Kein Abo» verneinter Eintrag, den die Übersicht in einem eigenen Abschnitt zeigt.
+   * `GET` liefert alle drei Status, jeder mit eigenem Abschnitt in der Übersicht:
+   *
+   * - `DETECTED` — laufendes Abo; mindert den Safe-to-Spend.
+   * - `ENDED` — ausgelaufen (BE-REC-04): der Empfänger hat in den jüngsten Monaten der Historie
+   *   nicht mehr abgebucht. Bleibt sichtbar, mindert aber nichts mehr.
+   * - `DISMISSED` — per «Kein Abo» verneint (FE-NOTIF-03).
    */
-  status: 'DETECTED' | 'DISMISSED';
+  status: 'DETECTED' | 'DISMISSED' | 'ENDED';
   /** Erster Monat der Abo-Reihe in den Daten, als `YYYY-MM`. */
   firstDetectedMonth: string;
   createdAt: string;

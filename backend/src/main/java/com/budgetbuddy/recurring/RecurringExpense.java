@@ -21,6 +21,12 @@ import java.time.YearMonth;
  * «Kein Abo» ({@link RecurringExpenseStatus#DISMISSED}) dauerhaft, weil die Erkennung daneben keine
  * zweite Zeile anlegen kann.
  *
+ * <p><strong>Die Zeile wird seit BE-REC-04 (#350) bei jedem Erkennungslauf neu bewertet</strong>
+ * (V16): {@link #updateFrom} zieht Betrag und Erstmonat auf das jüngste qualifizierende Paar nach,
+ * {@link #markEnded()} und {@link #markActive()} schalten zwischen {@code DETECTED} und
+ * {@link RecurringExpenseStatus#ENDED}. Vorher war sie nach der ersten Erkennung unveränderlich,
+ * ausser durch {@link #dismiss()}.
+ *
  * <p>{@code payeeKey} steht ausschliesslich in Grossschreibung — der Vertrag aus V11, den der
  * {@link RecurringExpenseService} beim Schreiben durchsetzt.
  *
@@ -34,7 +40,8 @@ import java.time.YearMonth;
  * Gelesen-Zustand leitet {@code RecurringExpenseService.list} das «Neu»-Flag ab. {@code null}
  * für Zeilen ohne Bündel — die gelten nie als neu.
  *
- * <p>{@code amount} ist {@link BigDecimal} (ADR-9) — nie {@code double}/{@code float}.
+ * <p>{@code amount} ist {@link BigDecimal} (ADR-9) — nie {@code double}/{@code float}. Er trägt den
+ * Betrag des <em>jüngsten</em> qualifizierenden Monatspaars, nicht den der ersten Erkennung.
  */
 @Entity
 @Table(name = "recurring_expenses")
@@ -127,9 +134,60 @@ public class RecurringExpense {
      * Markiert den Eintrag als «Kein Abo» (BE-REC-02, US-08).
      *
      * <p>Idempotent, analog {@code Notification#markRead}: ein zweiter Aufruf auf einen bereits
-     * {@link RecurringExpenseStatus#DISMISSED}-Eintrag ändert nichts.
+     * {@link RecurringExpenseStatus#DISMISSED}-Eintrag ändert nichts. Aus
+     * {@link RecurringExpenseStatus#ENDED} heraus ebenso zulässig: ein ausgelaufenes Abo, das
+     * nie eines war, darf der Nutzer weiterhin verneinen — und erst das schliesst den Empfänger
+     * dauerhaft aus.
      */
     public void dismiss() {
         this.status = RecurringExpenseStatus.DISMISSED;
+    }
+
+    /**
+     * Zieht Betrag und Erstmonat auf das Ergebnis eines neuen Erkennungslaufs nach (BE-REC-04).
+     *
+     * <p>Beide Felder zusammen, nie einzeln: {@code RecurringExpenseService.qualify} setzt den
+     * Erstmonat bei einer Lücke <em>und</em> bei einem Preissprung neu (Review PR #298). Eine
+     * Zeile mit dem Betrag der jüngsten Reihe und dem Erstmonat der vorherigen behauptete eine
+     * Laufzeit, die die Daten nicht hergeben — genau der Fehler, den #298 abgestellt hat.
+     *
+     * <p>Der Status bleibt unberührt; über ihn entscheidet die Aktivitätsprüfung
+     * ({@link #markActive()} / {@link #markEnded()}), nicht das Qualifikationsergebnis.
+     *
+     * @param amount Betrag des jüngsten qualifizierenden Paars, Skala 2 (ADR-9).
+     * @param firstDetectedMonth erster Monat der Reihe in den Daten.
+     */
+    public void updateFrom(BigDecimal amount, YearMonth firstDetectedMonth) {
+        this.amount = amount;
+        this.firstDetectedMonth = firstDetectedMonth.toString();
+    }
+
+    /**
+     * Markiert die Reihe als ausgelaufen (BE-REC-04) — der Empfänger hat in den jüngsten Monaten
+     * der Historie nicht mehr abgebucht.
+     *
+     * <p>Wirkt nur auf {@link RecurringExpenseStatus#DETECTED}. Ein {@code DISMISSED}-Eintrag
+     * bleibt unangetastet: «war nie ein Abo» ist die Aussage des Nutzers und darf von einer
+     * Beobachtung des Systems nicht überschrieben werden (US-08 AC3). Idempotent auf einem
+     * bereits ausgelaufenen Eintrag.
+     */
+    public void markEnded() {
+        if (this.status == RecurringExpenseStatus.DETECTED) {
+            this.status = RecurringExpenseStatus.ENDED;
+        }
+    }
+
+    /**
+     * Nimmt eine ausgelaufene Reihe wieder in Betrieb (BE-REC-04) — der Empfänger bucht wieder ab.
+     *
+     * <p>Gegenstück zu {@link #markEnded()} und mit derselben Schranke: {@code DISMISSED} bleibt
+     * {@code DISMISSED}. Ein verneinter Empfänger, der wieder abbucht, wird nicht zum Abo — das
+     * ist die Zusage aus US-08 AC3 («künftige Transaktionen desselben Empfängers werden nicht mehr
+     * automatisch als wiederkehrend erkannt»). Idempotent auf einem bereits laufenden Eintrag.
+     */
+    public void markActive() {
+        if (this.status == RecurringExpenseStatus.ENDED) {
+            this.status = RecurringExpenseStatus.DETECTED;
+        }
     }
 }

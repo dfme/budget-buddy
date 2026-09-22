@@ -333,9 +333,8 @@ class RecurringExpenseServiceTest {
     /** Ein bereits erkannter Empfänger erzeugt beim nächsten Import keine zweite Zeile und keine zweite Notification. */
     @Test
     void alreadyDetectedPayee_isNotDetectedAgain() {
-        when(repository.findByUserId(USER_ID)).thenReturn(List.of(
-                new RecurringExpense(USER_ID, NETFLIX, new BigDecimal("20.90"),
-                        YearMonth.of(2026, 6), NOW, BUNDLE_ID)));
+        RecurringExpense known = detectedRow(NETFLIX, "20.90", YearMonth.of(2026, 6));
+        when(repository.findByUserId(USER_ID)).thenReturn(List.of(known));
         history(entry(NETFLIX, "20.90", 2026, 6), entry(NETFLIX, "20.90", 2026, 7),
                 entry(NETFLIX, "20.90", 2026, 8));
 
@@ -343,6 +342,155 @@ class RecurringExpenseServiceTest {
 
         verify(repository, never()).save(any());
         verify(notificationPort, never()).create(anyLong(), anyString(), any(), anyString());
+        // Unverändert, weil sich nichts geändert hat — nicht, weil nicht hingesehen wurde.
+        assertThat(known.getAmount()).isEqualByComparingTo("20.90");
+        assertThat(known.getStatus()).isEqualTo(RecurringExpenseStatus.DETECTED);
+    }
+
+    // --- BE-REC-04: bestehende Zeilen werden neu bewertet ---
+
+    /**
+     * AC 1: Preissprung über die Toleranz hinaus. 17.90 in Jan–Mär, 19.90 ab Apr — das Paar über
+     * den Sprung qualifiziert nicht, die Reihe beginnt im April neu, und die Zeile folgt ihr.
+     *
+     * <p>Betrag <em>und</em> Erstmonat: {@code qualify} setzt beide gemeinsam, und eine Zeile mit
+     * dem April-Betrag und «seit Januar» behauptete eine Laufzeit, die die Daten nicht hergeben.
+     */
+    @Test
+    void priceJumpBeyondTolerance_updatesAmountAndFirstMonth() {
+        RecurringExpense known = detectedRow(NETFLIX, "17.90", YearMonth.of(2026, 1));
+        when(repository.findByUserId(USER_ID)).thenReturn(List.of(known));
+        history(entry(NETFLIX, "17.90", 2026, 1), entry(NETFLIX, "17.90", 2026, 2),
+                entry(NETFLIX, "17.90", 2026, 3), entry(NETFLIX, "19.90", 2026, 4),
+                entry(NETFLIX, "19.90", 2026, 5), entry(NETFLIX, "19.90", 2026, 6));
+
+        service.detect(USER_ID);
+
+        assertThat(known.getAmount()).isEqualByComparingTo("19.90");
+        assertThat(known.getFirstDetectedMonth()).isEqualTo(YearMonth.of(2026, 4));
+        assertThat(known.getStatus()).isEqualTo(RecurringExpenseStatus.DETECTED);
+    }
+
+    /** AC 4: Die Aktualisierung ist kein Fund — sie erzeugt kein Bündel und keine zweite Zeile. */
+    @Test
+    void updatingAKnownRow_writesNoNotificationAndNoSecondRow() {
+        when(repository.findByUserId(USER_ID)).thenReturn(List.of(
+                detectedRow(NETFLIX, "17.90", YearMonth.of(2026, 1))));
+        history(entry(NETFLIX, "19.90", 2026, 5), entry(NETFLIX, "19.90", 2026, 6));
+
+        service.detect(USER_ID);
+
+        verify(notificationPort, never()).create(anyLong(), anyString(), any(), anyString());
+        verify(repository, never()).save(any());
+    }
+
+    /**
+     * AC 2: Ohne Abbuchung in den drei jüngsten Monaten der Historie gilt die Reihe als
+     * ausgelaufen. Gemessen wird gegen den jüngsten Monat der <em>Historie</em> (hier September),
+     * nicht gegen die Uhr.
+     */
+    @Test
+    void payeeWithoutADebitInTheActivityWindow_becomesEnded() {
+        RecurringExpense known = detectedRow(NETFLIX, "20.90", YearMonth.of(2026, 1));
+        when(repository.findByUserId(USER_ID)).thenReturn(List.of(known));
+        history(entry(NETFLIX, "20.90", 2026, 1), entry(NETFLIX, "20.90", 2026, 2),
+                entry("COOP BERN", "45.60", 2026, 9));
+
+        service.detect(USER_ID);
+
+        assertThat(known.getStatus()).isEqualTo(RecurringExpenseStatus.ENDED);
+    }
+
+    /** Die Fenstergrenze selbst zählt noch als aktiv: jüngster Monat September, Abbuchung im Juli. */
+    @Test
+    void aDebitAtTheEdgeOfTheWindow_keepsThePayeeDetected() {
+        RecurringExpense known = detectedRow(NETFLIX, "20.90", YearMonth.of(2026, 6));
+        when(repository.findByUserId(USER_ID)).thenReturn(List.of(known));
+        history(entry(NETFLIX, "20.90", 2026, 6), entry(NETFLIX, "20.90", 2026, 7),
+                entry("COOP BERN", "45.60", 2026, 9));
+
+        service.detect(USER_ID);
+
+        assertThat(known.getStatus()).isEqualTo(RecurringExpenseStatus.DETECTED);
+    }
+
+    /** ENDED ist kein Endzustand: bucht der Empfänger wieder ab, läuft die Zeile wieder — lautlos. */
+    @Test
+    void endedPayeeThatDebitsAgain_returnsToDetectedWithoutANotification() {
+        RecurringExpense known = detectedRow(NETFLIX, "20.90", YearMonth.of(2026, 1));
+        known.markEnded();
+        when(repository.findByUserId(USER_ID)).thenReturn(List.of(known));
+        history(entry(NETFLIX, "22.90", 2026, 8), entry(NETFLIX, "22.90", 2026, 9));
+
+        service.detect(USER_ID);
+
+        assertThat(known.getStatus()).isEqualTo(RecurringExpenseStatus.DETECTED);
+        assertThat(known.getAmount()).isEqualByComparingTo("22.90");
+        verify(notificationPort, never()).create(anyLong(), anyString(), any(), anyString());
+    }
+
+    /**
+     * AC 3: {@code DISMISSED} ist terminal. Weder der Betrag noch der Status werden angefasst,
+     * auch wenn der Empfänger munter weiter abbucht — «war nie ein Abo» ist die Aussage des
+     * Nutzers und keine Beobachtung, die sich widerlegen liesse.
+     */
+    @Test
+    void dismissedPayee_isNeitherReevaluatedNorReactivated() {
+        RecurringExpense verneint = dismissed(NETFLIX, "20.90");
+        when(repository.findByUserId(USER_ID)).thenReturn(List.of(verneint));
+        history(entry(NETFLIX, "29.90", 2026, 8), entry(NETFLIX, "29.90", 2026, 9));
+
+        service.detect(USER_ID);
+
+        assertThat(verneint.getStatus()).isEqualTo(RecurringExpenseStatus.DISMISSED);
+        assertThat(verneint.getAmount()).isEqualByComparingTo("20.90");
+        assertThat(verneint.getFirstDetectedMonth()).isEqualTo(YearMonth.of(2026, 1));
+    }
+
+    /**
+     * Ein nachgereichter Altauszug: der Empfänger qualifiziert, hat aber lange vor dem jüngsten
+     * Monat der Historie zuletzt abgebucht. Die Zeile entsteht direkt als {@code ENDED} — und geht
+     * trotzdem ins Bündel, denn gefunden wurde sie.
+     */
+    @Test
+    void aNewlyDetectedPayeeThatAlreadyStopped_isCreatedAsEnded() {
+        history(entry(NETFLIX, "20.90", 2026, 1), entry(NETFLIX, "20.90", 2026, 2),
+                entry("COOP BERN", "45.60", 2026, 9));
+
+        service.detect(USER_ID);
+
+        assertThat(captureSaved().getStatus()).isEqualTo(RecurringExpenseStatus.ENDED);
+        verify(notificationPort).create(USER_ID, RecurringExpenseService.NOTIFICATION_TYPE,
+                null, "1 neues Abo erkannt: " + NETFLIX);
+    }
+
+    /**
+     * Eine Zeile, deren Empfänger in der Historie überhaupt nicht mehr vorkommt, läuft aus. Der
+     * Fall existiert nur, weil die Neubewertung über die <em>Zeilen</em> iteriert und nicht über
+     * die Gruppen der Historie — ein Durchgang über die Gruppen liesse genau sie stehen.
+     */
+    @Test
+    void aRowWhosePayeeIsAbsentFromTheHistory_becomesEnded() {
+        RecurringExpense known = detectedRow("SPOTIFY", "12.95", YearMonth.of(2026, 1));
+        when(repository.findByUserId(USER_ID)).thenReturn(List.of(known));
+        history(entry("COOP BERN", "45.60", 2026, 9));
+
+        service.detect(USER_ID);
+
+        assertThat(known.getStatus()).isEqualTo(RecurringExpenseStatus.ENDED);
+        assertThat(known.getAmount()).isEqualByComparingTo("12.95");
+    }
+
+    /** Ohne Belastungen wird nichts bewertet: keine Daten sind kein Beleg für ein Ende. */
+    @Test
+    void anEmptyHistory_leavesExistingRowsUntouched() {
+        RecurringExpense known = detectedRow(NETFLIX, "20.90", YearMonth.of(2026, 1));
+        when(repository.findByUserId(USER_ID)).thenReturn(List.of(known));
+        history();
+
+        service.detect(USER_ID);
+
+        assertThat(known.getStatus()).isEqualTo(RecurringExpenseStatus.DETECTED);
     }
 
     /** Der Ausschluss greift unabhängig von der Schreibweise, mit der der Port den Schlüssel liefert. */
@@ -435,68 +583,35 @@ class RecurringExpenseServiceTest {
         assertThat(service.list(USER_ID)).isEmpty();
     }
 
-    // --- FE-FC-05: detectedAmounts() für den Safe-to-Spend ---
-
-    private static final YearMonth AUGUST = YearMonth.of(2026, 8);
-
-    /** Belastungen im Aktivitätsfenster Jun–Aug 2026, wie der gefensterte Port sie liefert. */
-    private void windowHistory(ExpenseEntry... entries) {
-        when(expenseHistoryPort.expenseHistory(USER_ID, YearMonth.of(2026, 6), AUGUST))
-                .thenReturn(List.of(entries));
-    }
+    // --- FE-FC-05 / BE-REC-04: detectedAmounts() für den Safe-to-Spend ---
 
     /**
-     * Nur die Beträge, nur {@code DETECTED}, nur aktiv: der Port fragt das Repository mit dem
-     * Status ab, prüft die Empfänger gegen das Fenster {@code [month − 2, month]} und reicht keine
-     * Entities weiter. Dass verneinte Einträge nicht mitkommen, belegt die Repository-Query
-     * selbst — über echte Daten im {@code SafeToSpendServiceIntegrationTest}.
+     * Nur die Beträge, nur {@code DETECTED}: der Port fragt das Repository mit dem Status ab und
+     * reicht keine Entities weiter. Ob eine Zeile noch läuft, hat {@code detect} beim letzten
+     * Import entschieden — seit BE-REC-04 prüft der Lesepfad das nicht mehr selbst und lädt dafür
+     * auch keine Historie mehr nach.
      */
     @Test
-    void detectedAmountsReturnsTheAmountsOfActiveDetectedEntriesOnly() {
+    void detectedAmountsReturnsTheAmountsOfDetectedEntriesOnly() {
         when(repository.findByUserIdAndStatus(USER_ID, RecurringExpenseStatus.DETECTED))
                 .thenReturn(List.of(withId(NETFLIX, "20.90", 200L), withId("SWISSCOM", "59.00", 201L)));
-        // Netflix zuletzt im Juli (im Fenster), Swisscom nur ausserhalb — die Historie im Fenster
-        // kennt Swisscom nicht.
-        windowHistory(entry(NETFLIX, "20.90", 2026, 7));
 
-        List<BigDecimal> result = service.detectedAmounts(USER_ID, AUGUST);
+        List<BigDecimal> result = service.detectedAmounts(USER_ID);
 
-        assertThat(result).containsExactly(new BigDecimal("20.90"));
+        assertThat(result).containsExactly(new BigDecimal("20.90"), new BigDecimal("59.00"));
         verify(repository).findByUserIdAndStatus(USER_ID, RecurringExpenseStatus.DETECTED);
         verify(repository, never()).findByUserIdAndStatus(USER_ID, RecurringExpenseStatus.DISMISSED);
-        verify(expenseHistoryPort).expenseHistory(USER_ID, YearMonth.of(2026, 6), AUGUST);
-    }
-
-    // Review PR #345: eine Zeile verfällt nie von selbst — ein gekündigtes Abo darf nicht
-    // dauerhaft abgezogen werden. Ohne Abbuchung im Fenster gilt es als beendet.
-    @Test
-    void detectedAmountsDropsAnEntryWithoutADebitInTheWindow() {
-        when(repository.findByUserIdAndStatus(USER_ID, RecurringExpenseStatus.DETECTED))
-                .thenReturn(List.of(withId(NETFLIX, "20.90", 200L)));
-        windowHistory(entry("COOP", "45.60", 2026, 8));
-
-        assertThat(service.detectedAmounts(USER_ID, AUGUST)).isEmpty();
-    }
-
-    // Aktiv heisst «hat im Fenster abgebucht», unabhängig vom Betrag: ob die Abbuchung die des
-    // Abos ist, entscheidet der Aufrufer mit der Toleranz. Und der Schlüssel wird wie beim
-    // Schreiben in Grossschreibung verglichen.
-    @Test
-    void detectedAmountsMatchesPayeesCaseInsensitivelyAndRegardlessOfAmount() {
-        when(repository.findByUserIdAndStatus(USER_ID, RecurringExpenseStatus.DETECTED))
-                .thenReturn(List.of(withId(NETFLIX, "20.90", 200L)));
-        windowHistory(entry(NETFLIX.toLowerCase(java.util.Locale.ROOT), "21.20", 2026, 6));
-
-        assertThat(service.detectedAmounts(USER_ID, AUGUST)).containsExactly(new BigDecimal("20.90"));
+        verify(repository, never()).findByUserIdAndStatus(USER_ID, RecurringExpenseStatus.ENDED);
+        verify(expenseHistoryPort, never()).expenseHistory(anyLong());
     }
 
     @Test
-    void detectedAmountsLoadsNoHistoryForAUserWithoutDetectedEntries() {
+    void detectedAmountsIsEmptyForAUserWithoutDetectedEntries() {
         when(repository.findByUserIdAndStatus(USER_ID, RecurringExpenseStatus.DETECTED))
                 .thenReturn(List.of());
 
-        assertThat(service.detectedAmounts(USER_ID, AUGUST)).isEmpty();
-        verify(expenseHistoryPort, never()).expenseHistory(anyLong(), any(), any());
+        assertThat(service.detectedAmounts(USER_ID)).isEmpty();
+        verify(expenseHistoryPort, never()).expenseHistory(anyLong());
     }
 
     // --- BE-REC-02: dismiss() ---
@@ -598,6 +713,12 @@ class RecurringExpenseServiceTest {
                 YearMonth.of(2026, 1), NOW, notificationId);
         setField(entity, "id", id);
         return entity;
+    }
+
+    /** Eine DETECTED-Zeile ohne ID, wie sie {@code findByUserId} für die Neubewertung liefert. */
+    private static RecurringExpense detectedRow(String payeeKey, String amount, YearMonth firstMonth) {
+        return new RecurringExpense(USER_ID, payeeKey, new BigDecimal(amount), firstMonth, NOW,
+                BUNDLE_ID);
     }
 
     /** Eine DISMISSED-Zeile, über {@link RecurringExpense#dismiss()} (BE-REC-02). */

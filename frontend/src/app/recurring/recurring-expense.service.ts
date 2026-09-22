@@ -20,14 +20,25 @@ export class RecurringExpenseService {
   private readonly expensesState = signal<RecurringExpenseResponse[]>([]);
 
   /**
-   * Alle Einträge des eingeloggten Users, beide Status, in der vom Backend gelieferten
-   * Reihenfolge (alphabetisch nach Empfänger). Die Consumer lesen {@link detected} und
-   * {@link dismissed}; das Ganze ist hier nur der gemeinsame Ausgangspunkt.
+   * Alle Einträge des eingeloggten Users, alle Status, in der vom Backend gelieferten
+   * Reihenfolge (alphabetisch nach Empfänger). Die Consumer lesen {@link detected},
+   * {@link ended} und {@link dismissed}; das Ganze ist hier nur der gemeinsame Ausgangspunkt.
    */
   readonly expenses = this.expensesState.asReadonly();
 
-  /** Erkannte Abos — die eigentliche Abo-Liste. */
+  /** Laufende Abos — die eigentliche Abo-Liste. */
   readonly detected = computed(() => this.expenses().filter((e) => e.status === 'DETECTED'));
+
+  /**
+   * Ausgelaufene Abos (BE-REC-04): der Empfänger hat in den jüngsten Monaten der Historie nicht
+   * mehr abgebucht. Sie stehen in einem eigenen Abschnitt «Beendet» — sichtbar, weil ein
+   * gekündigtes Abo eine Information ist und weil der Klick auf die zugehörige Benachrichtigung
+   * sonst ins Leere führte (dieselbe Begründung wie bei {@link dismissed}, FE-NOTIF-03).
+   *
+   * <p>Sie zählen weder in {@link count} noch ins Total der fixen Ausgaben auf `/ausgaben`, weil
+   * beide auf {@link detected} aufsetzen — dieselbe Grenze, die der Safe-to-Spend zieht.
+   */
+  readonly ended = computed(() => this.expenses().filter((e) => e.status === 'ENDED'));
 
   /**
    * Per «Kein Abo» verneinte Einträge — der Abschnitt «Kein Abo» der Übersicht (FE-NOTIF-03).
@@ -36,7 +47,10 @@ export class RecurringExpenseService {
    */
   readonly dismissed = computed(() => this.expenses().filter((e) => e.status === 'DISMISSED'));
 
-  /** Abgeleitet: Anzahl erkannter Abos für die Teaser-Card — Verneinte zählen nicht mit. */
+  /**
+   * Abgeleitet: Anzahl laufender Abos für die Teaser-Card — verneinte und ausgelaufene zählen
+   * nicht mit.
+   */
   readonly count = computed(() => this.detected().length);
 
   /** Lädt die Abo-Übersicht neu. */

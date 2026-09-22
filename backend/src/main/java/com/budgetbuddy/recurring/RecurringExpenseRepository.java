@@ -15,10 +15,11 @@ import org.springframework.data.repository.query.Param;
 public interface RecurringExpenseRepository extends JpaRepository<RecurringExpense, Long> {
 
     /**
-     * Alle Einträge eines Users, beide Status. Die Erkennung braucht beide: {@code DETECTED}, um
-     * keine zweite Notification zu erzeugen, {@code DISMISSED}, um den Empfänger auszuschliessen.
-     * Die Einschränkung auf {@code userId} ist die Mandantentrennung; der Index kommt aus der
-     * {@code UNIQUE (user_id, payee_key)}-Constraint (V11).
+     * Alle Einträge eines Users, alle Status. Die Erkennung braucht sie vollständig: über
+     * {@code DETECTED} und {@code ENDED} bewertet sie Betrag und Status neu (BE-REC-04), über
+     * {@code DISMISSED} schliesst sie den Empfänger aus. Die Einschränkung auf {@code userId} ist
+     * die Mandantentrennung; der Index kommt aus der {@code UNIQUE (user_id, payee_key)}-Constraint
+     * (V11).
      */
     List<RecurringExpense> findByUserId(Long userId);
 
@@ -37,8 +38,8 @@ public interface RecurringExpenseRepository extends JpaRepository<RecurringExpen
 
     /**
      * Alle Einträge eines Users in einem Status — für {@link RecurringExpenseAmountPort}
-     * (FE-FC-05): der Safe-to-Spend braucht genau die {@code DETECTED}-Zeilen, die verneinten
-     * dürfen ihn nicht mindern. Der Index kommt wie oben aus dem {@code user_id}-Präfix der
+     * (FE-FC-05): der Safe-to-Spend braucht genau die {@code DETECTED}-Zeilen; verneinte
+     * ({@code DISMISSED}) und ausgelaufene ({@code ENDED}) dürfen ihn nicht mindern. Der Index kommt wie oben aus dem {@code user_id}-Präfix der
      * {@code UNIQUE}-Constraint (V11); die Menge pro User ist klein.
      */
     List<RecurringExpense> findByUserIdAndStatus(Long userId, RecurringExpenseStatus status);

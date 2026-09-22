@@ -28,9 +28,9 @@ function toRow(expense: RecurringExpenseResponse): ExpenseRow {
 }
 
 /**
- * Abschnitt «Erkannte Abos» auf `/ausgaben`: erkannte wiederkehrende Ausgaben mit «Neu»-Label
- * und «Kein Abo»-Button (FE-REC-01, US-08), darunter die verneinten Einträge in einem eigenen
- * Abschnitt «Kein Abo» (FE-NOTIF-03).
+ * Abschnitt «Erkannte Abos» auf `/ausgaben`: laufende wiederkehrende Ausgaben mit «Neu»-Label
+ * und «Kein Abo»-Button (FE-REC-01, US-08), darunter die ausgelaufenen in einem Abschnitt
+ * «Beendet» (BE-REC-04) und die verneinten in einem Abschnitt «Kein Abo» (FE-NOTIF-03).
  *
  * <p>Bis FE-FC-05 war das eine eigene Seite unter `/abos`. Seither bettet `FixedCostList` die
  * Komponente unter der Fixkosten-Tabelle ein — manuell erfasste Fixkosten und automatisch
@@ -42,6 +42,10 @@ function toRow(expense: RecurringExpenseResponse): ExpenseRow {
  * <p>Jede Zeile ist eine erkannte <em>Gruppe</em> — derselbe Empfänger, in mindestens zwei
  * aufeinanderfolgenden Monaten mit demselben Betrag belastet. Die Einzelbuchungen zeigt die
  * Übersicht nicht; dafür steht der erste Monat der Reihe («seit …») in der Zeile.
+ *
+ * <p>Der Abschnitt «Beendet» folgt derselben Regel wie «Kein Abo»: ein Eintrag verlässt die Seite
+ * nie, er wechselt nur den Abschnitt. Ein Abo, das ausläuft, verschwände sonst wortlos aus der
+ * Übersicht — und der Nutzer sähe nicht, warum sein Safe-to-Spend gestiegen ist.
  *
  * <p>Der Abschnitt «Kein Abo» ist der Grund, warum der Klick auf eine
  * `RECURRING_EXPENSE_DETECTED`-Benachrichtigung immer ein Ziel hat: die Benachrichtigung bleibt
@@ -88,6 +92,19 @@ export class RecurringExpenseList {
    */
   readonly rows = computed<readonly ExpenseRow[]>(() =>
     this.recurringExpenses.detected().map(toRow),
+  );
+
+  /**
+   * Die ausgelaufenen Einträge für den Abschnitt «Beendet» (BE-REC-04) — dieselbe Zeilenform wie
+   * die verneinten, und aus demselben Grund ohne «Neu» und ohne Button: der Eintrag ist erledigt,
+   * und «Kein Abo» wäre für ihn die falsche Aussage («war nie ein Abo» statt «läuft nicht mehr»).
+   *
+   * <p>Ein ausgelaufenes Abo kann durchaus noch ein ungelesenes Bündel haben — es taucht dann mit
+   * `isNew` hier auf, ohne dass die Zeile es zeigt. Das ist gewollt: «Neu» wirbt für etwas, das
+   * gerade beginnt.
+   */
+  readonly endedRows = computed<readonly ExpenseRow[]>(() =>
+    this.recurringExpenses.ended().map(toRow),
   );
 
   /**

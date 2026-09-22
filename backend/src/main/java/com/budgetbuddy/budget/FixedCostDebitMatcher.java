@@ -37,9 +37,9 @@ import java.util.Map;
  * (US-08) ist eine bekannte Verpflichtung wie eine Fixkosten-Position: es mindert den
  * Safe-to-Spend von Monatsbeginn an — nicht erst, wenn seine Abbuchung im Auszug steht —, und
  * seine Abbuchung fällt aus dem Ausgaben-Summanden. Zwei Dinge sind anders als bei den Positionen,
- * beide aus demselben Grund: der gelieferte Abo-Betrag ist eine <em>Momentaufnahme</em> der
- * Erkennung, die ±{@value RecurringExpenseAmountPort#TOLERANCE_PERCENT}&nbsp;% Abweichung
- * zwischen den Monaten zulässt und die Zeile danach nie aktualisiert
+ * beide aus demselben Grund: der gelieferte Abo-Betrag stammt aus der Erkennung, die zwischen zwei
+ * Monaten ±{@value RecurringExpenseAmountPort#TOLERANCE_PERCENT}&nbsp;% Abweichung zulässt — das
+ * Abo bucht deshalb regelmässig nicht rappengenau diesen Betrag ab
  * ({@link RecurringExpenseAmountPort}).
  *
  * <ul>
@@ -118,7 +118,7 @@ final class FixedCostDebitMatcher {
      *     ist unerheblich.
      * @param fixkosten Fixkosten-Positionen des Users — verglichen wird
      *     {@link FixedCostResponse#betrag()}.
-     * @param abos Beträge der erkannten, nicht verneinten und aktiven Abos, wie
+     * @param abos Beträge der erkannten, nicht verneinten und noch laufenden Abos, wie
      *     {@link RecurringExpenseAmountPort#detectedAmounts} sie liefert.
      * @return beide Summanden, siehe {@link Result}.
      */
@@ -208,8 +208,7 @@ final class FixedCostDebitMatcher {
      *
      * <p>Alle Seiten liefern heute bereits Skala 2 — {@code FixedCostService.toResponse(...)},
      * {@link com.budgetbuddy.transaction.MonthlyExpensePort#expenseAmounts(long, java.time.YearMonth)}
-     * und {@link RecurringExpenseAmountPort#detectedAmounts(long, java.time.YearMonth)} sagen sie
-     * zu. Die Normalisierung hier verlässt sich nicht darauf: {@link BigDecimal#equals}
+     * und {@link RecurringExpenseAmountPort#detectedAmounts(long)} sagen sie zu. Die Normalisierung hier verlässt sich nicht darauf: {@link BigDecimal#equals}
      * unterscheidet {@code 1200} (Skala 0) von {@code 1200.00} (Skala 2), und ein Vergleich, der an
      * der Skala einer anderen Klasse hängt, bricht lautlos, wenn dort etwas geändert wird. Ein
      * stiller Fehltreffer ist hier teurer als eine redundante Zeile.
