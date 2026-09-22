@@ -10,12 +10,10 @@
   -->
   @if (monthlyTotal(); as total) {
     <app-card class="monthly-total" title="Monatliche fixe Ausgaben">
-      <!-- prettier-ignore -->
       <p class="monthly-total__amount">{{ total.total | currency: 'CHF' : 'symbol' : '1.2-2' }}</p>
-      <!-- prettier-ignore -->
       <p class="monthly-total__breakdown">
-        {{ total.fixedCosts | currency: 'CHF' : 'symbol' : '1.2-2' }} Fixkosten
-        + {{ total.recurring | currency: 'CHF' : 'symbol' : '1.2-2' }} erkannte Abos
+        {{ total.fixedCosts | currency: 'CHF' : 'symbol' : '1.2-2' }} Fixkosten +
+        {{ total.recurring | currency: 'CHF' : 'symbol' : '1.2-2' }} erkannte Abos
       </p>
     </app-card>
   }
