@@ -180,31 +180,17 @@ T30–T33 enthält **kein** „Konto löschen" (das kommt erst B34 in der Abschl
 Reset schlägt die **Live-Registrierung** in der Abschlusspräsentation nächste Woche mit `409` fehl,
 weil `lara@demo.bb` dann schon existiert.
 
-**Wichtig:** Die Reset-Anleitung in [README.md → Zurücksetzen](README.md#zurücksetzen) zielt mit
-`docker exec ... budgetbuddy-postgres` auf die **lokale** Docker-Postgres — das funktioniert nicht
-gegen die deployte Instanz. Gegen Neon (Render-Instanz) stattdessen dieselben Statements direkt per
-`psql` mit dem Neon-Connection-String ausführen:
+**Einfachster Weg: die App selbst benutzen**, statt gegen die Datenbank zu hantieren — Lara ist ja
+ohnehin noch eingeloggt. Unter „Einstellungen" (`/einstellungen`) → Card „Konto löschen" → Button
+„Konto löschen" → im Bestätigungsdialog das Passwort eingeben und „Konto löschen" bestätigen. Löscht
+Profil, Transaktionen, Fixkosten und Benachrichtigungen endgültig; ein späterer Login mit denselben
+Zugangsdaten schlägt danach fehl — genau der Zustand, den es für die Live-Registrierung nächste
+Woche braucht. Marc bleibt unangetastet, da nur Laras Konto gelöscht wird.
 
-```bash
-psql "$NEON_CONNECTION_STRING" -v ON_ERROR_STOP=1 <<'SQL'
-BEGIN;
-CREATE TEMP TABLE demo_users AS
-  SELECT id FROM users
-  WHERE email IN ('lara@demo.bb', 'marc@demo.bb');
-DELETE FROM transactions       WHERE user_id IN (SELECT id FROM demo_users);
-DELETE FROM fixed_costs        WHERE user_id IN (SELECT id FROM demo_users);
-DELETE FROM import_jobs        WHERE user_id IN (SELECT id FROM demo_users);
-DELETE FROM notifications      WHERE user_id IN (SELECT id FROM demo_users);
-DELETE FROM recurring_expenses WHERE user_id IN (SELECT id FROM demo_users);
-DELETE FROM users              WHERE id IN (SELECT id FROM demo_users);
-COMMIT;
-SQL
-```
-
-`$NEON_CONNECTION_STRING` steht **nicht im Repo** (CLAUDE.md: keine Secrets im Git) — holt ihr aus
-dem Render-Dashboard, dort wo `SPRING_DATASOURCE_URL`/`_USERNAME`/`_PASSWORD` gesetzt sind, oder
-direkt aus dem Neon-Dashboard. Alternative ohne Kommandozeile: dieselben `DELETE`-Statements im
-Neon-Web-SQL-Editor ausführen.
+(Die SQL-basierte Reset-Anleitung in [README.md → Zurücksetzen](README.md#zurücksetzen) ist nur für
+den Fall gedacht, dass die App selbst nicht mehr erreichbar ist oder der Login fehlschlägt — dann
+zusätzlich beachten, dass sie mit `docker exec ... budgetbuddy-postgres` auf die lokale
+Docker-Postgres zielt, nicht auf die deployte Instanz.)
 
 Danach den lokal gesicherten September-Auszug wieder nach `docs/demo/statements/` zurücklegen,
 damit der Ordner für den nächsten Durchlauf bzw. die Abschlusspräsentation wieder vollständig ist.
