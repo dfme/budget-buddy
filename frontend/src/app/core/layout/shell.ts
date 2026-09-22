@@ -105,7 +105,7 @@ export class Shell {
     { path: '/dashboard', label: 'Übersicht', icon: '◎' },
     { path: '/categories', label: 'Transaktionen', icon: '≡' },
     { path: '/import', label: 'Import', icon: '↑' },
-    { path: '/fixkosten', label: 'Fixkosten', icon: '▦' },
+    { path: '/ausgaben', label: 'Ausgaben', icon: '▦' },
   ];
 
   protected toggleAccountMenu(): void {
