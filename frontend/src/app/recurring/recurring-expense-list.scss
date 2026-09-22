@@ -4,8 +4,9 @@
   display: block;
 }
 
-// Ein Abschnitt der Fixkosten-Seite (FE-FC-05), keine eigene Seite mehr: die Breite gibt die
-// umgebende `.fixed-cost-list` vor, hier bleibt nur der Abstand zur Fixkosten-Tabelle darüber.
+// Ein Abschnitt der Ausgaben-Seite (FE-FC-05, seit FE-FC-07 unter /ausgaben), keine eigene
+// Seite mehr: die Breite gibt die umgebende `.fixed-cost-list` vor, hier bleibt nur der Abstand
+// zur Fixkosten-Tabelle darüber.
 .recurring-expense-list {
   margin-top: $sp-6;
 }

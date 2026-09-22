@@ -20,7 +20,7 @@ import { expect, test } from '@playwright/test';
 test.describe('SPA-Deep-Links', () => {
   for (const route of [
     '/dashboard', '/login', '/register', '/categories', '/import',
-    '/onboarding', '/fixkosten', '/styleguide',
+    '/onboarding', '/ausgaben', '/styleguide',
   ]) {
     test(`${route} liefert die SPA aus`, async ({ request }) => {
       const response = await request.get(route);

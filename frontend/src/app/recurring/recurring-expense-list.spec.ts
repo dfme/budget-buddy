@@ -151,7 +151,8 @@ describe('RecurringExpenseList', () => {
   });
 
   // FE-NOTIF-03, #333 AC1: Der Klick auf die Benachrichtigung eines inzwischen verneinten
-  // Eintrags führt nach `/fixkosten` (bis FE-FC-05: `/abos`) — und der Eintrag muss dort stehen.
+  // Eintrags führt nach `/ausgaben` (bis FE-FC-05: `/abos`, bis FE-FC-07: `/fixkosten`) — und
+  // der Eintrag muss dort stehen.
   // Ohne diesen Abschnitt landete er auf einer Seite, auf der der Eintrag fehlt.
   it('zeigt verneinte Einträge in einem eigenen Abschnitt «Kein Abo», ohne Neu-Label und Button', () => {
     flushList([NETFLIX, SWISSCOM_DISMISSED]);
