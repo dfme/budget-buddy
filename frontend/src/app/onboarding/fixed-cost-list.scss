@@ -37,6 +37,12 @@ h1 {
   font-size: $fs-sm;
 }
 
+.monthly-total__unavailable {
+  margin: 0 0 $sp-5;
+  color: $c-ink-2;
+  font-size: $fs-sm;
+}
+
 // Abschnittskopf «Erfasste Fixkosten» mit dem Button daneben — dasselbe Muster wie vorher der
 // Seitenkopf mit h1, nur eine Stufe tiefer (FE-FC-07).
 .section-header {

@@ -251,4 +251,37 @@ test.describe('Abo-Erkennung', () => {
     await expect(total).toHaveText(/^CHF\s1\u2019200\.00$/);
     await expect(page.locator('li.dismissed-expense').filter({ hasText: PAYEE })).toHaveCount(1);
   });
+
+  // Review-Befund zu #355: Das Total auszublenden, wenn ein Summand fehlt, ist richtig — die
+  // Nutzerin soll aber an der Stelle der fehlenden Zahl erfahren, warum. Die Meldung des
+  // Abo-Abschnitts selbst steht unterhalb der Fixkosten-Tabelle, also ausserhalb des ersten
+  // Bildschirms.
+  test('fällt die Abo-Liste aus, erklärt sich die Lücke an der Stelle des Totals', async ({
+    authenticatedContext: context,
+    authenticatedPage: page,
+  }) => {
+    const fixedCost = await context.request.post('/api/fixed-costs', {
+      data: { bezeichnung: 'Miete', betrag: 1_200, intervall: 'monatlich' },
+    });
+    expect(fixedCost.status(), 'Vorbedingung: POST /api/fixed-costs').toBe(201);
+
+    // Nur der GET der Abo-Liste scheitert. Das Muster endet ohne Suffix, trifft also nicht
+    // `/api/recurring-expenses/{id}/dismiss` — hier wird ohnehin nichts verneint, aber der
+    // Zuschnitt hält den Test auf genau einem fehlgeschlagenen Request (vgl.
+    // `categorization.spec.ts`).
+    await page.route('**/api/recurring-expenses', (route) =>
+      route.fulfill({ status: 500, contentType: 'application/json', body: '{}' }),
+    );
+
+    await page.goto('/ausgaben');
+
+    // Kein Total — ihm fehlt ein Summand, und 1'200.00 wäre schlicht falsch.
+    await expect(page.locator('.monthly-total')).toHaveCount(0);
+    await expect(page.locator('.monthly-total__unavailable')).toHaveText(
+      'Total nicht verfügbar — die erkannten Abos konnten nicht geladen werden.',
+    );
+
+    // Die Fixkosten-Tabelle steht unbeirrt daneben: ein Ausfall nimmt nicht die ganze Seite mit.
+    await expect(page.getByRole('row').filter({ hasText: 'Miete' })).toHaveCount(1);
+  });
 });

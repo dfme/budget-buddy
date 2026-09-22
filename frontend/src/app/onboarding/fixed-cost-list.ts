@@ -115,7 +115,8 @@ export class FixedCostList implements OnInit {
    * Total der monatlichen fixen Ausgaben (FE-FC-07, US-08): Fixkosten-Monatssumme plus die
    * Beträge der angezeigten erkannten Abos. `null`, solange einer der beiden Abschnitte noch
    * lädt oder nicht geladen werden konnte — dann fehlte ein Summand, und eine Zahl, die das
-   * verschweigt, ist schlimmer als keine.
+   * verschweigt, ist schlimmer als keine. Warum sie fehlt, sagt
+   * {@link totalUnavailableReason} an derselben Stelle.
    *
    * <p>Einfache Addition, keine Deduplizierung. Der Safe-to-Spend rechnet anders: dort gilt ein
    * Abo mit betragsgleicher Fixkosten-Position als bereits erfasst und zählt nicht noch einmal
@@ -144,6 +145,34 @@ export class FixedCostList implements OnInit {
       recurring: recurring / 100,
       total: (fixedCosts + recurring) / 100,
     };
+  });
+
+  /**
+   * Warum das Total fehlt — oder `null`, wenn es dasteht oder bloss noch geladen wird.
+   *
+   * <p>{@link monthlyTotal} auszublenden ist richtig, sobald ein Summand fehlt; ohne diesen Satz
+   * verschwindet die Zahl aber kommentarlos, und die Ursache steht erst weit darunter (die
+   * Abo-Meldung sogar erst unterhalb der Fixkosten-Tabelle). Erklärt wird die Lücke deshalb
+   * dort, wo sie auffällt: an der Stelle der Card. Review-Befund zu #355.
+   *
+   * <p>Nur nach einem Fehlschlag, nicht während des Ladens: beide Abschnitte laden beim
+   * Seitenaufbau, ein Hinweis auf die noch fehlende Zahl blitzte sonst bei jedem Besuch kurz auf.
+   */
+  readonly totalUnavailableReason = computed<string | null>(() => {
+    const section = this.recurringSection();
+    const fixedCostsFailed = this.errorMessage() !== null;
+    const recurringFailed = section !== undefined && section.errorMessage() !== null;
+
+    if (fixedCostsFailed && recurringFailed) {
+      return 'Total nicht verfügbar — Fixkosten und Abos konnten nicht geladen werden.';
+    }
+    if (recurringFailed) {
+      return 'Total nicht verfügbar — die erkannten Abos konnten nicht geladen werden.';
+    }
+    if (fixedCostsFailed) {
+      return 'Total nicht verfügbar — die Fixkosten konnten nicht geladen werden.';
+    }
+    return null;
   });
 
   /** `true`, solange die Liste (noch) lädt. */

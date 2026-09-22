@@ -16,6 +16,13 @@
         {{ total.recurring | currency: 'CHF' : 'symbol' : '1.2-2' }} erkannte Abos
       </p>
     </app-card>
+  } @else if (totalUnavailableReason(); as reason) {
+    <!--
+      Die Lücke erklärt sich an ihrer eigenen Stelle (siehe `totalUnavailableReason`). Gedämpfter
+      Satz statt `app-notice`: Der Fehler selbst ist schon gemeldet — hier steht nur, was er für
+      diese Zahl bedeutet. Ein zweiter roter Kasten machte aus einem Ausfall zwei.
+    -->
+    <p class="monthly-total__unavailable">{{ reason }}</p>
   }
 
   <!--

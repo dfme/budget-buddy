@@ -258,7 +258,16 @@ describe('FixedCostList', () => {
       expect(totalCard()).not.toBeNull();
     });
 
-    it('blendet das Total aus, wenn die Abos nicht geladen werden konnten', () => {
+    /** Der Satz, der an der Stelle der Card steht, wenn das Total fehlt. */
+    function unavailableNote(): string | null {
+      return (
+        (fixture.nativeElement as HTMLElement)
+          .querySelector('.monthly-total__unavailable')
+          ?.textContent?.trim() ?? null
+      );
+    }
+
+    it('blendet das Total aus, wenn die Abos nicht geladen werden konnten, und sagt warum', () => {
       fixture.detectChanges();
       httpMock.expectOne('/api/fixed-costs').flush(summaryOf([MIETE], 3000, false));
       httpMock
@@ -266,13 +275,18 @@ describe('FixedCostList', () => {
         .flush('boom', { status: 500, statusText: 'Internal Server Error' });
       fixture.detectChanges();
 
-      // Die Fixkosten-Tabelle steht, das Total nicht: ihm fehlte ein Summand.
+      // Die Fixkosten-Tabelle steht, das Total nicht: ihm fehlte ein Summand. Die Begründung
+      // steht an der Stelle der Card — die Meldung des Abo-Abschnitts selbst käme erst
+      // unterhalb der Tabelle.
       expect(text()).toContain('Miete');
       expect(component.monthlyTotal()).toBeNull();
       expect(totalCard()).toBeNull();
+      expect(unavailableNote()).toBe(
+        'Total nicht verfügbar — die erkannten Abos konnten nicht geladen werden.',
+      );
     });
 
-    it('blendet das Total aus, wenn die Fixkosten nicht geladen werden konnten', () => {
+    it('blendet das Total aus, wenn die Fixkosten nicht geladen werden konnten, und sagt warum', () => {
       fixture.detectChanges();
       httpMock
         .expectOne('/api/fixed-costs')
@@ -283,6 +297,40 @@ describe('FixedCostList', () => {
       expect(text()).toContain('NETFLIX');
       expect(component.monthlyTotal()).toBeNull();
       expect(totalCard()).toBeNull();
+      expect(unavailableNote()).toBe(
+        'Total nicht verfügbar — die Fixkosten konnten nicht geladen werden.',
+      );
+    });
+
+    it('nennt beide Ursachen, wenn beide Requests fehlschlagen', () => {
+      fixture.detectChanges();
+      httpMock
+        .expectOne('/api/fixed-costs')
+        .flush('boom', { status: 500, statusText: 'Internal Server Error' });
+      httpMock
+        .expectOne('/api/recurring-expenses')
+        .flush('boom', { status: 500, statusText: 'Internal Server Error' });
+      fixture.detectChanges();
+
+      expect(unavailableNote()).toBe(
+        'Total nicht verfügbar — Fixkosten und Abos konnten nicht geladen werden.',
+      );
+    });
+
+    it('sagt nichts, solange die Abschnitte nur laden — der Hinweis blitzt nicht auf', () => {
+      fixture.detectChanges();
+
+      // Beide Requests stehen noch offen: kein Total, aber auch keine Begründung.
+      expect(component.monthlyTotal()).toBeNull();
+      expect(component.totalUnavailableReason()).toBeNull();
+      expect(unavailableNote()).toBeNull();
+
+      httpMock.expectOne('/api/fixed-costs').flush(summaryOf([MIETE], 3000, false));
+      flushRecurringExpenses();
+      fixture.detectChanges();
+
+      expect(totalCard()).not.toBeNull();
+      expect(unavailableNote()).toBeNull();
     });
 
     it('zieht ein per «Kein Abo» verneintes Abo sofort aus dem Total', () => {
