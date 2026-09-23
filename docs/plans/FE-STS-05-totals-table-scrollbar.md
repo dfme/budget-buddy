@@ -12,10 +12,10 @@
 Bei der Ursachenanalyse fiel eine breitere Inkonsistenz auf: Die Dashboard-Elemente (Banner,
 Safe-to-Spend-Karte, Monatswechsel, Drei-Monats-Karte, Abo-Teaser) waren auf `max-width: 28rem`
 begrenzt, während `/ausgaben` (`fixed-cost-list.scss`), `/einstellungen` (`settings.scss`) und die
-Kategorie-Übersicht (`category-overview.scss`) unabhängig davon `max-width: 40rem` verwenden. Das
-Ergebnis: die Dashboard-Spalte stand sichtbar schmaler und weiter rechts zentriert als auf den
-anderen Seiten — und hatte als Folge zu wenig Innenraum für die Drei-Monats-Tabelle, die deshalb
-auf jeder Viewport-Breite horizontal scrollte.
+Kategorie-Übersicht (`category-overview.scss`) unabhängig davon `max-width: 40rem` verwenden. Die
+Dashboard-Spalte war auch vorher zentriert, nur schmaler — ihre linke Kante fluchtete deshalb
+nicht mit der von Ausgaben und Einstellungen. Als Folge blieb zu wenig Innenraum für die
+Drei-Monats-Tabelle, die deshalb auf jeder Viewport-Breite horizontal scrollte.
 
 Nutzer hat entschieden: **beide Punkte zusammen auf diesem Branch/PR beheben**, Zielbreite
 **40rem** (bereits der Standard an vier anderen Stellen). Der ursprünglich geplante Fix (Zellen-
@@ -32,9 +32,9 @@ mit 3 Monaten Transaktionsdaten) verifiziert.
 
 **Ursache der Breiten-Inkonsistenz:** `dashboard.scss` hat keine eigene Wrapper-Klasse für die
 ganze Seite — stattdessen setzt jedes einzelne Element selbst `max-width`
-([dashboard.scss:12-26](../../frontend/src/app/dashboard/dashboard.scss#L12-L26),
-[:122-125](../../frontend/src/app/dashboard/dashboard.scss#L122-L125),
-[:185-189](../../frontend/src/app/dashboard/dashboard.scss#L185-L189)). Der Wert 28rem stammt aus
+([dashboard.scss:20-26](../../frontend/src/app/dashboard/dashboard.scss#L20-L26),
+[:123-126](../../frontend/src/app/dashboard/dashboard.scss#L123-L126),
+[:186-189](../../frontend/src/app/dashboard/dashboard.scss#L186-L189)). Der Wert 28rem stammt aus
 [FE-STS-01](https://github.com/dfme/budget-buddy/issues/33) (Sprint 4), als das Dashboard nur das
 einzelne Safe-to-Spend-Widget trug, und wurde nie an die 40rem angeglichen, auf die `settings.scss`
 ([FE-SET-01, #177](https://github.com/dfme/budget-buddy/issues/177)), `fixed-cost-list.scss`

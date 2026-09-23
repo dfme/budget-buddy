@@ -13,10 +13,11 @@
 // 40rem statt der ursprünglichen 28rem (FE-STS-05, #361): 28rem stammte aus FE-STS-01, als das
 // Dashboard nur das einzelne Safe-to-Spend-Widget trug, und blieb seither unangetastet, während
 // Ausgaben (`fixed-cost-list.scss`), Einstellungen (`settings.scss`) und die Kategorie-Übersicht
-// (`category-overview.scss`) unabhängig davon auf 40rem gelandet sind. Die Folge war eine sicht-
-// bar schmalere, nach rechts verschobene Spalte nur auf dieser Seite — und als Nebeneffekt zu
-// wenig Innenraum für die Drei-Monats-Tabelle darunter, die dadurch auf jeder Viewport-Breite
-// horizontal scrollte, obwohl rund um die Karte reichlich Platz war.
+// (`category-overview.scss`) unabhängig davon auf 40rem gelandet sind. Die Spalte war auch vorher
+// zentriert, nur schmaler — ihre linke Kante fluchtete deshalb nicht mit der von Ausgaben und
+// Einstellungen. Als Nebeneffekt blieb zu wenig Innenraum für die Drei-Monats-Tabelle darunter,
+// die dadurch auf jeder Viewport-Breite horizontal scrollte, obwohl rund um die Karte reichlich
+// Platz war.
 .negative-banner,
 .uncertain-banner,
 .closed-banner,
