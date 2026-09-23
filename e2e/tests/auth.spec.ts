@@ -42,7 +42,7 @@ test.describe('Auth-Flow', () => {
     // Ein frisches Konto hat onboardingCompleted = false; der onboardingGuard (FE-FC-02)
     // fängt die Navigation auf /dashboard ab und leitet auf den Wizard um.
     await expect(page).toHaveURL(/\/onboarding$/);
-    await expect(page.getByRole('heading', { name: 'Fixkosten erfassen' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Budget', exact: true })).toBeVisible();
   });
 
   test('setzt das JWT als httpOnly-Cookie mit SameSite=Strict', async ({
@@ -91,7 +91,7 @@ test.describe('Auth-Flow', () => {
     // Das Konto ist frisch angelegt und damit nicht onboardet — derselbe onboardingGuard
     // wie bei der Registrierung greift auch hier (FE-FC-02).
     await expect(page).toHaveURL(/\/onboarding$/);
-    await expect(page.getByRole('heading', { name: 'Fixkosten erfassen' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Budget', exact: true })).toBeVisible();
   });
 
   test('Fehlerpfad: geschützte Route ohne Cookie leitet auf /login', async ({ page }) => {

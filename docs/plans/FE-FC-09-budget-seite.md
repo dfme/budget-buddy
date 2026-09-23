@@ -114,3 +114,66 @@ dokumentiert hat.
       `/budget`
 - [ ] Component-Test deckt Einkommens-Formular auf der neuen Seite sowie den Redirect ab
 - [ ] Doku aktualisiert (US-06, US-14, CONVENTIONS.md, `app.routes.ts`-Kommentar)
+
+## Nachtrag: Einkommen auch im Onboarding-Wizard (User-Anfrage nach Plan-Bestätigung)
+
+Nach der ursprünglichen Umsetzung kam die Anfrage, das Einkommen auch im Onboarding-Wizard
+erfassbar zu machen — Lara soll es nicht erst nach dem Onboarding auf der Budget-Seite nachtragen
+müssen. Damit hätte die Einkommens-Card einen dritten Kopie-Ort gebraucht (nach `settings.ts` und
+`fixed-cost-list.ts`); stattdessen wurde sie in eine eigene Komponente extrahiert, analog
+{@link RecurringExpenseList}:
+
+- **Neu** `frontend/src/app/income/income-card.ts` / `.html` / `.scss` / `.spec.ts` — Formular,
+  Signale und Methoden unverändert aus dem ursprünglichen `fixed-cost-list.ts` übernommen, inkl.
+  der Zwischenüberschrift «Einkommen» (ausserhalb der Card, analog «Erfasste Fixkosten» — zwei
+  Layout-Korrekturen aus dem User-Review der ursprünglichen Umsetzung: die Überschrift stand
+  zunächst als `app-card`-Titel, und der Card fehlte der Abstand nach unten, weil der Container
+  keinen eigenen `gap` hat).
+- `frontend/src/app/onboarding/fixed-cost-list.ts`/`.html`/`.scss` — Einkommens-Code entfernt,
+  bindet stattdessen `<app-income-card />` ein.
+- `frontend/src/app/onboarding/fixed-cost-wizard.ts`/`.html` — bindet `<app-income-card />`
+  zusätzlich über dem Fixkosten-Formular ein; unabhängig vom Abschluss-Button (Onboarding lässt
+  sich weiterhin ohne erfasstes Einkommen abschliessen).
+- Tests entsprechend verschoben: `income-card.spec.ts` (neu, deckt das Formular selbst ab),
+  `fixed-cost-list.spec.ts` und `fixed-cost-wizard.spec.ts` prüfen nur noch die Einbettung.
+- Doku: `docs/CONVENTIONS.md` (neuer Ordner `income/`), `docs/requirements/US-14-einstellungen.md`
+  (neuer Pfad, zweiter Einbettungsort), `docs/requirements/US-03-fixkosten-wizard.md` (Hinweis,
+  keine neue AC — das Feld bleibt optional und ändert AC1 nicht).
+
+## Nachtrag 2: Seitenstruktur des Onboarding-Wizards (weiteres User-Feedback)
+
+Der Wizard behielt nach dem ersten Nachtrag seinen alten Titel «Fixkosten erfassen», obwohl die
+Einkommens-Card jetzt darüber stand — ein Titel, der nur den zweiten Abschnitt benennt. Zusätzlich
+bezog sich die Beschriftung des Abschluss-Buttons («Keine Fixkosten — weiter zum Dashboard»)
+ausschliesslich auf Fixkosten und war irreführend, sobald nur ein Einkommen gespeichert wurde.
+Behoben:
+
+- `frontend/src/app/onboarding/fixed-cost-wizard.html` — `<h1>` von «Fixkosten erfassen» zu
+  «Budget» (deckungsgleich mit der Budget-Seite); Lead-Text nennt jetzt beide Angaben und weist
+  darauf hin, dass sich beides später unter «Budget» nachtragen lässt; neue Zwischenüberschrift
+  `<h2>Fixkosten</h2>` vor der Fixkosten-Card, analog dem `<h2>Einkommen</h2>` aus `IncomeCard`.
+- `frontend/src/app/onboarding/fixed-cost-wizard.ts` — neues `hasEnteredData` (computed aus
+  `hasSaved` **oder** `incomeSection()?.incomeSaved()`, per `viewChild(IncomeCard)` gelesen)
+  ersetzt `hasSaved` als Grundlage der Button-Beschriftung; «Keine Fixkosten» → «Später erfassen».
+- Tests: `fixed-cost-wizard.spec.ts` (Beschriftungs-Tests umbenannt/ergänzt, u. a. ein Fall, der
+  nur das Einkommen speichert und die «Fertig»-Beschriftung erwartet), `onboarding-completion.spec.ts`
+  und `auth.spec.ts`/`fixed-cost-wizard.spec.ts` (e2e) für die neue Überschrift «Budget» und die
+  neue Button-Beschriftung.
+- Doku: `docs/requirements/US-03-fixkosten-wizard.md` (Hinweis präzisiert).
+
+## Nachtrag 3: Submit-Button-Verhalten der beiden Onboarding-Formulare angeglichen
+
+Auffällig im direkten Vergleich auf derselben Seite: der Einkommen-Button war standardmässig
+deaktiviert (bis das Feld gültig ist), der Fixkosten-Button liess sich immer klicken — Fehler
+zeigten sich erst nach dem Klick (`markAllAsTouched()`). Auf Rückfrage entschieden: Fixkosten wird
+an Einkommen angeglichen (Mehrheitsmuster in der App — Passwort-Formular und
+Konto-löschen-Dialog deaktivieren ebenfalls proaktiv).
+
+- `frontend/src/app/onboarding/fixed-cost-wizard.html` — Submit-Button neu
+  `[disabled]="form.invalid || submitting()"` statt nur `submitting()`. Die interne Guard-Klausel
+  in `submit()` (`if (form.invalid) { markAllAsTouched(); return; }`) bleibt als Absicherung gegen
+  ein Absenden per Enter-Taste bestehen — ein disabled-Button verhindert das nicht.
+- Tests: neue Unit-Tests für den Sperr-/Freigabe-Zustand des Buttons
+  (`fixed-cost-wizard.spec.ts`). Der E2E-Fehlerpfad-Test (`fixed-cost-wizard.spec.ts`, e2e) liess
+  sich nicht mehr per Klick auf ein leeres Formular auslösen — umgebaut auf Fokuswechsel (blur)
+  pro Feld, mit zusätzlicher Zusicherung, dass der Button dabei durchgehend deaktiviert bleibt.

@@ -72,7 +72,7 @@ class SpaRoutingTest {
     @ParameterizedTest(name = "{0} → SPA-Shell")
     @ValueSource(strings = {
         "/dashboard", "/login", "/register", "/categories", "/import",
-        "/onboarding", "/ausgaben", "/styleguide"
+        "/onboarding", "/budget", "/styleguide"
     })
     void spaDeepLinkForwardsToIndexHtml(String route) {
         // Hard-Reload/Deep-Link einer client-seitigen Route → SPA-Shell, ohne Auth.
