@@ -11,7 +11,9 @@
   margin-top: $sp-6;
 }
 
-h2 {
+// h3, nicht h2: «Erkannte Abos» sitzt unter der Zwischenüberschrift «Ausgaben» der Budget-Seite
+// (FE-FC-09-Nachtrag), eine Stufe tiefer als «Einkommen».
+h3 {
   margin: 0 0 $sp-2;
 }
 

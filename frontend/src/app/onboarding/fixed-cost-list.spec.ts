@@ -217,7 +217,7 @@ describe('FixedCostList', () => {
   // und darüber steht das Total aus Fixkosten-Monatssumme und erkannten Abos. FE-FC-09 (#360)
   // benennt die Seite zu «Budget» um.
   describe('Seite «Budget» und Total (FE-FC-07, FE-FC-09)', () => {
-    function heading(level: 1 | 2, name: string): HTMLElement | null {
+    function heading(level: 1 | 2 | 3, name: string): HTMLElement | null {
       return (
         Array.from(
           (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>(`h${level}`),
@@ -229,15 +229,20 @@ describe('FixedCostList', () => {
       return (fixture.nativeElement as HTMLElement).querySelector('.monthly-total');
     }
 
-    it('trägt den Titel «Budget» und die Zwischenüberschriften «Einkommen», «Erfasste Fixkosten» und «Erkannte Abos»', () => {
+    it('trägt den Titel «Budget» und die Zwischenüberschriften «Einkommen», «Ausgaben», «Erfasste Fixkosten» und «Erkannte Abos»', () => {
       flushInitialLoad(summaryOf([MIETE], 3000, false));
 
       expect(heading(1, 'Budget')).not.toBeNull();
       expect(heading(1, 'Ausgaben')).toBeNull();
       expect(heading(1, 'Fixkosten')).toBeNull();
       expect(heading(2, 'Einkommen')).not.toBeNull();
-      expect(heading(2, 'Erfasste Fixkosten')).not.toBeNull();
-      expect(heading(2, 'Erkannte Abos')).not.toBeNull();
+      // «Ausgaben» gruppiert die beiden Unterabschnitte als h2, die selbst eine Stufe tiefer
+      // (h3) sitzen — analog «Einkommen», aber mit einer zusätzlichen Ebene darunter.
+      expect(heading(2, 'Ausgaben')).not.toBeNull();
+      expect(heading(3, 'Erfasste Fixkosten')).not.toBeNull();
+      expect(heading(3, 'Erkannte Abos')).not.toBeNull();
+      expect(heading(2, 'Erfasste Fixkosten')).toBeNull();
+      expect(heading(2, 'Erkannte Abos')).toBeNull();
     });
 
     // FE-FC-09 (#360): «Einkommen» steht wie «Erfasste Fixkosten» als eigene Zwischenüberschrift
@@ -261,7 +266,7 @@ describe('FixedCostList', () => {
       );
       expect(button?.textContent?.trim()).toBe('+ Neue Position');
       expect(button?.getAttribute('href')).toBe('/onboarding');
-      expect(button?.parentElement?.querySelector('h2')?.textContent?.trim()).toBe(
+      expect(button?.parentElement?.querySelector('h3')?.textContent?.trim()).toBe(
         'Erfasste Fixkosten',
       );
     });
@@ -271,7 +276,7 @@ describe('FixedCostList', () => {
 
       const region = (fixture.nativeElement as HTMLElement).querySelector('.table-scroll');
       expect(region?.getAttribute('aria-labelledby')).toBe('fixed-costs-heading');
-      expect(heading(2, 'Erfasste Fixkosten')?.id).toBe('fixed-costs-heading');
+      expect(heading(3, 'Erfasste Fixkosten')?.id).toBe('fixed-costs-heading');
     });
 
     it('summiert Fixkosten-Monatssumme und erkannte Abos, ohne die verneinten', () => {
@@ -429,7 +434,7 @@ describe('FixedCostList', () => {
 
       const section = recurringSection();
       expect(section).not.toBeNull();
-      expect(section?.querySelector('h2')?.textContent?.trim()).toBe('Erkannte Abos');
+      expect(section?.querySelector('h3')?.textContent?.trim()).toBe('Erkannte Abos');
       // Reihenfolge im DOM: erst die Fixkosten-Tabelle, dann der Abo-Abschnitt.
       const table = (fixture.nativeElement as HTMLElement).querySelector('table');
       expect(

@@ -71,7 +71,7 @@ test.describe('Abo-Erkennung', () => {
     await importFixture(authenticatedContext.request, FIXTURE_DETECTION);
 
     await page.goto('/budget');
-    await expect(page.getByRole('heading', { level: 2, name: 'Erkannte Abos' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 3, name: 'Erkannte Abos' })).toBeVisible();
 
     // AC 1: die Zeile der erkannten Gruppe — Empfänger und «seit»-Label (erster Monat der Reihe).
     const row = page.locator('li.expense').filter({ hasText: PAYEE });
@@ -214,10 +214,11 @@ test.describe('Abo-Erkennung', () => {
 
       await expect(page).toHaveURL(/\/budget$/);
       await expect(page.getByRole('heading', { level: 1, name: 'Budget' })).toBeVisible();
+      await expect(page.getByRole('heading', { level: 2, name: 'Ausgaben' })).toBeVisible();
       await expect(
-        page.getByRole('heading', { level: 2, name: 'Erfasste Fixkosten' }),
+        page.getByRole('heading', { level: 3, name: 'Erfasste Fixkosten' }),
       ).toBeVisible();
-      await expect(page.getByRole('heading', { level: 2, name: 'Erkannte Abos' })).toBeVisible();
+      await expect(page.getByRole('heading', { level: 3, name: 'Erkannte Abos' })).toBeVisible();
     });
   }
 

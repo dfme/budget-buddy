@@ -177,3 +177,21 @@ Konto-löschen-Dialog deaktivieren ebenfalls proaktiv).
   (`fixed-cost-wizard.spec.ts`). Der E2E-Fehlerpfad-Test (`fixed-cost-wizard.spec.ts`, e2e) liess
   sich nicht mehr per Klick auf ein leeres Formular auslösen — umgebaut auf Fokuswechsel (blur)
   pro Feld, mit zusätzlicher Zusicherung, dass der Button dabei durchgehend deaktiviert bleibt.
+
+## Nachtrag 4: Überschriften-Hierarchie der Budget-Seite
+
+Auf der Budget-Seite standen «Erfasste Fixkosten» und «Erkannte Abos» als h2 direkt unter der h1
+«Budget» — auf gleicher Ebene wie «Einkommen», obwohl beide inhaltlich zusammengehören (Fixkosten
+und Abos sind beides «Ausgaben», im Gegensatz zum Einkommen). Ergänzt:
+
+- `frontend/src/app/onboarding/fixed-cost-list.html`/`.scss` — neue gruppierende
+  Zwischenüberschrift `<h2>Ausgaben</h2>` vor «Erfasste Fixkosten»; «Erfasste Fixkosten» selbst
+  von h2 zu h3.
+- `frontend/src/app/recurring/recurring-expense-list.html`/`.scss` — «Erkannte Abos» von h2 zu h3
+  (dieselbe Komponente, nur auf der Budget-Seite eingebettet, siehe `fixed-cost-list.spec.ts`).
+- Tests: `fixed-cost-list.spec.ts`, `recurring-expense-list.spec.ts` (Heading-Level-Assertions
+  angepasst, neue Zusicherung für «Ausgaben»), `recurring-expenses.spec.ts` (e2e, Heading-Level
+  in den Redirect- und Happy-Path-Tests).
+- Der Onboarding-Wizard (`fixed-cost-wizard.html`) ist bewusst unverändert: dort gibt es keine
+  «Ausgaben»-Gruppierung, «Einkommen» und «Fixkosten» stehen dort als zwei parallele h2-Abschnitte
+  ohne gemeinsames Dach.

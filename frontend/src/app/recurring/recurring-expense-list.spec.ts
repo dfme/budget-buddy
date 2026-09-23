@@ -86,16 +86,18 @@ describe('RecurringExpenseList', () => {
     expect(el().querySelector('.status')?.textContent).toContain('Lädt');
   });
 
-  // FE-FC-05: ein Abschnitt der Fixkosten-Seite, keine eigene Seite — h2 statt h1, damit die
-  // Überschriften-Hierarchie unter «Fixkosten» stimmt; der Hinweis auf den Safe-to-Spend erklärt
-  // die neue Wirkung eines erkannten Abos.
-  it('ist ein Abschnitt «Erkannte Abos» mit h2 und Hinweis auf den Safe-to-Spend', () => {
+  // FE-FC-05: ein Abschnitt der Budget-Seite, keine eigene Seite. Seit dem FE-FC-09-Nachtrag h3
+  // statt h2, damit die Überschriften-Hierarchie unter der gruppierenden Zwischenüberschrift
+  // «Ausgaben» stimmt; der Hinweis auf den Safe-to-Spend erklärt die neue Wirkung eines
+  // erkannten Abos.
+  it('ist ein Abschnitt «Erkannte Abos» mit h3 und Hinweis auf den Safe-to-Spend', () => {
     flushList([]);
 
     expect(el().querySelector('h1')).toBeNull();
-    expect(el().querySelector('h2')?.textContent?.trim()).toBe('Erkannte Abos');
+    expect(el().querySelector('h2')).toBeNull();
+    expect(el().querySelector('h3')?.textContent?.trim()).toBe('Erkannte Abos');
     expect(el().querySelector('section')?.getAttribute('aria-labelledby')).toBe(
-      el().querySelector('h2')?.id,
+      el().querySelector('h3')?.id,
     );
     expect(el().querySelector('.intro')?.textContent).toContain('Safe-to-Spend');
   });
