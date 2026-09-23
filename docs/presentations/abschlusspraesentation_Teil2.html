@@ -75,12 +75,6 @@
     font-family:var(--font-mono); font-size:.72rem; letter-spacing:.09em;
     text-transform:uppercase; color:var(--c-accent); font-weight:500;
   }
-  .timebox{
-    display:inline-flex; align-items:center; gap:.4rem;
-    font-family:var(--font-mono); font-size:.72rem; color:var(--c-ink-3);
-    border:1px solid var(--c-line-strong); border-radius:999px;
-    padding:.2rem .65rem; margin-left:.6rem; vertical-align:middle;
-  }
   .who{
     display:inline-flex; align-items:center; gap:.35rem;
     font-family:var(--font-mono); font-size:.72rem; color:var(--c-accent);
@@ -201,13 +195,15 @@
   .steps .row{ display:flex; align-items:flex-start; gap:.9rem; padding:.72rem 1.05rem;
                border-bottom:1px solid var(--c-line); background:var(--c-surface); font-size:.86rem; }
   .steps .row:last-child{ border-bottom:none; }
-  .steps .row .n{ font-family:var(--font-mono); font-size:.7rem; color:var(--c-accent); flex:0 0 2.6rem; padding-top:.15rem; }
+  .steps .row .n{ font-family:var(--font-mono); font-size:.84rem; font-weight:600;
+                   color:var(--c-accent); flex:0 0 9rem; white-space:nowrap; padding-top:.05rem; }
   .steps .row .what{ flex:1; color:var(--c-ink-2); }
   .steps .row .what b{ color:var(--c-ink); }
   .steps .row .gate{ font-family:var(--font-mono); font-size:.7rem; flex:0 0 auto; color:var(--c-ink-3); padding-top:.15rem; }
   .steps .row .gate.good{ color:var(--c-positive); font-weight:600; }
   .steps .row.hl{ background:var(--c-accent-soft); }
-  @media (max-width:760px){ .steps .row{ flex-wrap:wrap; } .steps .row .gate{ flex:1 1 100%; } }
+  @media (max-width:760px){ .steps .row{ flex-wrap:wrap; }
+    .steps .row .n{ flex:1 1 100%; } .steps .row .gate{ flex:1 1 100%; } }
 
   /* ---------- before/after ---------- */
   .ba{ margin-top:1.3rem; display:grid; grid-template-columns:1fr auto 1fr; gap:1rem; align-items:center; }
@@ -313,6 +309,48 @@
   .card.out p{ color:var(--c-ink-3); }
   .moscow-scale{ display:inline-flex; gap:.25rem; margin-right:.45rem; vertical-align:-1px; }
 
+  /* ---------- Icons in der Pipeline ---------- */
+  .flow .node .ico{ display:block; width:22px; height:22px; color:var(--c-accent); margin-bottom:.5rem; }
+  .flow .node .ico *{ vector-effect:non-scaling-stroke; }
+
+  /* ---------- automatischer Anschluss unter den Skills ---------- */
+  .autorow{
+    display:flex; align-items:baseline; gap:.75rem;
+    margin-top:.55rem; padding:.7rem 1.05rem;
+    background:var(--c-accent-soft); border:1px dashed var(--c-accent);
+    border-radius:12px; font-size:.9rem; color:var(--c-ink);
+  }
+  .autorow .tick{
+    font-family:var(--font-mono); font-size:.68rem; font-weight:600; letter-spacing:.07em;
+    text-transform:uppercase; color:var(--c-accent); flex:0 0 auto;
+  }
+  .autorow b{ font-weight:700; }
+  @media (max-width:760px){ .autorow{ flex-wrap:wrap; gap:.3rem; } }
+
+  /* ---------- MoSCoW-Symbolbild ---------- */
+  .moscow-fig{ margin:0; }
+  .grid-2 > .bignum{ margin-top:0; }
+  .moscow-fig svg{ display:block; width:100%; max-width:380px; height:auto; }
+  .moscow-fig .lbl{ font-family:var(--font-mono); font-size:13px; font-weight:600; letter-spacing:.08em; }
+  .moscow-fig figcaption{ margin-top:.55rem; font-size:.82rem; color:var(--c-ink-2); max-width:380px; line-height:1.45; }
+
+  /* ---------- Task-ID zerlegt ---------- */
+  .idcode{ font-family:var(--font-mono); background:var(--c-surface); border:1px solid var(--c-line);
+           border-radius:12px; padding:.95rem 1.1rem; box-shadow:var(--shadow-card); }
+  .idcode .line{ font-size:clamp(1rem,1.8vw,1.35rem); font-weight:600; color:var(--c-ink); letter-spacing:-.01em; }
+  .idcode .seg{ padding:.1rem .32rem; border-radius:5px; }
+  .idcode .seg.a{ background:var(--c-accent-soft); color:var(--c-accent); }
+  .idcode .seg.b{ background:var(--c-warning-soft); color:var(--c-warning); }
+  .idcode .seg.c{ background:var(--c-info-soft); color:var(--c-info); }
+  .idcode dl{ margin-top:.85rem; display:grid; grid-template-columns:auto 1fr; gap:.32rem .9rem; font-size:.84rem; }
+  .idcode dt{ font-weight:600; color:var(--c-ink); white-space:nowrap; }
+  .idcode dd{ color:var(--c-ink-2); font-family:var(--font-body); }
+
+  .parts{ margin-top:1rem; display:flex; flex-direction:column; gap:.4rem; }
+  .parts li{ font-size:.89rem; color:var(--c-ink-2); padding-left:1.15rem; position:relative; line-height:1.45; }
+  .parts li::before{ content:'▸'; position:absolute; left:0; color:var(--c-accent); font-size:.8rem; }
+  .parts li b{ color:var(--c-ink); }
+
   /* ---------- Abbildung ---------- */
   .figure{ margin-top:1.3rem; }
   .figure img{
@@ -400,15 +438,7 @@
       <div class="eyebrow">CAS Application Development with AI (ADAI) 2026 · BFH Biel · Ilja Rasin</div>
       <h1>Methodik &amp;<br>Arbeitsweise</h1>
       <p class="lede">BudgetBuddy, Teil 2 — wie entschieden und gearbeitet wurde.</p>
-      <div class="tag"><span class="dot"></span> Daniel · ~10 Minuten</div>
-
-      <ul class="keypoints" style="margin-top:1.8rem;">
-        <li><span class="m">B21</span><span class="t">Requirements — Personas, User Stories, MoSCoW</span></li>
-        <li><span class="m">B22</span><span class="t">ADRs als Prozess</span></li>
-        <li><span class="m">B23</span><span class="t">Scrum-Rhythmus über das Sprint Board</span></li>
-        <li><span class="m">B24</span><span class="t">Git-Disziplin und CI/CD als Gate</span></li>
-        <li><span class="m">B25</span><span class="t">KI-gestützter Workflow — Claude Code Skills</span></li>
-      </ul>
+      <div class="tag"><span class="dot"></span> Daniel</div>
 
       <div class="notes">
         <div class="cue">Einstieg · 60 Sek</div>
@@ -416,8 +446,8 @@
         <p><b>Eine Einordnung vorweg, damit nichts grösser klingt, als es ist:</b> Unser Vorgehen ist durch diesen Kurs geprägt. ADRs, User Stories mit Acceptance Criteria, die MoSCoW-Priorisierung und der Sprint-Rhythmus kommen aus den Modulen — wir haben sie nicht erfunden, sondern an einem echten Projekt ausprobiert. Und der letzte Block, der KI-gestützte Entwicklungszyklus, ist ohnehin genau das, wofür dieses CAS da ist.</p>
         <p>Der Unterschied zur Übungsaufgabe ist, <b>was davon den Kontakt mit der Realität überlebt hat</b>. Manches haben wir angepasst, manches hat sich erst im Betrieb als richtig erwiesen, und an einer Stelle mussten wir eine eigene Regel zurücknehmen. Genau diese Stellen zeige ich in den nächsten zehn Minuten — nicht die Lehrbuchfassung.</p>
         <p>Der Leitsatz für die nächsten zehn Minuten: <b>Jede Methodik-Entscheidung hat einen dokumentierten Grund und ist im Repo nachlesbar</b> — nicht „wir haben das halt so gemacht". Das ist die eigentliche Botschaft, alles Weitere sind Belege dafür.</p>
-        <p>Fünf Stationen: Requirements, ADRs als Prozess, der Sprint-Rhythmus, Git und CI/CD, und zum Schluss der Teil, der diesen Kurs eigentlich ausmacht — der KI-gestützte Entwicklungszyklus.</p>
-        <p><b>Zeitbudget im Kopf behalten:</b> B21 zwei Minuten, B22 zwei, B23 zwei, B24 zwei, B25 zwei. B25 ist der Teil, bei dem man am ehesten Zeit investieren sollte.</p>
+        <p>Fünf Themen in dieser Reihenfolge: Requirements, ADRs als Prozess, der Sprint-Rhythmus samt Board, Git und CI/CD, und zum Schluss der Teil, der diesen Kurs eigentlich ausmacht — die Projektregeln in <code>CLAUDE.md</code> und der KI-gestützte Entwicklungszyklus.</p>
+        <p><b>Zeitbudget im Kopf behalten:</b> rund zwei Minuten pro Thema. Board und <code>CLAUDE.md</code> sind kurze Zwischenfolien von je einer halben bis einer Minute — die Zeit gehört den Skills am Schluss.</p>
       </div>
     </div>
   </section>
@@ -425,27 +455,48 @@
   <!-- 2 — B21 -->
   <section class="slide">
     <div class="slide-inner">
-      <div class="eyebrow">B21 — Requirements<span class="timebox">0–2 Min</span></div>
+      <div class="eyebrow">B21 — Requirements</div>
       <h2>Jede Anforderung hat einen Namen und eine Priorität</h2>
+
+      <div class="grid-2" style="align-items:center; margin-top:1.2rem;">
+        <figure class="moscow-fig">
+          <svg viewBox="0 0 286 194" role="img"
+               aria-label="Stufenpyramide aus drei Stufen: Must als breite Basis, darüber das schmalere Should, darüber das schmalste Could.">
+            <!-- Must — die Basis, die alles trägt -->
+            <rect x="8" y="140" width="270" height="46" rx="7"
+                  fill="var(--c-accent)" fill-opacity="0.9" stroke="var(--c-accent)" stroke-width="1.5"/>
+            <text class="lbl" x="143" y="169" text-anchor="middle" fill="var(--c-bg)">MUST</text>
+            <!-- Should -->
+            <rect x="42" y="88" width="202" height="46" rx="7"
+                  fill="var(--c-accent)" fill-opacity="0.22" stroke="var(--c-accent)" stroke-width="1.5"/>
+            <text class="lbl" x="143" y="117" text-anchor="middle" fill="var(--c-accent)">SHOULD</text>
+            <!-- Could -->
+            <rect x="76" y="36" width="134" height="46" rx="7"
+                  fill="var(--c-accent-soft)" stroke="var(--c-accent)" stroke-width="1.5"/>
+            <text class="lbl" x="143" y="65" text-anchor="middle" fill="var(--c-accent)">COULD</text>
+          </svg>
+          <figcaption><b>Must trägt das Produkt</b> — jede Stufe darüber ist schmaler und im Zweifel die, die zuerst fällt.</figcaption>
+        </figure>
 
       <div class="bignum">
         <div><div class="n">2</div><div class="l">Personas</div></div>
         <div><div class="n">14</div><div class="l">User Stories mit Acceptance Criteria</div></div>
-        <div><div class="n">MoSCoW</div><div class="l"><span class="moscow-scale"><svg class="prio" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor"/></svg><svg class="prio" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 2a6 6 0 0 1 0 12z" fill="currentColor"/></svg><svg class="prio" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2"/></svg><svg class="prio no" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2"/><line x1="3.8" y1="12.2" x2="12.2" y2="3.8" stroke="currentColor" stroke-width="2"/></svg></span>Priorisierung je Story</div></div>
+        <div><div class="n">MoSCoW</div><div class="l"><span class="moscow-scale"><svg class="prio" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor"/></svg><svg class="prio" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 2a6 6 0 0 1 0 12z" fill="currentColor"/></svg><svg class="prio" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>Priorisierung je Story</div></div>
+      </div>
       </div>
 
-      <div class="grid-4" style="margin-top:1.8rem;">
+
+      <div class="grid-3" style="margin-top:1.8rem;">
         <div class="card accent"><span class="role"><svg class="prio" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor"/></svg>Must</span><h3>Der Kernpfad</h3><p>Fixkosten erfassen → PDF hochladen → Kategorisieren → Safe-to-Spend</p></div>
         <div class="card"><span class="role"><svg class="prio" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 2a6 6 0 0 1 0 12z" fill="currentColor"/></svg>Should</span><h3>Wertvoll, nicht tragend</h3><p>Abo-Erkennung <span class="pill done">fertig</span><br>KI-Monatsbericht <span class="pill bad">offen</span></p></div>
         <div class="card"><span class="role"><svg class="prio" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2"/></svg>Could</span><h3>Bewusst nicht gebaut</h3><p>Sparziel<br>OpenBanking-Anbindung</p></div>
-        <div class="card out"><span class="role"><svg class="prio no" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2"/><line x1="3.8" y1="12.2" x2="12.2" y2="3.8" stroke="currentColor" stroke-width="2"/></svg>Won&#39;t</span><h3>Gar nicht erst im Scope</h3><p>Kein B2B- / Berater-Tool<br>Kein Rollout ausserhalb der Schweiz</p></div>
       </div>
 
       <div class="notes">
         <div class="cue">Requirements · 2 Min</div>
         <p>Am Anfang standen nicht Features, sondern zwei <b>Personas</b>: Lara und Marc. Der Name in der Überschrift ist wörtlich gemeint — jede Story nennt die Persona, für die sie da ist. Jede der 14 User Stories ist aus der Sicht einer der beiden formuliert und trägt <b>Acceptance Criteria im Given/When/Then-Format</b> — prüfbare Sätze, keine Absichtserklärungen. Das ist der Unterschied zwischen „Der Nutzer soll seine Ausgaben sehen" und einem Kriterium, an dem ein Test scheitern kann.</p>
         <p><b>Must</b> sind US-03 Fixkosten-Wizard, US-04 PDF-Upload, US-05 Kategorisierung und US-06 Safe-to-Spend. Gemeinsam sind sie die Kette vom Kontoauszug zur Zahl. Fällt ein Glied aus, hat die App keinen Nutzen mehr.</p>
-        <p><b>Should:</b> US-08 Abo-Erkennung ist umgesetzt und in Betrieb. US-09 KI-Monatsbericht ist es nicht — dazu auf der Schlussfolie mehr.</p>
+        <p><b>Should:</b> US-08 Abo-Erkennung ist umgesetzt und in Betrieb. US-09 KI-Monatsbericht ist es nicht. Falls danach gefragt wird: ein leerer Package-Stub, keine Klassen — als offene Lücke benennen, nicht beschönigen.</p>
         <p><b>Could:</b> US-11 OpenBanking trägt eine eigene Notiz — Implementierung erst nach Abschluss aller Must- und Should-Stories. US-07 Sparziel ebenso. Beide sind dokumentiert, keines angefangen. Das ist eine Entscheidung, kein Versäumnis.</p>
         <p><b>Won&#39;t — hier lohnt der Hinweis:</b> Keine einzige unserer 14 Stories trägt die Priorität „Won&#39;t". Das heisst nicht, dass wir das W weggelassen hätten — diese Entscheide fallen eine Ebene höher, <b>bevor</b> überhaupt eine Story geschrieben wird. Kein B2B- oder Berater-Tool, kein Rollout ausserhalb der Schweiz: beides steht als Key Decision im Projekt-<code>CLAUDE.md</code>.</p>
         <p>Der Nutzen ist derselbe wie bei den anderen drei Stufen: <b>Eine aufgeschriebene Absage muss nicht noch einmal diskutiert werden.</b> Ohne sie landet man bei jeder Ideenrunde wieder bei Mehrwährungsfähigkeit und Berater-Ansicht — und jedes Mal entscheidet, wer gerade die besseren Argumente hat, statt dass die Grenze steht.</p>
@@ -457,7 +508,7 @@
   <!-- 3 — B22 -->
   <section class="slide">
     <div class="slide-inner">
-      <div class="eyebrow">B22 — ADRs als Prozess<span class="timebox">2–4 Min</span></div>
+      <div class="eyebrow">B22 — ADRs als Prozess</div>
       <h2>Die Entscheide wachsen mit dem Projekt mit</h2>
       <p class="lede">Kein ADR wird gelöscht — jeder wird nachgeführt, sobald das Projekt ihn widerlegt. Zwei Beispiele, zwei Arten der Nachführung:</p>
 
@@ -494,6 +545,11 @@
         <p>Jede Nachführung nennt ihren Auslöser: ein Datum, eine Issue-Nummer, ein beobachtetes Verhalten. Kein ADR wird aus Prinzip geändert — sondern weil etwas passiert ist.</p>
       </div>
 
+      <div class="autorow">
+        <span class="tick">↳ laufend</span>
+        <span>Macht eine Änderung eine Aussage falsch, zieht <b>Claude alle betroffenen Dokumente im selben PR nach</b> — ADR, User Story, <code>CLAUDE.md</code>, Javadoc. Doku-Pflege ist Teil der Umsetzung, kein Folge-Issue.</span>
+      </div>
+
       <div class="notes">
         <div class="cue">ADR-Prozess · 2 Min — die zwei Beispiele als Paar erzählen</div>
         <p>Die konkreten Entscheide kamen in Teil 1. Hier geht es um etwas anderes: <b>was mit einem Entscheid passiert, nachdem er gefällt ist.</b></p>
@@ -501,6 +557,9 @@
         <p><b>Erstes Beispiel — abgelöst.</b> SQLite war im Mai eine vernünftige MVP-Wahl. Im August stellte sich heraus, dass das Filesystem auf dem Render Free-Plan ephemer ist: Die Datenbankdatei überlebte keinen Redeploy. ADR-12 löst ADR-5 ab — aber <b>ADR-5 bleibt im Repo</b> und erklärt weiterhin, warum die Wahl damals richtig war. Nur beides zusammen ergibt die Geschichte; das Ergebnis allein wäre die halbe Information.</p>
         <p><b>Zweites Beispiel — ergänzt.</b> ADR-10 hat den Entscheid für Render nie revidiert. Nur das Gratis-Tier reichte nicht: Der Dienst spinnt nach 15 Minuten ohne Traffic herunter und braucht rund eine Minute zum Hochfahren. Der Nachtrag hält den Wechsel auf die Starter-Instanz fest — <b>der ADR selbst bleibt gültig</b>. Das ist der häufigere Fall: nicht Kurswechsel, sondern Präzisierung.</p>
         <p><b>Der gemeinsame Nenner, und darauf kommt es an:</b> In beiden Fällen ist der Auslöser ein konkretes Projektereignis mit Datum — ein Plattformverhalten, das wir beobachtet haben. Keine Nachführung lautet „nach reiflicher Überlegung doch anders". Die Entscheide sind an dieses Projekt gebunden, nicht an ein Lehrbuch.</p>
+        <p><b>Zur Zeile unten — wie das im Alltag läuft:</b> Die Nachführung ist kein eigener Arbeitsschritt, den jemand einplant. Sie steckt im Skill, der ein Issue umsetzt: Berührt der Diff eine Aussage in einem ADR, einer User Story, in <code>CLAUDE.md</code> oder in einem Javadoc, wird sie im selben PR mitgezogen. Zwei Regeln halten das dicht — jede Aussage über den Code wird mit <code>file:line</code> belegt, und Dokumentation beschreibt den <b>Ist-Zustand, nie den geplanten</b>.</p>
+        <p><b>Ein Beispiel aus dem Projekt:</b> Der FE-FC-05-Nachtrag zu ADR-13 entstand nicht, weil jemand „mal die Doku aktualisieren" wollte, sondern weil die Änderung eine Zeile im ADR widerlegt hat. Im selben PR mitgezogen wurden der ADR, die betroffene User Story und mehrere Javadoc-Stellen — alles, was durch die Änderung unwahr geworden wäre.</p>
+        <p><b>Wichtig für die Einordnung:</b> Die KI schreibt das, der Mensch prüft es im Review. Das Verfahren macht nicht die Doku richtig — es sorgt dafür, dass niemand vergisst, sie anzufassen. Genau daran scheitert Dokumentation sonst.</p>
         <p><b>Wenn Zeit bleibt — der ehrliche Gegenpol:</b> Pflege ist kein Selbstläufer. Die ADR-7-Aussage „JWT niemals im <code>localStorage</code>" stand in ADR-0, ADR-2 und <code>CLAUDE.md</code> dreimal falsch beziehungsweise unvollständig da; es brauchte drei Korrekturrunden über drei Issues, bis alles deckungsgleich war. Dokumentation altert — die Frage ist nur, ob es jemand merkt. Daraus ist die Regel geworden: Jede Aussage über den Code wird mit <code>file:line</code> belegt, und Dokumentation beschreibt den Ist-Zustand, nie den geplanten.</p>
       </div>
     </div>
@@ -509,7 +568,7 @@
   <!-- 4 — B23 -->
   <section class="slide">
     <div class="slide-inner">
-      <div class="eyebrow">B23 — Scrum-Rhythmus<span class="timebox">4–6 Min</span></div>
+      <div class="eyebrow">B23 — Scrum-Rhythmus</div>
       <h2>Zwei Wochen, ein Board, <em>eine</em> Quelle der Wahrheit</h2>
 
       <figure class="figure">
@@ -540,22 +599,96 @@
     </div>
   </section>
 
-  <!-- 5 — B24 -->
+  <!-- 5 — Sprint Board -->
   <section class="slide">
     <div class="slide-inner">
-      <div class="eyebrow">B24 — Git-Disziplin &amp; CI/CD<span class="timebox">6–8 Min</span></div>
+      <div class="eyebrow">Das Sprint Board in Betrieb</div>
+      <h2>Das Board <em>ist</em> der Stand — keine Statusrunde nötig</h2>
+
+      <figure class="figure">
+        <img src="Sprintboard.png" width="1769" height="865"
+             alt="Screenshot des BudgetBuddy Sprint Boards mit fünf Spalten: Backlog 7 Karten und 21 Story Points, Todo 6 und 5, In Progress 2, Review 1, Done 312 Karten und 366 Story Points.">
+        <figcaption>
+          <span class="fact">Backlog → Todo → In Progress → Review → Done</span>
+          <span><b>Jede Karte ist eine Arbeitseinheit</b> — wie eine entsteht und wie sie durch Git wandert, zeigen die nächsten beiden Folien.</span>
+          <span class="src">GitHub Project Board · Done: 312 Karten / 366 Story Points</span>
+        </figcaption>
+      </figure>
+
+      <div class="notes">
+        <div class="cue">Kurz zeigen · 30 Sek — nicht vorlesen, auf zwei Stellen zeigen</div>
+        <p>Gerade eben ging es um den Rhythmus und darum, dass das Iteration-Feld die einzige Quelle ist. <b>Das hier ist dasselbe Board, nur angeschaut.</b> Die fünf Spalten sind der Weg, den jede Arbeitseinheit nimmt — und sie sind nicht zufällig deckungsgleich mit dem Git-Ablauf, der in zwei Folien kommt.</p>
+        <p><b>Der Punkt in einem Satz:</b> Wer wissen will, woran gerade jemand arbeitet, schaut aufs Board statt zu fragen. Wir hatten keine täglichen Statusrunden — das Board hat sie ersetzt.</p>
+        <p><b>Erste Stelle zum Zeigen — die Zähler.</b> Jede Spalte trägt ihre Kartenzahl und ihre Story Points. <code>Done</code> steht bei 312 Karten und 366 Punkten; das ist die Summe über alle sieben Sprints und die Quelle für das Velocity-Diagramm von vorhin. <code>In Progress</code> steht bei zwei — mehr als eine Handvoll gleichzeitig wäre ein Warnsignal.</p>
+        <p><b>Zweite Stelle — falls jemand genau hinsieht:</b> In <code>Review</code> liegt Issue #350, in <code>In Progress</code> der zugehörige Pull Request #359. Das ist kein Zufall, sondern genau das, was der <code>/implement-issue</code>-Skill am Ende dieses Blocks tut: Er zieht die Issue-Karte auf <code>Review</code>, sobald der PR offen ist. Der Screenshot zeigt also den Prozess, während er läuft.</p>
+        <p><b>Ebenfalls sichtbar</b>, falls die Frage kommt: Die Karten tragen Labels für Story Points, Bereich und Priorität sowie die <code>us-XX</code>-Zuordnung zur User Story — damit hängt jede Karte an einer Anforderung aus Folie 2.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 — Anatomie eines Issues -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="eyebrow">Anatomie eines Issues</div>
+      <h2>Die Task-ID sagt, wo die Arbeit hingehört</h2>
+
+      <div class="grid-2">
+        <figure class="figure" style="margin-top:.4rem;">
+          <img src="Issue.png" width="829" height="907"
+               alt="GitHub-Issue #15 mit dem Titel [BE-CAT-02] ClaudeCategorizationService, Abschnitten für Beschreibung, Acceptance Criteria, Abhängigkeiten, Metadaten und Definition of Done.">
+        </figure>
+
+        <div>
+          <div class="idcode">
+            <div class="line">[<span class="seg a">BE</span>-<span class="seg b">CAT</span>-<span class="seg c">02</span>] ClaudeCategorizationService</div>
+            <dl>
+              <dt><span class="seg a">BE</span></dt><dd>Schicht — Backend, Frontend (<code>FE</code>), <code>INFRA</code>, <code>DB</code>, <code>E2E</code></dd>
+              <dt><span class="seg b">CAT</span></dt><dd>Feature — Kategorisierung; daneben <code>FC</code>, <code>PDF</code>, <code>STS</code>, <code>AUTH</code>, <code>SET</code></dd>
+              <dt><span class="seg c">02</span></dt><dd>Laufende Nummer <em>innerhalb</em> dieses Bereichs</dd>
+            </dl>
+          </div>
+
+          <ul class="parts">
+            <li><b>Beschreibung</b> — was und warum, mit den technischen Eckwerten</li>
+            <li><b>Acceptance Criteria</b> — prüfbare Haken, nicht Absichten</li>
+            <li><b>Abhängigkeiten</b> — „Depends on" auf andere IDs</li>
+            <li><b>Metadaten</b> — Story Points, Area, Sprint</li>
+            <li><b>Definition of Done</b> — für alle Issues gleich</li>
+          </ul>
+
+          <div class="learning" style="margin-top:1.1rem;">
+            <div class="k">Eine ID = eine Arbeitseinheit = ein Branch = ein PR</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="notes">
+        <div class="cue">Anatomie · 45 Sek — die ID zerlegen, den Rest nur überfliegen</div>
+        <p><b>Die Task-ID ist der rote Faden des ganzen Projekts</b>, deshalb lohnt sich ein Blick auf ihren Aufbau. <code>BE-CAT-02</code> heisst: Backend, Kategorisierung, zweite Arbeitseinheit in diesem Bereich.</p>
+        <p>Die Nummer läuft <b>pro Bereich</b>, nicht global — <code>BE-CAT-02</code> und <code>FE-CAT-02</code> sind zwei verschiedene Aufgaben. Dadurch bleibt die ID sprechend: Wer sie liest, weiss ohne Nachschlagen, wo der Code landet.</p>
+        <p><b>Bugs bekommen keine eigene Reihe.</b> Sie erhalten die nächste freie Nummer im betroffenen Bereich; der Typ steckt im Label und im Branch-Präfix <code>fix/</code> statt <code>feature/</code>. Eine ID wird nie wiederverwendet — auch nicht die des Tasks, der den Bug eingebaut hat, sonst bricht die Rückverfolgbarkeit.</p>
+        <p><b>Zu den Abschnitten:</b> Beschreibung und Acceptance Criteria sind der fachliche Teil; hier im Beispiel fünf prüfbare Haken, darunter „Timeout ist auf 10s gesetzt" und „API-Key wird aus Umgebungsvariable gelesen, nie hardcodiert" — Sätze, an denen ein Test scheitern kann. Die Definition of Done ist für jedes Issue dieselbe: Review, grüner Build, Happy Path getestet.</p>
+        <p><b>Ehrlich dazusagen, falls jemand genau hinschaut:</b> Dieses Issue ist vom 10. Juni und trägt Metadaten und Abhängigkeiten noch <em>im Text</em>. Genau das haben wir später herausgenommen — seither stehen Story Points, Area und Sprint im Board und die Abhängigkeiten im Relationships-Panel. Das ist dieselbe Lehre wie beim Milestone von vorhin: eine Tatsache, zwei Orte, und sie laufen auseinander.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 — B24 -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="eyebrow">B24 — Git-Disziplin &amp; CI/CD</div>
       <h2>Ein Issue, ein Branch, ein PR</h2>
 
       <div class="flow">
-        <div class="node"><div class="k">1</div><div class="v">Branch je Issue</div><div class="s"><code>feature/BE-CAT-06-…</code></div></div>
+        <div class="node"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg><div class="k">1</div><div class="v">Branch je Issue</div><div class="s"><code>feature/BE-CAT-06-…</code></div></div>
         <div class="arrow">→</div>
-        <div class="node hl"><div class="k">2 — Gate</div><div class="v">Build</div><div class="s">Backend + Frontend<br><b>grün = mergebar</b></div></div>
+        <div class="node hl"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg><div class="k">2 — Gate</div><div class="v">Build</div><div class="s">Backend + Frontend<br><b>grün = mergebar</b></div></div>
         <div class="arrow">→</div>
-        <div class="node"><div class="k">3</div><div class="v">Continuous Deployment</div><div class="s">Build wiederverwendet</div></div>
+        <div class="node"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg><div class="k">3</div><div class="v">Continuous Deployment</div><div class="s">Build wiederverwendet</div></div>
         <div class="arrow">→</div>
-        <div class="node"><div class="k">4</div><div class="v">Render Deploy Hook</div><div class="s">nur bei Erfolg</div></div>
+        <div class="node"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/></svg><div class="k">4</div><div class="v">Render Deploy Hook</div><div class="s">nur bei Erfolg</div></div>
         <div class="arrow">→</div>
-        <div class="node hl"><div class="k">5 — Nachweis</div><div class="v">Smoke-Test</div><div class="s"><code>/actuator/info</code></div></div>
+        <div class="node hl"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><div class="k">5 — Nachweis</div><div class="v">Smoke-Test</div><div class="s">prüft die laufende Version</div></div>
       </div>
 
       <ul class="keypoints" style="margin-top:1.5rem;">
@@ -568,16 +701,17 @@
         <p>Jede Arbeit beginnt mit einem <b>Issue</b>. Dessen Kennung — etwa <code>BE-CAT-06</code> — erscheint danach im Branchnamen, im Commit und im PR-Titel. Damit ist von jeder Codezeile aus rückwärts auffindbar, welches Issue sie begründet hat, und umgekehrt hängt an jedem Issue der PR, der es geschlossen hat.</p>
         <p><b>Die Pipeline entlanggehen:</b> Jeder PR läuft durch den Build — Backend <code>mvn verify</code>, Frontend Test und Produktions-Build. Erst ein grüner PR ist mergebar. Ein Push auf <code>main</code> startet dann das Continuous Deployment, das denselben Build wiederverwendet statt ihn zu wiederholen; nur bei Erfolg löst der Render Deploy Hook aus.</p>
         <p><i>Falls jemand nach den Workflows fragt:</i> Der Build steht als wiederverwendbarer Workflow in <code>build.yml</code> und ist die gemeinsame Quelle beider Einstiege — <code>ci.yml</code> ruft ihn bei Pull Requests auf, <code>cd.yml</code> beim Push auf <code>main</code>.</p>
-        <p><b>Der Punkt an Schritt 5:</b> Ein erfolgreicher Deploy-Hook sagt nur, dass die Plattform den Auftrag angenommen hat. Der Smoke-Test gegen <code>/actuator/info</code> vergleicht die laufende Version mit der erwarteten — erst das ist ein Nachweis. Ohne ihn hätten wir mehrfach geglaubt, eine Änderung sei live, obwohl der Container noch die alte Version hielt.</p>
+        <p><b>Der Punkt an Schritt 5:</b> Ein erfolgreicher Deploy-Hook sagt nur, dass die Plattform den Auftrag angenommen hat. Der Smoke-Test fragt danach die laufende Instanz, welchen Commit sie ausführt, und vergleicht ihn mit dem erwarteten — erst das ist ein Nachweis. Ohne ihn hätten wir mehrfach geglaubt, eine Änderung sei live, obwohl der Container noch die alte Version hielt.</p>
+        <p><i>Falls nach dem Wie gefragt wird:</i> Die Instanz meldet ihren Commit über den Actuator-Endpunkt <code>/actuator/info</code>; die Pipeline pollt ihn, bis der Commit passt und der Health-Check 200 liefert.</p>
         <p><b>Wenn Zeit bleibt — ein Gate, das aus Schaden entstand:</b> Flyway hält jede angewandte Migration mit Prüfsumme fest. Wird eine gemergte Datei nachträglich angefasst, bricht jede Datenbank beim nächsten Start mit „Migration checksum mismatch". Ein eigener CI-Job prüft das bei jedem PR. Der Notfall-Ausweg ist bewusst ein Label am PR und kein Commit-Marker: sichtbar, zurücknehmbar, und die Timeline hält fest, wer es wann gesetzt hat.</p>
       </div>
     </div>
   </section>
 
-  <!-- 6 — CLAUDE.md -->
+  <!-- 8 — CLAUDE.md -->
   <section class="slide">
     <div class="slide-inner">
-      <div class="eyebrow">B25 — Die Projektregeln für die KI<span class="timebox">8–9 Min</span></div>
+      <div class="eyebrow">B25 — Die Projektregeln für die KI</div>
       <h2><code>CLAUDE.md</code> — was die KI über dieses Projekt wissen muss</h2>
       <p class="lede">Eine Datei im Repo-Root, die jeder Lauf automatisch liest. Nicht generische Prompt-Hygiene, sondern das, was in <em>diesem</em> Projekt schon einmal schiefgegangen ist.</p>
 
@@ -616,16 +750,21 @@
     </div>
   </section>
 
-  <!-- 7 — B25 -->
+  <!-- 9 — B25 -->
   <section class="slide">
     <div class="slide-inner">
-      <div class="eyebrow">B25 — KI-gestützter Workflow<span class="timebox">9–10 Min</span></div>
+      <div class="eyebrow">B25 — KI-gestützter Workflow</div>
       <h2>Drei Skills decken den Zyklus ab</h2>
 
       <div class="steps">
         <div class="row"><span class="n">/plan-sprint</span><span class="what">Backlog-Hygiene, Velocity, Carryover → <b>Vorschlag</b></span><span class="gate">Board erst auf Zuruf</span></div>
         <div class="row"><span class="n">/implement-issue</span><span class="what">Issue → Plan → Branch → Code + Tests → Security-Review → PR</span><span class="gate">2 Gates</span></div>
         <div class="row"><span class="n">/review-pr</span><span class="what">Diff kreuzprüfen, Tests ausführen, Inline-Threads</span><span class="gate">1 Gate</span></div>
+      </div>
+
+      <div class="autorow">
+        <span class="tick">↳ auto</span>
+        <span>Sobald ein PR offen ist, läuft <b>dasselbe <code>/review-pr</code></b> von selbst als GitHub Action — Erst-Review ohne Zutun (INFRA-31). Entwürfe bleiben aussen vor.</span>
       </div>
 
       <div class="learning">
@@ -640,40 +779,15 @@
         <p><b>/implement-issue</b> geht ein Issue end-to-end durch: einlesen und übernehmen, Rückfragen klären, Plan vorlegen und bestätigen lassen, Branch anlegen, Code und Tests schreiben, Security-Review gegen eine auf diese App zugeschnittene Matrix — Mandantentrennung, ADR-7-Invarianten, Secrets, Upload-Grenzen, Datenminimierung beim Claude-Call —, lokalen Review vorlegen, PR öffnen.</p>
         <p><b>/review-pr</b> liest PR und Issue ein, prüft den Diff gegen die Gegenseite, führt die Tests selbst aus, trennt blockierende von nicht-blockierenden Befunden und setzt sie als Inline-Threads ab. Warum Inline und nicht im Review-Body: Ein Body ist für die Ruleset-Regel unsichtbar und hält den Merge nicht auf.</p>
         <p><b>Zur Grenze — der wichtigste Satz des Blocks:</b> Jeder Skill hält vor dem Schreiben an und legt vor, was er zu tun gedenkt. Das ist keine technische Einschränkung, sondern eine bewusste: Ein Agent, der selbst merged, nimmt die einzige Stelle aus dem Prozess, an der jemand die Verantwortung trägt.</p>
-        <p><b>Ergänzend:</b> Bei jedem PR-Event läuft zusätzlich ein automatischer Review als GitHub Action. Er fängt ab, was ein müder Mensch um 23 Uhr übersieht — er entscheidet nicht, ob etwas gemerged wird.</p>
+        <p><b>Zum automatischen Review — der Punkt ist „dasselbe":</b> Die GitHub Action ruft nicht irgendeine Prüfung auf, sondern denselben <code>/review-pr</code>-Skill, der auch lokal läuft. Er liegt eingecheckt unter <code>.claude/skills/review-pr/</code> und ist nach dem Checkout im Workspace verfügbar. Lokales und automatisches Review können deshalb nicht auseinanderlaufen — es gibt nur eine Fassung der Regeln.</p>
+        <p>Ausgelöst wird er beim Öffnen eines PR, bei jedem weiteren Push und beim Wechsel von Entwurf auf „Ready for review". <b>Entwürfe bleiben bewusst aussen vor</b>, sonst liefe bei jedem Zwischenstand ein vollständiges Review.</p>
+        <p><b>Und die Grenze bleibt:</b> Er fängt ab, was ein müder Mensch um 23 Uhr übersieht — er entscheidet nicht, ob etwas gemerged wird. Ein Action-Lauf ist kein Dev; die Freigabe durch mindestens eine Person bleibt, und das Ruleset auf <code>main</code> erzwingt das ohnehin.</p>
         <p><b>Damit gebe ich nun weiter an Sergio für die Demo.</b></p>
       </div>
     </div>
   </section>
 
-  <!-- 8 — Fazit -->
-  <section class="slide">
-    <div class="slide-inner">
-      <div class="eyebrow">Fazit Teil 2</div>
-      <h2>Jede Entscheidung hat einen Grund — und der steht im Repo</h2>
-
-      <ul class="keypoints">
-        <li><span class="m">01</span><span class="t"><b>Priorisierung zeigt ihren Wert beim Streichen.</b><span class="sub">MoSCoW stand vor dem ersten Sprint fest — deshalb musste am Ende nicht diskutiert werden, was fällt.</span></span></li>
-        <li><span class="m">02</span><span class="t"><b>Ein Format, das Alternativen erzwingt.</b><span class="sub">16 ADRs, keiner davon gelöscht — Kurskorrekturen werden als <code>superseded</code> markiert.</span></span></li>
-        <li><span class="m">03</span><span class="t"><b>Metadaten gehören an genau einen Ort.</b><span class="sub">Die Lehre aus dem Juli: zwei Datenhaltungen für dieselbe Tatsache laufen auseinander.</span></span></li>
-        <li><span class="m">04</span><span class="t"><b>KI im Prozess, Mensch am Gate.</b><span class="sub">Kein Agent schreibt auf <code>main</code>, gemerged wird von Hand.</span></span></li>
-      </ul>
-
-      <p class="lede" style="margin-top:2.2rem; font-weight:600; color:var(--c-ink);">Fragen?</p>
-
-      <div class="notes">
-        <div class="cue">Schluss · 45 Sek</div>
-        <p>Vier Punkte zum Mitnehmen.</p>
-        <p><b>Erstens:</b> MoSCoW zeigt seinen Wert nicht beim Planen, sondern beim Streichen. Weil die Reihenfolge seit dem ersten Sprint feststand und begründet war, können wir heute offen sagen, was fehlt, ohne dass es nach Zufall aussieht.</p>
-        <p><b>Zweitens:</b> Das ADR-Format erzwingt, Alternativen aufzuschreiben, bevor entschieden wird. Und eine Kurskorrektur löscht keinen ADR — sie markiert ihn <code>superseded</code>, damit die Entscheidungsgeschichte lesbar bleibt.</p>
-        <p><b>Drittens:</b> Die Sprint-Zuordnung steht ausschliesslich im Iteration-Feld, Abhängigkeiten im Relationships-Panel, Story Points im Board. Der Plan hält fest, was zum Zeitpunkt der Planung galt; das Board hält, was jetzt gilt.</p>
-        <p><b>Viertens:</b> Drei Skills decken Planung, Umsetzung und Review ab und halten vor jedem Schreibvorgang an. Ein Agent, der selbst merged, nähme die einzige Stelle aus dem Prozess, an der jemand die Verantwortung trägt.</p>
-        <p><b>Falls nach dem Projektstand gefragt wird:</b> 10 von 14 User Stories sind implementiert. US-07 und US-11 wurden nach MoSCoW bewusst zurückgestellt, US-10 ist über die Drei-Monats-Tabelle teilweise abgedeckt, und US-09 — der KI-Monatsbericht — ist eine echte offene Lücke: ein leerer Package-Stub, keine Klassen.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- 9 — Demo -->
+  <!-- 10 — Demo -->
   <section class="slide divider-slide">
     <div class="slide-inner">
       <div class="num">03</div>
@@ -700,7 +814,7 @@
       <button class="nav-btn" id="prevBtn" aria-label="Vorherige Folie">&#8592;</button>
       <div class="nav-center">
         <div class="dots" id="dots"></div>
-        <div class="counter" id="counter">1 / 9</div>
+        <div class="counter" id="counter">1 / 10</div>
       </div>
       <div style="display:flex; gap:.5rem; align-items:center;">
         <button class="txt-btn" id="notesBtn" title="Referentennotizen ein-/ausblenden (N)">Notizen · N</button>
