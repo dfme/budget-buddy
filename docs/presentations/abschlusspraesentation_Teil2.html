@@ -135,7 +135,9 @@
   /* ---------- generic ---------- */
   .grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:1.1rem; margin-top:1.5rem; }
   .grid-3{ display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; margin-top:1.5rem; }
-  @media (max-width:820px){ .grid-2,.grid-3{ grid-template-columns:1fr; } }
+  .grid-4{ display:grid; grid-template-columns:repeat(4,1fr); gap:.85rem; margin-top:1.5rem; }
+  @media (max-width:1060px){ .grid-4{ grid-template-columns:repeat(2,1fr); } }
+  @media (max-width:820px){ .grid-2,.grid-3,.grid-4{ grid-template-columns:1fr; } }
 
   .card{ background:var(--c-surface); border:1px solid var(--c-line); border-radius:14px;
          padding:1.15rem 1.3rem; box-shadow:var(--shadow-card); }
@@ -302,6 +304,15 @@
               color:var(--c-accent); line-height:1; }
   .bignum .l{ font-size:.86rem; color:var(--c-ink-2); margin-top:.4rem; }
 
+  /* ---------- MoSCoW-Prioritätssymbol: Füllgrad = Verbindlichkeit ---------- */
+  .card .role{ display:flex; align-items:center; gap:.4rem; }
+  .prio{ width:13px; height:13px; flex:0 0 auto; color:var(--c-accent); }
+  .prio.no{ color:var(--c-ink-3); }
+  .card.out{ border-style:dashed; }
+  .card.out h3{ color:var(--c-ink-2); }
+  .card.out p{ color:var(--c-ink-3); }
+  .moscow-scale{ display:inline-flex; gap:.25rem; margin-right:.45rem; vertical-align:-1px; }
+
   /* ---------- Abbildung ---------- */
   .figure{ margin-top:1.3rem; }
   .figure img{
@@ -400,8 +411,10 @@
       </ul>
 
       <div class="notes">
-        <div class="cue">Einstieg · 45 Sek</div>
+        <div class="cue">Einstieg · 60 Sek</div>
         <p>In Teil 1 ging es darum, <b>was</b> gebaut wurde und warum so. In diesem Teil geht es um die andere Hälfte: <b>wie</b> entschieden und gearbeitet wurde.</p>
+        <p><b>Eine Einordnung vorweg, damit nichts grösser klingt, als es ist:</b> Unser Vorgehen ist durch diesen Kurs geprägt. ADRs, User Stories mit Acceptance Criteria, die MoSCoW-Priorisierung und der Sprint-Rhythmus kommen aus den Modulen — wir haben sie nicht erfunden, sondern an einem echten Projekt ausprobiert. Und der letzte Block, der KI-gestützte Entwicklungszyklus, ist ohnehin genau das, wofür dieses CAS da ist.</p>
+        <p>Der Unterschied zur Übungsaufgabe ist, <b>was davon den Kontakt mit der Realität überlebt hat</b>. Manches haben wir angepasst, manches hat sich erst im Betrieb als richtig erwiesen, und an einer Stelle mussten wir eine eigene Regel zurücknehmen. Genau diese Stellen zeige ich in den nächsten zehn Minuten — nicht die Lehrbuchfassung.</p>
         <p>Der Leitsatz für die nächsten zehn Minuten: <b>Jede Methodik-Entscheidung hat einen dokumentierten Grund und ist im Repo nachlesbar</b> — nicht „wir haben das halt so gemacht". Das ist die eigentliche Botschaft, alles Weitere sind Belege dafür.</p>
         <p>Fünf Stationen: Requirements, ADRs als Prozess, der Sprint-Rhythmus, Git und CI/CD, und zum Schluss der Teil, der diesen Kurs eigentlich ausmacht — der KI-gestützte Entwicklungszyklus.</p>
         <p><b>Zeitbudget im Kopf behalten:</b> B21 zwei Minuten, B22 zwei, B23 zwei, B24 zwei, B25 zwei. B25 ist der Teil, bei dem man am ehesten Zeit investieren sollte.</p>
@@ -413,26 +426,29 @@
   <section class="slide">
     <div class="slide-inner">
       <div class="eyebrow">B21 — Requirements<span class="timebox">0–2 Min</span></div>
-      <h2>Am Anfang standen keine Features, sondern zwei Menschen</h2>
+      <h2>Jede Anforderung hat einen Namen und eine Priorität</h2>
 
       <div class="bignum">
         <div><div class="n">2</div><div class="l">Personas</div></div>
         <div><div class="n">14</div><div class="l">User Stories mit Acceptance Criteria</div></div>
-        <div><div class="n">MoSCoW</div><div class="l">Priorisierung je Story</div></div>
+        <div><div class="n">MoSCoW</div><div class="l"><span class="moscow-scale"><svg class="prio" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor"/></svg><svg class="prio" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 2a6 6 0 0 1 0 12z" fill="currentColor"/></svg><svg class="prio" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2"/></svg><svg class="prio no" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2"/><line x1="3.8" y1="12.2" x2="12.2" y2="3.8" stroke="currentColor" stroke-width="2"/></svg></span>Priorisierung je Story</div></div>
       </div>
 
-      <div class="grid-3" style="margin-top:1.8rem;">
-        <div class="card accent"><span class="role">Must</span><h3>Der Kernpfad</h3><p>US-03 · US-04 · US-05 · US-06 — vom Kontoauszug zur Zahl</p></div>
-        <div class="card"><span class="role">Should</span><h3>Wertvoll, nicht tragend</h3><p>US-08 umgesetzt · US-09 offen</p></div>
-        <div class="card"><span class="role">Could</span><h3>Bewusst nicht gebaut</h3><p>US-07 Sparziel · US-11 OpenBanking</p></div>
+      <div class="grid-4" style="margin-top:1.8rem;">
+        <div class="card accent"><span class="role"><svg class="prio" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor"/></svg>Must</span><h3>Der Kernpfad</h3><p>Fixkosten erfassen → PDF hochladen → Kategorisieren → Safe-to-Spend</p></div>
+        <div class="card"><span class="role"><svg class="prio" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 2a6 6 0 0 1 0 12z" fill="currentColor"/></svg>Should</span><h3>Wertvoll, nicht tragend</h3><p>Abo-Erkennung <span class="pill done">fertig</span><br>KI-Monatsbericht <span class="pill bad">offen</span></p></div>
+        <div class="card"><span class="role"><svg class="prio" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2"/></svg>Could</span><h3>Bewusst nicht gebaut</h3><p>Sparziel<br>OpenBanking-Anbindung</p></div>
+        <div class="card out"><span class="role"><svg class="prio no" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2"/><line x1="3.8" y1="12.2" x2="12.2" y2="3.8" stroke="currentColor" stroke-width="2"/></svg>Won&#39;t</span><h3>Gar nicht erst im Scope</h3><p>Kein B2B- / Berater-Tool<br>Kein Rollout ausserhalb der Schweiz</p></div>
       </div>
 
       <div class="notes">
         <div class="cue">Requirements · 2 Min</div>
-        <p>Am Anfang standen nicht Features, sondern zwei Menschen: Lara und Marc. Jede der 14 User Stories ist aus der Sicht einer der beiden formuliert und trägt <b>Acceptance Criteria im Given/When/Then-Format</b> — prüfbare Sätze, keine Absichtserklärungen. Das ist der Unterschied zwischen „Der Nutzer soll seine Ausgaben sehen" und einem Kriterium, an dem ein Test scheitern kann.</p>
+        <p>Am Anfang standen nicht Features, sondern zwei <b>Personas</b>: Lara und Marc. Der Name in der Überschrift ist wörtlich gemeint — jede Story nennt die Persona, für die sie da ist. Jede der 14 User Stories ist aus der Sicht einer der beiden formuliert und trägt <b>Acceptance Criteria im Given/When/Then-Format</b> — prüfbare Sätze, keine Absichtserklärungen. Das ist der Unterschied zwischen „Der Nutzer soll seine Ausgaben sehen" und einem Kriterium, an dem ein Test scheitern kann.</p>
         <p><b>Must</b> sind US-03 Fixkosten-Wizard, US-04 PDF-Upload, US-05 Kategorisierung und US-06 Safe-to-Spend. Gemeinsam sind sie die Kette vom Kontoauszug zur Zahl. Fällt ein Glied aus, hat die App keinen Nutzen mehr.</p>
         <p><b>Should:</b> US-08 Abo-Erkennung ist umgesetzt und in Betrieb. US-09 KI-Monatsbericht ist es nicht — dazu auf der Schlussfolie mehr.</p>
         <p><b>Could:</b> US-11 OpenBanking trägt eine eigene Notiz — Implementierung erst nach Abschluss aller Must- und Should-Stories. US-07 Sparziel ebenso. Beide sind dokumentiert, keines angefangen. Das ist eine Entscheidung, kein Versäumnis.</p>
+        <p><b>Won&#39;t — hier lohnt der Hinweis:</b> Keine einzige unserer 14 Stories trägt die Priorität „Won&#39;t". Das heisst nicht, dass wir das W weggelassen hätten — diese Entscheide fallen eine Ebene höher, <b>bevor</b> überhaupt eine Story geschrieben wird. Kein B2B- oder Berater-Tool, kein Rollout ausserhalb der Schweiz: beides steht als Key Decision im Projekt-<code>CLAUDE.md</code>.</p>
+        <p>Der Nutzen ist derselbe wie bei den anderen drei Stufen: <b>Eine aufgeschriebene Absage muss nicht noch einmal diskutiert werden.</b> Ohne sie landet man bei jeder Ideenrunde wieder bei Mehrwährungsfähigkeit und Berater-Ansicht — und jedes Mal entscheidet, wer gerade die besseren Argumente hat, statt dass die Grenze steht.</p>
         <p><b>Der Punkt, auf den es ankommt:</b> MoSCoW zeigt seinen Wert nicht beim Planen, sondern beim <b>Streichen</b>. Als absehbar war, dass nicht alles fertig wird, musste nicht diskutiert werden, was fällt — die Reihenfolge stand seit dem ersten Sprint fest und war begründet. Genau darum können wir heute offen sagen, was fehlt, ohne dass es nach Zufall aussieht.</p>
       </div>
     </div>
@@ -443,33 +459,48 @@
     <div class="slide-inner">
       <div class="eyebrow">B22 — ADRs als Prozess<span class="timebox">2–4 Min</span></div>
       <h2>Die Entscheide wachsen mit dem Projekt mit</h2>
-      <p class="lede">Kein ADR wird gelöscht — jeder wird nachgeführt, sobald das Projekt ihn widerlegt.</p>
+      <p class="lede">Kein ADR wird gelöscht — jeder wird nachgeführt, sobald das Projekt ihn widerlegt. Zwei Beispiele, zwei Arten der Nachführung:</p>
 
-      <div class="tablewrap">
-        <table>
-          <thead><tr><th>ADR</th><th>Ursprünglicher Entscheid</th><th>Was das Projekt später verlangt hat</th></tr></thead>
-          <tbody>
-            <tr><td><strong>ADR-5 → ADR-12</strong></td><td>SQLite als MVP-Datenbank</td><td>Ephemeres Filesystem auf dem Render Free-Plan — <strong>superseded</strong></td></tr>
-            <tr><td><strong>ADR-10</strong></td><td>Render Free-Tier</td><td>Spin-Down nach 15 Min — Nachtrag 09.08.2026, Wechsel auf Starter</td></tr>
-            <tr><td><strong>ADR-7</strong></td><td>JWT im httpOnly-Cookie</td><td>Passwortwechsel muss Tokens invalidieren — Nachtrag BE-AUTH-11 (#201)</td></tr>
-            <tr><td><strong>ADR-9</strong></td><td><code>BigDecimal</code> für alle Beträge</td><td>Verbosity im Alltag — Nachtrag 07.09.2026, eigenes <code>money</code>-Package</td></tr>
-            <tr><td><strong>ADR-13</strong></td><td>Betragsbasiertes Fixkosten-Matching</td><td>Abos werden zum Eingabewert — Nachtrag FE-FC-05 (#338)</td></tr>
-          </tbody>
-        </table>
+      <div class="ba">
+        <div class="side was">
+          <div class="k">ADR-5 · 27.05.2026</div>
+          <div class="v">SQLite als MVP-Datenbank</div>
+          <div class="s">Bleibt im Repo und erklärt, warum die Wahl damals richtig war</div>
+        </div>
+        <div class="mid">→</div>
+        <div class="side is">
+          <div class="k">ADR-12 · 09.08.2026 · <b>superseded</b></div>
+          <div class="v">PostgreSQL auf Neon</div>
+          <div class="s">Auslöser: ephemeres Filesystem auf dem Render Free-Plan — die Daten überlebten keinen Redeploy</div>
+        </div>
+      </div>
+
+      <div class="ba" style="margin-top:1.1rem;">
+        <div class="side was">
+          <div class="k">ADR-10 · 03.06.2026</div>
+          <div class="v">Hosting auf Render, Free-Tier</div>
+          <div class="s">Der Entscheid selbst gilt unverändert weiter</div>
+        </div>
+        <div class="mid">→</div>
+        <div class="side is">
+          <div class="k">Nachtrag 09.08.2026 · <b>ergänzt</b></div>
+          <div class="v">Wechsel auf die Starter-Instanz</div>
+          <div class="s">Auslöser: Spin-Down nach 15 Minuten ohne Traffic, Hochfahren dauert rund eine Minute</div>
+        </div>
       </div>
 
       <div class="learning">
         <div class="k">16 ADRs · 5 nachgeführt · 0 gelöscht</div>
-        <p>Jeder Nachtrag nennt seinen Auslöser: ein Datum, eine Issue-Nummer, ein beobachtetes Verhalten. Kein ADR wird aus Prinzip geändert — sondern weil etwas passiert ist.</p>
+        <p>Jede Nachführung nennt ihren Auslöser: ein Datum, eine Issue-Nummer, ein beobachtetes Verhalten. Kein ADR wird aus Prinzip geändert — sondern weil etwas passiert ist.</p>
       </div>
 
       <div class="notes">
-        <div class="cue">ADR-Prozess · 2 Min — die Tabelle von oben nach unten durchgehen</div>
+        <div class="cue">ADR-Prozess · 2 Min — die zwei Beispiele als Paar erzählen</div>
         <p>Die konkreten Entscheide kamen in Teil 1. Hier geht es um etwas anderes: <b>was mit einem Entscheid passiert, nachdem er gefällt ist.</b></p>
-        <p>Die naheliegende Annahme wäre, dass ADRs Abgabedokumente sind — einmal geschrieben, abgelegt, nie wieder geöffnet. Bei uns ist das Gegenteil der Fall: <b>Fünf der 16 ADRs sind nachträglich ergänzt oder abgelöst worden</b>, und zwar nie aus Prinzip, sondern immer, weil im Betrieb etwas aufgetreten ist, das der ursprüngliche Entscheid nicht kannte.</p>
-        <p><b>Das ist der Punkt an der Tabelle:</b> In der rechten Spalte steht jedes Mal ein konkretes Projektereignis — ein Plattformverhalten, ein Issue, ein Datum. Kein einziger Eintrag lautet „nach reiflicher Überlegung doch anders". Die Entscheide sind an dieses Projekt gebunden, nicht an ein Lehrbuch.</p>
-        <p><b>ADR-5 ist der einzige abgelöste</b> — und selbst der steht noch im Repo. Er erklärt, warum SQLite damals vernünftig war; ADR-12 erklärt, woran es scheiterte. Beides zusammen ist mehr wert als nur das Ergebnis. Genau deshalb wird ein ADR bei einer Kurskorrektur als <code>superseded</code> markiert und nicht überschrieben.</p>
-        <p><b>Die anderen vier tragen Nachträge</b>, der ADR selbst bleibt gültig. ADR-10 etwa hat den Grundsatzentscheid für Render nie revidiert — nur festgehalten, dass das Gratis-Tier wegen des Spin-Downs nicht reicht.</p>
+        <p>Die naheliegende Annahme wäre, dass ADRs Abgabedokumente sind — einmal geschrieben, abgelegt, nie wieder geöffnet. Bei uns ist das Gegenteil der Fall: <b>Fünf der 16 ADRs sind nachträglich ergänzt oder abgelöst worden.</b> Ich zeige zwei, weil sie die beiden Arten der Nachführung gegenüberstellen.</p>
+        <p><b>Erstes Beispiel — abgelöst.</b> SQLite war im Mai eine vernünftige MVP-Wahl. Im August stellte sich heraus, dass das Filesystem auf dem Render Free-Plan ephemer ist: Die Datenbankdatei überlebte keinen Redeploy. ADR-12 löst ADR-5 ab — aber <b>ADR-5 bleibt im Repo</b> und erklärt weiterhin, warum die Wahl damals richtig war. Nur beides zusammen ergibt die Geschichte; das Ergebnis allein wäre die halbe Information.</p>
+        <p><b>Zweites Beispiel — ergänzt.</b> ADR-10 hat den Entscheid für Render nie revidiert. Nur das Gratis-Tier reichte nicht: Der Dienst spinnt nach 15 Minuten ohne Traffic herunter und braucht rund eine Minute zum Hochfahren. Der Nachtrag hält den Wechsel auf die Starter-Instanz fest — <b>der ADR selbst bleibt gültig</b>. Das ist der häufigere Fall: nicht Kurswechsel, sondern Präzisierung.</p>
+        <p><b>Der gemeinsame Nenner, und darauf kommt es an:</b> In beiden Fällen ist der Auslöser ein konkretes Projektereignis mit Datum — ein Plattformverhalten, das wir beobachtet haben. Keine Nachführung lautet „nach reiflicher Überlegung doch anders". Die Entscheide sind an dieses Projekt gebunden, nicht an ein Lehrbuch.</p>
         <p><b>Wenn Zeit bleibt — der ehrliche Gegenpol:</b> Pflege ist kein Selbstläufer. Die ADR-7-Aussage „JWT niemals im <code>localStorage</code>" stand in ADR-0, ADR-2 und <code>CLAUDE.md</code> dreimal falsch beziehungsweise unvollständig da; es brauchte drei Korrekturrunden über drei Issues, bis alles deckungsgleich war. Dokumentation altert — die Frage ist nur, ob es jemand merkt. Daraus ist die Regel geworden: Jede Aussage über den Code wird mit <code>file:line</code> belegt, und Dokumentation beschreibt den Ist-Zustand, nie den geplanten.</p>
       </div>
     </div>
@@ -513,10 +544,10 @@
   <section class="slide">
     <div class="slide-inner">
       <div class="eyebrow">B24 — Git-Disziplin &amp; CI/CD<span class="timebox">6–8 Min</span></div>
-      <h2>Eine Task-ID, ein Branch, ein PR</h2>
+      <h2>Ein Issue, ein Branch, ein PR</h2>
 
       <div class="flow">
-        <div class="node"><div class="k">1</div><div class="v">Branch je Task-ID</div><div class="s"><code>feature/BE-CAT-06-…</code></div></div>
+        <div class="node"><div class="k">1</div><div class="v">Branch je Issue</div><div class="s"><code>feature/BE-CAT-06-…</code></div></div>
         <div class="arrow">→</div>
         <div class="node hl"><div class="k">2 — Gate</div><div class="v">Build</div><div class="s">Backend + Frontend<br><b>grün = mergebar</b></div></div>
         <div class="arrow">→</div>
@@ -534,7 +565,7 @@
 
       <div class="notes">
         <div class="cue">Git &amp; CI/CD · 2 Min</div>
-        <p>Jede Arbeit trägt eine Task-ID wie <code>BE-CAT-06</code>. Die ID erscheint im Branchnamen, im Commit und im PR-Titel — damit ist von jeder Codezeile aus rückwärts auffindbar, welche Anforderung sie begründet hat.</p>
+        <p>Jede Arbeit beginnt mit einem <b>Issue</b>. Dessen Kennung — etwa <code>BE-CAT-06</code> — erscheint danach im Branchnamen, im Commit und im PR-Titel. Damit ist von jeder Codezeile aus rückwärts auffindbar, welches Issue sie begründet hat, und umgekehrt hängt an jedem Issue der PR, der es geschlossen hat.</p>
         <p><b>Die Pipeline entlanggehen:</b> Jeder PR läuft durch den Build — Backend <code>mvn verify</code>, Frontend Test und Produktions-Build. Erst ein grüner PR ist mergebar. Ein Push auf <code>main</code> startet dann das Continuous Deployment, das denselben Build wiederverwendet statt ihn zu wiederholen; nur bei Erfolg löst der Render Deploy Hook aus.</p>
         <p><i>Falls jemand nach den Workflows fragt:</i> Der Build steht als wiederverwendbarer Workflow in <code>build.yml</code> und ist die gemeinsame Quelle beider Einstiege — <code>ci.yml</code> ruft ihn bei Pull Requests auf, <code>cd.yml</code> beim Push auf <code>main</code>.</p>
         <p><b>Der Punkt an Schritt 5:</b> Ein erfolgreicher Deploy-Hook sagt nur, dass die Plattform den Auftrag angenommen hat. Der Smoke-Test gegen <code>/actuator/info</code> vergleicht die laufende Version mit der erwarteten — erst das ist ein Nachweis. Ohne ihn hätten wir mehrfach geglaubt, eine Änderung sei live, obwohl der Container noch die alte Version hielt.</p>
@@ -543,10 +574,52 @@
     </div>
   </section>
 
-  <!-- 6 — B25 -->
+  <!-- 6 — CLAUDE.md -->
   <section class="slide">
     <div class="slide-inner">
-      <div class="eyebrow">B25 — KI-gestützter Workflow<span class="timebox">8–10 Min</span></div>
+      <div class="eyebrow">B25 — Die Projektregeln für die KI<span class="timebox">8–9 Min</span></div>
+      <h2><code>CLAUDE.md</code> — was die KI über dieses Projekt wissen muss</h2>
+      <p class="lede">Eine Datei im Repo-Root, die jeder Lauf automatisch liest. Nicht generische Prompt-Hygiene, sondern das, was in <em>diesem</em> Projekt schon einmal schiefgegangen ist.</p>
+
+      <div class="grid-3">
+        <div class="card accent">
+          <span class="role">Sicherheitsnetz</span>
+          <h3>Nie direkt auf <code>main</code></h3>
+          <p>„…<b>auch nicht auf explizite Benutzeranfrage.</b>" Immer Branch und PR — und bei einer solchen Anfrage widerspricht die KI.</p>
+        </div>
+        <div class="card">
+          <span class="role">Fachwissen</span>
+          <h3>Geld immer <code>BigDecimal</code></h3>
+          <p>Nie <code>double</code>/<code>float</code> (ADR-9) — „Rundungsfehler in der Safe-to-Spend-Berechnung sind sonst nicht ausschliessbar."</p>
+        </div>
+        <div class="card">
+          <span class="role">Teamentscheid</span>
+          <h3>Kein Milestone am Issue</h3>
+          <p>Die Einplanung läuft nur über das Iteration-Feld — „eine <b>Kapazitätsentscheidung des Teams</b>", nicht der KI.</p>
+        </div>
+      </div>
+
+      <div class="learning">
+        <div class="k">130 Zeilen · 79 Commits</div>
+        <p>Die Datei ist kein einmaliges Setup. Jede Regel steht darin, weil ein Lauf einmal etwas anderes getan hat.</p>
+      </div>
+
+      <div class="notes">
+        <div class="cue">Brücke zu den Skills · 60 Sek — zügig, die Skills brauchen die Zeit</div>
+        <p><code>CLAUDE.md</code> liegt im Repo-Root und wird von jedem Claude-Lauf automatisch gelesen — niemand muss den Kontext neu erklären. Entscheidend ist, <b>was darin steht</b>: keine allgemeinen Ratschläge, sondern die Eigenheiten dieses Projekts.</p>
+        <p><b>Erste Regel — das Sicherheitsnetz.</b> Der Halbsatz „auch nicht auf explizite Benutzeranfrage" ist der wichtigste der ganzen Datei: Die Regel bindet die KI <b>gegen den Menschen</b>. Wer im Eifer „commit das mal schnell auf main" tippt, bekommt einen Hinweis auf die Regel statt eines Commits. Das ist kein Misstrauen gegenüber dem Modell, sondern gegenüber der eigenen Unachtsamkeit um 23 Uhr.</p>
+        <p><b>Zweite Regel — das Fachwissen.</b> <code>BigDecimal</code> statt <code>double</code> ist eine Selbstverständlichkeit für jemanden, der schon einmal Geld in Fliesskomma gerechnet hat — aber sie steht nicht im Code, sie steht in ADR-9. Ohne diese Zeile hätte ein Lauf irgendwann ein <code>double</code> vorgeschlagen, und in der Safe-to-Spend-Berechnung wäre der Rundungsfehler nicht mehr auszuschliessen. Das ist genau der Kernwert der App.</p>
+        <p><b>Dritte Regel — die Rückkopplung zu vorhin.</b> „Beim Anlegen von Issues nie Milestone oder Sprint setzen" ist die Julilehre von Folie 4, <b>in eine Regel übersetzt</b>. Das Auseinanderlaufen ist einmal passiert; seither steht die Konsequenz da, wo sie beim nächsten Mal gelesen wird. Genauso wichtig ist der Nachsatz: Die Einplanung bleibt eine Kapazitätsentscheidung des Teams — die KI darf sie vorschlagen, nicht treffen.</p>
+        <p><b>Zur Zahl:</b> 130 Zeilen, 79 Commits. Die Datei ist kein Setup-Schritt vom ersten Tag, sondern wächst mit — wie die ADRs. Fast jede Zeile hat einen Vorfall als Ursprung.</p>
+        <p><b>Überleitung:</b> Das ist der Kontext. Was die KI damit konkret tut, steht auf der nächsten Folie.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 — B25 -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="eyebrow">B25 — KI-gestützter Workflow<span class="timebox">9–10 Min</span></div>
       <h2>Drei Skills decken den Zyklus ab</h2>
 
       <div class="steps">
@@ -573,7 +646,7 @@
     </div>
   </section>
 
-  <!-- 7 — Fazit -->
+  <!-- 8 — Fazit -->
   <section class="slide">
     <div class="slide-inner">
       <div class="eyebrow">Fazit Teil 2</div>
@@ -600,7 +673,7 @@
     </div>
   </section>
 
-  <!-- 8 — Demo -->
+  <!-- 9 — Demo -->
   <section class="slide divider-slide">
     <div class="slide-inner">
       <div class="num">03</div>
@@ -627,7 +700,7 @@
       <button class="nav-btn" id="prevBtn" aria-label="Vorherige Folie">&#8592;</button>
       <div class="nav-center">
         <div class="dots" id="dots"></div>
-        <div class="counter" id="counter">1 / 8</div>
+        <div class="counter" id="counter">1 / 9</div>
       </div>
       <div style="display:flex; gap:.5rem; align-items:center;">
         <button class="txt-btn" id="notesBtn" title="Referentennotizen ein-/ausblenden (N)">Notizen · N</button>
