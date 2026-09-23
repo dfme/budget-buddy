@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BudgetBuddy — Teil 2: Methodik &amp; Arbeitsweise</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --c-bg:#ffffff;
+    --c-bg-subtle:#f6f8f7;
+    --c-surface:#ffffff;
+    --c-line:#e3e8e6;
+    --c-line-strong:#cbd4d1;
+    --c-ink:#101413;
+    --c-ink-2:#5b6462;
+    --c-ink-3:#8b9694;
+    --c-accent:#0f6b5f;
+    --c-accent-hover:#0b544a;
+    --c-accent-soft:#e6f2f0;
+    --c-positive:#0f6b5f;
+    --c-positive-soft:#e6f2f0;
+    --c-negative:#b3261e;
+    --c-negative-soft:#fdecea;
+    --c-warning:#8a6100;
+    --c-warning-soft:#fdf3dd;
+    --c-info:#1d4ed8;
+    --c-info-soft:#e8eefc;
+    --shadow-card:0 1px 2px rgba(16,20,19,.05);
+    --shadow-elev:0 12px 32px rgba(16,20,19,.10);
+    --font-display:'Archivo', 'IBM Plex Sans', system-ui, sans-serif;
+    --font-body:'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+    --font-mono:'IBM Plex Mono', ui-monospace, 'SF Mono', monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --c-bg:#121917; --c-bg-subtle:#0e1312; --c-surface:#171f1d;
+      --c-line:#26302e; --c-line-strong:#36423f;
+      --c-ink:#e6efec; --c-ink-2:#9db0aa; --c-ink-3:#6f817b;
+      --c-accent:#2dbfa4; --c-accent-hover:#45cbb2; --c-accent-soft:#10302a;
+      --c-positive:#2dbfa4; --c-positive-soft:#10302a;
+      --c-negative:#f2837b; --c-negative-soft:#2e1a19;
+      --c-warning:#e0b64f; --c-warning-soft:#2a2313;
+      --c-info:#8fb0f5; --c-info-soft:#141d33;
+      --shadow-card:0 1px 2px rgba(0,0,0,.35);
+      --shadow-elev:0 12px 32px rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="dark"]{
+    --c-bg:#121917; --c-bg-subtle:#0e1312; --c-surface:#171f1d;
+    --c-line:#26302e; --c-line-strong:#36423f;
+    --c-ink:#e6efec; --c-ink-2:#9db0aa; --c-ink-3:#6f817b;
+    --c-accent:#2dbfa4; --c-accent-hover:#45cbb2; --c-accent-soft:#10302a;
+    --c-positive:#2dbfa4; --c-positive-soft:#10302a;
+    --c-negative:#f2837b; --c-negative-soft:#2e1a19;
+    --c-warning:#e0b64f; --c-warning-soft:#2a2313;
+    --c-info:#8fb0f5; --c-info-soft:#141d33;
+    --shadow-card:0 1px 2px rgba(0,0,0,.35);
+    --shadow-elev:0 12px 32px rgba(0,0,0,.4);
+  }
+
+  *,*::before,*::after{ box-sizing:border-box; }
+  html{ -webkit-text-size-adjust:100%; }
+  body{
+    margin:0; background:var(--c-bg-subtle); color:var(--c-ink);
+    font-family:var(--font-body); line-height:1.5; overflow-x:hidden;
+  }
+  h1,h2,h3,h4,p,figure,dl,dd{ margin:0; }
+  ul{ margin:0; padding:0; list-style:none; }
+  :focus-visible{ outline:2px solid var(--c-accent); outline-offset:2px; border-radius:4px; }
+
+  .eyebrow{
+    font-family:var(--font-mono); font-size:.72rem; letter-spacing:.09em;
+    text-transform:uppercase; color:var(--c-accent); font-weight:500;
+  }
+  .timebox{
+    display:inline-flex; align-items:center; gap:.4rem;
+    font-family:var(--font-mono); font-size:.72rem; color:var(--c-ink-3);
+    border:1px solid var(--c-line-strong); border-radius:999px;
+    padding:.2rem .65rem; margin-left:.6rem; vertical-align:middle;
+  }
+  .who{
+    display:inline-flex; align-items:center; gap:.35rem;
+    font-family:var(--font-mono); font-size:.72rem; color:var(--c-accent);
+    background:var(--c-accent-soft); border-radius:999px;
+    padding:.2rem .65rem; margin-left:.4rem; vertical-align:middle; font-weight:600;
+  }
+  code{ font-family:var(--font-mono); font-size:.9em; }
+  strong{ color:var(--c-ink); font-weight:600; }
+
+  /* ---------- deck shell ---------- */
+  .deck{ position:relative; height:100dvh; min-height:560px; width:100%; background:var(--c-bg-subtle); }
+  .progress{ position:absolute; top:0; left:0; right:0; height:3px; background:var(--c-line); z-index:20; }
+  .progress-bar{ height:100%; background:var(--c-accent); width:4%; transition:width .35s ease; }
+  @media (prefers-reduced-motion: reduce){ .progress-bar{ transition:none; } }
+
+  .slide{
+    position:absolute; inset:0; display:flex; flex-direction:column; justify-content:center;
+    padding:clamp(1.6rem,4.5vw,4rem) clamp(1.5rem,6vw,5.5rem) clamp(4.5rem,8vw,6rem);
+    opacity:0; visibility:hidden; transform:translateY(6px);
+    transition:opacity .3s ease, transform .3s ease; overflow-y:auto;
+  }
+  .slide.is-active{ opacity:1; visibility:visible; transform:translateY(0); z-index:5; }
+  @media (prefers-reduced-motion: reduce){ .slide{ transition:none; } }
+  .slide-inner{ max-width:1200px; margin:0 auto; width:100%; }
+
+  h1{ font-family:var(--font-display); font-weight:800; text-wrap:balance; color:var(--c-ink); }
+  h2{ font-family:var(--font-display); font-weight:800; text-wrap:balance; color:var(--c-ink);
+      font-size:clamp(1.4rem,3vw,2.15rem); letter-spacing:-.01em; margin-top:.4rem; }
+  h3{ font-family:var(--font-display); font-weight:700; color:var(--c-ink); font-size:1.02rem; }
+  h4{ font-family:var(--font-mono); font-size:.7rem; text-transform:uppercase; letter-spacing:.07em; color:var(--c-ink-3); font-weight:500; }
+  p{ color:var(--c-ink-2); }
+  .lede{ font-size:clamp(.95rem,1.55vw,1.1rem); color:var(--c-ink-2); max-width:74ch; margin-top:.85rem; }
+  .note{ font-size:.84rem; color:var(--c-ink-3); margin-top:1rem; }
+
+  /* ---------- title ---------- */
+  .title-slide h1{ font-size:clamp(2.2rem,6.5vw,4.4rem); line-height:1.02; margin-top:.5rem; }
+  .title-slide .tag{
+    display:inline-flex; align-items:center; gap:.5rem; font-family:var(--font-mono);
+    font-size:.78rem; color:var(--c-ink-2); border:1px solid var(--c-line-strong);
+    border-radius:999px; padding:.35rem .8rem; margin-top:1.5rem;
+  }
+  .tag .dot{ width:6px; height:6px; border-radius:50%; background:var(--c-accent); }
+  .title-meta{ margin-top:2rem; display:flex; gap:2rem; flex-wrap:wrap; }
+  .title-meta div{ font-family:var(--font-mono); font-size:.85rem; color:var(--c-ink-3); }
+  .title-meta strong{ display:block; color:var(--c-ink); font-family:var(--font-body); font-weight:600; font-size:.95rem; }
+
+  /* ---------- section divider ---------- */
+  .divider-slide{ justify-content:center; }
+  .divider-slide .num{ font-family:var(--font-mono); font-size:clamp(3rem,10vw,7rem); color:var(--c-accent-soft); font-weight:600; line-height:1; }
+  .divider-slide h1{ font-size:clamp(1.9rem,5.5vw,3.6rem); line-height:1.05; margin-top:-.4rem; }
+
+  /* ---------- generic ---------- */
+  .grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:1.1rem; margin-top:1.5rem; }
+  .grid-3{ display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; margin-top:1.5rem; }
+  @media (max-width:820px){ .grid-2,.grid-3{ grid-template-columns:1fr; } }
+
+  .card{ background:var(--c-surface); border:1px solid var(--c-line); border-radius:14px;
+         padding:1.15rem 1.3rem; box-shadow:var(--shadow-card); }
+  .card h3{ margin-bottom:.45rem; }
+  .card p{ font-size:.89rem; }
+  .card .role{ font-family:var(--font-mono); font-size:.7rem; color:var(--c-ink-3);
+               text-transform:uppercase; letter-spacing:.06em; margin-bottom:.3rem; display:block; }
+  .card.accent{ border-color:var(--c-accent); background:var(--c-accent-soft); }
+  .card.accent p{ color:var(--c-ink); }
+
+  .pill{ display:inline-flex; align-items:center; gap:.35rem; font-family:var(--font-mono);
+         font-size:.7rem; letter-spacing:.03em; padding:.22rem .6rem; border-radius:999px; font-weight:500; }
+  .pill.done{ background:var(--c-positive-soft); color:var(--c-positive); }
+  .pill.warn{ background:var(--c-warning-soft); color:var(--c-warning); }
+  .pill.bad{ background:var(--c-negative-soft); color:var(--c-negative); }
+  .pill.info{ background:var(--c-info-soft); color:var(--c-info); }
+
+  /* ---------- flow / diagram ---------- */
+  .flow{ display:flex; align-items:stretch; gap:.5rem; margin-top:1.4rem; flex-wrap:wrap; }
+  .flow .node{ flex:1 1 0; min-width:148px; background:var(--c-surface); border:1px solid var(--c-line);
+               border-radius:12px; padding:.75rem .85rem; box-shadow:var(--shadow-card); }
+  .flow .node .k{ font-family:var(--font-mono); font-size:.64rem; letter-spacing:.06em;
+                  text-transform:uppercase; color:var(--c-ink-3); }
+  .flow .node .v{ font-size:.87rem; color:var(--c-ink); font-weight:600; margin-top:.25rem; }
+  .flow .node .s{ font-size:.77rem; color:var(--c-ink-2); margin-top:.2rem; line-height:1.45; }
+  .flow .node.ext{ border-color:var(--c-warning); background:var(--c-warning-soft); }
+  .flow .node.hl{ border-color:var(--c-accent); background:var(--c-accent-soft); }
+  .flow .arrow{ align-self:center; color:var(--c-ink-3); font-family:var(--font-mono); flex:0 0 auto; font-size:1.1rem; }
+  @media (max-width:760px){ .flow .arrow{ transform:rotate(90deg); } }
+
+  /* ---------- C2 container diagram ---------- */
+  .c2{ margin-top:1.4rem; display:grid; grid-template-columns:1fr auto 1fr auto 1fr; gap:.6rem; align-items:stretch; }
+  @media (max-width:900px){ .c2{ grid-template-columns:1fr; } .c2 .conn{ transform:rotate(90deg); } }
+  .c2 .box{ background:var(--c-surface); border:1px solid var(--c-line-strong); border-radius:14px;
+            padding:.95rem 1rem; box-shadow:var(--shadow-card); }
+  .c2 .box .t{ font-family:var(--font-display); font-weight:700; font-size:.95rem; color:var(--c-ink); }
+  .c2 .box .tech{ font-family:var(--font-mono); font-size:.68rem; color:var(--c-accent); margin-top:.15rem; }
+  .c2 .box .d{ font-size:.79rem; color:var(--c-ink-2); margin-top:.45rem; line-height:1.45; }
+  .c2 .conn{ align-self:center; text-align:center; font-family:var(--font-mono); font-size:.64rem; color:var(--c-ink-3); }
+  .c2 .conn .l{ display:block; font-size:1.05rem; color:var(--c-line-strong); }
+  .c2-ext{ margin-top:.6rem; }
+  .c2-ext .box{ border-style:dashed; border-color:var(--c-warning); background:var(--c-warning-soft); }
+  .c2-ext .box .tech{ color:var(--c-warning); }
+
+  /* ---------- tables ---------- */
+  .tablewrap{ margin-top:1.3rem; overflow-x:auto; border:1px solid var(--c-line); border-radius:14px; box-shadow:var(--shadow-card); }
+  table{ border-collapse:collapse; width:100%; min-width:640px; background:var(--c-surface); font-size:.84rem; }
+  thead th{ text-align:left; font-family:var(--font-mono); font-size:.68rem; text-transform:uppercase;
+            letter-spacing:.06em; color:var(--c-ink-3); font-weight:500;
+            padding:.7rem .85rem; border-bottom:1px solid var(--c-line-strong); background:var(--c-bg-subtle); white-space:nowrap; }
+  tbody td{ padding:.65rem .85rem; border-bottom:1px solid var(--c-line); color:var(--c-ink-2); vertical-align:top; line-height:1.45; }
+  tbody tr:last-child td{ border-bottom:none; }
+  tbody tr.core td{ background:var(--c-accent-soft); color:var(--c-ink); }
+  tbody tr.off td{ opacity:.72; }
+  td .us{ font-family:var(--font-mono); font-size:.76rem; color:var(--c-ink-3); white-space:nowrap; }
+  td strong{ color:var(--c-ink); }
+
+  /* ---------- steps / rows ---------- */
+  .steps{ margin-top:1.3rem; display:flex; flex-direction:column; gap:0; border:1px solid var(--c-line);
+          border-radius:14px; overflow:hidden; box-shadow:var(--shadow-card); }
+  .steps .row{ display:flex; align-items:flex-start; gap:.9rem; padding:.72rem 1.05rem;
+               border-bottom:1px solid var(--c-line); background:var(--c-surface); font-size:.86rem; }
+  .steps .row:last-child{ border-bottom:none; }
+  .steps .row .n{ font-family:var(--font-mono); font-size:.7rem; color:var(--c-accent); flex:0 0 2.6rem; padding-top:.15rem; }
+  .steps .row .what{ flex:1; color:var(--c-ink-2); }
+  .steps .row .what b{ color:var(--c-ink); }
+  .steps .row .gate{ font-family:var(--font-mono); font-size:.7rem; flex:0 0 auto; color:var(--c-ink-3); padding-top:.15rem; }
+  .steps .row .gate.good{ color:var(--c-positive); font-weight:600; }
+  .steps .row.hl{ background:var(--c-accent-soft); }
+  @media (max-width:760px){ .steps .row{ flex-wrap:wrap; } .steps .row .gate{ flex:1 1 100%; } }
+
+  /* ---------- before/after ---------- */
+  .ba{ margin-top:1.3rem; display:grid; grid-template-columns:1fr auto 1fr; gap:1rem; align-items:center; }
+  @media (max-width:820px){ .ba{ grid-template-columns:1fr; } }
+  .ba .side{ background:var(--c-surface); border:1px solid var(--c-line); border-radius:12px;
+             padding:.9rem 1.05rem; box-shadow:var(--shadow-card); }
+  .ba .side.was{ border-color:var(--c-negative); background:var(--c-negative-soft); }
+  .ba .side.is{ border-color:var(--c-accent); background:var(--c-accent-soft); }
+  .ba .k{ font-family:var(--font-mono); font-size:.66rem; text-transform:uppercase;
+          letter-spacing:.06em; color:var(--c-ink-3); }
+  .ba .v{ font-size:.88rem; color:var(--c-ink); margin-top:.35rem; font-weight:600; }
+  .ba .s{ font-size:.79rem; color:var(--c-ink-2); margin-top:.3rem; line-height:1.45; }
+  .ba .mid{ font-family:var(--font-mono); color:var(--c-ink-3); font-size:1.3rem; text-align:center; }
+
+  /* ---------- callouts ---------- */
+  .learning{ margin-top:1.3rem; background:var(--c-accent-soft); border:1px solid var(--c-accent);
+             border-radius:12px; padding:1rem 1.2rem; }
+  .learning .k{ font-family:var(--font-mono); font-size:.7rem; color:var(--c-accent);
+                text-transform:uppercase; letter-spacing:.06em; font-weight:600; }
+  .learning p{ color:var(--c-ink); margin-top:.35rem; font-size:.89rem; }
+  .warnbox{ margin-top:1.3rem; background:var(--c-warning-soft); border:1px solid var(--c-warning);
+            border-radius:12px; padding:1rem 1.2rem; }
+  .warnbox .k{ font-family:var(--font-mono); font-size:.7rem; color:var(--c-warning);
+               text-transform:uppercase; letter-spacing:.06em; font-weight:600; }
+  .warnbox p{ color:var(--c-ink); margin-top:.35rem; font-size:.89rem; }
+
+  /* ---------- masking demo ---------- */
+  .mask{ margin-top:1.3rem; display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+  @media (max-width:820px){ .mask{ grid-template-columns:1fr; } }
+  .mask .side{ background:var(--c-surface); border:1px solid var(--c-line); border-radius:12px;
+               padding:.9rem 1.05rem; box-shadow:var(--shadow-card); }
+  .mask .side.out{ border-color:var(--c-accent); }
+  .mask .k{ font-family:var(--font-mono); font-size:.66rem; text-transform:uppercase;
+            letter-spacing:.06em; color:var(--c-ink-3); }
+  .mask .txt{ font-family:var(--font-mono); font-size:.8rem; margin-top:.45rem; line-height:1.65;
+              color:var(--c-ink); word-break:break-word; }
+  .mask .txt em{ background:var(--c-negative-soft); color:var(--c-negative); font-style:normal;
+                 padding:0 .18rem; border-radius:3px; }
+  .mask .txt b{ background:var(--c-accent-soft); color:var(--c-accent); padding:0 .18rem;
+                border-radius:3px; font-weight:600; }
+
+  .kv{ margin-top:.5rem; display:grid; grid-template-columns:auto 1fr; gap:.35rem .9rem; font-size:.85rem; }
+  .kv dt{ font-family:var(--font-mono); font-size:.72rem; color:var(--c-ink-3); text-transform:uppercase;
+          letter-spacing:.05em; padding-top:.12rem; white-space:nowrap; }
+  .kv dd{ color:var(--c-ink-2); }
+
+  .bullets{ margin-top:1rem; display:flex; flex-direction:column; gap:.5rem; }
+  .bullets li{ position:relative; padding-left:1.1rem; font-size:.89rem; color:var(--c-ink-2); line-height:1.5; }
+  .bullets li::before{ content:'—'; position:absolute; left:0; color:var(--c-accent); font-family:var(--font-mono); }
+  .bullets li b{ color:var(--c-ink); }
+
+  /* ---------- nav ---------- */
+  .nav{
+    position:absolute; bottom:0; left:0; right:0; z-index:20;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:.85rem clamp(1.1rem,4vw,3rem);
+    padding-bottom:calc(.85rem + env(safe-area-inset-bottom, 0px));
+    background:linear-gradient(to top, var(--c-bg-subtle) 45%, transparent); pointer-events:none;
+  }
+  .nav > *{ pointer-events:auto; }
+  .nav-btn{
+    display:flex; align-items:center; justify-content:center; width:38px; height:38px;
+    border-radius:50%; background:var(--c-surface); border:1px solid var(--c-line-strong);
+    color:var(--c-ink); cursor:pointer; box-shadow:var(--shadow-card);
+  }
+  .nav-btn:hover{ border-color:var(--c-accent); color:var(--c-accent); }
+  .nav-btn:disabled{ opacity:.35; cursor:default; }
+  .nav-btn:disabled:hover{ border-color:var(--c-line-strong); color:var(--c-ink); }
+  .dots{ display:flex; gap:.35rem; flex-wrap:wrap; max-width:60vw; justify-content:center; }
+  .dots button{ width:7px; height:7px; border-radius:50%; background:var(--c-line-strong);
+                border:none; padding:0; cursor:pointer; }
+  .dots button.is-active{ background:var(--c-accent); width:18px; border-radius:4px; transition:width .25s ease; }
+  .dots button.sec1{ background:var(--c-line-strong); }
+  .counter{ font-family:var(--font-mono); font-size:.76rem; color:var(--c-ink-3); min-width:3.6rem; text-align:center; }
+  .nav-center{ display:flex; align-items:center; gap:.9rem; flex-wrap:wrap; justify-content:center; }
+
+  /* ---------- Folien werden ruhiger: grössere Typo, weniger Fliesstext ---------- */
+  .slide-inner > .lede{ font-size:clamp(1rem,1.75vw,1.32rem); max-width:56ch; }
+  .card p{ font-size:.93rem; }
+  .steps .row .what{ font-size:.93rem; }
+
+  .keypoints{ margin-top:1.6rem; display:flex; flex-direction:column; gap:.85rem; }
+  .keypoints li{ display:flex; gap:.9rem; align-items:baseline; font-size:clamp(.98rem,1.6vw,1.2rem);
+                 color:var(--c-ink); line-height:1.45; }
+  .keypoints li .m{ font-family:var(--font-mono); font-size:.78rem; color:var(--c-accent);
+                    flex:0 0 auto; padding-top:.15rem; }
+  .keypoints li span.t{ flex:1; }
+  .keypoints li b{ font-weight:700; }
+  .keypoints li .sub{ display:block; font-size:.86rem; color:var(--c-ink-2); margin-top:.15rem; font-weight:400; }
+
+  .bignum{ display:flex; gap:clamp(1.5rem,4vw,3.5rem); flex-wrap:wrap; margin-top:1.8rem; }
+  .bignum div{ min-width:120px; }
+  .bignum .n{ font-family:var(--font-display); font-weight:800; font-size:clamp(1.8rem,4.5vw,3rem);
+              color:var(--c-accent); line-height:1; }
+  .bignum .l{ font-size:.86rem; color:var(--c-ink-2); margin-top:.4rem; }
+
+  /* ---------- Abbildung ---------- */
+  .figure{ margin-top:1.3rem; }
+  .figure img{
+    display:block; width:100%; height:auto; max-height:46vh; object-fit:contain;
+    border:1px solid var(--c-line-strong); border-radius:12px; background:#0e1312;
+    box-shadow:var(--shadow-card);
+  }
+  .figure figcaption{
+    margin-top:.6rem; font-size:.84rem; color:var(--c-ink-2); line-height:1.5;
+    display:flex; gap:.55rem; align-items:baseline; flex-wrap:wrap;
+  }
+  .figure figcaption .fact{
+    font-family:var(--font-mono); font-size:.74rem; font-weight:600; letter-spacing:.03em;
+    background:var(--c-accent-soft); color:var(--c-accent);
+    border-radius:999px; padding:.22rem .7rem; flex:0 0 auto;
+  }
+  .figure figcaption .src{ font-family:var(--font-mono); font-size:.7rem; color:var(--c-ink-3); }
+  @media (max-width:820px){ .figure img{ max-height:38vh; } }
+
+  /* ---------- Referentennotizen ---------- */
+  .notes{ display:none; }
+
+  .deckfoot{ position:absolute; bottom:0; left:0; right:0; z-index:25; }
+  .notesbar{
+    background:var(--c-surface); border-top:2px solid var(--c-accent);
+    box-shadow:0 -10px 30px rgba(16,20,19,.10);
+    max-height:min(46vh,420px); display:flex; flex-direction:column;
+  }
+  .deck:not(.notes-open) .notesbar{ display:none; }
+  .notesbar-head{
+    display:flex; align-items:center; gap:.8rem; padding:.5rem clamp(1.1rem,4vw,3rem);
+    border-bottom:1px solid var(--c-line); flex:0 0 auto;
+  }
+  .notesbar-head .k{ font-family:var(--font-mono); font-size:.68rem; letter-spacing:.08em;
+                     text-transform:uppercase; color:var(--c-accent); font-weight:600; }
+  .notesbar-head .sl{ font-family:var(--font-mono); font-size:.68rem; color:var(--c-ink-3); }
+  .notesbar-head .sp{ flex:1; }
+  .notesbar-body{ overflow-y:auto; padding:.9rem clamp(1.1rem,4vw,3rem) 1.1rem; }
+  .notesbar-body p{ font-size:.94rem; color:var(--c-ink); line-height:1.6; margin-bottom:.7rem; max-width:88ch; }
+  .notesbar-body p:last-child{ margin-bottom:0; }
+  .notesbar-body b{ color:var(--c-ink); font-weight:700; }
+  .notesbar-body .cue{ font-family:var(--font-mono); font-size:.72rem; color:var(--c-accent);
+                       text-transform:uppercase; letter-spacing:.06em; margin-bottom:.35rem; }
+  .notesbar-body ul{ margin:0 0 .7rem; padding-left:0; }
+  .notesbar-body ul li{ position:relative; padding-left:1.1rem; font-size:.92rem; color:var(--c-ink-2);
+                        line-height:1.55; margin-bottom:.3rem; }
+  .notesbar-body ul li::before{ content:'·'; position:absolute; left:.25rem; color:var(--c-accent); font-weight:700; }
+
+  .txt-btn{
+    font-family:var(--font-mono); font-size:.68rem; letter-spacing:.04em; text-transform:uppercase;
+    background:transparent; border:1px solid var(--c-line-strong); color:var(--c-ink-2);
+    border-radius:999px; padding:.25rem .7rem; cursor:pointer;
+  }
+  .txt-btn:hover{ border-color:var(--c-accent); color:var(--c-accent); }
+  .txt-btn.on{ border-color:var(--c-accent); background:var(--c-accent-soft); color:var(--c-accent); font-weight:600; }
+
+  .nav{ position:static; background:linear-gradient(to top, var(--c-bg-subtle) 55%, transparent); }
+  .deck.notes-open .nav{ background:var(--c-surface); border-top:1px solid var(--c-line); }
+  .deck.notes-open .slide{ padding-bottom:calc(min(46vh,420px) + 5rem); }
+
+  /* ---------- Handout-Druck: alle Folien mit Notizen ---------- */
+  @media print{
+    body{ background:#fff; }
+    .deck{ height:auto; }
+    .deckfoot, .progress{ display:none !important; }
+    .slide{ position:static; opacity:1 !important; visibility:visible !important; transform:none !important;
+            page-break-after:always; break-after:page; min-height:auto; padding:1.5cm 1.2cm; overflow:visible; }
+    .notes{ display:block !important; margin-top:1.2rem; padding-top:.9rem;
+            border-top:2px solid #0f6b5f; }
+    .notes .cue{ font-family:'IBM Plex Mono',monospace; font-size:.7rem; text-transform:uppercase;
+                 letter-spacing:.06em; color:#0f6b5f; font-weight:600; margin-bottom:.35rem; }
+    .notes p{ font-size:.86rem; line-height:1.5; margin-bottom:.5rem; }
+    .notes ul li{ font-size:.84rem; margin-bottom:.25rem; padding-left:1rem; position:relative; }
+    .notes ul li::before{ content:'·'; position:absolute; left:.2rem; }
+  }
+</style>
+</head>
+<body>
+<div class="deck" id="deck" tabindex="0" aria-label="BudgetBuddy Teil 2: Methodik und Arbeitsweise">
+  <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+
+  <!-- 1 — Titel -->
+  <section class="slide title-slide is-active">
+    <div class="slide-inner">
+      <div class="eyebrow">CAS Application Development with AI (ADAI) 2026 · BFH Biel · Ilja Rasin</div>
+      <h1>Methodik &amp;<br>Arbeitsweise</h1>
+      <p class="lede">BudgetBuddy, Teil 2 — wie entschieden und gearbeitet wurde.</p>
+      <div class="tag"><span class="dot"></span> Daniel · ~10 Minuten</div>
+
+      <ul class="keypoints" style="margin-top:1.8rem;">
+        <li><span class="m">B21</span><span class="t">Requirements — Personas, User Stories, MoSCoW</span></li>
+        <li><span class="m">B22</span><span class="t">ADRs als Prozess</span></li>
+        <li><span class="m">B23</span><span class="t">Scrum-Rhythmus über das Sprint Board</span></li>
+        <li><span class="m">B24</span><span class="t">Git-Disziplin und CI/CD als Gate</span></li>
+        <li><span class="m">B25</span><span class="t">KI-gestützter Workflow — Claude Code Skills</span></li>
+      </ul>
+
+      <div class="notes">
+        <div class="cue">Einstieg · 45 Sek</div>
+        <p>In Teil 1 ging es darum, <b>was</b> gebaut wurde und warum so. In diesem Teil geht es um die andere Hälfte: <b>wie</b> entschieden und gearbeitet wurde.</p>
+        <p>Der Leitsatz für die nächsten zehn Minuten: <b>Jede Methodik-Entscheidung hat einen dokumentierten Grund und ist im Repo nachlesbar</b> — nicht „wir haben das halt so gemacht". Das ist die eigentliche Botschaft, alles Weitere sind Belege dafür.</p>
+        <p>Fünf Stationen: Requirements, ADRs als Prozess, der Sprint-Rhythmus, Git und CI/CD, und zum Schluss der Teil, der diesen Kurs eigentlich ausmacht — der KI-gestützte Entwicklungszyklus.</p>
+        <p><b>Zeitbudget im Kopf behalten:</b> B21 zwei Minuten, B22 zwei, B23 zwei, B24 zwei, B25 zwei. B25 ist der Teil, bei dem man am ehesten Zeit investieren sollte.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 — B21 -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="eyebrow">B21 — Requirements<span class="timebox">0–2 Min</span></div>
+      <h2>Am Anfang standen keine Features, sondern zwei Menschen</h2>
+
+      <div class="bignum">
+        <div><div class="n">2</div><div class="l">Personas</div></div>
+        <div><div class="n">14</div><div class="l">User Stories mit Acceptance Criteria</div></div>
+        <div><div class="n">MoSCoW</div><div class="l">Priorisierung je Story</div></div>
+      </div>
+
+      <div class="grid-3" style="margin-top:1.8rem;">
+        <div class="card accent"><span class="role">Must</span><h3>Der Kernpfad</h3><p>US-03 · US-04 · US-05 · US-06 — vom Kontoauszug zur Zahl</p></div>
+        <div class="card"><span class="role">Should</span><h3>Wertvoll, nicht tragend</h3><p>US-08 umgesetzt · US-09 offen</p></div>
+        <div class="card"><span class="role">Could</span><h3>Bewusst nicht gebaut</h3><p>US-07 Sparziel · US-11 OpenBanking</p></div>
+      </div>
+
+      <div class="notes">
+        <div class="cue">Requirements · 2 Min</div>
+        <p>Am Anfang standen nicht Features, sondern zwei Menschen: Lara und Marc. Jede der 14 User Stories ist aus der Sicht einer der beiden formuliert und trägt <b>Acceptance Criteria im Given/When/Then-Format</b> — prüfbare Sätze, keine Absichtserklärungen. Das ist der Unterschied zwischen „Der Nutzer soll seine Ausgaben sehen" und einem Kriterium, an dem ein Test scheitern kann.</p>
+        <p><b>Must</b> sind US-03 Fixkosten-Wizard, US-04 PDF-Upload, US-05 Kategorisierung und US-06 Safe-to-Spend. Gemeinsam sind sie die Kette vom Kontoauszug zur Zahl. Fällt ein Glied aus, hat die App keinen Nutzen mehr.</p>
+        <p><b>Should:</b> US-08 Abo-Erkennung ist umgesetzt und in Betrieb. US-09 KI-Monatsbericht ist es nicht — dazu auf der Schlussfolie mehr.</p>
+        <p><b>Could:</b> US-11 OpenBanking trägt eine eigene Notiz — Implementierung erst nach Abschluss aller Must- und Should-Stories. US-07 Sparziel ebenso. Beide sind dokumentiert, keines angefangen. Das ist eine Entscheidung, kein Versäumnis.</p>
+        <p><b>Der Punkt, auf den es ankommt:</b> MoSCoW zeigt seinen Wert nicht beim Planen, sondern beim <b>Streichen</b>. Als absehbar war, dass nicht alles fertig wird, musste nicht diskutiert werden, was fällt — die Reihenfolge stand seit dem ersten Sprint fest und war begründet. Genau darum können wir heute offen sagen, was fehlt, ohne dass es nach Zufall aussieht.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 — B22 -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="eyebrow">B22 — ADRs als Prozess<span class="timebox">2–4 Min</span></div>
+      <h2>Die Entscheide wachsen mit dem Projekt mit</h2>
+      <p class="lede">Kein ADR wird gelöscht — jeder wird nachgeführt, sobald das Projekt ihn widerlegt.</p>
+
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>ADR</th><th>Ursprünglicher Entscheid</th><th>Was das Projekt später verlangt hat</th></tr></thead>
+          <tbody>
+            <tr><td><strong>ADR-5 → ADR-12</strong></td><td>SQLite als MVP-Datenbank</td><td>Ephemeres Filesystem auf dem Render Free-Plan — <strong>superseded</strong></td></tr>
+            <tr><td><strong>ADR-10</strong></td><td>Render Free-Tier</td><td>Spin-Down nach 15 Min — Nachtrag 09.08.2026, Wechsel auf Starter</td></tr>
+            <tr><td><strong>ADR-7</strong></td><td>JWT im httpOnly-Cookie</td><td>Passwortwechsel muss Tokens invalidieren — Nachtrag BE-AUTH-11 (#201)</td></tr>
+            <tr><td><strong>ADR-9</strong></td><td><code>BigDecimal</code> für alle Beträge</td><td>Verbosity im Alltag — Nachtrag 07.09.2026, eigenes <code>money</code>-Package</td></tr>
+            <tr><td><strong>ADR-13</strong></td><td>Betragsbasiertes Fixkosten-Matching</td><td>Abos werden zum Eingabewert — Nachtrag FE-FC-05 (#338)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="learning">
+        <div class="k">16 ADRs · 5 nachgeführt · 0 gelöscht</div>
+        <p>Jeder Nachtrag nennt seinen Auslöser: ein Datum, eine Issue-Nummer, ein beobachtetes Verhalten. Kein ADR wird aus Prinzip geändert — sondern weil etwas passiert ist.</p>
+      </div>
+
+      <div class="notes">
+        <div class="cue">ADR-Prozess · 2 Min — die Tabelle von oben nach unten durchgehen</div>
+        <p>Die konkreten Entscheide kamen in Teil 1. Hier geht es um etwas anderes: <b>was mit einem Entscheid passiert, nachdem er gefällt ist.</b></p>
+        <p>Die naheliegende Annahme wäre, dass ADRs Abgabedokumente sind — einmal geschrieben, abgelegt, nie wieder geöffnet. Bei uns ist das Gegenteil der Fall: <b>Fünf der 16 ADRs sind nachträglich ergänzt oder abgelöst worden</b>, und zwar nie aus Prinzip, sondern immer, weil im Betrieb etwas aufgetreten ist, das der ursprüngliche Entscheid nicht kannte.</p>
+        <p><b>Das ist der Punkt an der Tabelle:</b> In der rechten Spalte steht jedes Mal ein konkretes Projektereignis — ein Plattformverhalten, ein Issue, ein Datum. Kein einziger Eintrag lautet „nach reiflicher Überlegung doch anders". Die Entscheide sind an dieses Projekt gebunden, nicht an ein Lehrbuch.</p>
+        <p><b>ADR-5 ist der einzige abgelöste</b> — und selbst der steht noch im Repo. Er erklärt, warum SQLite damals vernünftig war; ADR-12 erklärt, woran es scheiterte. Beides zusammen ist mehr wert als nur das Ergebnis. Genau deshalb wird ein ADR bei einer Kurskorrektur als <code>superseded</code> markiert und nicht überschrieben.</p>
+        <p><b>Die anderen vier tragen Nachträge</b>, der ADR selbst bleibt gültig. ADR-10 etwa hat den Grundsatzentscheid für Render nie revidiert — nur festgehalten, dass das Gratis-Tier wegen des Spin-Downs nicht reicht.</p>
+        <p><b>Wenn Zeit bleibt — der ehrliche Gegenpol:</b> Pflege ist kein Selbstläufer. Die ADR-7-Aussage „JWT niemals im <code>localStorage</code>" stand in ADR-0, ADR-2 und <code>CLAUDE.md</code> dreimal falsch beziehungsweise unvollständig da; es brauchte drei Korrekturrunden über drei Issues, bis alles deckungsgleich war. Dokumentation altert — die Frage ist nur, ob es jemand merkt. Daraus ist die Regel geworden: Jede Aussage über den Code wird mit <code>file:line</code> belegt, und Dokumentation beschreibt den Ist-Zustand, nie den geplanten.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 — B23 -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="eyebrow">B23 — Scrum-Rhythmus<span class="timebox">4–6 Min</span></div>
+      <h2>Zwei Wochen, ein Board, <em>eine</em> Quelle der Wahrheit</h2>
+
+      <figure class="figure">
+        <img src="storypoints.png" width="994" height="496"
+             alt="Balkendiagramm: Summe der Story Points je Sprint. Sprint 1: 24, Sprint 2: 28, Sprint 3: 67, Sprint 4: 54, Sprint 5: 64, Sprint 6: 70, Sprint 7: 59.">
+        <figcaption>
+          <span class="fact">7 Sprints · 4 dokumentiert</span>
+          <span><b>Ab Sprint 3 pendelt die Velocity um 60 Punkte</b> — erst das macht sie als Planungsgrundlage brauchbar.</span>
+          <span class="src">GitHub Project Insights · Sum of Story Points</span>
+        </figcaption>
+      </figure>
+
+      <div class="ba" style="margin-top:1.4rem;">
+        <div class="side was"><div class="k">bis Juli</div><div class="v">Milestone <em>und</em> Iteration-Feld</div><div class="s">Zwei Datenhaltungen — liefen auseinander</div></div>
+        <div class="mid">→</div>
+        <div class="side is"><div class="k">seither</div><div class="v">nur das Iteration-Feld</div><div class="s">Beim Anlegen eines Issues wird <em>kein</em> Milestone gesetzt</div></div>
+      </div>
+
+      <div class="notes">
+        <div class="cue">Scrum · 2 Min</div>
+        <p>Das Projekt läuft in Zwei-Wochen-Sprints über ein GitHub Project Board. Velocity und Carryover werden nicht geschätzt, sondern <b>aus dem Board abgeleitet</b> — was im letzten Sprint tatsächlich fertig wurde, ist die Planungsgrundlage für den nächsten. Die Sprint-Vorschläge liegen versioniert unter <code>docs/plans/sprints/</code>.</p>
+        <p><b>Zur Lehre aus dem Juli:</b> Anfangs trugen Issues ihre Sprint-Zuordnung an zwei Orten — im Milestone und im Iteration-Feld. Zwei Datenhaltungen für dieselbe Tatsache laufen zuverlässig auseinander, und taten es auch. Seither gilt: Die Zuordnung steht ausschliesslich im Iteration-Feld, Milestones werden für die Planung nicht mehr verwendet.</p>
+        <p><b>Das Prinzip trägt weiter:</b> Abhängigkeiten stehen im Relationships-Panel und nicht als Freitext im Issue; Story Points und Area stehen im Board und nicht im Plan-Dokument. Der Plan hält fest, was zum Zeitpunkt der Planung galt — das Board hält, was jetzt gilt. Eine Kopie wäre ab ihrer Erzeugung veraltet.</p>
+        <p><b>Zum Diagramm — kurz auf die ersten zwei Balken zeigen:</b> Sprint 1 und 2 liegen bei 24 und 28 Punkten, ab Sprint 3 bei 54 bis 70. Die ersten beiden Sprints waren Aufbau — Setup, erste Migrationen, Deployment-Pipeline —, und wer daraus die Velocity ableitet, plant den nächsten Sprint systematisch zu klein. Ab Sprint 3 pendelt sie um 60 und ist damit belastbar.</p>
+        <p><b>Der Einbruch in Sprint 4</b> (54 nach 67) ist kein Fehler im Prozess: Solche Ausschläge sind der Grund, warum wir den Mittelwert der letzten Sprints nehmen und nicht den letzten Wert. Sieben Balken sind genug, um das zu sehen — bei dreien hätte man es nicht erkannt.</p>
+        <p>Das Diagramm ist ausserdem der <b>Beleg für den Rhythmus selbst</b>: sieben Sprints gelaufen, vier davon mit einem eigenen Planungsdokument unter <code>docs/plans/sprints/</code> (SPRINT-04 bis SPRINT-07) — die ersten drei liefen, bevor wir die Sprintplanung selbst dokumentiert haben. Der sichtbare Carryover zwischen Sprints ist kein Makel, sondern der Grund, warum die Sprint-Zuordnung überhaupt beweglich sein muss.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 — B24 -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="eyebrow">B24 — Git-Disziplin &amp; CI/CD<span class="timebox">6–8 Min</span></div>
+      <h2>Eine Task-ID, ein Branch, ein PR</h2>
+
+      <div class="flow">
+        <div class="node"><div class="k">1</div><div class="v">Branch je Task-ID</div><div class="s"><code>feature/BE-CAT-06-…</code></div></div>
+        <div class="arrow">→</div>
+        <div class="node hl"><div class="k">2 — Gate</div><div class="v">Build</div><div class="s">Backend + Frontend<br><b>grün = mergebar</b></div></div>
+        <div class="arrow">→</div>
+        <div class="node"><div class="k">3</div><div class="v">Continuous Deployment</div><div class="s">Build wiederverwendet</div></div>
+        <div class="arrow">→</div>
+        <div class="node"><div class="k">4</div><div class="v">Render Deploy Hook</div><div class="s">nur bei Erfolg</div></div>
+        <div class="arrow">→</div>
+        <div class="node hl"><div class="k">5 — Nachweis</div><div class="v">Smoke-Test</div><div class="s"><code>/actuator/info</code></div></div>
+      </div>
+
+      <ul class="keypoints" style="margin-top:1.5rem;">
+        <li><span class="m">→</span><span class="t">Kein direkter Commit auf <code>main</code>, Review-Pflicht vor jedem Merge</span></li>
+        <li><span class="m">→</span><span class="t">„Deployed" ist eine Behauptung — <b>Schritt 5 ist der Nachweis</b></span></li>
+      </ul>
+
+      <div class="notes">
+        <div class="cue">Git &amp; CI/CD · 2 Min</div>
+        <p>Jede Arbeit trägt eine Task-ID wie <code>BE-CAT-06</code>. Die ID erscheint im Branchnamen, im Commit und im PR-Titel — damit ist von jeder Codezeile aus rückwärts auffindbar, welche Anforderung sie begründet hat.</p>
+        <p><b>Die Pipeline entlanggehen:</b> Jeder PR läuft durch den Build — Backend <code>mvn verify</code>, Frontend Test und Produktions-Build. Erst ein grüner PR ist mergebar. Ein Push auf <code>main</code> startet dann das Continuous Deployment, das denselben Build wiederverwendet statt ihn zu wiederholen; nur bei Erfolg löst der Render Deploy Hook aus.</p>
+        <p><i>Falls jemand nach den Workflows fragt:</i> Der Build steht als wiederverwendbarer Workflow in <code>build.yml</code> und ist die gemeinsame Quelle beider Einstiege — <code>ci.yml</code> ruft ihn bei Pull Requests auf, <code>cd.yml</code> beim Push auf <code>main</code>.</p>
+        <p><b>Der Punkt an Schritt 5:</b> Ein erfolgreicher Deploy-Hook sagt nur, dass die Plattform den Auftrag angenommen hat. Der Smoke-Test gegen <code>/actuator/info</code> vergleicht die laufende Version mit der erwarteten — erst das ist ein Nachweis. Ohne ihn hätten wir mehrfach geglaubt, eine Änderung sei live, obwohl der Container noch die alte Version hielt.</p>
+        <p><b>Wenn Zeit bleibt — ein Gate, das aus Schaden entstand:</b> Flyway hält jede angewandte Migration mit Prüfsumme fest. Wird eine gemergte Datei nachträglich angefasst, bricht jede Datenbank beim nächsten Start mit „Migration checksum mismatch". Ein eigener CI-Job prüft das bei jedem PR. Der Notfall-Ausweg ist bewusst ein Label am PR und kein Commit-Marker: sichtbar, zurücknehmbar, und die Timeline hält fest, wer es wann gesetzt hat.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 — B25 -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="eyebrow">B25 — KI-gestützter Workflow<span class="timebox">8–10 Min</span></div>
+      <h2>Drei Skills decken den Zyklus ab</h2>
+
+      <div class="steps">
+        <div class="row"><span class="n">/plan-sprint</span><span class="what">Backlog-Hygiene, Velocity, Carryover → <b>Vorschlag</b></span><span class="gate">Board erst auf Zuruf</span></div>
+        <div class="row"><span class="n">/implement-issue</span><span class="what">Issue → Plan → Branch → Code + Tests → Security-Review → PR</span><span class="gate">2 Gates</span></div>
+        <div class="row"><span class="n">/review-pr</span><span class="what">Diff kreuzprüfen, Tests ausführen, Inline-Threads</span><span class="gate">1 Gate</span></div>
+      </div>
+
+      <div class="learning">
+        <div class="k">Die Grenze, die nicht verhandelbar ist</div>
+        <p>Agents schreiben nie auf <code>main</code> und mergen nie selbst. Freigabe und Merge bleiben beim Menschen.</p>
+      </div>
+
+      <div class="notes">
+        <div class="cue">Der Kursbezug · 2 Min — hier Zeit investieren, das ist der ADAI-Kern</div>
+        <p>Der interessanteste Teil des Kurses ist in diesem Projekt kein Feature, sondern die Arbeitsweise. Drei Claude-Code-Skills automatisieren den Entwicklungszyklus von der Sprintplanung bis zum Review. Sie sind im Repo versioniert, laufen bei allen drei Entwicklern gleich — und haben dieselben Grenzen.</p>
+        <p><b>/plan-sprint</b> prüft Backlog-Hygiene, leitet Velocity und Carryover aus dem Board ab, kreuzt Abhängigkeiten gegen und legt den Vorschlag als Datei ab. Das Board wird erst auf ausdrücklichen Zuruf geschrieben — die Einplanung bleibt eine Kapazitätsentscheidung des Teams.</p>
+        <p><b>/implement-issue</b> geht ein Issue end-to-end durch: einlesen und übernehmen, Rückfragen klären, Plan vorlegen und bestätigen lassen, Branch anlegen, Code und Tests schreiben, Security-Review gegen eine auf diese App zugeschnittene Matrix — Mandantentrennung, ADR-7-Invarianten, Secrets, Upload-Grenzen, Datenminimierung beim Claude-Call —, lokalen Review vorlegen, PR öffnen.</p>
+        <p><b>/review-pr</b> liest PR und Issue ein, prüft den Diff gegen die Gegenseite, führt die Tests selbst aus, trennt blockierende von nicht-blockierenden Befunden und setzt sie als Inline-Threads ab. Warum Inline und nicht im Review-Body: Ein Body ist für die Ruleset-Regel unsichtbar und hält den Merge nicht auf.</p>
+        <p><b>Zur Grenze — der wichtigste Satz des Blocks:</b> Jeder Skill hält vor dem Schreiben an und legt vor, was er zu tun gedenkt. Das ist keine technische Einschränkung, sondern eine bewusste: Ein Agent, der selbst merged, nimmt die einzige Stelle aus dem Prozess, an der jemand die Verantwortung trägt.</p>
+        <p><b>Ergänzend:</b> Bei jedem PR-Event läuft zusätzlich ein automatischer Review als GitHub Action. Er fängt ab, was ein müder Mensch um 23 Uhr übersieht — er entscheidet nicht, ob etwas gemerged wird.</p>
+        <p><b>Damit gebe ich nun weiter an Sergio für die Demo.</b></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 — Fazit -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="eyebrow">Fazit Teil 2</div>
+      <h2>Jede Entscheidung hat einen Grund — und der steht im Repo</h2>
+
+      <ul class="keypoints">
+        <li><span class="m">01</span><span class="t"><b>Priorisierung zeigt ihren Wert beim Streichen.</b><span class="sub">MoSCoW stand vor dem ersten Sprint fest — deshalb musste am Ende nicht diskutiert werden, was fällt.</span></span></li>
+        <li><span class="m">02</span><span class="t"><b>Ein Format, das Alternativen erzwingt.</b><span class="sub">16 ADRs, keiner davon gelöscht — Kurskorrekturen werden als <code>superseded</code> markiert.</span></span></li>
+        <li><span class="m">03</span><span class="t"><b>Metadaten gehören an genau einen Ort.</b><span class="sub">Die Lehre aus dem Juli: zwei Datenhaltungen für dieselbe Tatsache laufen auseinander.</span></span></li>
+        <li><span class="m">04</span><span class="t"><b>KI im Prozess, Mensch am Gate.</b><span class="sub">Kein Agent schreibt auf <code>main</code>, gemerged wird von Hand.</span></span></li>
+      </ul>
+
+      <p class="lede" style="margin-top:2.2rem; font-weight:600; color:var(--c-ink);">Fragen?</p>
+
+      <div class="notes">
+        <div class="cue">Schluss · 45 Sek</div>
+        <p>Vier Punkte zum Mitnehmen.</p>
+        <p><b>Erstens:</b> MoSCoW zeigt seinen Wert nicht beim Planen, sondern beim Streichen. Weil die Reihenfolge seit dem ersten Sprint feststand und begründet war, können wir heute offen sagen, was fehlt, ohne dass es nach Zufall aussieht.</p>
+        <p><b>Zweitens:</b> Das ADR-Format erzwingt, Alternativen aufzuschreiben, bevor entschieden wird. Und eine Kurskorrektur löscht keinen ADR — sie markiert ihn <code>superseded</code>, damit die Entscheidungsgeschichte lesbar bleibt.</p>
+        <p><b>Drittens:</b> Die Sprint-Zuordnung steht ausschliesslich im Iteration-Feld, Abhängigkeiten im Relationships-Panel, Story Points im Board. Der Plan hält fest, was zum Zeitpunkt der Planung galt; das Board hält, was jetzt gilt.</p>
+        <p><b>Viertens:</b> Drei Skills decken Planung, Umsetzung und Review ab und halten vor jedem Schreibvorgang an. Ein Agent, der selbst merged, nähme die einzige Stelle aus dem Prozess, an der jemand die Verantwortung trägt.</p>
+        <p><b>Falls nach dem Projektstand gefragt wird:</b> 10 von 14 User Stories sind implementiert. US-07 und US-11 wurden nach MoSCoW bewusst zurückgestellt, US-10 ist über die Drei-Monats-Tabelle teilweise abgedeckt, und US-09 — der KI-Monatsbericht — ist eine echte offene Lücke: ein leerer Package-Stub, keine Klassen.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8 — Demo -->
+  <section class="slide divider-slide">
+    <div class="slide-inner">
+      <div class="num">03</div>
+      <h1>Demo</h1>
+      <div class="notes">
+        <div class="cue">Übergabe</div>
+        <p>Standbild für den Sprecher- und Bildschirmwechsel. Hier stehen bleiben, bis Sergio übernommen hat — der Handoff ist nicht Teil der zehn Minuten.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="deckfoot">
+    <div class="notesbar" id="notesbar">
+      <div class="notesbar-head">
+        <span class="k">Referentennotizen</span>
+        <span class="sl" id="notesSlide"></span>
+        <span class="sp"></span>
+        <button class="txt-btn" id="presenterBtn" title="Notizen in einem zweiten Fenster öffnen">Zweites Fenster</button>
+        <button class="txt-btn" id="notesCloseBtn">Schliessen · N</button>
+      </div>
+      <div class="notesbar-body" id="notesBody"></div>
+    </div>
+    <div class="nav">
+      <button class="nav-btn" id="prevBtn" aria-label="Vorherige Folie">&#8592;</button>
+      <div class="nav-center">
+        <div class="dots" id="dots"></div>
+        <div class="counter" id="counter">1 / 8</div>
+      </div>
+      <div style="display:flex; gap:.5rem; align-items:center;">
+        <button class="txt-btn" id="notesBtn" title="Referentennotizen ein-/ausblenden (N)">Notizen · N</button>
+        <button class="nav-btn" id="nextBtn" aria-label="Nächste Folie">&#8594;</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var total = slides.length;
+  var idx = 0;
+  var notesOpen = false;
+  var dotsEl = document.getElementById('dots');
+  var counterEl = document.getElementById('counter');
+  var progressBar = document.getElementById('progressBar');
+  var prevBtn = document.getElementById('prevBtn');
+  var nextBtn = document.getElementById('nextBtn');
+  var notesBtn = document.getElementById('notesBtn');
+  var notesCloseBtn = document.getElementById('notesCloseBtn');
+  var presenterBtn = document.getElementById('presenterBtn');
+  var notesBody = document.getElementById('notesBody');
+  var notesSlide = document.getElementById('notesSlide');
+  var deck = document.getElementById('deck');
+  var presenterWin = null;
+
+  // Notiz-HTML je Folie einmal einsammeln; die Knoten selbst bleiben im DOM (für den Handout-Druck).
+  var notes = slides.map(function(s){
+    var n = s.querySelector('.notes');
+    return n ? n.innerHTML : '<p style="color:var(--c-ink-3)">Keine Notizen zu dieser Folie.</p>';
+  });
+  var titles = slides.map(function(s){
+    var h = s.querySelector('h1, h2');
+    return h ? h.textContent.replace(/\s+/g, ' ').trim() : '';
+  });
+
+  slides.forEach(function(_, i){
+    var b = document.createElement('button');
+    b.setAttribute('aria-label', 'Zu Folie ' + (i+1));
+    b.addEventListener('click', function(){ go(i); });
+    dotsEl.appendChild(b);
+  });
+
+  function renderNotes(){
+    notesBody.innerHTML = notes[idx];
+    notesBody.scrollTop = 0;
+    notesSlide.textContent = (idx+1) + '/' + total + ' · ' + titles[idx];
+    pushToPresenter();
+  }
+
+  function render(){
+    slides.forEach(function(s, i){ s.classList.toggle('is-active', i === idx); });
+    Array.prototype.forEach.call(dotsEl.children, function(d, i){ d.classList.toggle('is-active', i === idx); });
+    counterEl.textContent = (idx+1) + ' / ' + total;
+    progressBar.style.width = ((idx+1) / total * 100) + '%';
+    prevBtn.disabled = idx === 0;
+    nextBtn.disabled = idx === total - 1;
+    var active = slides[idx];
+    if (active) active.scrollTop = 0;
+    renderNotes();
+    try { localStorage.setItem('bb-teil2-slide', String(idx)); } catch(e){}
+  }
+
+  function go(i){
+    idx = Math.max(0, Math.min(total - 1, i));
+    render();
+  }
+
+  function setNotes(open){
+    notesOpen = open;
+    deck.classList.toggle('notes-open', notesOpen);
+    notesBtn.classList.toggle('on', notesOpen);
+    notesBtn.textContent = notesOpen ? 'Notizen aus · N' : 'Notizen · N';
+    try { localStorage.setItem('bb-teil2-notes', notesOpen ? '1' : '0'); } catch(e){}
+  }
+
+  // ---- zweites Fenster (Referentenansicht) ----
+  function pushToPresenter(){
+    if (!presenterWin || presenterWin.closed) return;
+    try {
+      var d = presenterWin.document;
+      var t = d.getElementById('p-title');
+      var n = d.getElementById('p-notes');
+      var c = d.getElementById('p-count');
+      if (t) t.textContent = titles[idx];
+      if (n) { n.innerHTML = notes[idx]; n.scrollTop = 0; }
+      if (c) c.textContent = (idx+1) + ' / ' + total;
+    } catch(e){ /* Fenster nicht mehr erreichbar — still ignorieren */ }
+  }
+
+  function openPresenter(){
+    try {
+      presenterWin = window.open('', 'bb-presenter-teil2', 'width=760,height=900');
+      if (!presenterWin) throw new Error('blockiert');
+      presenterWin.document.open();
+      presenterWin.document.write(
+        '<!DOCTYPE html><html lang="de"><head><meta charset="utf-8">' +
+        '<title>Referentenansicht — Teil 2</title><style>' +
+        'body{margin:0;font:15px/1.6 system-ui,-apple-system,sans-serif;background:#0e1312;color:#e6efec;}' +
+        'header{position:sticky;top:0;background:#171f1d;border-bottom:2px solid #2dbfa4;padding:.8rem 1.2rem;}' +
+        '#p-count{font:600 .75rem ui-monospace,monospace;color:#2dbfa4;letter-spacing:.08em;}' +
+        '#p-title{font-size:1.15rem;font-weight:700;margin-top:.2rem;}' +
+        'main{padding:1.2rem 1.4rem 3rem;}' +
+        'main p{margin:0 0 .85rem;max-width:80ch;}' +
+        'main ul{margin:0 0 .85rem;padding-left:1.1rem;}' +
+        'main li{margin-bottom:.35rem;color:#9db0aa;}' +
+        'b,strong{color:#fff;}code{font-family:ui-monospace,monospace;color:#2dbfa4;}' +
+        '.cue{font:600 .72rem ui-monospace,monospace;color:#2dbfa4;text-transform:uppercase;' +
+        'letter-spacing:.06em;margin-bottom:.5rem;}' +
+        'footer{position:fixed;bottom:0;left:0;right:0;background:#171f1d;border-top:1px solid #26302e;' +
+        'padding:.5rem 1.2rem;font:.72rem ui-monospace,monospace;color:#6f817b;}' +
+        '</style></head><body>' +
+        '<header><div id="p-count"></div><div id="p-title"></div></header>' +
+        '<main id="p-notes"></main>' +
+        '<footer>Weiterblättern im Hauptfenster — diese Ansicht folgt automatisch.</footer>' +
+        '</body></html>'
+      );
+      presenterWin.document.close();
+      pushToPresenter();
+      presenterWin.focus();
+    } catch(e){
+      presenterWin = null;
+      notesBody.innerHTML =
+        '<p><b>Das zweite Fenster liess sich nicht öffnen.</b> Meist blockiert der Browser das Popup — ' +
+        'einmal erlauben und erneut klicken. Alternativ funktionieren die Notizen hier unten genauso, ' +
+        'oder du druckst das Deck als Handout (Cmd/Ctrl+P): dort steht unter jeder Folie ihr Notizblock.</p>';
+      setNotes(true);
+    }
+  }
+
+  prevBtn.addEventListener('click', function(){ go(idx - 1); });
+  nextBtn.addEventListener('click', function(){ go(idx + 1); });
+  notesBtn.addEventListener('click', function(){ setNotes(!notesOpen); });
+  notesCloseBtn.addEventListener('click', function(){ setNotes(false); });
+  presenterBtn.addEventListener('click', openPresenter);
+
+  window.addEventListener('keydown', function(e){
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var k = e.key;
+    if (k === 'ArrowRight' || k === ' ' || k === 'PageDown'){ go(idx + 1); e.preventDefault(); }
+    else if (k === 'ArrowLeft' || k === 'PageUp'){ go(idx - 1); e.preventDefault(); }
+    else if (k === 'Home'){ go(0); e.preventDefault(); }
+    else if (k === 'End'){ go(total - 1); e.preventDefault(); }
+    else if (k === 'n' || k === 'N'){ setNotes(!notesOpen); e.preventDefault(); }
+    else if (k === 'Escape' && notesOpen){ setNotes(false); e.preventDefault(); }
+  });
+
+  var startX = null;
+  deck.addEventListener('touchstart', function(e){ startX = e.touches[0].clientX; }, {passive:true});
+  deck.addEventListener('touchend', function(e){
+    if (startX === null) return;
+    var dx = e.changedTouches[0].clientX - startX;
+    if (Math.abs(dx) > 50){ go(idx + (dx < 0 ? 1 : -1)); }
+    startX = null;
+  }, {passive:true});
+
+  try {
+    var saved = parseInt(localStorage.getItem('bb-teil2-slide'), 10);
+    if (!isNaN(saved) && saved >= 0 && saved < total) idx = saved;
+  } catch(e){}
+  try { notesOpen = localStorage.getItem('bb-teil2-notes') === '1'; } catch(e){}
+
+  setNotes(notesOpen);
+  render();
+  deck.focus();
+})();
+</script>
+</body>
+</html>
