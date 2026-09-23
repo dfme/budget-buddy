@@ -24,11 +24,12 @@ public interface RecurringExpenseRepository extends JpaRepository<RecurringExpen
     List<RecurringExpense> findByUserId(Long userId);
 
     /**
-     * Alle Einträge eines Users, beide Status, sortiert — für {@code list} (BE-REC-02). Seit
+     * Alle Einträge eines Users, alle Status, sortiert — für {@code list} (BE-REC-02). Seit
      * FE-NOTIF-03 gehören auch {@code DISMISSED}-Einträge in die Antwort: die Abo-Übersicht zeigt
      * sie in einem eigenen Abschnitt «Kein Abo», damit der Klick auf eine Benachrichtigung zu
-     * einem inzwischen verneinten Eintrag ein Ziel hat. Die Trennung nach Status macht der
-     * Client anhand des {@code status}-Felds.
+     * einem inzwischen verneinten Eintrag ein Ziel hat. Seit BE-REC-04 ebenso die
+     * {@code ENDED}-Einträge, im Abschnitt «Beendet». Die Trennung nach Status macht der Client
+     * anhand des {@code status}-Felds.
      *
      * <p>Alphabetisch nach {@code payee_key}, damit die Übersicht zwischen zwei Aufrufen nicht
      * springt — ohne {@code ORDER BY} hinge die Reihenfolge an der Datenbank. Der Schlüssel ist pro
@@ -39,8 +40,9 @@ public interface RecurringExpenseRepository extends JpaRepository<RecurringExpen
     /**
      * Alle Einträge eines Users in einem Status — für {@link RecurringExpenseAmountPort}
      * (FE-FC-05): der Safe-to-Spend braucht genau die {@code DETECTED}-Zeilen; verneinte
-     * ({@code DISMISSED}) und ausgelaufene ({@code ENDED}) dürfen ihn nicht mindern. Der Index kommt wie oben aus dem {@code user_id}-Präfix der
-     * {@code UNIQUE}-Constraint (V11); die Menge pro User ist klein.
+     * ({@code DISMISSED}) und ausgelaufene ({@code ENDED}) dürfen ihn nicht mindern. Der Index
+     * kommt wie oben aus dem {@code user_id}-Präfix der {@code UNIQUE}-Constraint (V11); die
+     * Menge pro User ist klein.
      */
     List<RecurringExpense> findByUserIdAndStatus(Long userId, RecurringExpenseStatus status);
 

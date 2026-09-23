@@ -42,8 +42,9 @@ test.describe('Abo-Erkennung', () => {
 
   /**
    * Dritte Monatsbuchung (August 2025) desselben Empfängers/Betrags — Nachweis, dass die
-   * Erkennung nach «Kein Abo» nicht erneut anspringt (`RecurringExpenseService`: ein bereits
-   * bekannter Empfänger wird übersprungen, unabhängig vom Status).
+   * Erkennung nach «Kein Abo» nicht erneut anspringt (`RecurringExpenseService`: ein
+   * `DISMISSED`-Empfänger bleibt ausgeschlossen; seit BE-REC-04 werden nur `DETECTED`- und
+   * `ENDED`-Zeilen neu bewertet).
    */
   const FIXTURE_PERSISTENCE = join(
     __dirname,

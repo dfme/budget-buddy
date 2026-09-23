@@ -208,10 +208,11 @@ final class FixedCostDebitMatcher {
      *
      * <p>Alle Seiten liefern heute bereits Skala 2 — {@code FixedCostService.toResponse(...)},
      * {@link com.budgetbuddy.transaction.MonthlyExpensePort#expenseAmounts(long, java.time.YearMonth)}
-     * und {@link RecurringExpenseAmountPort#detectedAmounts(long)} sagen sie zu. Die Normalisierung hier verlässt sich nicht darauf: {@link BigDecimal#equals}
-     * unterscheidet {@code 1200} (Skala 0) von {@code 1200.00} (Skala 2), und ein Vergleich, der an
-     * der Skala einer anderen Klasse hängt, bricht lautlos, wenn dort etwas geändert wird. Ein
-     * stiller Fehltreffer ist hier teurer als eine redundante Zeile.
+     * und {@link RecurringExpenseAmountPort#detectedAmounts(long)} sagen sie zu. Die
+     * Normalisierung hier verlässt sich nicht darauf: {@link BigDecimal#equals} unterscheidet
+     * {@code 1200} (Skala 0) von {@code 1200.00} (Skala 2), und ein Vergleich, der an der Skala
+     * einer anderen Klasse hängt, bricht lautlos, wenn dort etwas geändert wird. Ein stiller
+     * Fehltreffer ist hier teurer als eine redundante Zeile.
      *
      * <p>{@link RoundingMode#HALF_UP} und nicht {@link RoundingMode#UNNECESSARY}: dies ist ein
      * Lesepfad, der eine HTTP-Antwort trägt. Er soll bei einem unerwarteten Wert einen leicht

@@ -135,9 +135,11 @@ public class RecurringExpense {
      *
      * <p>Idempotent, analog {@code Notification#markRead}: ein zweiter Aufruf auf einen bereits
      * {@link RecurringExpenseStatus#DISMISSED}-Eintrag ändert nichts. Aus
-     * {@link RecurringExpenseStatus#ENDED} heraus ebenso zulässig: ein ausgelaufenes Abo, das
-     * nie eines war, darf der Nutzer weiterhin verneinen — und erst das schliesst den Empfänger
-     * dauerhaft aus.
+     * {@link RecurringExpenseStatus#ENDED} heraus lässt die Methode den Übergang zu, die Übersicht
+     * bietet ihn aber bewusst nicht an: «Kein Abo» sagt «war nie ein Abo», ein ausgelaufener
+     * Eintrag dagegen «läuft nicht mehr» ({@code recurring-expense-list.ts}, Abschnitt
+     * «Beendet»). Wer einen solchen Empfänger dauerhaft ausschliessen will, verneint ihn, sobald
+     * er wieder als {@code DETECTED} erscheint — bis dahin mindert er ohnehin nichts.
      */
     public void dismiss() {
         this.status = RecurringExpenseStatus.DISMISSED;
