@@ -165,6 +165,22 @@ describe('IncomeCard', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Einkommen gespeichert.');
   });
 
+  it('meldet ein erfolgreiches Speichern über `saved`, ein fehlgeschlagenes nicht', () => {
+    let emissions = 0;
+    component.saved.subscribe(() => emissions++);
+    component.incomeForm.controls.betrag.setValue(3800);
+
+    component.submitIncome();
+    httpMock
+      .expectOne('/api/users/me/income')
+      .flush('boom', { status: 500, statusText: 'Internal Server Error' });
+    expect(emissions).toBe(0);
+
+    component.submitIncome();
+    httpMock.expectOne('/api/users/me/income').flush({ ...LARA, monthlyIncome: 3800 });
+    expect(emissions).toBe(1);
+  });
+
   it('zeigt die Fehlermeldung aus dem Backend bei einer 400-Antwort direkt an', () => {
     component.incomeForm.controls.betrag.setValue(100_000_000);
 

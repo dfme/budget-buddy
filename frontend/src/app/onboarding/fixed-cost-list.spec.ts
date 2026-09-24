@@ -420,6 +420,38 @@ describe('FixedCostList', () => {
         income!.compareDocumentPosition(total!) & Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();
     });
+
+    // Card und Warnung «Fixkosten übersteigen dein Einkommen» stehen auf derselben Seite: ohne
+    // Neuladen widerspräche die Warnung dem gerade gespeicherten Einkommen.
+    it('lädt die Fixkosten neu, sobald die Card ein Einkommen gespeichert hat', () => {
+      flushInitialLoad(summaryOf([MIETE], 1000, true));
+      expect(text()).toContain('übersteigen dein Einkommen');
+
+      const card = fixture.debugElement.query(By.directive(IncomeCard))
+        .componentInstance as IncomeCard;
+      card.incomeForm.controls.betrag.setValue(4000);
+      card.submitIncome();
+      httpMock.expectOne('/api/users/me/income').flush({ ...LARA, monthlyIncome: 4000 });
+
+      httpMock.expectOne('/api/fixed-costs').flush(summaryOf([MIETE], 4000, false));
+      fixture.detectChanges();
+
+      expect(text()).not.toContain('übersteigen dein Einkommen');
+    });
+
+    it('lädt nicht neu, wenn das Speichern des Einkommens fehlschlägt', () => {
+      flushInitialLoad(summaryOf([MIETE], 1000, true));
+
+      const card = fixture.debugElement.query(By.directive(IncomeCard))
+        .componentInstance as IncomeCard;
+      card.incomeForm.controls.betrag.setValue(4000);
+      card.submitIncome();
+      httpMock
+        .expectOne('/api/users/me/income')
+        .flush('boom', { status: 500, statusText: 'Internal Server Error' });
+
+      httpMock.expectNone('/api/fixed-costs');
+    });
   });
 
   // FE-FC-05: die Abo-Übersicht ist ein Abschnitt dieser Seite. Zwei getrennte Requests, zwei
@@ -716,6 +748,10 @@ describe('Route /budget (FE-FC-09)', () => {
       firstName: null,
       lastName: null,
     });
+    // Die Budget-Seite lädt nach dem Speichern ihre Fixkosten neu (Warnung hängt am Einkommen).
+    httpMock
+      .expectOne('/api/fixed-costs')
+      .flush({ fixedCosts: [], summeMonatlich: 0, monthlyIncome: 3800, exceedsIncome: false });
     root.detectChanges();
 
     // Reine SPA-Navigation — kein `location.reload()`, kein neuer `App`-Fixture: dieselbe

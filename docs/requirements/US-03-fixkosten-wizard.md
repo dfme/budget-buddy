@@ -8,7 +8,7 @@
 
 ## Acceptance Criteria
 
-**Given** ich starte die App zum ersten Mal, **When** das Onboarding beginnt, **Then** wird ein Fixkosten-Wizard angezeigt, der nicht übersprungen werden kann, bis mindestens ein Eintrag gespeichert oder explizit "Keine Fixkosten" bestätigt wurde.
+**Given** ich starte die App zum ersten Mal, **When** das Onboarding beginnt, **Then** wird ein Fixkosten-Wizard angezeigt, der nicht übersprungen werden kann, bis mindestens ein Eintrag gespeichert oder explizit «Später erfassen» gewählt wurde.
 
 **Given** ich erfasse einen Fixkosten-Eintrag, **When** ich speichere, **Then** muss er die Pflichtfelder `Bezeichnung` (nicht leer), `Betrag in CHF > 0` und `Intervall ∈ {monatlich, quartalsweise, jährlich}` enthalten — andernfalls wird das Speichern mit einer feldspezifischen Fehlermeldung abgelehnt.
 

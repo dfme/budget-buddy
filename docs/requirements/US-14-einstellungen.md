@@ -38,7 +38,7 @@ eingebettet sowohl auf der Budget-Seite
 Onboarding-Wizard
 ([fixed-cost-wizard.html](../../frontend/src/app/onboarding/fixed-cost-wizard.html)) — wer sein
 Einkommen schon beim ersten Einrichten kennt, muss den Wizard dafür nicht verlassen. Wie überall
-optional: leer lassen und «Keine Fixkosten» schliesst das Onboarding trotzdem ab.
+optional: leer lassen und «Später erfassen» schliesst das Onboarding trotzdem ab.
 
 **Scope-Entscheid Theme-Präferenz:** Die Wahl wird *client-only* in `localStorage` gehalten, mit `prefers-color-scheme` als Default. Damit bleibt die Erweiterung ein reines Frontend-Thema — kein Feld an `users`, keine Flyway-Migration, kein zusätzlicher Endpoint. Die geräteübergreifende Variante (Präferenz im Nutzerprofil) ist die bewusst verworfene Alternative; die Herleitung steht in [design/README.md](../../design/README.md) unter „Nutzerseitige Theme-Präferenz".
 

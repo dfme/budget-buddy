@@ -214,7 +214,10 @@ test.describe('Abo-Erkennung', () => {
 
       await expect(page).toHaveURL(/\/budget$/);
       await expect(page.getByRole('heading', { level: 1, name: 'Budget' })).toBeVisible();
-      await expect(page.getByRole('heading', { level: 2, name: 'Ausgaben' })).toBeVisible();
+      // `exact`: ohne träfe der Teilstring auch die Card «Monatliche fixe Ausgaben» (ebenfalls h2).
+      await expect(
+        page.getByRole('heading', { level: 2, name: 'Ausgaben', exact: true }),
+      ).toBeVisible();
       await expect(
         page.getByRole('heading', { level: 3, name: 'Erfasste Fixkosten' }),
       ).toBeVisible();

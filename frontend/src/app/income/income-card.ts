@@ -1,5 +1,12 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  inject,
+  output,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 
@@ -43,6 +50,15 @@ export class IncomeCard {
 
   /** `true`, sobald das Einkommen in dieser Sitzung zuletzt erfolgreich gespeichert wurde. */
   readonly incomeSaved = signal(false);
+
+  /**
+   * Feuert nach jedem erfolgreichen Speichern. Für einbettende Seiten, die Daten anzeigen, die
+   * vom Einkommen abhängen — auf der Budget-Seite die Warnung «Fixkosten übersteigen dein
+   * Einkommen», die sonst bis zur nächsten Navigation die alten Zahlen zeigte. Ein Ereignis statt eines
+   * Effekts auf `incomeSaved()`: Neuladen ist die Reaktion auf einen Speichervorgang, kein
+   * Zustand.
+   */
+  readonly saved = output<void>();
 
   /** Fehlermeldung nach fehlgeschlagenem Einkommen-Submit oder `null`. */
   readonly incomeErrorMessage = signal<string | null>(null);
@@ -161,6 +177,7 @@ export class IncomeCard {
           this.incomeSubmitting.set(false);
           this.incomeSaved.set(true);
           this.incomeSuggestion.set(null);
+          this.saved.emit();
         },
         error: (err: HttpErrorResponse) => {
           this.incomeSubmitting.set(false);

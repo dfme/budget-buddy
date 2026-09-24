@@ -331,6 +331,15 @@ export class FixedCostList implements OnInit {
       });
   }
 
+  /**
+   * Lädt die Fixkosten neu, nachdem die eingebettete {@link IncomeCard} ein neues Einkommen
+   * gespeichert hat: `monthlyIncome` und `exceedsIncome` kommen im selben Response wie die
+   * Positionen, die Warnung hängt also an diesem Request.
+   */
+  reload(): void {
+    this.load();
+  }
+
   private load(): void {
     this.loading.set(true);
     this.errorMessage.set(null);
