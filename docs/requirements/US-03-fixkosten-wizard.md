@@ -8,7 +8,7 @@
 
 ## Acceptance Criteria
 
-**Given** ich starte die App zum ersten Mal, **When** das Onboarding beginnt, **Then** wird ein Fixkosten-Wizard angezeigt, der nicht übersprungen werden kann, bis mindestens ein Eintrag gespeichert oder explizit "Keine Fixkosten" bestätigt wurde.
+**Given** ich starte die App zum ersten Mal, **When** das Onboarding beginnt, **Then** wird ein Fixkosten-Wizard angezeigt, der nicht übersprungen werden kann, bis mindestens ein Eintrag gespeichert oder explizit «Später erfassen» gewählt wurde.
 
 **Given** ich erfasse einen Fixkosten-Eintrag, **When** ich speichere, **Then** muss er die Pflichtfelder `Bezeichnung` (nicht leer), `Betrag in CHF > 0` und `Intervall ∈ {monatlich, quartalsweise, jährlich}` enthalten — andernfalls wird das Speichern mit einer feldspezifischen Fehlermeldung abgelehnt.
 
@@ -23,3 +23,18 @@
 **Given** die Summe aller Fixkosten (auf Monatsbasis) ≥ Monatseinkommen, **When** ich speichere oder das Dashboard öffne, **Then** wird die Warnung "Deine Fixkosten übersteigen dein Einkommen — Safe-to-Spend kann nicht berechnet werden" angezeigt und der Safe-to-Spend-Wert als "–" dargestellt.
 
 **Given** mindestens ein Monat importierter Transaktionen vorliegt, **When** ich den Fixkosten-Wizard oder die Fixkosten-Einstellungen öffne, **Then** schlägt das System wiederkehrende Belastungen (gleicher Empfänger, gleicher Betrag ±2%, mind. 2 aufeinanderfolgende Monate) automatisch als Fixkosten-Vorschläge vor — ich kann jeden Vorschlag einzeln bestätigen oder ablehnen.
+
+---
+
+## Hinweise
+
+**Einkommen ist seit FE-FC-09 (#360) auch hier erfassbar:** Der Seitenkopf heisst seither «Budget»,
+nicht mehr «Fixkosten erfassen» — Einkommen und Fixkosten sind zwei gleichrangige Abschnitte mit
+je eigener Zwischenüberschrift, oben derselbe eingebettete Abschnitt «Einkommen» wie auf der
+Budget-Seite ([`IncomeCard`](../../frontend/src/app/income/income-card.ts), siehe
+[US-14](US-14-einstellungen.md)). Der Lead-Text weist darauf hin, dass sich beide Angaben später
+jederzeit unter «Budget» nachtragen oder ändern lassen. Optional wie überall, ohne Zwang für den
+Abschluss des Onboardings (AC1 oben): der Abschluss-Button unterscheidet nur noch zwischen «ohne
+jede Eingabe» und «mindestens eine Fixkosten-Position oder ein Einkommen gespeichert» — die frühere
+Beschriftung «Keine Fixkosten» bezog sich ausschliesslich auf Fixkosten und wäre seit der
+Einkommens-Card irreführend gewesen.

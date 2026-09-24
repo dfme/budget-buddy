@@ -428,7 +428,7 @@ public class RecurringExpenseService
      * «von der Seite».
      *
      * <p>Die Trennung in Abschnitte macht der Client: «Erkannte Abos», «Beendet» und «Kein Abo»
-     * stehen untereinander auf {@code /ausgaben}. Ein ausgelaufener Eintrag verschwindet nicht von
+     * stehen untereinander auf {@code /budget}. Ein ausgelaufener Eintrag verschwindet nicht von
      * der Seite — aus demselben Grund wie ein verneinter (FE-NOTIF-03): die Bündel-Benachrichtigung
      * bleibt in der Glocke stehen, und ihr Klick braucht ein Ziel.
      *

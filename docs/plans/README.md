@@ -115,6 +115,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `FE-FC-04` | [Fixkosten-Tabelle läuft auf schmalen Viewports über die Card hinaus](FE-FC-04-tabelle-overflow.md) | [#172](https://github.com/dfme/budget-buddy/issues/172) | — | Sprint 5 |
 | `FE-FC-05` | [Fixkosten- und Abo-Ansicht zusammenführen](FE-FC-05-fixkosten-abos-zusammenfuehren.md) | [#338](https://github.com/dfme/budget-buddy/issues/338) | US-03, US-08 | — |
 | `FE-FC-07` | [Fixkosten-Seite zu «Ausgaben» umbenennen (Route, Nav, Titel) und kombiniertes Total anzeigen](FE-FC-07-ausgaben-seite.md) | [#355](https://github.com/dfme/budget-buddy/issues/355) | US-08 | Sprint 7 |
+| `FE-FC-09` | [Einkommen aus Einstellungen auf die Ausgaben-Seite verschieben, Seite zu «Budget» umbenennen](FE-FC-09-budget-seite.md) | [#360](https://github.com/dfme/budget-buddy/issues/360) | US-14, US-06 | Sprint 7 |
 | `FE-NOTIF-01` | [Notification-Glocke in der App-Shell](FE-NOTIF-01-notification-bell.md) | [#247](https://github.com/dfme/budget-buddy/issues/247) | US-08 | Sprint 6 |
 | `FE-NOTIF-02` | [Glocke: Dropdown auf Desktop ausserhalb des Viewports, Icon passt nicht zum Design](FE-NOTIF-02-bell-dropdown-icon.md) | [#308](https://github.com/dfme/budget-buddy/issues/308) | US-08 | Sprint 7 |
 | `FE-NOTIF-03` | [Verneinte Abos bleiben auf /abos sichtbar — Abschnitt «Kein Abo»](FE-NOTIF-03-abo-hinweis-verneinter-eintrag.md) | [#333](https://github.com/dfme/budget-buddy/issues/333) | US-08 | Sprint 7 |
@@ -134,6 +135,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `FE-STS-02` | [Negativ-Banner](FE-STS-02-negativ-banner.md) | [#34](https://github.com/dfme/budget-buddy/issues/34) | US-06 | Sprint 4 |
 | `FE-STS-03` | [No-Income State und Einkommens-Vorschlag](FE-STS-03-no-income-state-and-suggestion.md) | [#35](https://github.com/dfme/budget-buddy/issues/35) | US-06 | Sprint 4 |
 | `FE-STS-04` | [Dashboard: Monatsnavigation und Drei-Monats-Übersicht](FE-STS-04-dashboard-monatsuebersicht.md) | [#250](https://github.com/dfme/budget-buddy/issues/250) | US-12 | Sprint 6 |
+| `FE-STS-05` | [Drei-Monats-Übersicht: horizontaler Scrollbalken trotz Platz links/rechts](FE-STS-05-totals-table-scrollbar.md) | [#361](https://github.com/dfme/budget-buddy/issues/361) | — | Sprint 7 |
 | `FE-UI-01` | [UI-Design definieren: 3 klickbare Varianten](FE-UI-01-design-varianten.md) | [#80](https://github.com/dfme/budget-buddy/issues/80) | US-05, US-06 | Sprint 3 |
 | `FE-UI-02` | [Design-Token-Fundament (Variante A, theme-fähig)](FE-UI-02-design-token-fundament.md) | [#99](https://github.com/dfme/budget-buddy/issues/99) | — | Sprint 3 |
 | `FE-UI-03` | [Shared-Basiskomponenten (Variante A)](FE-UI-03-shared-basiskomponenten.md) | [#100](https://github.com/dfme/budget-buddy/issues/100) | — | Sprint 3 |

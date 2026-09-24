@@ -35,7 +35,7 @@ export class RecurringExpenseService {
    * gekündigtes Abo eine Information ist und weil der Klick auf die zugehörige Benachrichtigung
    * sonst ins Leere führte (dieselbe Begründung wie bei {@link dismissed}, FE-NOTIF-03).
    *
-   * <p>Sie zählen weder in {@link count} noch ins Total der fixen Ausgaben auf `/ausgaben`, weil
+   * <p>Sie zählen weder in {@link count} noch ins Total der fixen Ausgaben auf `/budget`, weil
    * beide auf {@link detected} aufsetzen — dieselbe Grenze, die der Safe-to-Spend zieht.
    */
   readonly ended = computed(() => this.expenses().filter((e) => e.status === 'ENDED'));

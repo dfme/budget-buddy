@@ -53,7 +53,13 @@ h1 {
   margin-bottom: $sp-4;
 }
 
+// Zwischenüberschrift «Ausgaben» — die einzige h2 dieser Seite ausserhalb von `IncomeCard`, seit
+// «Erfasste Fixkosten» und «Erkannte Abos» eine Stufe tiefer (h3) sitzen.
 h2 {
+  margin: 0 0 $sp-4;
+}
+
+h3 {
   margin: 0;
 }
 

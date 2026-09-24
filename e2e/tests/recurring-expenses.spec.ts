@@ -13,11 +13,11 @@ import { bell } from '../support/notifications';
  * (`BE-REC-02`) und der Screen (`FE-REC-01`) existieren bereits; dieser Task liefert nur die
  * Playwright-Abdeckung.
  *
- * Einstieg über `authenticatedPage`/`authenticatedContext`: `/ausgaben` liegt hinter `authGuard`
+ * Einstieg über `authenticatedPage`/`authenticatedContext`: `/budget` liegt hinter `authGuard`
  * UND `onboardingGuard`, die Fixture erledigt beides über die API (siehe
  * `fixtures/auth.fixture.ts`). Die Abo-Übersicht ist seit FE-FC-05 (#338) der Abschnitt
- * «Erkannte Abos» auf dieser Seite — die bis FE-FC-07 (#355) `/fixkosten` hiess; `/abos` und
- * `/fixkosten` leiten nur noch dorthin um.
+ * «Erkannte Abos» auf dieser Seite — die bis FE-FC-09 (#360) «Ausgaben» und bis FE-FC-07 (#355)
+ * «Fixkosten» hiess; `/ausgaben`, `/abos` und `/fixkosten` leiten nur noch dorthin um.
  *
  * <p>Die Abo-Erkennung läuft synchron am Ende desselben Import-Jobs
  * (`ImportJobRunner.detectRecurringExpenses`, vor `finishSuccessfully`), ein separates Warten
@@ -71,8 +71,8 @@ test.describe('Abo-Erkennung', () => {
   }) => {
     await importFixture(authenticatedContext.request, FIXTURE_DETECTION);
 
-    await page.goto('/ausgaben');
-    await expect(page.getByRole('heading', { level: 2, name: 'Erkannte Abos' })).toBeVisible();
+    await page.goto('/budget');
+    await expect(page.getByRole('heading', { level: 3, name: 'Erkannte Abos' })).toBeVisible();
 
     // AC 1: die Zeile der erkannten Gruppe — Empfänger und «seit»-Label (erster Monat der Reihe).
     const row = page.locator('li.expense').filter({ hasText: PAYEE });
@@ -94,7 +94,7 @@ test.describe('Abo-Erkennung', () => {
   }) => {
     await importFixture(authenticatedContext.request, FIXTURE_BUNDLE);
 
-    await page.goto('/ausgaben');
+    await page.goto('/budget');
     await expect(page.locator('li.expense')).toHaveCount(2);
     await expect(page.locator('li.expense .expense__new')).toHaveCount(2);
 
@@ -109,10 +109,10 @@ test.describe('Abo-Erkennung', () => {
     await expect(aboItems.first()).toContainText(`2 neue Abos erkannt: ${PAYEE_2}, ${PAYEE}`);
 
     // AC 2 (FE-NOTIF-01, unverändert): der Einzelklick liest die Benachrichtigung und führt
-    // nach /ausgaben (FE-FC-05, umbenannt in FE-FC-07). Die Abo-Benachrichtigung ist danach
-    // gelesen …
+    // nach /budget (FE-FC-05, seither umbenannt über FE-FC-07 zu FE-FC-09). Die
+    // Abo-Benachrichtigung ist danach gelesen …
     await aboItems.first().click();
-    await expect(page).toHaveURL(/\/ausgaben$/);
+    await expect(page).toHaveURL(/\/budget$/);
     await bell(page).click();
     await expect(
       page.locator('.bell-list__item:visible').filter({ hasText: /Abos? erkannt/ }),
@@ -137,7 +137,7 @@ test.describe('Abo-Erkennung', () => {
     await importFixture(authenticatedContext.request, FIXTURE_DETECTION);
     await importFixture(authenticatedContext.request, FIXTURE_BUNDLE);
 
-    await page.goto('/ausgaben');
+    await page.goto('/budget');
     await expect(page.locator('li.expense .expense__new')).toHaveCount(2);
     await expect(bell(page).locator('.bell__badge')).toHaveCount(1);
 
@@ -165,7 +165,7 @@ test.describe('Abo-Erkennung', () => {
   }) => {
     await importFixture(authenticatedContext.request, FIXTURE_DETECTION);
 
-    await page.goto('/ausgaben');
+    await page.goto('/budget');
     const row = page.locator('li.expense').filter({ hasText: PAYEE });
     await expect(row).toHaveCount(1);
 
@@ -204,21 +204,25 @@ test.describe('Abo-Erkennung', () => {
     await expect(page.locator('li.dismissed-expense').filter({ hasText: PAYEE })).toHaveCount(1);
   });
 
-  // FE-FC-05 (#338) AC 4 und FE-FC-07 (#355) AC 1: beide alten Pfade leiten auf die Seite
-  // «Ausgaben» um — Bookmarks und ältere Links landen dort, nicht über den Catch-all auf dem
-  // Dashboard. `page.goto` ist ein Hard-Load: der Server muss den alten Pfad als SPA-Shell
-  // ausliefern (Catch-all, INFRA-17) UND der Angular-Router muss ihn umleiten — der Test belegt
-  // beides in einem.
-  for (const oldPath of ['/fixkosten', '/abos']) {
-    test(`${oldPath} leitet auf /ausgaben um`, async ({ authenticatedPage: page }) => {
+  // FE-FC-05 (#338) AC 4, FE-FC-07 (#355) AC 1 und FE-FC-09 (#360): alle drei alten Pfade leiten
+  // auf die Budget-Seite um — Bookmarks und ältere Links landen dort, nicht über den Catch-all
+  // auf dem Dashboard. `page.goto` ist ein Hard-Load: der Server muss den alten Pfad als
+  // SPA-Shell ausliefern (Catch-all, INFRA-17) UND der Angular-Router muss ihn umleiten — der
+  // Test belegt beides in einem.
+  for (const oldPath of ['/ausgaben', '/fixkosten', '/abos']) {
+    test(`${oldPath} leitet auf /budget um`, async ({ authenticatedPage: page }) => {
       await page.goto(oldPath);
 
-      await expect(page).toHaveURL(/\/ausgaben$/);
-      await expect(page.getByRole('heading', { level: 1, name: 'Ausgaben' })).toBeVisible();
+      await expect(page).toHaveURL(/\/budget$/);
+      await expect(page.getByRole('heading', { level: 1, name: 'Budget' })).toBeVisible();
+      // `exact`: ohne träfe der Teilstring auch die Card «Monatliche fixe Ausgaben» (ebenfalls h2).
       await expect(
-        page.getByRole('heading', { level: 2, name: 'Erfasste Fixkosten' }),
+        page.getByRole('heading', { level: 2, name: 'Ausgaben', exact: true }),
       ).toBeVisible();
-      await expect(page.getByRole('heading', { level: 2, name: 'Erkannte Abos' })).toBeVisible();
+      await expect(
+        page.getByRole('heading', { level: 3, name: 'Erfasste Fixkosten' }),
+      ).toBeVisible();
+      await expect(page.getByRole('heading', { level: 3, name: 'Erkannte Abos' })).toBeVisible();
     });
   }
 
@@ -236,7 +240,7 @@ test.describe('Abo-Erkennung', () => {
     expect(fixedCost.status(), 'Vorbedingung: POST /api/fixed-costs').toBe(201);
     await importFixture(context.request, FIXTURE_DETECTION);
 
-    await page.goto('/ausgaben');
+    await page.goto('/budget');
 
     // 1200.00 + 15.90. Format der CurrencyPipe unter de-CH — U+2019 als Tausendertrenner und
     // NBSP nach «CHF», siehe die Herleitung in `fixed-cost-wizard.spec.ts`.
@@ -274,7 +278,7 @@ test.describe('Abo-Erkennung', () => {
       route.fulfill({ status: 500, contentType: 'application/json', body: '{}' }),
     );
 
-    await page.goto('/ausgaben');
+    await page.goto('/budget');
 
     // Kein Total — ihm fehlt ein Summand, und 1'200.00 wäre schlicht falsch.
     await expect(page.locator('.monthly-total')).toHaveCount(0);

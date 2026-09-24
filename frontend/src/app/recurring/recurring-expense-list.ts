@@ -28,7 +28,7 @@ function toRow(expense: RecurringExpenseResponse): ExpenseRow {
 }
 
 /**
- * Abschnitt «Erkannte Abos» auf `/ausgaben`: laufende wiederkehrende Ausgaben mit «Neu»-Label
+ * Abschnitt «Erkannte Abos» auf `/budget`: laufende wiederkehrende Ausgaben mit «Neu»-Label
  * und «Kein Abo»-Button (FE-REC-01, US-08), darunter die ausgelaufenen in einem Abschnitt
  * «Beendet» (BE-REC-04) und die verneinten in einem Abschnitt «Kein Abo» (FE-NOTIF-03).
  *
@@ -53,8 +53,8 @@ function toRow(expense: RecurringExpenseResponse): ExpenseRow {
  * nur als gelesen). Stünde der Eintrag dann nirgends, landete der Klick auf einer Seite ohne
  * ihn — genau das schliesst #333 AC1 aus. US-08 AC3 («wird aus der Abo-Übersicht entfernt»)
  * heisst seither: aus der Liste der Abos, nicht von der Seite. Ohne verneinte Einträge fehlt der
- * Abschnitt ganz. Der Klick führt seit FE-FC-05 auf die Seite mit diesem Abschnitt (seit FE-FC-07
- * `/ausgaben`).
+ * Abschnitt ganz. Der Klick führt seit FE-FC-05 auf die Seite mit diesem Abschnitt (seit FE-FC-09
+ * `/budget`, davor `/ausgaben`).
  *
  * <p>Der State liegt im {@link RecurringExpenseService}, weil die Teaser-Card des Dashboards
  * dieselbe Liste zählt. Hier liegt nur, was allein diese Seite betrifft: Lade- und

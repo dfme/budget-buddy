@@ -9,11 +9,20 @@
 // beim Anpassen nicht auseinanderlaufen und das Banner nicht über die volle Seitenbreite
 // läuft, unter der die Card dann eingerückt wirkte. Der No-Income-Zustand (FE-STS-03)
 // braucht hier nichts: er liegt *in* der Card, nicht darüber.
+//
+// 40rem statt der ursprünglichen 28rem (FE-STS-05, #361): 28rem stammte aus FE-STS-01, als das
+// Dashboard nur das einzelne Safe-to-Spend-Widget trug, und blieb seither unangetastet, während
+// Ausgaben (`fixed-cost-list.scss`), Einstellungen (`settings.scss`) und die Kategorie-Übersicht
+// (`category-overview.scss`) unabhängig davon auf 40rem gelandet sind. Die Spalte war auch vorher
+// zentriert, nur schmaler — ihre linke Kante fluchtete deshalb nicht mit der von Ausgaben und
+// Einstellungen. Als Nebeneffekt blieb zu wenig Innenraum für die Drei-Monats-Tabelle darunter,
+// die dadurch auf jeder Viewport-Breite horizontal scrollte, obwohl rund um die Karte reichlich
+// Platz war.
 .negative-banner,
 .uncertain-banner,
 .closed-banner,
 .safe-to-spend-card {
-  max-width: 28rem;
+  max-width: 40rem;
   margin: $sp-6 auto 0;
 }
 
@@ -21,7 +30,7 @@
 // gegeneinander versetzt stehen. Abstände wie in der Kategorie-Übersicht.
 .month-selector {
   display: block;
-  max-width: 28rem;
+  max-width: 40rem;
   margin: $sp-4 auto $sp-5;
 }
 
@@ -112,7 +121,7 @@
 // hineingezogen: die dort genannten Elemente tragen `margin-top: $sp-6`, hier genügt der
 // kleinere Abstand, weil die Übersicht zur Zahl darüber gehört und nicht davon abgesetzt ist.
 .totals-card {
-  max-width: 28rem;
+  max-width: 40rem;
   margin: $sp-5 auto 0;
 }
 
@@ -176,7 +185,7 @@
 // wie ein Absatz aus Links.
 .recurring-teaser {
   display: block;
-  max-width: 28rem;
+  max-width: 40rem;
   margin: $sp-5 auto 0;
   color: inherit;
   text-decoration: none;
