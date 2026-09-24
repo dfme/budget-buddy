@@ -122,10 +122,10 @@ thead th {
   text-align: right;
 }
 
-// Bezeichnung: darf auch mitten im Wort umbrechen. Bei 390px Viewport bleiben ihr
-// rund 90px — ein langes Wort wie «Privathaftpflichtversicherung» schöbe die Tabelle sonst über
-// die Card. Zuerst nach Silben mit Trennstrich (`hyphens`, greift über `lang="de-CH"` in index.html), wo
-// das nicht reicht, an beliebiger Stelle.
+// Bezeichnung: darf auch mitten im Wort umbrechen. Bei 390px Viewport bleiben ihr rund 90px — ein
+// langes Wort wie «Privathaftpflichtversicherung» schöbe die Tabelle sonst über die Card. Zuerst
+// nach Silben mit Trennstrich (`hyphens`, greift über `lang="de-CH"` in index.html), wo das nicht
+// reicht, an beliebiger Stelle.
 .name {
   overflow-wrap: anywhere;
   hyphens: auto;
@@ -161,12 +161,7 @@ thead th {
 .actions__label {
   @include visually-hidden;
   @include desktop {
-    position: static;
-    width: auto;
-    height: auto;
-    margin: 0;
-    overflow: visible;
-    clip-path: none;
+    @include visually-hidden-reset;
   }
 }
 

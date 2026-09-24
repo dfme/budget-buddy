@@ -1,11 +1,14 @@
 @use 'tokens' as *;
 
+// Grund-Padding, auch für den Icon-only-Button ab Desktop — eine Quelle statt zwei.
+$btn-padding: $sp-3 $sp-5;
+
 :host {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: $sp-2;
-  padding: $sp-3 $sp-5;
+  padding: $btn-padding;
   border: 1px solid transparent;
   border-radius: $r-md;
   font-size: $fs-sm;
@@ -58,16 +61,10 @@
   @include desktop {
     width: auto;
     height: auto;
-    padding: $sp-3 $sp-5;
+    padding: $btn-padding;
 
     .btn__label {
-      position: static;
-      width: auto;
-      height: auto;
-      margin: 0;
-      overflow: visible;
-      clip-path: none;
-      white-space: normal;
+      @include visually-hidden-reset;
     }
   }
 }

@@ -129,6 +129,19 @@ $bp-desktop: 900px;
   white-space: nowrap;
 }
 
+// Gegenstück zu `visually-hidden`: holt das Element am Breakpoint zurück in den Fluss (etwa das
+// Button-Label ab `$bp-desktop`). Setzt genau die Eigenschaften zurück, die `visually-hidden`
+// setzt — bekommt das eine eine Eigenschaft dazu, gehört sie auch hierher.
+@mixin visually-hidden-reset {
+  position: static;
+  width: auto;
+  height: auto;
+  margin: 0;
+  overflow: visible;
+  clip-path: none;
+  white-space: normal;
+}
+
 // Beträge immer mit gleichbreiten Ziffern — sonst springen die Spalten.
 @mixin tabular {
   font-variant-numeric: tabular-nums;
