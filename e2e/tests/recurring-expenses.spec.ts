@@ -288,4 +288,34 @@ test.describe('Abo-Erkennung', () => {
     // Die Fixkosten-Tabelle steht unbeirrt daneben: ein Ausfall nimmt nicht die ganze Seite mit.
     await expect(page.getByRole('row').filter({ hasText: 'Miete' })).toHaveCount(1);
   });
+
+  // FE-FC-08 (#356): unter 900px ist «Kein Abo» nur ein Icon, wie Bearbeiten/Löschen der
+  // Fixkosten (`fixed-cost-list-mobile.spec.ts`). Belegt Grösse, unveränderten Namen und Tooltip —
+  // und dass der Klick auch über das Icon wirkt. Review-Befund #367: der Component-Test prüft nur
+  // die Klasse, nicht die gerenderte Fläche.
+  test.describe('Smartphone, 390px', () => {
+    test.use({ viewport: { width: 390, height: 844 } });
+
+    test('«Kein Abo» als 44px-Icon-Button mit unverändertem Namen und Tooltip', async ({
+      authenticatedContext,
+      authenticatedPage: page,
+    }) => {
+      await importFixture(authenticatedContext.request, FIXTURE_DETECTION);
+      await page.goto('/budget');
+
+      const button = page.getByRole('button', { name: `Kein Abo: ${PAYEE}` });
+      await expect(button).toBeVisible();
+      await expect(button).toHaveAttribute('title', 'Kein Abo');
+      await expect(button.locator('svg')).toBeVisible();
+      const box = await button.boundingBox();
+      expect(box?.width).toBeGreaterThanOrEqual(44);
+      expect(box?.height).toBeGreaterThanOrEqual(44);
+      // Nur das Icon: ein sichtbares Label daneben machte den Button deutlich breiter.
+      expect(box?.width).toBeLessThan(48);
+
+      await button.click();
+      await expect(page.locator('li.expense').filter({ hasText: PAYEE })).toHaveCount(0);
+      await expect(page.locator('li.dismissed-expense').filter({ hasText: PAYEE })).toHaveCount(1);
+    });
+  });
 });

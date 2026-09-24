@@ -137,6 +137,13 @@ describe('RecurringExpenseList', () => {
     expect(dismissButtons()[0].disabled).toBe(true);
     expect(dismissButtons()[0].textContent?.trim()).toBe('Wird entfernt …');
     expect(dismissButtons()[1].disabled).toBe(true);
+    // FE-FC-08: unter 900px ist das Label unsichtbar — aria-busy trägt den Wartezustand, und nur
+    // am laufenden Button, nicht an den bloss gesperrten.
+    expect(dismissButtons()[0].getAttribute('aria-busy')).toBe('true');
+    expect(dismissButtons()[1].hasAttribute('aria-busy')).toBe(false);
+    // Der Tooltip zieht mit: ohne sichtbares Label sonst die einzige Textquelle für die Maus.
+    expect(dismissButtons()[0].title).toBe('Wird entfernt …');
+    expect(dismissButtons()[1].title).toBe('Kein Abo');
 
     const req = httpMock.expectOne('/api/recurring-expenses/1/dismiss');
     expect(req.request.method).toBe('POST');
@@ -147,6 +154,7 @@ describe('RecurringExpenseList', () => {
     expect(list).toHaveLength(1);
     expect(list[0].querySelector('.expense__payee')?.textContent).toContain('SPOTIFY');
     expect(dismissButtons()[0].disabled).toBe(false);
+    expect(dismissButtons()[0].hasAttribute('aria-busy')).toBe(false);
     // FE-NOTIF-03: die Zeile verlässt die Seite nicht, sie wechselt in den Abschnitt «Kein Abo».
     expect(dismissedRows()).toHaveLength(1);
     expect(dismissedRows()[0].querySelector('.expense__payee')?.textContent).toContain('NETFLIX');
@@ -156,6 +164,19 @@ describe('RecurringExpenseList', () => {
   // Eintrags führt nach `/budget` (bis FE-FC-05: `/abos`, bis FE-FC-07: `/fixkosten`, bis
   // FE-FC-09: `/ausgaben`) — und der Eintrag muss dort stehen.
   // Ohne diesen Abschnitt landete er auf einer Seite, auf der der Eintrag fehlt.
+  // FE-FC-08: Icon in beiden Varianten, der zugängliche Name bleibt `Kein Abo: {payeeKey}` —
+  // darauf zielt der E2E-Selektor in `recurring-expenses.spec.ts`.
+  it('zeigt «Kein Abo» mit Icon und unverändertem zugänglichen Namen', () => {
+    flushList([NETFLIX]);
+
+    const button = dismissButtons()[0];
+    expect(button.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
+    expect(button.classList).toContain('btn--icon-only-mobile');
+    expect(button.getAttribute('aria-label')).toBe('Kein Abo: NETFLIX');
+    expect(button.textContent?.trim()).toBe('Kein Abo');
+    expect(button.title).toBe('Kein Abo');
+  });
+
   it('zeigt verneinte Einträge in einem eigenen Abschnitt «Kein Abo», ohne Neu-Label und Button', () => {
     flushList([NETFLIX, SWISSCOM_DISMISSED]);
 

@@ -114,6 +114,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `FE-FC-04` | [Fixkosten-Tabelle läuft auf schmalen Viewports über die Card hinaus](FE-FC-04-tabelle-overflow.md) | [#172](https://github.com/dfme/budget-buddy/issues/172) | — | Sprint 5 |
 | `FE-FC-05` | [Fixkosten- und Abo-Ansicht zusammenführen](FE-FC-05-fixkosten-abos-zusammenfuehren.md) | [#338](https://github.com/dfme/budget-buddy/issues/338) | US-03, US-08 | — |
 | `FE-FC-07` | [Fixkosten-Seite zu «Ausgaben» umbenennen (Route, Nav, Titel) und kombiniertes Total anzeigen](FE-FC-07-ausgaben-seite.md) | [#355](https://github.com/dfme/budget-buddy/issues/355) | US-08 | Sprint 7 |
+| `FE-FC-08` | [Aktions-Buttons mit Icons (Bearbeiten, Löschen, Kein Abo): Icon + Text ab 900px, nur Icon und drei Spalten auf Mobile](FE-FC-08-icon-buttons-mobile-table.md) | [#356](https://github.com/dfme/budget-buddy/issues/356) | US-03 | Sprint 7 |
 | `FE-FC-09` | [Einkommen aus Einstellungen auf die Ausgaben-Seite verschieben, Seite zu «Budget» umbenennen](FE-FC-09-budget-seite.md) | [#360](https://github.com/dfme/budget-buddy/issues/360) | US-14, US-06 | Sprint 7 |
 | `FE-NOTIF-01` | [Notification-Glocke in der App-Shell](FE-NOTIF-01-notification-bell.md) | [#247](https://github.com/dfme/budget-buddy/issues/247) | US-08 | Sprint 6 |
 | `FE-NOTIF-02` | [Glocke: Dropdown auf Desktop ausserhalb des Viewports, Icon passt nicht zum Design](FE-NOTIF-02-bell-dropdown-icon.md) | [#308](https://github.com/dfme/budget-buddy/issues/308) | US-08 | Sprint 7 |

@@ -70,4 +70,25 @@ describe('Styleguide', () => {
     fixture.detectChanges();
     expect(fixture.componentInstance.segmentValue()).toBe('income');
   });
+
+  // FE-FC-08: die neuen Button-Fähigkeiten stehen im Showcase, nicht nur versteckt in den
+  // Fachkomponenten. Geprüft wird, was gerendert ist — der Wechsel am Breakpoint ist CSS und
+  // braucht Layout, das jsdom nicht hat (belegt im E2E `fixed-cost-list-mobile.spec.ts`).
+  it('zeigt Buttons mit Icon, Icon only unter 900px und im Wartezustand', () => {
+    const root = fixture.nativeElement as HTMLElement;
+    const withIcon = root.querySelector<HTMLButtonElement>('button.sg-icon')!;
+    const iconOnly = root.querySelector<HTMLButtonElement>('button.sg-icon-only')!;
+    const busy = root.querySelector<HTMLButtonElement>('button.sg-busy')!;
+
+    for (const button of [withIcon, iconOnly, busy]) {
+      expect(button.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
+      expect(button.querySelector('.btn__label')).not.toBeNull();
+    }
+    expect(withIcon.classList).not.toContain('btn--icon-only-mobile');
+    expect(iconOnly.classList).toContain('btn--icon-only-mobile');
+    expect(iconOnly.getAttribute('aria-label')).toBe('Löschen: Beispiel');
+    expect(iconOnly.title).toBe('Icon only unter 900px');
+    expect(busy.disabled).toBe(true);
+    expect(busy.getAttribute('aria-busy')).toBe('true');
+  });
 });

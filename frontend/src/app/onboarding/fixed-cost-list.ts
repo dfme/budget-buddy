@@ -1,9 +1,10 @@
-import { CurrencyPipe } from '@angular/common';
+import { CurrencyPipe, formatCurrency } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  LOCALE_ID,
   OnInit,
   computed,
   inject,
@@ -102,6 +103,7 @@ export class FixedCostList implements OnInit {
   private readonly fixedCosts = inject(FixedCostService);
   private readonly recurringExpenses = inject(RecurringExpenseService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly locale = inject(LOCALE_ID);
 
   /**
    * Der eingebettete Abschnitt «Erkannte Abos». Gebraucht für seinen Lade- und Fehlerzustand:
@@ -220,6 +222,22 @@ export class FixedCostList implements OnInit {
   /** Anzeigetext (mit Umlaut) für ein Intervall-Wire-Format. */
   intervallLabel(value: Intervall): string {
     return this.intervallOptions.find((option) => option.value === value)?.label ?? value;
+  }
+
+  /**
+   * Unterzeile unter der Bezeichnung (FE-FC-08): `CHF 335.00 · jährlich`, bei monatlichen
+   * Positionen nur `monatlich` — der Betrag wäre derselbe wie der Monatsbetrag daneben. Betrag
+   * und Intervall haben seit FE-FC-08 keine eigenen Spalten mehr.
+   *
+   * <p>Hier statt im Template: ein `@if` innerhalb der Zeile setzte einen führenden Leerraum vor
+   * den Betrag. Formatiert wie der `CurrencyPipe` im Template (`'CHF' : 'symbol' : '1.2-2'`).
+   */
+  subline(item: FixedCostDetail): string {
+    const intervall = this.intervallLabel(item.intervall);
+    if (item.intervall === 'monatlich') {
+      return intervall;
+    }
+    return `${formatCurrency(item.betrag, this.locale, 'CHF', 'CHF', '1.2-2')} · ${intervall}`;
   }
 
   /** Fehlermeldung fürs Bezeichnungs-Feld der Bearbeiten-Form oder `null`. */
