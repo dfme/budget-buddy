@@ -32,10 +32,11 @@ import { MIN_BETRAG_CHF, maxTwoDecimals, nonBlank } from './fixed-cost.validator
 
 /**
  * Die Seite «Budget» (`/budget`, FE-FC-09): ganz oben der eingebettete {@link IncomeCard} (bis
- * FE-FC-09 der Abschnitt «Einkommen», FE-SET-03, in den Einstellungen), darunter die Fixkosten-Übersicht mit Bearbeiten
- * und Löschen (FE-FC-03, US-03), darunter der Abschnitt «Erkannte Abos» (FE-FC-05, US-08). Das
- * Total aus Fixkosten und erkannten Abos (FE-FC-07) stand bis FE-STS-06 zwischen Einkommen und
- * Fixkosten; seither steht es als Card auf dem Dashboard und verlinkt hierher.
+ * FE-FC-09 der Abschnitt «Einkommen», FE-SET-03, in den Einstellungen), darunter die
+ * Fixkosten-Übersicht mit Bearbeiten und Löschen (FE-FC-03, US-03), darunter der Abschnitt
+ * «Erkannte Abos» (FE-FC-05, US-08). Das Total aus Fixkosten und erkannten Abos (FE-FC-07) stand
+ * bis FE-STS-06 zwischen Einkommen und Fixkosten; seither steht es als Card auf dem Dashboard und
+ * verlinkt hierher.
  *
  * <p>Sowohl der Abo- als auch der Einkommens-Abschnitt sind eingebettete Komponenten mit eigenem
  * State und eigenem Request — {@link RecurringExpenseList} bzw. {@link IncomeCard}, Letztere auch

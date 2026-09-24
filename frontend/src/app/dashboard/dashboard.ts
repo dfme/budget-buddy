@@ -83,9 +83,9 @@ interface TotalsRow extends MonthlyTotals {
  * <p><strong>Monatliche fixe Ausgaben (FE-STS-06).</strong> Zuunterst steht das Total aus
  * Fixkosten-Monatssumme und erkannten Abos (bis FE-STS-06 auf der Budget-Seite, FE-FC-07), als
  * Link auf `/budget`, wo die Details stehen. Es löst den Abo-Teaser (FE-REC-01) ab, der auf
- * dasselbe Ziel verlinkte. Die Zahl ist keine Monatsgrösse und hängt deshalb weder am
- * Monats-Stepper noch an der Lade-/Fehler-Kette des Safe-to-Spend — dieselbe Unabhängigkeit wie
- * bei der Drei-Monats-Übersicht.
+ * dasselbe Ziel verlinkte. Die Zahl ist keine Monatsgrösse und hängt deshalb nicht am
+ * Monats-Stepper; wie die Drei-Monats-Übersicht steht sie ausserhalb der Lade-/Fehler-Kette des
+ * Safe-to-Spend.
  *
  * <p>OnPush + Signals wie im übrigen Frontend; der lesende HTTP-Zugriff liegt im
  * zustandslosen {@link SafeToSpendService}, der schreibende im {@link AuthService},
@@ -601,7 +601,8 @@ export class Dashboard {
    *
    * <p>Einmal beim Aufbau der Seite und unabhängig vom Monat: erkannte Abos sind keine
    * Monatsgrösse, und die Liste ändert sich nur durch einen Import oder ein «Kein Abo» — beides
-   * führt über eine andere Seite hierher zurück.
+   * führt über eine andere Seite hierher zurück. Ein «Kein Abo» verändert seit FE-FC-05 auch den
+   * Safe-to-Spend; der wird beim Rückweg ohnehin neu geladen.
    *
    * <p>Anders als zu Zeiten des Teasers bleibt ein Fehler nicht mehr still: ohne die Abos fehlt
    * dem Total ein Summand, und {@link totalUnavailableReason} sagt das an Stelle der Card. Ein
