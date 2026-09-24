@@ -79,17 +79,16 @@
             <thead>
               <tr>
                 <th scope="col">Bezeichnung</th>
-                <th scope="col" class="numeric">Betrag</th>
-                <th scope="col">Intervall</th>
                 <th scope="col" class="numeric">Monatsbetrag</th>
-                <th scope="col" class="actions">Aktionen</th>
+                <!-- Unter 900px nur für Screenreader: dort zählt jeder Pixel für die Bezeichnung. -->
+                <th scope="col" class="actions"><span class="actions__label">Aktionen</span></th>
               </tr>
             </thead>
             <tbody>
               @for (item of data.fixedCosts; track item.id) {
                 @if (editingId() === item.id) {
                   <tr class="editing">
-                    <td colspan="5">
+                    <td colspan="3">
                       <form [formGroup]="editForm" (ngSubmit)="saveEdit(item.id)" novalidate>
                         <app-field
                           label="Bezeichnung"
@@ -153,17 +152,76 @@
                     </td>
                   </tr>
                 } @else {
+                  <!--
+                    FE-FC-08: drei Spalten auf jeder Breite. Betrag und Intervall stehen als
+                    Unterzeile unter der Bezeichnung — bei monatlichen Positionen nur das
+                    Intervall, der Betrag wäre derselbe wie der Monatsbetrag daneben. Bis FE-FC-08
+                    waren es fünf Spalten; die passten mit beschrifteten Buttons auf keiner Breite
+                    in die 40rem-Spalte (auf main 702px Tabelle in 590px Card, «Löschen» lag auch
+                    auf Desktop ausserhalb). Mit drei Spalten bleibt ab 900px Platz für die Labels.
+                  -->
                   <!-- prettier-ignore -->
                   <tr>
-                    <td>{{ item.bezeichnung }}</td>
-                    <td class="numeric">{{ item.betrag | currency: 'CHF' : 'symbol' : '1.2-2' }}</td>
-                    <td>{{ intervallLabel(item.intervall) }}</td>
+                    <td class="name">{{ item.bezeichnung }}<span class="subline">{{ subline(item) }}</span></td>
                     <td class="numeric">{{ item.monatsbetrag | currency: 'CHF' : 'symbol' : '1.2-2' }}</td>
+                    <!--
+                      Unter 900px nur das Icon, ab 900px Icon und Label — derselbe Wechsel wie bei
+                      «Kein Abo». Der zugängliche Name trägt in beiden Varianten die Position:
+                      viermal «Bearbeiten» wäre ohne sichtbaren Text für Screenreader nicht
+                      unterscheidbar. Er beginnt mit dem sichtbaren Label (WCAG 2.5.3). `title`
+                      zeigt das Label als Tooltip, solange nur das Icon zu sehen ist.
+                    -->
                     <td class="actions">
-                      <button appButton variant="ghost" type="button" (click)="startEdit(item)">
+                      <button
+                        appButton
+                        variant="ghost"
+                        iconOnlyMobile
+                        type="button"
+                        title="Bearbeiten"
+                        [attr.aria-label]="'Bearbeiten: ' + item.bezeichnung"
+                        (click)="startEdit(item)"
+                      >
+                        <svg
+                          width="18"
+                          height="18"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="1.8"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          aria-hidden="true"
+                        >
+                          <path d="M12 20h9" />
+                          <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                        </svg>
                         Bearbeiten
                       </button>
-                      <button appButton variant="ghost" type="button" (click)="requestDelete(item)">
+                      <button
+                        appButton
+                        variant="ghost"
+                        iconOnlyMobile
+                        type="button"
+                        title="Löschen"
+                        [attr.aria-label]="'Löschen: ' + item.bezeichnung"
+                        (click)="requestDelete(item)"
+                      >
+                        <svg
+                          width="18"
+                          height="18"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="1.8"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          aria-hidden="true"
+                        >
+                          <path d="M3 6h18" />
+                          <path d="M8 6V4h8v2" />
+                          <path d="M19 6l-1 14H6L5 6" />
+                          <path d="M10 11v6M14 11v6" />
+                        </svg>
                         Löschen
                       </button>
                     </td>
@@ -174,7 +232,7 @@
             <tfoot>
               <!-- prettier-ignore -->
               <tr>
-                <th scope="row" colspan="3">Total</th>
+                <th scope="row">Total</th>
                 <td class="numeric">{{ data.summeMonatlich | currency: 'CHF' : 'symbol' : '1.2-2' }}</td>
                 <td></td>
               </tr>

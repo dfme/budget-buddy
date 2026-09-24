@@ -74,3 +74,39 @@
 - Semantische `<table>` in beiden Varianten, bestehende Selektoren funktionieren
 - Component-Test für die schmale Variante, E2E/Component-Test für kein Overflow bei 390px
 - Kommentar zu `.table-scroll` aktualisiert: Scrollen nur noch Sicherheitsnetz
+
+## Nachtrag 2026-09-24: Scope-Entscheid Desktop
+
+Beim E2E-Nachweis zeigte sich, dass die Tabelle **auch ab 900px** horizontal scrollt — schon auf
+`main`. Die Seitenspalte ist auf jeder Breite 40rem (`.fixed-cost-list { max-width: 40rem }`), die
+Card lässt der Tabelle 590px, unabhängig von der Fensterbreite:
+
+| Variante | Tabelle bei 1280px | Überlauf |
+| -------- | ------------------ | -------- |
+| `main`: 5 Spalten, Buttons ohne Icon | 702px | 112px — «Löschen» ausserhalb |
+| 5 Spalten, Icon + Text (AC 1/7 wörtlich) | 754px | 164px |
+| 5 Spalten, nur Icons | 590px | 0 — verworfen: keine Labels auf Desktop |
+| **3 Spalten, Icon + Text ab 900px** | ≤ 590px | **0 — umgesetzt** |
+
+Ein erster Entscheid («nur Icons auf jeder Breite», Input `iconOnly`) wurde nach dem Test durch den
+User verworfen: mit genug Platz sollen die Labels stehen, wie bei «Kein Abo». Umgesetzt ist deshalb:
+
+- Die Tabelle hat **auf jeder Breite drei Spalten** — Bezeichnung mit Unterzeile (`subline()`),
+  Monatsbetrag, Aktionen. Die Zellen für Betrag und Intervall sind entfernt, nicht nur
+  ausgeblendet; damit entfallen auch `.detail` und die Sonderbehandlung der Total-Zeile.
+- Alle drei Buttons verhalten sich gleich: `iconOnlyMobile`, ab 900px Icon + Text. `iconOnly` ist
+  wieder zurückgebaut.
+- `fixed-cost-wizard.spec.ts` prüft Betrag/Intervall in der Unterzeile und den Monatsbetrag in
+  Zelle 1 (AC 8: «ggf. mit angepasstem Spaltenindex»).
+- Weicht von AC 7 ab (ab 900px drei statt fünf Spalten); im PR-Body deklariert.
+
+Beim Messen ausserdem angepasst: unter 900px Zellen in `$fs-sm`, Köpfe in `$fs-xs` (wie im Mockup),
+Aktionen-Zelle ohne rechtes Padding — sonst 349px Tabelle in 308px Card. `td.actions` ist wieder
+eine Tabellenzelle (vorher `display: flex`, die Trennlinie endete bei zweizeiligen Zeilen auf
+Button-Höhe). Die Unterzeile wird in der Komponente formatiert, weil ein `@if` im Template einen
+führenden Leerraum erzeugte.
+
+Auf Wunsch nach dem Test ergänzt: alle drei Buttons tragen ein `title` mit dem Label als Tooltip
+(bei «Kein Abo» im Wartezustand «Wird entfernt …»). Nativ statt CSS-Tooltip, weil `.table-scroll`
+mit `overflow-x: auto` in beide Richtungen clippt. Ab 900px doppelt der Tooltip das sichtbare
+Label — harmlos, `title` lässt sich nicht an einen Breakpoint binden.

@@ -194,6 +194,60 @@ describe('FixedCostList', () => {
     expect(getComputedStyle(wrapper as HTMLElement).overflowX).toBe('auto');
   });
 
+  // --- FE-FC-08: drei Spalten und Icon-Buttons ---
+  // jsdom rechnet kein Layout und wertet keine Media Queries aus: hier ist belegt, was im DOM
+  // steht (ein Markup für beide Varianten). Dass nichts überläuft und die Labels erst ab 900px
+  // sichtbar sind, zeigt `e2e/tests/fixed-cost-list-mobile.spec.ts`.
+
+  /** Text eines Elements, Whitespace (inkl. geschütztem Leerzeichen der Währung) normalisiert. */
+  function normalized(el: Element | null): string {
+    return (el?.textContent ?? '').replace(/\s+/g, ' ').trim();
+  }
+
+  it('zeigt unter der Bezeichnung Betrag und Intervall, bei monatlich nur das Intervall', () => {
+    flushInitialLoad(summaryOf([MIETE, SERAFE], 3000, false));
+
+    expect(normalized(rowFor('Serafe').querySelector('.subline'))).toBe('CHF 335.00 · jährlich');
+    // Monatlich: der Betrag wäre derselbe wie der Monatsbetrag daneben.
+    expect(normalized(rowFor('Miete').querySelector('.subline'))).toBe('monatlich');
+  });
+
+  it('bleibt eine Tabelle mit drei Spalten: Bezeichnung, Monatsbetrag, Aktionen', () => {
+    flushInitialLoad(summaryOf([MIETE], 3000, false));
+
+    const root = fixture.nativeElement as HTMLElement;
+    const headers = Array.from(root.querySelectorAll('thead th')).map((th) => normalized(th));
+    expect(headers).toEqual(['Bezeichnung', 'Monatsbetrag', 'Aktionen']);
+    const cells = rowFor('Miete').querySelectorAll('td');
+    expect(cells).toHaveLength(3);
+    expect(normalized(cells[1])).toBe('CHF 1’200.00');
+    expect(root.querySelectorAll('tfoot tr > *')).toHaveLength(3);
+  });
+
+  it('gibt Bearbeiten und Löschen einen zugänglichen Namen mit der Position', () => {
+    flushInitialLoad(summaryOf([MIETE, SERAFE], 3000, false));
+
+    const labels = Array.from(rowFor('Miete').querySelectorAll('button')).map((btn) =>
+      btn.getAttribute('aria-label'),
+    );
+    expect(labels).toEqual(['Bearbeiten: Miete', 'Löschen: Miete']);
+  });
+
+  it('zeigt in beiden Buttons ein Icon und das Label genau einmal', () => {
+    flushInitialLoad(summaryOf([MIETE], 3000, false));
+
+    const buttons = Array.from(rowFor('Miete').querySelectorAll('button'));
+    expect(buttons).toHaveLength(2);
+    for (const button of buttons) {
+      expect(button.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
+      // Der Wechsel Icon+Text ↔ Icon ist CSS am Breakpoint — kein zweiter Button-Satz.
+      expect(button.classList).toContain('btn--icon-only-mobile');
+    }
+    expect(buttons.map((btn) => normalized(btn))).toEqual(['Bearbeiten', 'Löschen']);
+    // Tooltip mit dem Label, solange unter 900px nur das Icon zu sehen ist.
+    expect(buttons.map((btn) => btn.title)).toEqual(['Bearbeiten', 'Löschen']);
+  });
+
   it('zeigt einen Empty-State ohne Positionen', () => {
     flushInitialLoad(summaryOf([], null, false));
 

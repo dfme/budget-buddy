@@ -42,3 +42,55 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+// Icon-only unter `$bp-desktop` (FE-FC-08): 44×44px Touch-Fläche, Label nur für Screenreader.
+// Mobile-First wie überall: die Basisregel ist die schmale Variante, ab Desktop wird das Label
+// wieder in den Fluss geholt und das Padding des normalen Buttons gilt.
+:host(.btn--icon-only-mobile) {
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+
+  .btn__label {
+    @include visually-hidden;
+  }
+
+  @include desktop {
+    width: auto;
+    height: auto;
+    padding: $sp-3 $sp-5;
+
+    .btn__label {
+      position: static;
+      width: auto;
+      height: auto;
+      margin: 0;
+      overflow: visible;
+      clip-path: none;
+      white-space: normal;
+    }
+  }
+}
+
+// Wartezustand (`aria-busy`, FE-FC-08): ohne sichtbares Label muss der laufende Request auch
+// optisch erkennbar sein. Der Button ist währenddessen schon `disabled` und damit gedämpft — das
+// Pulsieren unterscheidet ihn von den anderen, die nur gesperrt sind. Ohne Bewegung, wenn die
+// Nutzerin reduzierte Bewegung eingestellt hat; dann bleibt `aria-busy` für Screenreader.
+:host([aria-busy='true']) {
+  cursor: progress;
+  animation: btn-busy 0.9s ease-in-out infinite alternate;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+@keyframes btn-busy {
+  from {
+    opacity: 0.5;
+  }
+
+  to {
+    opacity: 0.2;
+  }
+}

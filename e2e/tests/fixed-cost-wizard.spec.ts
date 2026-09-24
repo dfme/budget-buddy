@@ -33,8 +33,11 @@ test.describe('Fixkosten-Wizard', () => {
    *
    * Der NBSP dagegen als `\s`: Playwright normalisiert Whitespace beim Textvergleich, ASCII-Space
    * und NBSP sind dort austauschbar (beide Varianten am Lauf geprüft). `\s` sagt genau das aus.
+   *
+   * Betrag pro Intervall und Intervall stehen seit FE-FC-08 (#356) als Unterzeile unter der
+   * Bezeichnung, nicht mehr in eigenen Spalten — `\s` auch um den Mittelpunkt.
    */
-  const BETRAG_PRO_INTERVALL = /^CHF\s1\u2019200\.00$/;
+  const UNTERZEILE = /^CHF\s1\u2019200\.00\s·\squartalsweise$/;
   /** 1200 ÷ 3 — die Normalisierung aus `FixedCostService.monatsbetrag`. */
   const MONATSBETRAG = /^CHF\s400\.00$/;
 
@@ -70,10 +73,11 @@ test.describe('Fixkosten-Wizard', () => {
     await expect(row).toHaveCount(1);
 
     // Zellen einzeln statt als Zeilentext: nur so ist belegt, dass der Betrag pro Intervall und
-    // der Monatsbetrag in den *richtigen* Spalten stehen und nicht bloss irgendwo in der Zeile.
-    await expect(row.getByRole('cell').nth(1)).toHaveText(BETRAG_PRO_INTERVALL);
-    await expect(row.getByRole('cell').nth(2)).toHaveText(POSITION.intervall);
-    await expect(row.getByRole('cell').nth(3)).toHaveText(MONATSBETRAG);
+    // der Monatsbetrag an den *richtigen* Stellen stehen und nicht bloss irgendwo in der Zeile.
+    // Seit FE-FC-08 (#356) drei Spalten: Betrag und Intervall stehen als Unterzeile in der
+    // Bezeichnungs-Zelle, der Monatsbetrag in der zweiten.
+    await expect(row.getByRole('cell').nth(0).locator('.subline')).toHaveText(UNTERZEILE);
+    await expect(row.getByRole('cell').nth(1)).toHaveText(MONATSBETRAG);
   });
 
   test('Fehlerpfad: ungültige Eingaben melden den Fehler, ohne zu speichern', async ({

@@ -35,8 +35,9 @@ h3 {
   list-style: none;
 }
 
-// Eine Zeile: Empfänger + «seit» links, Betrag und Button rechts. Auf schmalen Schirmen bricht
-// der Button in eine eigene Zeile, statt Empfänger und Betrag zu quetschen.
+// Eine Zeile: Empfänger + «seit» links, Betrag und Button rechts. Wird es zu eng, bricht der
+// Button in eine eigene Zeile, statt Empfänger und Betrag zu quetschen — seit FE-FC-08 ist er
+// unter 900px nur noch ein 44px-Icon und passt meist daneben.
 .expense,
 .dismissed-expense {
   display: flex;

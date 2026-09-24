@@ -48,15 +48,38 @@
                 Backend liefert die Belastung als positiven Betrag (BE-REC-01).
               -->
               <app-amount class="expense__amount" [value]="row.amount" [hidePositiveSign]="true" />
+              <!--
+                FE-FC-08: unter 900px nur das Icon, wie «Bearbeiten»/«Löschen» der Fixkosten. Der
+                zugängliche Name steht unverändert im aria-label. Ohne sichtbares Label muss der
+                Wartezustand anders wahrnehmbar sein: `aria-busy` für Screenreader, und der Button
+                pulsiert daran (button.scss) — gesperrt sind währenddessen alle, laufen tut nur einer.
+                `title` zeigt das Label als Tooltip, auch im Wartezustand.
+              -->
               <button
                 appButton
                 variant="ghost"
+                iconOnlyMobile
                 type="button"
                 class="expense__dismiss"
                 [disabled]="dismissingId() !== null"
+                [attr.aria-busy]="dismissingId() === row.id ? 'true' : null"
+                [title]="dismissingId() === row.id ? 'Wird entfernt …' : 'Kein Abo'"
                 [attr.aria-label]="'Kein Abo: ' + row.payeeKey"
                 (click)="dismiss(row)"
               >
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M5.6 5.6l12.8 12.8" />
+                </svg>
                 {{ dismissingId() === row.id ? 'Wird entfernt …' : 'Kein Abo' }}
               </button>
             </li>

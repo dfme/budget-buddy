@@ -68,24 +68,44 @@ h3 {
   margin-bottom: $sp-4;
 }
 
-// Card gibt auf schmalen Viewports weniger Breite her, als die Tabelle mit allen fünf Spalten
-// (inkl. der beiden Aktions-Buttons) braucht — statt die Spalten unleserlich zu quetschen, scrollt
-// die Tabelle innerhalb der Card.
+// Seit FE-FC-08 passt die Tabelle auf jeder Breite ohne Scrollen in die Card: drei statt fünf
+// Spalten, und unter `$bp-desktop` Icon-Buttons statt beschrifteter. Bis dahin (FE-FC-04) scrollte
+// sie horizontal — nicht nur auf dem Smartphone, sondern auch auf Desktop (702px Tabelle in 590px
+// Card), und «Löschen» lag ausserhalb des Sichtfelds. `overflow-x: auto` bleibt nur als
+// Sicherheitsnetz, falls eine Zeile doch einmal breiter wird als die Card — reguläres Verhalten ist
+// es nicht mehr.
 .table-scroll {
   overflow-x: auto;
 }
 
+// Kein `min-width` mehr (bis FE-FC-08: 32rem) — die Breite bestimmt der Inhalt der drei Spalten.
 table {
   width: 100%;
-  min-width: 32rem;
   border-collapse: collapse;
 }
 
+// Unter 900px kleinere Schrift (Zellen $fs-sm, Köpfe $fs-xs, wie im Mockup zu FE-FC-08): die Köpfe
+// «Bezeichnung» und «Monatsbetrag» brechen nicht um und bestimmten in voller Grösse die
+// Mindestbreite — gemessen 349px Tabelle in 308px Card bei 390px Viewport. Ab Desktop die geerbte
+// Grösse wie vor FE-FC-08.
 th,
 td {
   padding: $sp-2;
   border-bottom: 1px solid $c-line;
   text-align: left;
+  font-size: $fs-sm;
+
+  @include desktop {
+    font-size: inherit;
+  }
+}
+
+thead th {
+  font-size: $fs-xs;
+
+  @include desktop {
+    font-size: inherit;
+  }
 }
 
 .numeric {
@@ -94,15 +114,68 @@ td {
   text-align: right;
 }
 
-.actions {
-  text-align: right;
+// Bezeichnung: darf auch mitten im Wort umbrechen. Bei 390px Viewport bleiben ihr
+// rund 90px — ein langes Wort wie «Privathaftpflichtversicherung» schöbe die Tabelle sonst über
+// die Card. Zuerst nach Silben mit Trennstrich (`hyphens`, greift über `lang="de-CH"` in index.html), wo
+// das nicht reicht, an beliebiger Stelle.
+.name {
+  overflow-wrap: anywhere;
+  hyphens: auto;
 }
 
+// Unterzeile «CHF 335.00 · jährlich» — Betrag und Intervall, seit FE-FC-08 keine eigenen Spalten.
+.subline {
+  @include tabular;
+
+  display: block;
+  margin-top: $sp-1;
+  color: $c-ink-2;
+  font-size: $fs-xs;
+
+  @include desktop {
+    font-size: $fs-sm;
+  }
+}
+
+// Rechts ohne Padding unter 900px: die Icon-Buttons haben ihre eigene 44px-Fläche, der Rand der
+// Card steht ohnehin daneben — das spart 8px, die der Bezeichnung zugutekommen.
+.actions {
+  text-align: right;
+  padding-right: 0;
+
+  @include desktop {
+    padding-right: $sp-2;
+  }
+}
+
+// Spaltenkopf «Aktionen»: unter 900px nur für Screenreader — dort kostet er Breite, die der
+// Bezeichnung fehlt. Ab Desktop sichtbar wie bisher.
+.actions__label {
+  @include visually-hidden;
+  @include desktop {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    overflow: visible;
+    clip-path: none;
+  }
+}
+
+// Die Zelle bleibt eine Tabellenzelle — bis FE-FC-08 stand hier `display: flex`, womit sie aus dem
+// Tabellenraster fiel: ihre Trennlinie endete auf Höhe der Buttons statt am Zeilenende. Bei
+// einzeiligen Desktop-Zeilen unsichtbar, mit der zweizeiligen Bezeichnung auf Mobile nicht mehr.
+// Abstand deshalb per Margin statt `gap`; Leerraum zwischen den Buttons entfernt Angular.
 td.actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: $sp-2;
   white-space: nowrap;
+
+  button + button {
+    margin-left: $sp-1;
+
+    @include desktop {
+      margin-left: $sp-2;
+    }
+  }
 }
 
 tfoot th,

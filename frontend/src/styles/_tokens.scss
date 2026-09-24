@@ -113,6 +113,22 @@ $bp-desktop: 900px;
   }
 }
 
+// Text nur für Screenreader: unsichtbar, aber vorgelesen und im Accessibility-Tree. Als Mixin
+// (nicht nur als Klasse `.visually-hidden` in styles.scss), damit Komponenten es an einen
+// Breakpoint binden können — etwa das Button-Label, das nur unter `$bp-desktop` verschwindet
+// (FE-FC-08). Bewusst nicht `display: none` und nicht `visibility: hidden`: beides nähme das
+// Element auch dem Screenreader.
+@mixin visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 // Beträge immer mit gleichbreiten Ziffern — sonst springen die Spalten.
 @mixin tabular {
   font-variant-numeric: tabular-nums;
