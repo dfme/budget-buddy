@@ -110,3 +110,9 @@ Auf Wunsch nach dem Test ergänzt: alle drei Buttons tragen ein `title` mit dem 
 (bei «Kein Abo» im Wartezustand «Wird entfernt …»). Nativ statt CSS-Tooltip, weil `.table-scroll`
 mit `overflow-x: auto` in beide Richtungen clippt. Ab 900px doppelt der Tooltip das sichtbare
 Label — harmlos, `title` lässt sich nicht an einen Breakpoint binden.
+
+CI-Befund nach dem PR: der E2E-Job zeigte bei 390px 16px Überlauf. Lokal (macOS) ging die
+Rechnung auf 2px genau auf; das Linux-Chromium der CI rendert eine breitere Schrift. Mit Verdana
+lokal nachgestellt (15px Überlauf). Behoben unter 900px mit seitlichem Zellen-Padding `$sp-1` und
+trennbaren Spaltenköpfen — Mindestbreite danach 241px (macOS) bzw. 257px (Verdana), also
+51–67px Reserve in der 308px-Card.

@@ -84,24 +84,32 @@ table {
   border-collapse: collapse;
 }
 
-// Unter 900px kleinere Schrift (Zellen $fs-sm, Köpfe $fs-xs, wie im Mockup zu FE-FC-08): die Köpfe
-// «Bezeichnung» und «Monatsbetrag» brechen nicht um und bestimmten in voller Grösse die
-// Mindestbreite — gemessen 349px Tabelle in 308px Card bei 390px Viewport. Ab Desktop die geerbte
-// Grösse wie vor FE-FC-08.
+// Unter 900px (FE-FC-08) kleinere Schrift — Zellen $fs-sm, Köpfe $fs-xs, wie im Mockup — und nur
+// $sp-1 seitliches Padding. Gemessen bei 390px Viewport (308px Card-Innenbreite): mit voller
+// Schrift 349px Mindestbreite; mit kleiner Schrift, aber $sp-2 Padding 306px unter macOS und 323px
+// mit einer breiteren Systemschrift (Verdana, entspricht dem Linux-Chromium der CI, das 16px
+// Überlauf zeigte). Die Rechnung darf nicht auf den Pixel aufgehen — die Schrift ist die des
+// Geräts. Ab Desktop Grösse und Padding wie vor FE-FC-08.
 th,
 td {
-  padding: $sp-2;
+  padding: $sp-2 $sp-1;
   border-bottom: 1px solid $c-line;
   text-align: left;
   font-size: $fs-sm;
 
   @include desktop {
+    padding: $sp-2;
     font-size: inherit;
   }
 }
 
+// Köpfe dürfen trennen, «Bezeich-nung» — aber nur unter Druck: solange die Spalte breit genug ist,
+// bleibt das Wort ganz. Das senkt die Mindestbreite der Tabelle unter Verdana auf 257px, 51px
+// Reserve in der 308px-Card. Ohne das bestimmte das längste Kopfwort die Breite der Spalte.
 thead th {
   font-size: $fs-xs;
+  hyphens: auto;
+  overflow-wrap: anywhere;
 
   @include desktop {
     font-size: inherit;
