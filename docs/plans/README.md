@@ -136,6 +136,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `FE-STS-03` | [No-Income State und Einkommens-Vorschlag](FE-STS-03-no-income-state-and-suggestion.md) | [#35](https://github.com/dfme/budget-buddy/issues/35) | US-06 | Sprint 4 |
 | `FE-STS-04` | [Dashboard: Monatsnavigation und Drei-Monats-Übersicht](FE-STS-04-dashboard-monatsuebersicht.md) | [#250](https://github.com/dfme/budget-buddy/issues/250) | US-12 | Sprint 6 |
 | `FE-STS-05` | [Drei-Monats-Übersicht: horizontaler Scrollbalken trotz Platz links/rechts](FE-STS-05-totals-table-scrollbar.md) | [#361](https://github.com/dfme/budget-buddy/issues/361) | — | Sprint 7 |
+| `FE-STS-06` | [«Monatliche fixe Ausgaben»-Karte von der Budget-Seite ins Dashboard verschieben](FE-STS-06-fixkosten-total-dashboard.md) | [#366](https://github.com/dfme/budget-buddy/issues/366) | US-06 | Sprint 7 |
 | `FE-UI-01` | [UI-Design definieren: 3 klickbare Varianten](FE-UI-01-design-varianten.md) | [#80](https://github.com/dfme/budget-buddy/issues/80) | US-05, US-06 | Sprint 3 |
 | `FE-UI-02` | [Design-Token-Fundament (Variante A, theme-fähig)](FE-UI-02-design-token-fundament.md) | [#99](https://github.com/dfme/budget-buddy/issues/99) | — | Sprint 3 |
 | `FE-UI-03` | [Shared-Basiskomponenten (Variante A)](FE-UI-03-shared-basiskomponenten.md) | [#100](https://github.com/dfme/budget-buddy/issues/100) | — | Sprint 3 |
