@@ -237,15 +237,38 @@
   </app-card>
 
   <!--
-    Abo-Teaser (FE-REC-01, US-08): der Einstieg in die Abo-Übersicht, die seit FE-FC-05 ein
-    Abschnitt der Budget-Seite ist (/budget, FE-FC-09; bis dahin /ausgaben, FE-FC-07). Die ganze
-    Card ist der Link, nicht nur ein Wort darin — auf dem Handy ist die Fläche das Ziel. Steht
-    zuunterst: sie ordnet nichts ein, sie führt weiter.
+    Monatliche fixe Ausgaben (FE-STS-06, vormals FE-FC-07 auf der Budget-Seite): Total aus
+    Fixkosten-Monatssumme und erkannten Abos, einfache Addition (siehe `monthlyTotal`). Löst den
+    Abo-Teaser (FE-REC-01) ab, der auf dasselbe Ziel verlinkte.
+
+    Die ganze Card ist der Link auf /budget, wo Fixkosten-Tabelle und erkannte Abos stehen —
+    auf dem Handy ist die Fläche das Ziel. Betrag in $fs-xl, nicht $fs-hero: die Hero-Grösse
+    bleibt dem Safe-to-Spend vorbehalten.
+
+    Steht zuunterst und ausserhalb der Lade-/Fehler-Kette des Safe-to-Spend: Die Zahl ist keine
+    Monatsgrösse. Zwischen Safe-to-Spend und Übersicht, die beide dem Monats-Stepper folgen,
+    läse sie sich wie eine Zahl des gewählten Monats — und als Link führt sie weiter, statt
+    etwas darüber einzuordnen.
   -->
-  <a class="recurring-teaser" routerLink="/budget">
-    <app-card title="Abos">
-      <p class="recurring-teaser__text">{{ recurringTeaserText() }}</p>
-      <span class="recurring-teaser__cta">Zu Budget →</span>
-    </app-card>
-  </a>
+  @if (monthlyTotal(); as total) {
+    <a class="monthly-total" routerLink="/budget">
+      <app-card title="Monatliche fixe Ausgaben">
+        <p class="monthly-total__amount">
+          {{ total.total | currency: 'CHF' : 'symbol' : '1.2-2' }}
+        </p>
+        <p class="monthly-total__breakdown">
+          {{ total.fixedCosts | currency: 'CHF' : 'symbol' : '1.2-2' }} Fixkosten +
+          {{ total.recurring | currency: 'CHF' : 'symbol' : '1.2-2' }} erkannte Abos
+        </p>
+        <span class="monthly-total__cta">Zu Budget →</span>
+      </app-card>
+    </a>
+  } @else if (totalUnavailableReason(); as reason) {
+    <!--
+      Die Lücke erklärt sich an ihrer eigenen Stelle (siehe `totalUnavailableReason`). Gedämpfter
+      Satz statt `app-notice`: ein fehlender Summand ist eine Einschränkung dieser einen Zahl, kein
+      Ausfall der Seite — der Safe-to-Spend darüber ist davon unberührt.
+    -->
+    <p class="monthly-total__unavailable">{{ reason }}</p>
+  }
 </section>

@@ -36,8 +36,8 @@ function toRow(expense: RecurringExpenseResponse): ExpenseRow {
  * Komponente unter der Fixkosten-Tabelle ein — manuell erfasste Fixkosten und automatisch
  * erkannte Abos sind verwandte Inhalte, und seit FE-FC-05 wirken beide gleich auf den
  * Safe-to-Spend. Die Komponente blieb eigenständig statt ins Fixkosten-Template zu wandern: sie
- * hat eigenen Lade- und Fehlerzustand, eigene Tests, und `RecurringExpenseService` zählt dieselbe
- * Liste weiterhin für die Teaser-Card des Dashboards.
+ * hat eigenen Lade- und Fehlerzustand, eigene Tests, und `RecurringExpenseService` liefert dieselbe
+ * Liste dem Dashboard für die Card «Monatliche fixe Ausgaben» (FE-STS-06).
  *
  * <p>Jede Zeile ist eine erkannte <em>Gruppe</em> — derselbe Empfänger, in mindestens zwei
  * aufeinanderfolgenden Monaten mit demselben Betrag belastet. Die Einzelbuchungen zeigt die
@@ -52,8 +52,8 @@ function toRow(expense: RecurringExpenseResponse): ExpenseRow {
  * Abschnitt ganz. Der Klick führt seit FE-FC-05 auf die Seite mit diesem Abschnitt (seit FE-FC-09
  * `/budget`, davor `/ausgaben`).
  *
- * <p>Der State liegt im {@link RecurringExpenseService}, weil die Teaser-Card des Dashboards
- * dieselbe Liste zählt. Hier liegt nur, was allein diese Seite betrifft: Lade- und
+ * <p>Der State liegt im {@link RecurringExpenseService}, weil die Card «Monatliche fixe Ausgaben»
+ * des Dashboards dieselbe Liste summiert. Hier liegt nur, was allein diese Seite betrifft: Lade- und
  * Fehlerzustand sowie die ID des Eintrags, dessen «Kein Abo» gerade läuft.
  *
  * <p>«Kein Abo» fragt nicht nach, anders als das Löschen einer Fixkosten-Position: der Eintrag

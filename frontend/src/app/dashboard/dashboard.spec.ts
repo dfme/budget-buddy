@@ -1,7 +1,9 @@
-import { Location } from '@angular/common';
+import { Location, registerLocaleData } from '@angular/common';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideLocationMocks } from '@angular/common/testing';
+import localeDeCh from '@angular/common/locales/de-CH';
+import { LOCALE_ID } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { Router, provideRouter } from '@angular/router';
@@ -10,6 +12,11 @@ import { formatMonth } from '../shared/month';
 
 import { Dashboard } from './dashboard';
 import { SafeToSpendResponse } from './safe-to-spend.model';
+
+// Der CurrencyPipe der Card «Monatliche fixe Ausgaben» nutzt den app-weiten LOCALE_ID (de-CH);
+// die Locale-Daten müssen dafür registriert sein — im echten App-Bootstrap erledigt das
+// app.config.ts.
+registerLocaleData(localeDeCh);
 
 /** Laufender Monat als `YYYY-MM` — dieselbe Ableitung wie in der Komponente (Ortszeit). */
 function monthString(date: Date): string {
@@ -111,6 +118,7 @@ describe('Dashboard', () => {
         // URL. provideLocationMocks() hält das im Speicher statt in der echten History.
         provideRouter([{ path: '**', children: [] }]),
         provideLocationMocks(),
+        { provide: LOCALE_ID, useValue: 'de-CH' },
       ],
     }).compileComponents();
 
@@ -141,11 +149,22 @@ describe('Dashboard', () => {
       .match((req) => req.url === '/api/transactions/monthly-totals')
       .filter((req) => !req.cancelled)
       .forEach((req) => req.flush([]));
-    // FE-REC-01: Beim Aufbau wird ausserdem die Abo-Übersicht für die Teaser-Card geladen —
-    // einmal, unabhängig vom Monat. Wer den Teaser selbst prüft, holt den Request vorher ab.
-    httpMock.match('/api/recurring-expenses').forEach((req) => req.flush([]));
+    // FE-STS-06: Beim Aufbau werden ausserdem die beiden Summanden der Card «Monatliche fixe
+    // Ausgaben» geladen — Fixkosten und erkannte Abos, je einmal, unabhängig vom Monat. Wer die
+    // Card selbst prüft, holt die Requests vorher ab.
+    flushFixedCostsAndRecurring();
     httpMock.verify();
   });
+
+  /** Beantwortet noch offene Requests der Card «Monatliche fixe Ausgaben» neutral. */
+  function flushFixedCostsAndRecurring(): void {
+    httpMock
+      .match('/api/fixed-costs')
+      .forEach((req) =>
+        req.flush({ fixedCosts: [], summeMonatlich: 0, monthlyIncome: 3000, exceedsIncome: false }),
+      );
+    httpMock.match('/api/recurring-expenses').forEach((req) => req.flush([]));
+  }
 
   /** URL-Matcher für die Drei-Monats-Übersicht (BE-STS-07). */
   function expectTotalsRequest() {
@@ -535,7 +554,7 @@ describe('Dashboard', () => {
         .match((req) => req.url === '/api/transactions/monthly-totals')
         .filter((req) => !req.cancelled)
         .forEach((req) => req.flush([]));
-      httpMock.match('/api/recurring-expenses').forEach((req) => req.flush([]));
+      flushFixedCostsAndRecurring();
       fixture.destroy();
       await TestBed.inject(Router).navigate([], { queryParams });
       fixture = TestBed.createComponent(Dashboard);
@@ -1052,74 +1071,223 @@ describe('Dashboard', () => {
     });
   });
 
-  describe('Abo-Teaser (FE-REC-01, US-08)', () => {
-    /** Ein erkanntes Abo — nur die Felder, die der Teaser zählt, sind hier von Belang. */
-    function recurringExpense(id: number) {
+  // FE-STS-06 (#366): das Total aus Fixkosten-Monatssumme und erkannten Abos, bis dahin auf der
+  // Budget-Seite (FE-FC-07). Löst den Abo-Teaser (FE-REC-01) ab, der auf dasselbe Ziel verlinkte.
+  describe('Monatliche fixe Ausgaben (FE-STS-06, US-06)', () => {
+    /** Ein erkanntes (oder verneintes) Abo — nur Betrag und Status sind hier von Belang. */
+    function recurringExpense(id: number, amount: number, status = 'DETECTED') {
       return {
         id,
         payeeKey: `PAYEE ${id}`,
-        amount: 10,
-        status: 'DETECTED',
+        amount,
+        status,
         firstDetectedMonth: PREVIOUS_MONTH,
         createdAt: '2026-09-08T10:15:00Z',
         isNew: false,
       };
     }
 
-    function teaser(): HTMLAnchorElement {
-      return fixture.nativeElement.querySelector('.recurring-teaser');
+    /** Antwort von `GET /api/fixed-costs` — das Dashboard liest daraus nur `summeMonatlich`. */
+    function fixedCostSummary(summeMonatlich: number) {
+      return { fixedCosts: [], summeMonatlich, monthlyIncome: 3000, exceedsIncome: false };
     }
 
-    it('loads the recurring expenses once on setup, independent of the month', () => {
-      expectSafeToSpendRequest(httpMock).flush(NORMAL);
-      fixture.detectChanges();
+    function card(): HTMLAnchorElement | null {
+      return fixture.nativeElement.querySelector('a.monthly-total');
+    }
 
-      expect(httpMock.match('/api/recurring-expenses')).toHaveLength(1);
-    });
+    function unavailableNote(): string | null {
+      return (
+        (fixture.nativeElement as HTMLElement)
+          .querySelector('.monthly-total__unavailable')
+          ?.textContent?.trim() ?? null
+      );
+    }
 
-    it('links to the recurring-expense overview and names the detected count', () => {
+    /** Textinhalt mit normalisiertem Whitespace — die CurrencyPipe setzt ein NBSP nach «CHF». */
+    function textOf(element: Element | null | undefined): string {
+      return (element?.textContent ?? '').replace(/\s+/g, ' ').trim();
+    }
+
+    function server500() {
+      return { status: 500, statusText: 'Server Error' };
+    }
+
+    it('summiert Fixkosten-Monatssumme und erkannte Abos, ohne die verneinten', () => {
+      // 1227.92 Fixkosten + 17.90 = 1245.82. Das verneinte Abo (24.50) zählt nicht — sonst
+      // stünde 1270.32.
+      httpMock.expectOne('/api/fixed-costs').flush(fixedCostSummary(1227.92));
       httpMock
         .expectOne('/api/recurring-expenses')
-        .flush([recurringExpense(1), recurringExpense(2), recurringExpense(3)]);
+        .flush([recurringExpense(1, 17.9), recurringExpense(2, 24.5, 'DISMISSED')]);
       expectSafeToSpendRequest(httpMock).flush(NORMAL);
       fixture.detectChanges();
 
-      expect(teaser().getAttribute('href')).toBe('/budget');
-      expect(teaser().querySelector('.recurring-teaser__text')?.textContent).toBe('3 Abos erkannt');
+      const component = fixture.componentInstance;
+      expect(component.monthlyTotal()).toEqual({
+        fixedCosts: 1227.92,
+        recurring: 17.9,
+        total: 1245.82,
+      });
+      expect(textOf(card()?.querySelector('.card__title'))).toBe('Monatliche fixe Ausgaben');
+      expect(textOf(card()?.querySelector('.monthly-total__amount'))).toBe('CHF 1’245.82');
+      expect(textOf(card()?.querySelector('.monthly-total__breakdown'))).toBe(
+        'CHF 1’227.92 Fixkosten + CHF 17.90 erkannte Abos',
+      );
     });
 
-    it('uses the singular for exactly one recurring expense', () => {
-      httpMock.expectOne('/api/recurring-expenses').flush([recurringExpense(1)]);
+    it('addiert in Rappen — 27.92 + 17.90 ergibt 45.82, nicht 45.8199…', () => {
+      httpMock.expectOne('/api/fixed-costs').flush(fixedCostSummary(27.92));
+      httpMock.expectOne('/api/recurring-expenses').flush([recurringExpense(1, 17.9)]);
       expectSafeToSpendRequest(httpMock).flush(NORMAL);
-      fixture.detectChanges();
 
-      expect(teaser().querySelector('.recurring-teaser__text')?.textContent).toBe('1 Abo erkannt');
+      expect(fixture.componentInstance.monthlyTotal()?.total).toBe(45.82);
     });
 
-    it('stays visible with a neutral text when nothing was detected', () => {
+    it('zeigt das Total auch ohne erkannte Abos — dann ist es die Fixkosten-Summe', () => {
+      httpMock.expectOne('/api/fixed-costs').flush(fixedCostSummary(1200));
       httpMock.expectOne('/api/recurring-expenses').flush([]);
       expectSafeToSpendRequest(httpMock).flush(NORMAL);
       fixture.detectChanges();
 
-      expect(teaser().getAttribute('href')).toBe('/budget');
-      expect(teaser().querySelector('.recurring-teaser__text')?.textContent).toBe(
-        'Keine Abos erkannt',
-      );
+      expect(fixture.componentInstance.monthlyTotal()).toEqual({
+        fixedCosts: 1200,
+        recurring: 0,
+        total: 1200,
+      });
+      expect(card()).not.toBeNull();
     });
 
-    it('stays silent when the recurring-expense request fails', () => {
-      httpMock
-        .expectOne('/api/recurring-expenses')
-        .flush(null, { status: 500, statusText: 'Server Error' });
+    it('ist als ganze Card ein Link auf die Budget-Seite', () => {
+      httpMock.expectOne('/api/fixed-costs').flush(fixedCostSummary(1200));
+      httpMock.expectOne('/api/recurring-expenses').flush([]);
       expectSafeToSpendRequest(httpMock).flush(NORMAL);
       fixture.detectChanges();
 
-      // Kein Fehler-Notice für den Teaser; der Safe-to-Spend daneben ist unberührt.
-      expect(teaser().querySelector('.recurring-teaser__text')?.textContent).toBe(
-        'Keine Abos erkannt',
+      expect(card()?.getAttribute('href')).toBe('/budget');
+      // Die Card liegt im Link, nicht der Link in der Card — die ganze Fläche ist das Ziel.
+      expect(card()?.querySelector('app-card')).not.toBeNull();
+      expect(textOf(card()?.querySelector('.monthly-total__cta'))).toBe('Zu Budget →');
+    });
+
+    it('ersetzt den Abo-Teaser — der steht nicht mehr auf dem Dashboard', () => {
+      httpMock.expectOne('/api/fixed-costs').flush(fixedCostSummary(1200));
+      httpMock.expectOne('/api/recurring-expenses').flush([recurringExpense(1, 17.9)]);
+      expectSafeToSpendRequest(httpMock).flush(NORMAL);
+      fixture.detectChanges();
+
+      const root = fixture.nativeElement as HTMLElement;
+      expect(root.querySelector('.recurring-teaser')).toBeNull();
+      expect(root.textContent).not.toContain('Abo erkannt');
+      // Genau ein Link auf /budget: die neue Card, kein zweiter mit demselben Ziel daneben.
+      expect(root.querySelectorAll('a[href="/budget"]')).toHaveLength(1);
+    });
+
+    it('steht zuunterst, unter der Drei-Monats-Übersicht', () => {
+      httpMock.expectOne('/api/fixed-costs').flush(fixedCostSummary(1200));
+      httpMock.expectOne('/api/recurring-expenses').flush([]);
+      expectSafeToSpendRequest(httpMock).flush(NORMAL);
+      fixture.detectChanges();
+
+      const totals = (fixture.nativeElement as HTMLElement).querySelector('.totals-card');
+      expect(
+        totals!.compareDocumentPosition(card()!) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
+
+    it('lädt beide Summanden einmal beim Aufbau, unabhängig vom Monat', () => {
+      expectSafeToSpendRequest(httpMock).flush(NORMAL);
+      fixture.detectChanges();
+
+      const back = Array.from<HTMLButtonElement>(
+        fixture.nativeElement.querySelectorAll('.month-nav__btn'),
       );
+      back[0].click();
+      fixture.detectChanges();
+      expectSafeToSpendRequest(httpMock).flush(CLOSED);
+
+      expect(httpMock.match('/api/fixed-costs')).toHaveLength(1);
+      expect(httpMock.match('/api/recurring-expenses')).toHaveLength(1);
+    });
+
+    it('bleibt stehen, wenn ein abgeschlossener Monat gewählt ist', () => {
+      httpMock.expectOne('/api/fixed-costs').flush(fixedCostSummary(1200));
+      httpMock.expectOne('/api/recurring-expenses').flush([]);
+      expectSafeToSpendRequest(httpMock).flush(CLOSED);
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.closed-banner')).not.toBeNull();
+      expect(card()).not.toBeNull();
+    });
+
+    it('bleibt stehen, wenn der Safe-to-Spend nicht geladen werden konnte', () => {
+      httpMock.expectOne('/api/fixed-costs').flush(fixedCostSummary(1200));
+      httpMock.expectOne('/api/recurring-expenses').flush([]);
+      expectSafeToSpendRequest(httpMock).flush(null, server500());
+      fixture.detectChanges();
+
+      expect(card()).not.toBeNull();
+    });
+
+    it('blendet das Total aus, wenn die Abos nicht geladen werden konnten, und sagt warum', () => {
+      httpMock.expectOne('/api/fixed-costs').flush(fixedCostSummary(1200));
+      httpMock.expectOne('/api/recurring-expenses').flush(null, server500());
+      expectSafeToSpendRequest(httpMock).flush(NORMAL);
+      fixture.detectChanges();
+
+      // 1'200.00 wäre schlicht falsch: dem Total fehlt ein Summand.
+      expect(fixture.componentInstance.monthlyTotal()).toBeNull();
+      expect(card()).toBeNull();
+      expect(unavailableNote()).toBe(
+        'Total nicht verfügbar — die erkannten Abos konnten nicht geladen werden.',
+      );
+      // Kein rotes Notice: der Safe-to-Spend darüber ist unberührt.
       expect(fixture.nativeElement.querySelector('.notice--error')).toBeNull();
       expect(fixture.nativeElement.querySelector('.safe-to-spend')).not.toBeNull();
+    });
+
+    it('blendet das Total aus, wenn die Fixkosten nicht geladen werden konnten, und sagt warum', () => {
+      httpMock.expectOne('/api/fixed-costs').flush(null, server500());
+      httpMock.expectOne('/api/recurring-expenses').flush([recurringExpense(1, 17.9)]);
+      expectSafeToSpendRequest(httpMock).flush(NORMAL);
+      fixture.detectChanges();
+
+      expect(card()).toBeNull();
+      expect(unavailableNote()).toBe(
+        'Total nicht verfügbar — die Fixkosten konnten nicht geladen werden.',
+      );
+    });
+
+    it('nennt beide Ursachen, wenn beide Requests fehlschlagen', () => {
+      httpMock.expectOne('/api/fixed-costs').flush(null, server500());
+      httpMock.expectOne('/api/recurring-expenses').flush(null, server500());
+      expectSafeToSpendRequest(httpMock).flush(NORMAL);
+      fixture.detectChanges();
+
+      expect(unavailableNote()).toBe(
+        'Total nicht verfügbar — Fixkosten und Abos konnten nicht geladen werden.',
+      );
+    });
+
+    it('sagt nichts, solange die Summanden nur laden — der Hinweis blitzt nicht auf', () => {
+      expectSafeToSpendRequest(httpMock).flush(NORMAL);
+      fixture.detectChanges();
+
+      // Beide Requests stehen noch offen: kein Total, aber auch keine Begründung.
+      expect(fixture.componentInstance.monthlyTotal()).toBeNull();
+      expect(fixture.componentInstance.totalUnavailableReason()).toBeNull();
+      expect(card()).toBeNull();
+      expect(unavailableNote()).toBeNull();
+
+      httpMock.expectOne('/api/fixed-costs').flush(fixedCostSummary(1200));
+      fixture.detectChanges();
+      // Die Fixkosten allein reichen nicht — die Abos laden noch.
+      expect(card()).toBeNull();
+
+      httpMock.expectOne('/api/recurring-expenses').flush([]);
+      fixture.detectChanges();
+      expect(card()).not.toBeNull();
+      expect(unavailableNote()).toBeNull();
     });
   });
 });

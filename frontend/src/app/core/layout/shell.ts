@@ -141,7 +141,8 @@ export class Shell {
    * <p>{@link NotificationService.clear} verhindert, dass die Benachrichtigungen dieses Users
    * kurz aufblitzen, bevor ein nächster Login in derselben Tab-Session neu lädt — der Service ist
    * `providedIn: 'root'` und überlebt den Wechsel. {@link RecurringExpenseService.clear} aus
-   * demselben Grund für die Zahl in der Abo-Teaser-Card (FE-REC-01).
+   * demselben Grund für die Abo-Summe in der Card «Monatliche fixe Ausgaben» des Dashboards
+   * (FE-REC-01, seit FE-STS-06).
    */
   protected logout(): void {
     this.accountMenuOpen.set(false);

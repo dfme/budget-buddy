@@ -178,31 +178,53 @@
   }
 }
 
-// --- Abo-Teaser (FE-REC-01) ---
+// --- Monatliche fixe Ausgaben (FE-STS-06) ---
 
 // Dieselbe Spalte wie die Übersicht darüber. Der Link umschliesst die ganze Card; die Farbe
 // des Fliesstexts bleibt Ink, nur der CTA trägt die Linkfarbe — sonst läse sich die ganze Card
-// wie ein Absatz aus Links.
-.recurring-teaser {
+// wie ein Absatz aus Links. Aufbau vom Abo-Teaser (FE-REC-01) übernommen, den sie ablöst.
+.monthly-total,
+.monthly-total__unavailable {
   display: block;
   max-width: 40rem;
   margin: $sp-5 auto 0;
+}
+
+.monthly-total {
   color: inherit;
   text-decoration: none;
 
-  &:hover .recurring-teaser__cta,
-  &:focus-visible .recurring-teaser__cta {
+  &:hover .monthly-total__cta,
+  &:focus-visible .monthly-total__cta {
     text-decoration: underline;
   }
 }
 
-.recurring-teaser__text {
-  margin: 0 0 $sp-2;
-  font-size: $fs-lg;
+// Betrag in $fs-xl — die Kennzahl der Card, aber nicht die der App. $fs-hero bleibt dem
+// Safe-to-Spend vorbehalten.
+.monthly-total__amount {
+  @include tabular;
+
+  margin: 0;
+  font-size: $fs-xl;
   font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
-.recurring-teaser__cta {
+.monthly-total__breakdown {
+  @include tabular;
+
+  margin: $sp-2 0 $sp-2;
+  color: $c-ink-2;
+  font-size: $fs-sm;
+}
+
+.monthly-total__unavailable {
+  color: $c-ink-2;
+  font-size: $fs-sm;
+}
+
+.monthly-total__cta {
   color: $c-accent;
   font-size: $fs-sm;
   font-weight: 500;

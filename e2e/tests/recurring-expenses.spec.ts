@@ -214,7 +214,9 @@ test.describe('Abo-Erkennung', () => {
 
       await expect(page).toHaveURL(/\/budget$/);
       await expect(page.getByRole('heading', { level: 1, name: 'Budget' })).toBeVisible();
-      // `exact`: ohne träfe der Teilstring auch die Card «Monatliche fixe Ausgaben» (ebenfalls h2).
+      // `exact`: bis FE-STS-06 stand hier auch die Card «Monatliche fixe Ausgaben» (ebenfalls h2),
+      // die der Teilstring getroffen hätte. Seither liegt sie auf dem Dashboard; `exact` bleibt,
+      // damit eine künftige h2 mit «Ausgaben» im Namen den Test nicht mehrdeutig macht.
       await expect(
         page.getByRole('heading', { level: 2, name: 'Ausgaben', exact: true }),
       ).toBeVisible();
@@ -226,8 +228,9 @@ test.describe('Abo-Erkennung', () => {
   }
 
   // FE-FC-07 (#355) AC 5/6: das Total der monatlichen fixen Ausgaben ist die einfache Summe aus
-  // Fixkosten-Monatssumme und den angezeigten erkannten Abos — und ein verneintes Abo fällt
-  // sofort heraus. Fixkosten-Position über die API wie in `safe-to-spend.spec.ts`: der Wizard
+  // Fixkosten-Monatssumme und den erkannten Abos — und ein verneintes Abo fällt heraus. Seit
+  // FE-STS-06 (#366) steht die Card auf dem Dashboard und verlinkt auf die Budget-Seite, wo
+  // «Kein Abo» sitzt. Fixkosten-Position über die API wie in `safe-to-spend.spec.ts`: der Wizard
   // hat seine eigene Abdeckung (E2E-FC-01).
   test('Total summiert Fixkosten und erkannte Abos, «Kein Abo» zieht das Abo wieder ab', async ({
     authenticatedContext: context,
@@ -239,27 +242,32 @@ test.describe('Abo-Erkennung', () => {
     expect(fixedCost.status(), 'Vorbedingung: POST /api/fixed-costs').toBe(201);
     await importFixture(context.request, FIXTURE_DETECTION);
 
-    await page.goto('/budget');
+    await page.goto('/dashboard');
 
     // 1200.00 + 15.90. Format der CurrencyPipe unter de-CH — U+2019 als Tausendertrenner und
     // NBSP nach «CHF», siehe die Herleitung in `fixed-cost-wizard.spec.ts`.
     const total = page.locator('.monthly-total__amount');
-    await expect(total).toHaveText(/^CHF\s1\u2019215\.90$/);
+    await expect(total).toHaveText(/^\s*CHF\s1\u2019215\.90\s*$/);
     await expect(page.locator('.monthly-total__breakdown')).toHaveText(
       /CHF\s1\u2019200\.00 Fixkosten \+ CHF\s15\.90 erkannte Abos/,
     );
 
-    await page.getByRole('button', { name: `Kein Abo: ${PAYEE}` }).click();
+    // Die ganze Card ist der Link auf die Budget-Seite, wo die erkannten Abos stehen.
+    await page.locator('a.monthly-total').click();
+    await expect(page).toHaveURL(/\/budget$/);
+    await expect(page.locator('.monthly-total')).toHaveCount(0);
 
-    // Kein Reload: das Total folgt dem State des Abo-Service, sobald der Dismiss geantwortet hat.
-    await expect(total).toHaveText(/^CHF\s1\u2019200\.00$/);
+    await page.getByRole('button', { name: `Kein Abo: ${PAYEE}` }).click();
     await expect(page.locator('li.dismissed-expense').filter({ hasText: PAYEE })).toHaveCount(1);
+
+    // Zurück auf dem Dashboard zählt das verneinte Abo nicht mehr mit.
+    await page.goto('/dashboard');
+    await expect(total).toHaveText(/^\s*CHF\s1\u2019200\.00\s*$/);
   });
 
   // Review-Befund zu #355: Das Total auszublenden, wenn ein Summand fehlt, ist richtig — die
-  // Nutzerin soll aber an der Stelle der fehlenden Zahl erfahren, warum. Die Meldung des
-  // Abo-Abschnitts selbst steht unterhalb der Fixkosten-Tabelle, also ausserhalb des ersten
-  // Bildschirms.
+  // Nutzerin soll aber an der Stelle der fehlenden Zahl erfahren, warum. Seit FE-STS-06 (#366)
+  // auf dem Dashboard, wo es sonst gar keine Meldung zum Abo-Ausfall gäbe.
   test('fällt die Abo-Liste aus, erklärt sich die Lücke an der Stelle des Totals', async ({
     authenticatedContext: context,
     authenticatedPage: page,
@@ -274,19 +282,23 @@ test.describe('Abo-Erkennung', () => {
     // Zuschnitt hält den Test auf genau einem fehlgeschlagenen Request (vgl.
     // `categorization.spec.ts`).
     await page.route('**/api/recurring-expenses', (route) =>
-      route.fulfill({ status: 500, contentType: 'application/json', body: '{}' }),
+      route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: '{}',
+      }),
     );
 
-    await page.goto('/budget');
+    await page.goto('/dashboard');
 
     // Kein Total — ihm fehlt ein Summand, und 1'200.00 wäre schlicht falsch.
-    await expect(page.locator('.monthly-total')).toHaveCount(0);
     await expect(page.locator('.monthly-total__unavailable')).toHaveText(
       'Total nicht verfügbar — die erkannten Abos konnten nicht geladen werden.',
     );
+    await expect(page.locator('a.monthly-total')).toHaveCount(0);
 
-    // Die Fixkosten-Tabelle steht unbeirrt daneben: ein Ausfall nimmt nicht die ganze Seite mit.
-    await expect(page.getByRole('row').filter({ hasText: 'Miete' })).toHaveCount(1);
+    // Der Safe-to-Spend steht unbeirrt darüber: ein Ausfall nimmt nicht die ganze Seite mit.
+    await expect(page.locator('.safe-to-spend-card')).toBeVisible();
   });
 
   // FE-FC-08 (#356): unter 900px ist «Kein Abo» nur ein Icon, wie Bearbeiten/Löschen der

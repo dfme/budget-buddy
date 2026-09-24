@@ -49,11 +49,11 @@ describe('RecurringExpenseService', () => {
 
     expect(received).toEqual([NETFLIX, SPOTIFY]);
     expect(service.expenses()).toEqual([NETFLIX, SPOTIFY]);
-    expect(service.count()).toBe(2);
+    expect(service.detected().length).toBe(2);
   });
 
-  // FE-NOTIF-03: `GET` liefert beide Status. Der Service trennt sie; die Teaser-Card zählt nur
-  // Abos — ein verneinter Eintrag ist keines.
+  // FE-NOTIF-03: `GET` liefert beide Status. Der Service trennt sie; das Dashboard-Total summiert
+  // nur Abos — ein verneinter Eintrag ist keines.
   it('trennt die Liste nach Status und zählt nur erkannte Abos', () => {
     service.load().subscribe();
     const dismissed: RecurringExpenseResponse = { ...SPOTIFY, status: 'DISMISSED', isNew: false };
@@ -61,7 +61,7 @@ describe('RecurringExpenseService', () => {
 
     expect(service.detected()).toEqual([NETFLIX]);
     expect(service.dismissed()).toEqual([dismissed]);
-    expect(service.count()).toBe(1);
+    expect(service.detected().length).toBe(1);
   });
 
   it('markiert einen Eintrag als Kein Abo und ersetzt ihn im State durch die Antwort', () => {
@@ -81,7 +81,7 @@ describe('RecurringExpenseService', () => {
     expect(service.expenses()).toEqual([dismissed, SPOTIFY]);
     expect(service.detected()).toEqual([SPOTIFY]);
     expect(service.dismissed()).toEqual([dismissed]);
-    expect(service.count()).toBe(1);
+    expect(service.detected().length).toBe(1);
   });
 
   it('lässt den State bei einem fehlschlagenden dismiss unverändert', () => {
@@ -103,6 +103,6 @@ describe('RecurringExpenseService', () => {
     service.clear();
 
     expect(service.expenses()).toEqual([]);
-    expect(service.count()).toBe(0);
+    expect(service.detected().length).toBe(0);
   });
 });

@@ -9,8 +9,8 @@ import { RecurringExpenseResponse } from './recurring-expense.model';
  * `POST /api/recurring-expenses/{id}/dismiss` (FE-REC-01, BE-REC-02).
  *
  * <p>Hält den State selbst, wie `NotificationService`: die Liste wird von zwei Stellen gelesen —
- * der Abo-Übersicht und der Teaser-Card auf dem Dashboard — und beide sollen denselben Stand
- * zeigen. Anders als dort kein Bündeln gleichzeitiger Requests: die beiden Consumer sind nie
+ * der Abo-Übersicht und der Card «Monatliche fixe Ausgaben» auf dem Dashboard (FE-STS-06) — und
+ * beide sollen denselben Stand zeigen. Anders als dort kein Bündeln gleichzeitiger Requests: die beiden Consumer sind nie
  * zugleich gemountet.
  */
 @Injectable({ providedIn: 'root' })
@@ -35,9 +35,6 @@ export class RecurringExpenseService {
    * verneinten Eintrag nicht auf einer Seite landet, auf der er fehlt.
    */
   readonly dismissed = computed(() => this.expenses().filter((e) => e.status === 'DISMISSED'));
-
-  /** Abgeleitet: Anzahl erkannter Abos für die Teaser-Card — Verneinte zählen nicht mit. */
-  readonly count = computed(() => this.detected().length);
 
   /** Lädt die Abo-Übersicht neu. */
   load(): Observable<RecurringExpenseResponse[]> {
@@ -68,8 +65,8 @@ export class RecurringExpenseService {
 
   /**
    * Leert den State ohne Backend-Call. Wird beim Logout aufgerufen (`Shell.logout`) — sonst
-   * zeigte die Teaser-Card nach einem Login-Wechsel in derselben Tab-Session kurz die Zahl des
-   * vorherigen Users. Analog `NotificationService.clear`.
+   * zeigte die Card «Monatliche fixe Ausgaben» nach einem Login-Wechsel in derselben
+   * Tab-Session kurz die Abo-Summe des vorherigen Users. Analog `NotificationService.clear`.
    */
   clear(): void {
     this.expensesState.set([]);
