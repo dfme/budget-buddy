@@ -59,16 +59,20 @@ h3 {
 }
 
 .expense__payee {
-  display: inline-flex;
-  align-items: center;
-  gap: $sp-2;
   font-weight: 500;
   overflow-wrap: anywhere;
+}
+
+.expense__meta {
+  display: flex;
+  align-items: center;
+  gap: $sp-2;
 }
 
 // «Neu»-Label: Pille in der Akzentfarbe — dieselbe Familie wie der Ungelesen-Badge der Glocke,
 // aber nicht rot: ein neu erkanntes Abo ist eine Information, kein Alarm.
 .expense__new {
+  flex: none;
   padding: 0 $sp-2;
   border-radius: $r-pill;
   background: $c-accent-soft;

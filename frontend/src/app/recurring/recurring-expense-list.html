@@ -28,18 +28,20 @@
           @for (row of rows(); track row.id) {
             <li class="expense" [class.expense--new]="row.isNew">
               <div class="expense__main">
-                <span class="expense__payee">
-                  {{ row.payeeKey }}
+                <span class="expense__payee">{{ row.payeeKey }}</span>
+                <span class="expense__meta">
                   <!--
                     «Neu» solange die zugehörige Benachrichtigung ungelesen ist (BE-REC-02).
                     Als Text, nicht nur als Farbe — die Aussage muss auch ohne Akzentfarbe
-                    lesbar sein.
+                    lesbar sein. In der «seit»-Zeile statt beim Empfänger: die ist kurz und bricht
+                    nie um, der Name dagegen bei Buchungstexten oft — neben oder in ihm geriet der
+                    Badge dann in eine eigene Zeile oder wurde gestaucht.
                   -->
                   @if (row.isNew) {
                     <span class="expense__new">Neu</span>
                   }
+                  <span class="expense__since">{{ row.sinceLabel }}</span>
                 </span>
-                <span class="expense__since">{{ row.sinceLabel }}</span>
               </div>
               <!--
                 Ohne «+»: das ist ein Betrag, keine Veränderung — wie beim Safe-to-Spend. Das
