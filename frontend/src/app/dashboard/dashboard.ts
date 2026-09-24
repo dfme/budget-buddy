@@ -307,7 +307,7 @@ export class Dashboard {
    * Der Text der Abo-Teaser-Card (FE-REC-01, US-08), z. B. `"3 Abos erkannt"`.
    *
    * <p>Die Card steht auch bei 0 Einträgen da: sie ist vom Dashboard aus der direkte Einstieg
-   * in die Abo-Übersicht — seit FE-FC-05 der Abschnitt «Erkannte Abos» auf `/ausgaben` —, und
+   * in die Abo-Übersicht — seit FE-FC-05 der Abschnitt «Erkannte Abos» auf `/budget` —, und
    * wer sie bei 0 versteckte, nähme dem Nutzer den Weg dorthin genau dann, wenn er nachsehen
    * will, warum nichts erkannt wurde.
    */

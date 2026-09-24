@@ -1,5 +1,15 @@
 <section class="fixed-cost-list">
-  <h1>Ausgaben</h1>
+  <h1>Budget</h1>
+
+  <!--
+    FE-FC-09: eingebetteter Abschnitt «Einkommen», unverändert aus settings.html übernommen
+    (vormals FE-SET-03) — nur der Ort im UI hat sich geändert. Eigene Komponente statt inline,
+    weil derselbe Abschnitt auch im Onboarding-Wizard eingebettet ist — kein dupliziertes
+    Formular. Steht ganz oben: das Einkommen ist die Grundlage für die Warnung unterhalb
+    («Fixkosten übersteigen Einkommen») und das Total dieser Seite. Nach dem Speichern lädt die
+    Seite deshalb neu (`(saved)`), sonst zeigte die Warnung weiter das alte Einkommen.
+  -->
+  <app-income-card (saved)="reload()" />
 
   <!--
     FE-FC-07: Total der monatlichen fixen Ausgaben — Fixkosten-Monatssumme plus erkannte Abos,
@@ -26,12 +36,18 @@
   }
 
   <!--
+    Zwischenüberschrift «Ausgaben» — gruppiert die beiden Unterabschnitte «Erfasste Fixkosten»
+    und «Erkannte Abos» (je h3), analog «Einkommen» weiter oben.
+  -->
+  <h2>Ausgaben</h2>
+
+  <!--
     Zwischenüberschrift «Erfasste Fixkosten» (FE-FC-07) als Gegenstück zu «Erkannte Abos» —
     erfasst von der Nutzerin, erkannt vom System. «+ Neue Position» steht hier und nicht mehr
     beim h1: der Button legt eine Fixkosten-Position an, kein Abo.
   -->
   <div class="section-header">
-    <h2 id="fixed-costs-heading">Erfasste Fixkosten</h2>
+    <h3 id="fixed-costs-heading">Erfasste Fixkosten</h3>
     <a appButton variant="ghost" routerLink="/onboarding">+ Neue Position</a>
   </div>
 

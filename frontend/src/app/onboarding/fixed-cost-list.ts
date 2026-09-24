@@ -14,6 +14,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 
+import { IncomeCard } from '../income/income-card';
 import { RecurringExpenseList } from '../recurring/recurring-expense-list';
 import { RecurringExpenseService } from '../recurring/recurring-expense.service';
 import { Button } from '../shared/button/button';
@@ -51,16 +52,19 @@ function toRappen(chf: number): number {
 }
 
 /**
- * Die Seite «Ausgaben» (`/ausgaben`, FE-FC-07): Übersicht aller Fixkosten-Positionen mit
+ * Die Seite «Budget» (`/budget`, FE-FC-09): ganz oben der eingebettete {@link IncomeCard} (bis
+ * FE-FC-09 der Abschnitt «Einkommen», FE-SET-03, in den Einstellungen), darunter das Total aus
+ * Fixkosten und erkannten Abos ({@link monthlyTotal}), darunter die Fixkosten-Übersicht mit
  * Bearbeiten und Löschen (FE-FC-03, US-03), darunter der Abschnitt «Erkannte Abos» (FE-FC-05,
- * US-08), darüber das Total beider Abschnitte ({@link monthlyTotal}).
+ * US-08).
  *
- * <p>Der Abo-Abschnitt ist die eingebettete {@link RecurringExpenseList} — mit eigenem State und
- * eigenem Request. Diese Klasse lädt, bearbeitet und löscht nur Fixkosten, wie vor FE-FC-05; die
- * Zusammenführung ist eine Frage der Seite, nicht der Daten (kein Datenmodell-Merge, siehe #338).
- * Von den Abos liest sie genau zwei Dinge: die Beträge der erkannten Einträge aus dem
- * {@link RecurringExpenseService} und den Lade-/Fehlerzustand des Abschnitts — beides nur für
- * das Total.
+ * <p>Sowohl der Abo- als auch der Einkommens-Abschnitt sind eingebettete Komponenten mit eigenem
+ * State und eigenem Request — {@link RecurringExpenseList} bzw. {@link IncomeCard}, Letztere auch
+ * im Onboarding-Wizard eingebettet. Diese Klasse lädt, bearbeitet und löscht nur Fixkosten, wie
+ * vor FE-FC-05; die Zusammenführung ist eine Frage der Seite, nicht der Daten (kein
+ * Datenmodell-Merge, siehe #338). Von den Abos liest sie genau zwei Dinge: die Beträge der
+ * erkannten Einträge aus dem {@link RecurringExpenseService} und den Lade-/Fehlerzustand des
+ * Abschnitts — beides nur für das Total.
  *
  * <p>Lädt `GET /api/fixed-costs` beim Start in ein einziges {@link summary}-Signal — Positionen,
  * Monatssumme, Einkommen und `exceedsIncome` kommen serverseitig bereits berechnet zusammen
@@ -83,6 +87,7 @@ function toRappen(chf: number): number {
     Button,
     Card,
     Field,
+    IncomeCard,
     Input,
     Modal,
     Notice,
@@ -324,6 +329,15 @@ export class FixedCostList implements OnInit {
           this.deleteError.set('Löschen fehlgeschlagen. Bitte versuche es später erneut.');
         },
       });
+  }
+
+  /**
+   * Lädt die Fixkosten neu, nachdem die eingebettete {@link IncomeCard} ein neues Einkommen
+   * gespeichert hat: `monthlyIncome` und `exceedsIncome` kommen im selben Response wie die
+   * Positionen, die Warnung hängt also an diesem Request.
+   */
+  reload(): void {
+    this.load();
   }
 
   private load(): void {

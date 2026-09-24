@@ -278,7 +278,7 @@ describe('Dashboard', () => {
       'Kein Einkommen erfasst',
     );
     expect(notice.querySelector('.notice__body').textContent).toContain(
-      'Bitte erfasse dein Monatseinkommen in den Einstellungen',
+      'Bitte erfasse dein Monatseinkommen auf der Budget-Seite',
     );
     // Aufbau wie die Design-Baseline (design/variant-a/index.html, `hero hero--muted`):
     // der Zustand steht *in* der Safe-to-Spend-Card, nicht als Banner darueber.
@@ -299,7 +299,7 @@ describe('Dashboard', () => {
       'Kein Einkommen erfasst',
     );
     expect(notice.querySelector('.notice__body').textContent).toContain(
-      'Bitte erfasse dein Monatseinkommen in den Einstellungen',
+      'Bitte erfasse dein Monatseinkommen auf der Budget-Seite',
     );
   });
 
@@ -1084,7 +1084,7 @@ describe('Dashboard', () => {
       expectSafeToSpendRequest(httpMock).flush(NORMAL);
       fixture.detectChanges();
 
-      expect(teaser().getAttribute('href')).toBe('/ausgaben');
+      expect(teaser().getAttribute('href')).toBe('/budget');
       expect(teaser().querySelector('.recurring-teaser__text')?.textContent).toBe('3 Abos erkannt');
     });
 
@@ -1101,7 +1101,7 @@ describe('Dashboard', () => {
       expectSafeToSpendRequest(httpMock).flush(NORMAL);
       fixture.detectChanges();
 
-      expect(teaser().getAttribute('href')).toBe('/ausgaben');
+      expect(teaser().getAttribute('href')).toBe('/budget');
       expect(teaser().querySelector('.recurring-teaser__text')?.textContent).toBe(
         'Keine Abos erkannt',
       );
