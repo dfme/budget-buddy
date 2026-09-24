@@ -53,8 +53,8 @@ function toRow(expense: RecurringExpenseResponse): ExpenseRow {
  * `/budget`, davor `/ausgaben`).
  *
  * <p>Der State liegt im {@link RecurringExpenseService}, weil die Card «Monatliche fixe Ausgaben»
- * des Dashboards dieselbe Liste summiert. Hier liegt nur, was allein diese Seite betrifft: Lade- und
- * Fehlerzustand sowie die ID des Eintrags, dessen «Kein Abo» gerade läuft.
+ * des Dashboards dieselbe Liste summiert. Hier liegt nur, was allein diese Seite betrifft: Lade-
+ * und Fehlerzustand sowie die ID des Eintrags, dessen «Kein Abo» gerade läuft.
  *
  * <p>«Kein Abo» fragt nicht nach, anders als das Löschen einer Fixkosten-Position: der Eintrag
  * geht nicht verloren, er wechselt auf `DISMISSED`, und das Backend ist idempotent. Ein Modal

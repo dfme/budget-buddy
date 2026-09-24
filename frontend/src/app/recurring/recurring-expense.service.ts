@@ -10,8 +10,8 @@ import { RecurringExpenseResponse } from './recurring-expense.model';
  *
  * <p>Hält den State selbst, wie `NotificationService`: die Liste wird von zwei Stellen gelesen —
  * der Abo-Übersicht und der Card «Monatliche fixe Ausgaben» auf dem Dashboard (FE-STS-06) — und
- * beide sollen denselben Stand zeigen. Anders als dort kein Bündeln gleichzeitiger Requests: die beiden Consumer sind nie
- * zugleich gemountet.
+ * beide sollen denselben Stand zeigen. Anders als dort kein Bündeln gleichzeitiger Requests: die
+ * beiden Consumer sind nie zugleich gemountet.
  */
 @Injectable({ providedIn: 'root' })
 export class RecurringExpenseService {

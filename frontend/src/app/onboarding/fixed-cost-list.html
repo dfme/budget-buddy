@@ -6,7 +6,8 @@
     (vormals FE-SET-03) — nur der Ort im UI hat sich geändert. Eigene Komponente statt inline,
     weil derselbe Abschnitt auch im Onboarding-Wizard eingebettet ist — kein dupliziertes
     Formular. Steht ganz oben: das Einkommen ist die Grundlage für die Warnung unterhalb
-    («Fixkosten übersteigen Einkommen»). Nach dem Speichern lädt die Seite deshalb neu (`(saved)`), sonst zeigte die Warnung weiter das alte Einkommen.
+    («Fixkosten übersteigen Einkommen»). Nach dem Speichern lädt die Seite deshalb neu
+    (`(saved)`), sonst zeigte die Warnung weiter das alte Einkommen.
   -->
   <app-income-card (saved)="reload()" />
 
