@@ -38,6 +38,17 @@ const SWISSCOM_DISMISSED: RecurringExpenseResponse = {
   isNew: false,
 };
 
+/** Ein ausgelaufenes Abo, wie `GET` es seit BE-REC-04 mitliefert. */
+const SALT_ENDED: RecurringExpenseResponse = {
+  id: 4,
+  payeeKey: 'SALT MOBILE',
+  amount: 39.95,
+  status: 'ENDED',
+  firstDetectedMonth: '2026-03',
+  createdAt: '2026-08-20T08:00:00Z',
+  isNew: false,
+};
+
 describe('RecurringExpenseList', () => {
   let fixture: ComponentFixture<RecurringExpenseList>;
   let httpMock: HttpTestingController;
@@ -77,6 +88,14 @@ describe('RecurringExpenseList', () => {
 
   function dismissedSection(): HTMLElement | null {
     return el().querySelector<HTMLElement>('.dismissed');
+  }
+
+  function endedRows(): HTMLElement[] {
+    return Array.from(el().querySelectorAll<HTMLElement>('.ended-expense'));
+  }
+
+  function endedSection(): HTMLElement | null {
+    return el().querySelector<HTMLElement>('.ended');
   }
 
   it('zeigt einen Ladezustand, solange der Request läuft', () => {
@@ -193,6 +212,41 @@ describe('RecurringExpenseList', () => {
     expect(dismissed[0].querySelector('.expense__amount')?.textContent).toContain('59.90');
     expect(dismissed[0].querySelector('.expense__new')).toBeNull();
     expect(dismissed[0].querySelector('.expense__dismiss')).toBeNull();
+  });
+
+  // BE-REC-04: Ein ausgelaufenes Abo verlässt die Abo-Liste, aber nicht die Seite — sonst
+  // verschwände es wortlos, und der Klick auf sein Bündel landete ins Leere.
+  it('zeigt ausgelaufene Abos in einem eigenen Abschnitt «Beendet», ohne Neu-Label und Button', () => {
+    flushList([NETFLIX, SALT_ENDED]);
+
+    expect(rows()).toHaveLength(1);
+    expect(rows()[0].querySelector('.expense__payee')?.textContent).toContain('NETFLIX');
+
+    const section = endedSection();
+    expect(section?.querySelector('.card__title')?.textContent).toBe('Beendet');
+    const ended = endedRows();
+    expect(ended).toHaveLength(1);
+    expect(ended[0].querySelector('.expense__payee')?.textContent).toContain('SALT MOBILE');
+    expect(ended[0].querySelector('.expense__since')?.textContent).toContain('seit März 2026');
+    expect(ended[0].querySelector('.expense__amount')?.textContent).toContain('39.95');
+    expect(ended[0].querySelector('.expense__new')).toBeNull();
+    expect(ended[0].querySelector('.expense__dismiss')).toBeNull();
+  });
+
+  it('zeigt den Abschnitt «Beendet» nicht, solange nichts ausgelaufen ist', () => {
+    flushList([NETFLIX, SPOTIFY]);
+
+    expect(endedSection()).toBeNull();
+  });
+
+  // Alle drei Abschnitte zugleich: die Zuordnung darf nicht daran hängen, dass jeweils nur einer
+  // Einträge hat.
+  it('hält laufende, beendete und verneinte Einträge auseinander', () => {
+    flushList([NETFLIX, SALT_ENDED, SWISSCOM_DISMISSED]);
+
+    expect(rows()).toHaveLength(1);
+    expect(endedRows()).toHaveLength(1);
+    expect(dismissedRows()).toHaveLength(1);
   });
 
   it('zeigt den Abschnitt «Kein Abo» nicht, solange nichts verneint ist', () => {

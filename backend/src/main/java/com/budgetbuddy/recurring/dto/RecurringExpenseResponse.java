@@ -9,8 +9,10 @@ import java.time.Instant;
  *
  * @param id ID des Eintrags.
  * @param payeeKey normalisierter Empfänger, in Grossschreibung.
- * @param amount Betrag der jüngsten erkannten Belastung, Skala 2 (ADR-9).
- * @param status {@code DETECTED} oder {@code DISMISSED}.
+ * @param amount Betrag der jüngsten erkannten Belastung, Skala 2 (ADR-9) — seit BE-REC-04 bei
+ *     jedem Import nachgezogen.
+ * @param status {@code DETECTED} (laufend), {@code DISMISSED} (vom Nutzer verneint) oder
+ *     {@code ENDED} (ausgelaufen, BE-REC-04). Nur {@code DETECTED} mindert den Safe-to-Spend.
  * @param firstDetectedMonth erster Monat der Abo-Reihe in den Daten, als {@code YYYY-MM}-Text.
  * @param createdAt Zeitpunkt der Erkennung.
  * @param isNew {@code true}, solange die zugehörige Benachrichtigung ungelesen ist.

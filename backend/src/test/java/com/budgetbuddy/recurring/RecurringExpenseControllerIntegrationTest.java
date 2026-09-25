@@ -320,6 +320,24 @@ class RecurringExpenseControllerIntegrationTest {
                 .andExpect(jsonPath("$[0].isNew").exists());
     }
 
+    /**
+     * BE-REC-04: {@code ENDED} ist der dritte Vertragswert — das Frontend-Model erwartet exakt
+     * {@code 'ENDED'} und sortiert den Eintrag danach in den Abschnitt «Beendet».
+     */
+    @Test
+    void wireFormatCarriesStatusEndedForAnExpiredRecurringExpense() throws Exception {
+        long id = createRecurringExpense(lara, "NETFLIX");
+        RecurringExpense entry = recurringExpenseRepository.findById(id).orElseThrow();
+        entry.markEnded();
+        recurringExpenseRepository.save(entry);
+
+        mockMvc.perform(get("/api/recurring-expenses").cookie(jwtCookie(lara)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(id))
+                .andExpect(jsonPath("$[0].status").value("ENDED"));
+    }
+
     // --- Helfer ---
 
     private long insertUser(String email) {

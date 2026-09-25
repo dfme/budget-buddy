@@ -90,17 +90,4 @@ class ExpenseHistoryServiceTest {
                 new ExpenseEntry("STADTWERKE BERN", new BigDecimal("78.50"),
                         YearMonth.of(2026, 7)));
     }
-
-    // FE-FC-05: die gefensterte Variante übersetzt Monate in Tagesgrenzen (erster Tag von
-    // `from` bis letzter Tag von `to`, beide inklusive) und normalisiert genauso wie oben.
-    @Test
-    void expenseHistory_withWindow_queriesTheMonthBoundsInclusive() {
-        when(repository.findByUserIdAndIncomeFalseAndBuchungsdatumBetween(
-                USER_ID, LocalDate.of(2026, 6, 1), LocalDate.of(2026, 8, 31)))
-                .thenReturn(List.of(expense("LASTSCHRIFT", "NETFLIX INTERNATIONAL BV", "20.90")));
-
-        assertThat(service.expenseHistory(USER_ID, YearMonth.of(2026, 6), YearMonth.of(2026, 8)))
-                .containsExactly(new ExpenseEntry(
-                        "NETFLIX INTERNATIONAL BV", new BigDecimal("20.90"), YearMonth.of(2026, 7)));
-    }
 }

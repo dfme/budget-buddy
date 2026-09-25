@@ -185,14 +185,15 @@ Obergrenze, anders als beim betragsbasierten Matching.
 
 ## Nachtrag FE-FC-05 (#338): Erkannte Abos wirken wie Fixkosten-Positionen
 
-**Datum:** 2026-09-21 (Review-Runde PR #345 eingearbeitet)
+**Datum:** 2026-09-21 (Review-Runde PR #345 eingearbeitet), überarbeitet 2026-09-22 mit BE-REC-04
+([#350](https://github.com/dfme/budget-buddy/issues/350))
 
 Seit US-08 erkennt das System wiederkehrende Ausgaben (`recurring_expenses`, Status `DETECTED`
 oder `DISMISSED`). Bis FE-FC-05 zählte ein erkanntes Abo im Safe-to-Spend nur als variable
 Ausgabe des Monats, in dem seine Abbuchung lag: vor der Abbuchung war der Betrag um das Abo zu
 hoch, danach stimmte er. Eine Fixkosten-Position dagegen mindert den Betrag von Monatsbeginn an.
 
-**Entscheid:** Erkannte, nicht verneinte, noch aktive Abos gehen denselben Weg wie
+**Entscheid:** Erkannte, nicht verneinte, noch laufende Abos gehen denselben Weg wie
 Fixkosten-Positionen:
 
 ```
@@ -206,13 +207,17 @@ expenses   = Σ Belastungen des Monats
 
 ### Was ein Abo-Betrag ist — und warum die Regeln davon abhängen
 
-`recurring_expenses.amount` ist eine **Momentaufnahme**: der Betrag des jüngsten qualifizierenden
-Monatspaars zum Zeitpunkt der Erkennung. Die Zeile wird danach nie aktualisiert — `detect()`
-überspringt bekannte Empfänger (BE-REC-01) — und verfällt nie von selbst; ausser `dismiss` gibt
-es keinen Schreibzugriff. Die Erkennung lässt zwischen zwei Monaten **±2 %** Abweichung zu.
-Beides war folgenlos, solange die Zeile nur in einer Liste stand. Mit FE-FC-05 wird sie zum
-finanziellen Eingabewert, und beide Eigenschaften müssen mitgedacht sein (Review PR #345). Vier
-Festlegungen kommen zu den bestehenden dazu:
+`recurring_expenses.amount` ist der Betrag des jüngsten qualifizierenden Monatspaars. Bis
+BE-REC-04 war er eine **Momentaufnahme**: `detect()` übersprang bekannte Empfänger (BE-REC-01),
+die Zeile wurde nie aktualisiert und verfiel nie von selbst; ausser `dismiss` gab es keinen
+Schreibzugriff. Seit BE-REC-04 bewertet **jeder Import jede nicht verneinte Zeile neu** — Betrag
+und Erstmonat folgen dem jüngsten Paar, und eine Reihe ohne Abbuchung in den drei jüngsten
+Monaten der Historie wird `ENDED` (V16) und zählt nicht mehr.
+
+Was bleibt, ist die Toleranz: die Erkennung lässt zwischen zwei Monaten **±2 %** Abweichung zu,
+das Abo bucht also regelmässig nicht rappengenau den gelieferten Betrag ab. Das war folgenlos,
+solange die Zeile nur in einer Liste stand; mit FE-FC-05 wird sie zum finanziellen Eingabewert
+(Review PR #345). Vier Festlegungen kommen zu den bestehenden dazu:
 
 **4. Abos werden mit der Toleranz der Erkennung gestrichen, Positionen rappengenau.** Ein
 Handy-Abo, erkannt mit 59.00 und diesen Monat mit 59.90 abgebucht, ist genau die Klasse von
@@ -236,17 +241,28 @@ erkennt, ist dieselbe Frage wie in diesem ADR, und die Antwort ist dieselbe: der
 derselben Toleranz wie in Festlegung 4. Je Position höchstens ein Abo; verglichen wird gegen
 `betrag`, nicht `monatsbetrag` (Festlegung 2).
 
-**7. Nur aktive Abos zählen: mindestens eine Abbuchung im laufenden Monat oder den zwei
-Monaten davor.** Ein gekündigtes Netflix bleibt `DETECTED`, weil die Zeile nie neu bewertet
-wird; ohne diese Grenze würde es von Monatsbeginn an abgezogen, jeden Monat, dauerhaft — und
-«Kein Abo» ist der falsche Ausweg, das sagt «das war nie ein Abo». Die Aktivität prüft das
-recurring-Modul selbst (`detectedAmounts(userId, month)`), über die gefensterte
-`ExpenseHistoryPort.expenseHistory(userId, from, to)` — nur, ob der Empfänger im Fenster
-abgebucht hat, unabhängig vom Betrag. Drei Monate und nicht zwei: Auszüge kommen rückdatiert,
-der des Vormonats liegt in den ersten Tagen des Monats oft noch nicht vor.
+**7. Nur laufende Abos zählen — und ob eines läuft, steht im Status.** Ein gekündigtes Netflix
+darf nicht von Monatsbeginn an abgezogen werden, jeden Monat, dauerhaft; «Kein Abo» ist dafür
+der falsche Ausweg, das sagt «das war nie ein Abo».
+
+Bis BE-REC-04 blieb eine solche Zeile `DETECTED`, weil sie nie neu bewertet wurde, und der
+Lesepfad blendete sie über ein **Aktivitätsfenster** aus: `detectedAmounts(userId, month)` lud
+über `ExpenseHistoryPort.expenseHistory(userId, from, to)` nach, ob der Empfänger in den drei
+jüngsten Monaten abgebucht hatte. Das prüfte bei jedem Aufruf des Dashboards, was einmal pro
+Import feststeht.
+
+Seit BE-REC-04 setzt die **Erkennung** die Zeile auf `ENDED`, und `detectedAmounts(userId)`
+liest nur noch den Status. Fenster, Nachladen und der `month`-Parameter sind entfallen. Das
+Fenster selbst bleibt als Regel — drei Monate, gemessen gegen den **jüngsten Monat der Historie
+des Users**, nicht gegen die Uhr: «beendet» heisst «das Konto lief weiter, dieser Empfänger
+nicht». Endet schlicht die Datenlage, gibt es keinen Beleg in eine der beiden Richtungen, und
+die Vorannahme bei Abos ist Weiterlaufen. Gegen die Uhr gemessen, liesse ein nachgereichter
+Jahresauszug von 2025 jedes darin erkannte Abo sofort als ausgelaufen gelten.
 
 `DISMISSED` zählt nie: «Kein Abo» (US-08 AC3) ist die Aussage des Nutzers, dass dies keine
-Verpflichtung ist.
+Verpflichtung ist. `ENDED` zählt ebenfalls nie, aber aus einem anderen Grund — es ist die
+Feststellung des Systems, dass die Reihe ausgelaufen ist, und sie kehrt sich um, sobald der
+Empfänger wieder abbucht. Die beiden Status dürfen deshalb nicht zusammengelegt werden.
 
 **Modulkante.** Das budget-Modul liest die Beträge über den neuen
 `recurring.RecurringExpenseAmountPort` — Interface im liefernden Modul, nur Beträge, keine
@@ -255,16 +271,20 @@ Positionen liegt; die Toleranzregel steht am Port, weil beide Seiten dieselbe br
 
 ### Grenzen
 
-- **Abbuchung ausserhalb des Bands zählt doppelt.** Nach einem Preissprung über 2 % (Netflix
-  17.90 → 19.90) trifft die Abbuchung das Band nicht mehr: sie bleibt variable Ausgabe, und der
-  erkannte Betrag zählt dazu — bis die Erkennung die Zeile neu bewertet. Das ist die gleiche
-  Wurzel wie bei Festlegung 7 und der Gegenstand von **BE-REC-04** ([#350](https://github.com/dfme/budget-buddy/issues/350)): Abo-Zeilen beim Import neu
-  bewerten (Betrag aktualisieren, beendete Abos erkennen) statt bekannte Empfänger zu
-  überspringen. Mit BE-REC-04 werden Festlegung 7 und dieser Punkt gegenstandslos.
-- **Nachlauf von bis zu zwei Monaten.** Ein gekündigtes Abo zählt nach der letzten Abbuchung
-  noch in den zwei Folgemonaten (Festlegung 7). Umgekehrt: wer mehr als zwei Monate keinen Auszug
-  importiert, verliert die Abzüge — der Safe-to-Spend fällt dann auf den Zustand vor FE-FC-05
-  zurück, was ohne aktuelle Ausgaben ohnehin die einzig ehrliche Zahl ist.
+- **Ein Preissprung wirkt erst ab dem nächsten Import.** Nach einem Sprung über 2 % (Netflix
+  17.90 → 19.90) trifft die Abbuchung das Band des alten Betrags nicht mehr: sie bleibt variable
+  Ausgabe, und der alte erkannte Betrag zählt dazu. BE-REC-04 hat den *dauerhaften* Teil dieses
+  Fehlers beseitigt — der nächste Erkennungslauf zieht den Betrag nach —, nicht das Fenster
+  zwischen der ersten Abbuchung zum neuen Preis und dem Import, der sie sichtbar macht. Die
+  Abbuchung ist ohnehin erst mit diesem Import bekannt; früher kann keine Regel greifen.
+- **Nachlauf von bis zu zwei Monaten.** Ein gekündigtes Abo zählt nach der letzten Abbuchung noch
+  in den zwei Folgemonaten der Historie, bis das Fenster aus Festlegung 7 es fallen lässt.
+- **Ohne Import ändert sich nichts** — die Kehrseite des Historien-Bezugspunkts und eine
+  bewusste Änderung gegenüber FE-FC-05. Dort verlor, wer drei Monate keinen Auszug importierte,
+  seine Abo-Abzüge, weil das Lesefenster gegen den angefragten Monat mass. Jetzt bleiben sie
+  stehen, bis neue Daten das Gegenteil zeigen. Das ist die richtige Richtung: eine Verpflichtung
+  verschwindet nicht dadurch, dass niemand ein PDF hochlädt, und ein zu **hoher**
+  Safe-to-Spend ist nach diesem ADR die unangenehmere Fehlerrichtung.
 - **Wizard-Betrag ≠ Abbuchung, Position ohne Abo.** Krankenkasse 350.00 erfasst, real 351.20
   abgebucht: die Position streicht rappengenau nichts, die Abbuchung zählt im Abbuchungsmonat
   doppelt — die bekannte Grenze aus dem ursprünglichen ADR, durch Festlegung 6 nicht verändert
@@ -275,6 +295,11 @@ Positionen liegt; die Toleranzregel steht am Port, weil beide Seiten dieselbe br
   ist breiter, der Fehler bleibt auf einen Eintrag begrenzt.
 - Die Warnung «Fixkosten übersteigen dein Einkommen» (`FixedCostService.list`) bezieht die Abos
   nicht ein; das bleibt bewusst offen.
+
+**Modulkante nach BE-REC-04.** Über die Kante gehen weiterhin nur Beträge. Weggefallen ist der
+`month`-Parameter von `detectedAmounts` — der Monat des Aufrufers spielt für die Frage «läuft
+dieses Abo?» keine Rolle mehr — und mit ihm der einzige Produktivaufrufer der gefensterten
+`ExpenseHistoryPort.expenseHistory(userId, from, to)`, die damit ebenfalls entfallen ist.
 
 Ein Abo bleibt weiterhin nicht zu einer editierbaren Fixkosten-Position promovierbar
 (#338 grenzt das aus). Sobald #159 den Empfänger persistiert, ist er auch für die

@@ -41,11 +41,12 @@ public class RecurringExpenseController {
 
     @GetMapping
     @Operation(summary = "Abo-Übersicht des Users auflisten",
-            description = "Liefert die wiederkehrenden Ausgaben des eingeloggten Users in beiden "
-                    + "Status (DETECTED und DISMISSED), alphabetisch nach Empfänger, inkl. "
-                    + "Neu-Flag. Ein per Kein-Abo markierter Eintrag bleibt mit status=DISMISSED "
-                    + "enthalten — die Übersicht zeigt ihn in einem eigenen Abschnitt. Ein User "
-                    + "ohne Einträge bekommt eine leere Liste, keinen Fehler.")
+            description = "Liefert die wiederkehrenden Ausgaben des eingeloggten Users in allen "
+                    + "drei Status (DETECTED, ENDED und DISMISSED), alphabetisch nach Empfänger, "
+                    + "inkl. Neu-Flag. Ein per Kein-Abo markierter Eintrag bleibt mit "
+                    + "status=DISMISSED enthalten, ein ausgelaufenes Abo mit status=ENDED — die "
+                    + "Übersicht zeigt beide in je einem eigenen Abschnitt. Ein User ohne "
+                    + "Einträge bekommt eine leere Liste, keinen Fehler.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Liste zurückgegeben, ggf. leer"),
         @ApiResponse(responseCode = "401", description = "Nicht authentifiziert", content = {})

@@ -90,16 +90,16 @@ import org.springframework.transaction.annotation.Transactional;
  * {@code docs/prompts/02_01_mvp-requirements.md} als Auflösung von Risiko 2 vorgeschlagen hat.
  *
  * <p><strong>Erkannte Abos (FE-FC-05, US-08).</strong> Ein erkanntes, nicht verneintes und noch
- * aktives Abo wirkt wie eine Fixkosten-Position: sein Betrag geht auf der Fixkosten-Seite ab —
+ * laufendes Abo wirkt wie eine Fixkosten-Position: sein Betrag geht auf der Fixkosten-Seite ab —
  * von Monatsbeginn an, nicht erst, wenn die Abbuchung im Auszug steht —, und der
  * {@link FixedCostDebitMatcher} streicht die Abbuchung aus dem Ausgaben-Summanden. Vorher zählte
  * ein Abo nur als variable Ausgabe des Monats, in dem es abging: bis dahin war der Safe-to-Spend
  * um den Abo-Betrag zu hoch. Ein Abo, das der User bereits als Position erfasst hat, zählt nicht
  * doppelt — erkannt am Betrag im Toleranzband; die Regel, die Toleranz und die Begründung stehen
  * im Matcher und im ADR-13-Nachtrag. Die Beträge kommen über {@link RecurringExpenseAmountPort}
- * aus dem recurring-Modul — nur Beträge, kein Empfänger, und nur Abos, die in den letzten
- * Monaten noch abgebucht wurden: eine Zeile verfällt nie von selbst, und ein gekündigtes Abo darf
- * nicht dauerhaft abgezogen werden (Review PR #345).
+ * aus dem recurring-Modul — nur Beträge, kein Empfänger, und nur laufende Abos: dass eine Reihe
+ * ausgelaufen ist, stellt die Erkennung beim Import fest und hält es im Status fest (BE-REC-04),
+ * damit ein gekündigtes Abo nicht dauerhaft abgezogen wird.
  *
  * <p>Sämtliche Beträge sind {@link BigDecimal} (ADR-9) — nie {@code double}/{@code float}.
  *
@@ -261,7 +261,7 @@ public class SafeToSpendService {
         FixedCostDebitMatcher.Result matched = FixedCostDebitMatcher.match(
                 monthlyExpensePort.expenseAmounts(userId, month),
                 fixedCostSummary.fixedCosts(),
-                recurringExpenseAmountPort.detectedAmounts(userId, month));
+                recurringExpenseAmountPort.detectedAmounts(userId));
 
         BigDecimal verfuegbar = monthlyIncome.get()
                 .subtract(fixedCosts)

@@ -218,7 +218,8 @@ class SafeToSpendServiceIntegrationTest {
     @Test
     void aDetectedRecurringExpenseLowersTheResultEvenBeforeItsDebit() {
         // Netflix erkannt, im Juli abgebucht, im August (noch) nicht: vorher zählte es im August
-        // nicht. Die Juli-Abbuchung hält das Abo im Aktivitätsfenster (Jun–Aug).
+        // nicht. Die Zeile steht auf DETECTED, also läuft das Abo — das hat die Erkennung beim
+        // letzten Import entschieden (BE-REC-04), der Lesepfad prüft es nicht noch einmal.
         long lara = insertUser("lara-sts-abo@example.com", new BigDecimal("3000.00"));
         insertRecurringExpense(lara, "NETFLIX", new BigDecimal("17.90"), "DETECTED");
         insertExpense(lara, LocalDate.of(2026, 7, 2), "NETFLIX", new BigDecimal("17.90"));
@@ -254,16 +255,39 @@ class SafeToSpendServiceIntegrationTest {
     }
 
     @Test
-    void aRecurringExpenseWithoutADebitInTheActivityWindowDoesNotLowerTheResult() {
-        // Review PR #345: gekündigtes Netflix — zuletzt im Mai abgebucht, die Zeile bleibt
-        // DETECTED. Ohne Abbuchung in Jun–Aug gilt sie als beendet und zählt nicht mehr.
+    void anEndedRecurringExpenseDoesNotLowerTheResult() {
+        // Gekündigtes Netflix — zuletzt im Mai abgebucht. Seit BE-REC-04 hat die Erkennung die
+        // Zeile beim letzten Import auf ENDED gesetzt; sie mindert damit nichts mehr. Vorher blieb
+        // sie DETECTED und wurde erst im Lesepfad über ein Aktivitätsfenster ausgeblendet
+        // (Review PR #345).
         long marc = insertUser("marc-sts-abo-beendet@example.com", new BigDecimal("3000.00"));
-        insertRecurringExpense(marc, "NETFLIX", new BigDecimal("17.90"), "DETECTED");
+        insertRecurringExpense(marc, "NETFLIX", new BigDecimal("17.90"), "ENDED");
         insertExpense(marc, LocalDate.of(2026, 5, 2), "NETFLIX", new BigDecimal("17.90"));
         insertExpense(marc, LocalDate.of(2026, 8, 3), "SBB", new BigDecimal("300.00"));
 
         // (3000.00 − 0 − 0 − 300.00) ÷ 3 = 900.00
         assertThat(service.calculate(marc).amount()).isEqualByComparingTo("900.00");
+    }
+
+    /**
+     * Die bewusste Verhaltensänderung aus BE-REC-04: Eine {@code DETECTED}-Zeile zählt, auch wenn
+     * ihr Empfänger seit Monaten nicht abgebucht hat. Bis dahin fiel sie nach drei Monaten aus dem
+     * Aktivitätsfenster und der Abzug verschwand — obwohl gar nichts dafür sprach, dass das Abo
+     * endete: der Nutzer hatte bloss nichts importiert.
+     *
+     * <p>Ob eine Reihe ausgelaufen ist, entscheidet jetzt die Erkennung aus den Daten und hält es
+     * im Status fest. Ohne neue Daten bleibt der Abzug stehen — die Richtung, die ADR-13 verlangt,
+     * denn ein zu <em>hoher</em> Safe-to-Spend ist die unangenehmere Fehlerrichtung.
+     */
+    @Test
+    void aDetectedRecurringExpenseStillLowersTheResultWithoutRecentDebits() {
+        long marc = insertUser("marc-sts-abo-ohne-import@example.com", new BigDecimal("3000.00"));
+        insertRecurringExpense(marc, "NETFLIX", new BigDecimal("17.90"), "DETECTED");
+        insertExpense(marc, LocalDate.of(2026, 1, 2), "NETFLIX", new BigDecimal("17.90"));
+        insertExpense(marc, LocalDate.of(2026, 8, 3), "SBB", new BigDecimal("300.00"));
+
+        // (3000.00 − 0 − 17.90 − 300.00) ÷ 3 = 894.03
+        assertThat(service.calculate(marc).amount()).isEqualByComparingTo("894.03");
     }
 
     @Test
@@ -309,13 +333,20 @@ class SafeToSpendServiceIntegrationTest {
         assertThat(service.calculate(marc).amount()).isEqualByComparingTo("1660.70");
     }
 
+    /**
+     * Die Gegenprobe zur Mandantentrennung: Laras ausgelaufene Zeile bleibt ausgelaufen, auch
+     * wenn Marc denselben Empfänger im selben Monat bucht.
+     *
+     * <p>Bis BE-REC-04 lag hier das eigentliche Risiko, weil der Lesepfad für die Aktivität die
+     * Historie nachlud — eine Query ohne {@code user_id} hätte Marcs Abbuchung Laras Zeile
+     * wiederbeleben lassen. Seither liest {@code detectedAmounts} nur noch den Status ihrer
+     * eigenen Zeilen, und die Aktivitätsprüfung sitzt in der Erkennung; dort deckt
+     * {@code RecurringExpenseDetectionIntegrationTest} sie mit demselben Szenario ab.
+     */
     @Test
-    void aForeignUsersDebitNeverActivatesAnOwnStaleRecurringExpense() {
-        // Laras Netflix ist beendet (keine Abbuchung im Fenster); Marc bucht NETFLIX im August.
-        // Griffe die Aktivitätsprüfung über den User hinweg, würde Marcs Abbuchung Laras Zeile
-        // wiederbeleben und ihr Betrag um 17.90 sinken.
+    void aForeignUsersDebitNeverRevivesAnOwnEndedRecurringExpense() {
         long lara = insertUser("lara-sts-abo-fremd-aktiv@example.com", new BigDecimal("3000.00"));
-        insertRecurringExpense(lara, "NETFLIX", new BigDecimal("17.90"), "DETECTED");
+        insertRecurringExpense(lara, "NETFLIX", new BigDecimal("17.90"), "ENDED");
         insertExpense(lara, LocalDate.of(2026, 8, 3), "COOP BERN", new BigDecimal("300.00"));
 
         long marc = insertUser("marc-sts-abo-fremd-aktiv@example.com", new BigDecimal("5000.00"));
