@@ -31,8 +31,13 @@ form {
 // Der Warntext der Lösch-Card trägt mehr Gewicht als ein gewöhnlicher Hinweis: die Aktion ist
 // nicht umkehrbar. Farbe statt Fettung — der Hinweis steht bereits unter einer eindeutigen
 // Überschrift, und `$c-negative` ist dasselbe Rot wie in `notice--error`.
+//
+// Anders als `.settings__hint` steht dieser Hinweis nicht als letztes Element in der Card,
+// sondern vor dem Lösch-Button — ohne eigenes `form` (das den Abstand sonst per `gap` liefert)
+// braucht er deshalb zusätzlich einen unteren Abstand, analog zu `.card__head` (#365).
 .settings__hint--danger {
   color: $c-negative;
+  margin-bottom: $sp-4;
 }
 
 // Das projizierte Formular im Löschdialog bringt den globalen `form`-Selektor oben mit seinem
