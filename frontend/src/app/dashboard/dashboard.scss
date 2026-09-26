@@ -4,11 +4,15 @@
   display: block;
 }
 
-// Spaltenbreite des Dashboards. Das Negativ-Banner (FE-STS-02) steht am oberen Rand
-// oberhalb der Card (US-06) und teilt sich deren Breite — als eine Regel, damit beide
-// beim Anpassen nicht auseinanderlaufen und das Banner nicht über die volle Seitenbreite
-// läuft, unter der die Card dann eingerückt wirkte. Der No-Income-Zustand (FE-STS-03)
-// braucht hier nichts: er liegt *in* der Card, nicht darüber.
+// Spaltenbreite des Dashboards — dieselbe Container-Regel wie auf den übrigen Seiten
+// (`fixed-cost-list.scss`, `pdf-upload.scss`, `category-overview.scss`, `settings.scss`): die
+// ganze Seite ist eine zentrierte Spalte, und alles darin, der Titel eingeschlossen, fluchtet an
+// ihrer linken Kante.
+//
+// Bis FE-STS-06 trug stattdessen jedes Element die Breite einzeln (Banner, Card, Stepper,
+// Übersicht, Abo-Teaser). Der `h1` stand in keiner dieser Listen und lief deshalb über die volle
+// Breite des Inhaltsbereichs — auf breiten Schirmen sass der Titel links aussen, die Spalte
+// darunter zentriert. Eine Regel am Container kann niemand mehr vergessen.
 //
 // 40rem statt der ursprünglichen 28rem (FE-STS-05, #361): 28rem stammte aus FE-STS-01, als das
 // Dashboard nur das einzelne Safe-to-Spend-Widget trug, und blieb seither unangetastet, während
@@ -18,20 +22,25 @@
 // Einstellungen. Als Nebeneffekt blieb zu wenig Innenraum für die Drei-Monats-Tabelle darunter,
 // die dadurch auf jeder Viewport-Breite horizontal scrollte, obwohl rund um die Karte reichlich
 // Platz war.
+.dashboard {
+  max-width: 40rem;
+  margin: 0 auto;
+}
+
+// Das Negativ-Banner (FE-STS-02) steht oberhalb der Card (US-06); beide teilen sich die Spalte
+// und denselben Abstand. Der No-Income-Zustand (FE-STS-03) braucht hier nichts: er liegt *in*
+// der Card, nicht darüber.
 .negative-banner,
 .uncertain-banner,
 .closed-banner,
 .safe-to-spend-card {
-  max-width: 40rem;
-  margin: $sp-6 auto 0;
+  margin-top: $sp-6;
 }
 
-// Monatswechsel (FE-STS-04) — bündig zur Spalte darunter, damit Stepper und Card nicht
-// gegeneinander versetzt stehen. Abstände wie in der Kategorie-Übersicht.
+// Monatswechsel (FE-STS-04). Abstände wie in der Kategorie-Übersicht.
 .month-selector {
   display: block;
-  max-width: 40rem;
-  margin: $sp-4 auto $sp-5;
+  margin: $sp-4 0 $sp-5;
 }
 
 // Lade- und Leerzustand, im Aufbau wie in der Kategorie-Übersicht: zentriert, und der
@@ -121,8 +130,7 @@
 // hineingezogen: die dort genannten Elemente tragen `margin-top: $sp-6`, hier genügt der
 // kleinere Abstand, weil die Übersicht zur Zahl darüber gehört und nicht davon abgesetzt ist.
 .totals-card {
-  max-width: 40rem;
-  margin: $sp-5 auto 0;
+  margin-top: $sp-5;
 }
 
 // Card gibt auf schmalen Viewports weniger Breite her, als die Tabelle mit ihren vier Spalten
@@ -186,8 +194,7 @@
 .monthly-total,
 .monthly-total__unavailable {
   display: block;
-  max-width: 40rem;
-  margin: $sp-5 auto 0;
+  margin-top: $sp-5;
 }
 
 .monthly-total {
