@@ -1,3 +1,4 @@
+import { CurrencyPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -5,6 +6,7 @@ import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
 
 import { AuthService } from '../auth/auth.service';
+import { FixedCostService } from '../onboarding/fixed-cost.service';
 import { RecurringExpenseService } from '../recurring/recurring-expense.service';
 import { Amount } from '../shared/amount/amount';
 import { Button } from '../shared/button/button';
@@ -21,6 +23,28 @@ import { SafeToSpendService } from './safe-to-spend.service';
 
 /** Meldung, wenn die Drei-Monats-Übersicht nicht geladen werden konnte. */
 const FAILED_TO_LOAD_TOTALS = 'Die Monatsübersicht konnte nicht geladen werden.';
+
+/**
+ * Das Total der monatlichen fixen Ausgaben mit seinen beiden Summanden, in CHF (FE-FC-07, seit
+ * FE-STS-06 auf dem Dashboard).
+ */
+export interface MonthlyTotal {
+  /** Monatssumme der erfassten Fixkosten-Positionen (`summeMonatlich` aus dem Backend). */
+  fixedCosts: number;
+  /** Summe der laufenden erkannten Abos — ohne verneinte («Kein Abo») und ausgelaufene. */
+  recurring: number;
+  /** `fixedCosts + recurring`. */
+  total: number;
+}
+
+/**
+ * CHF → Rappen, gerundet. Beträge kommen als JSON-Zahlen mit zwei Nachkommastellen; in
+ * IEEE-754 ist `27.92 + 17.9` aber `45.8199…`, und über viele Positionen sollen sich die
+ * Rundungsfehler gar nicht erst aufsummieren. Addiert wird deshalb in ganzen Rappen.
+ */
+function toRappen(chf: number): number {
+  return Math.round(chf * 100);
+}
 
 /** Eine Zeile der Drei-Monats-Übersicht, angereichert um das, was das Template braucht. */
 interface TotalsRow extends MonthlyTotals {
@@ -56,13 +80,20 @@ interface TotalsRow extends MonthlyTotals {
  * steht die Seite auf dem laufenden Monat — die Monatsliste speist nur Dropdown und
  * Keine-Daten-Hinweis.
  *
+ * <p><strong>Monatliche fixe Ausgaben (FE-STS-06).</strong> Zuunterst steht das Total aus
+ * Fixkosten-Monatssumme und erkannten Abos (bis FE-STS-06 auf der Budget-Seite, FE-FC-07), als
+ * Link auf `/budget`, wo die Details stehen. Es löst den Abo-Teaser (FE-REC-01) ab, der auf
+ * dasselbe Ziel verlinkte. Die Zahl ist keine Monatsgrösse und hängt deshalb nicht am
+ * Monats-Stepper; wie die Drei-Monats-Übersicht steht sie ausserhalb der Lade-/Fehler-Kette des
+ * Safe-to-Spend.
+ *
  * <p>OnPush + Signals wie im übrigen Frontend; der lesende HTTP-Zugriff liegt im
  * zustandslosen {@link SafeToSpendService}, der schreibende im {@link AuthService},
  * dem `/api/users/me` und der `User`-State gehören.
  */
 @Component({
   selector: 'app-dashboard',
-  imports: [Card, Amount, Notice, Button, MonthNav, RouterLink],
+  imports: [Card, Amount, Notice, Button, MonthNav, RouterLink, CurrencyPipe],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -73,6 +104,7 @@ export class Dashboard {
   private readonly authService = inject(AuthService);
   private readonly transactionService = inject(TransactionService);
   private readonly recurringExpenses = inject(RecurringExpenseService);
+  private readonly fixedCosts = inject(FixedCostService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
@@ -303,20 +335,70 @@ export class Dashboard {
     return `${subject} ${consequence}`;
   });
 
+  /** Fixkosten-Monatssumme (`summeMonatlich`) — `null`, solange nicht geladen. */
+  private readonly fixedCostsMonthly = signal<number | null>(null);
+
+  /** `true`, wenn `GET /api/fixed-costs` fehlgeschlagen ist. */
+  private readonly fixedCostsFailed = signal(false);
+
+  /** `true`, solange die erkannten Abos (noch) laden. */
+  private readonly recurringLoading = signal(true);
+
+  /** `true`, wenn `GET /api/recurring-expenses` fehlgeschlagen ist. */
+  private readonly recurringFailed = signal(false);
+
   /**
-   * Der Text der Abo-Teaser-Card (FE-REC-01, US-08), z. B. `"3 Abos erkannt"`.
+   * Total der monatlichen fixen Ausgaben (FE-FC-07, US-08; seit FE-STS-06 hier): Fixkosten-
+   * Monatssumme plus die Beträge der erkannten Abos. `null`, solange einer der beiden Summanden
+   * noch lädt oder nicht geladen werden konnte — eine Zahl, die das verschweigt, ist schlimmer
+   * als keine. Warum sie fehlt, sagt {@link totalUnavailableReason} an derselben Stelle.
    *
-   * <p>Die Card steht auch bei 0 Einträgen da: sie ist vom Dashboard aus der direkte Einstieg
-   * in die Abo-Übersicht — seit FE-FC-05 der Abschnitt «Erkannte Abos» auf `/budget` —, und
-   * wer sie bei 0 versteckte, nähme dem Nutzer den Weg dorthin genau dann, wenn er nachsehen
-   * will, warum nichts erkannt wurde.
+   * <p>Einfache Addition, keine Deduplizierung. Der Safe-to-Spend rechnet anders: dort gilt ein
+   * Abo mit betragsgleicher Fixkosten-Position als bereits erfasst und zählt nicht noch einmal
+   * (`FixedCostDebitMatcher`, ADR-13, FE-FC-05). Hier zählt jedes erkannte Abo — das Total kann
+   * deshalb über der Safe-to-Spend-Minderung liegen, wenn Lara ein Abo auch manuell erfasst hat.
+   * Das ist so gewollt (#355): die Card addiert, was die Budget-Seite zeigt. Verneinte Abos
+   * («Kein Abo») und ausgelaufene (`ENDED`, BE-REC-04) sind nicht drin — `detected()` filtert
+   * beide schon im Service.
    */
-  readonly recurringTeaserText = computed(() => {
-    const count = this.recurringExpenses.count();
-    if (count === 0) {
-      return 'Keine Abos erkannt';
+  readonly monthlyTotal = computed<MonthlyTotal | null>(() => {
+    const summeMonatlich = this.fixedCostsMonthly();
+    if (summeMonatlich === null || this.recurringLoading() || this.recurringFailed()) {
+      return null;
     }
-    return count === 1 ? '1 Abo erkannt' : `${count} Abos erkannt`;
+    const fixedCosts = toRappen(summeMonatlich);
+    const recurring = this.recurringExpenses
+      .detected()
+      .reduce((sum, expense) => sum + toRappen(expense.amount), 0);
+    return {
+      fixedCosts: fixedCosts / 100,
+      recurring: recurring / 100,
+      total: (fixedCosts + recurring) / 100,
+    };
+  });
+
+  /**
+   * Warum das Total fehlt — oder `null`, wenn es dasteht oder bloss noch geladen wird.
+   *
+   * <p>{@link monthlyTotal} auszublenden ist richtig, sobald ein Summand fehlt; ohne diesen Satz
+   * verschwände die Zahl aber kommentarlos. Erklärt wird die Lücke deshalb an der Stelle der
+   * Card (Review-Befund zu #355). Nur nach einem Fehlschlag, nicht während des Ladens — sonst
+   * blitzte der Hinweis bei jedem Besuch kurz auf.
+   */
+  readonly totalUnavailableReason = computed<string | null>(() => {
+    const fixedCostsFailed = this.fixedCostsFailed();
+    const recurringFailed = this.recurringFailed();
+
+    if (fixedCostsFailed && recurringFailed) {
+      return 'Total nicht verfügbar — Fixkosten und Abos konnten nicht geladen werden.';
+    }
+    if (recurringFailed) {
+      return 'Total nicht verfügbar — die erkannten Abos konnten nicht geladen werden.';
+    }
+    if (fixedCostsFailed) {
+      return 'Total nicht verfügbar — die Fixkosten konnten nicht geladen werden.';
+    }
+    return null;
   });
 
   /**
@@ -368,6 +450,7 @@ export class Dashboard {
       .pipe(takeUntilDestroyed())
       .subscribe((params) => this.syncFromUrl(params));
     this.loadAvailableMonths();
+    this.loadFixedCosts();
     this.loadRecurringExpenses();
   }
 
@@ -500,22 +583,38 @@ export class Dashboard {
   }
 
   /**
-   * Lädt die Abo-Übersicht für die Teaser-Card (FE-REC-01, US-08).
+   * Lädt die Fixkosten-Monatssumme für {@link monthlyTotal} (FE-STS-06).
+   *
+   * <p>Einmal beim Aufbau der Seite und unabhängig vom Monat: Fixkosten sind keine Monatsgrösse,
+   * und sie ändern sich nur auf der Budget-Seite — der Rückweg hierher baut die Seite neu auf.
+   * Die Positionen selbst braucht das Dashboard nicht; es liest nur `summeMonatlich`.
+   */
+  private loadFixedCosts(): void {
+    this.fixedCosts.list().subscribe({
+      next: (summary) => this.fixedCostsMonthly.set(summary.summeMonatlich),
+      error: (_err: HttpErrorResponse) => this.fixedCostsFailed.set(true),
+    });
+  }
+
+  /**
+   * Lädt die erkannten Abos für {@link monthlyTotal} (FE-STS-06, vormals für den Abo-Teaser aus
+   * FE-REC-01).
    *
    * <p>Einmal beim Aufbau der Seite und unabhängig vom Monat: erkannte Abos sind keine
    * Monatsgrösse, und die Liste ändert sich nur durch einen Import oder ein «Kein Abo» — beides
    * führt über eine andere Seite hierher zurück. Ein «Kein Abo» verändert seit FE-FC-05 auch den
    * Safe-to-Spend; der wird beim Rückweg ohnehin neu geladen.
    *
-   * <p>Ein Fehler bleibt bewusst still: die Card zeigt dann «Keine Abos erkannt» und verlinkt
-   * weiterhin in die Übersicht, die ihren Fehler selbst meldet. Eine rote Meldung für einen
-   * ausgefallenen Teaser stünde in keinem Verhältnis — dieselbe Abwägung wie bei
-   * {@link #loadUncertainCount}.
+   * <p>Anders als zu Zeiten des Teasers bleibt ein Fehler nicht mehr still: ohne die Abos fehlt
+   * dem Total ein Summand, und {@link totalUnavailableReason} sagt das an Stelle der Card. Ein
+   * rotes Notice gibt es trotzdem nicht — der Safe-to-Spend daneben ist unberührt.
    */
   private loadRecurringExpenses(): void {
     this.recurringExpenses.load().subscribe({
+      next: () => this.recurringLoading.set(false),
       error: (_err: HttpErrorResponse) => {
-        // Siehe Javadoc: bewusst ohne Meldung.
+        this.recurringFailed.set(true);
+        this.recurringLoading.set(false);
       },
     });
   }

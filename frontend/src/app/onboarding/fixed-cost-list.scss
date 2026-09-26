@@ -13,36 +13,6 @@ h1 {
   margin: 0 0 $sp-4;
 }
 
-// Total-Card (FE-FC-07): Betrag in $fs-xl — die Kennzahl dieser Seite, aber nicht die der App.
-// $fs-hero bleibt dem Safe-to-Spend auf dem Dashboard vorbehalten.
-.monthly-total {
-  display: block;
-  margin-bottom: $sp-5;
-}
-
-.monthly-total__amount {
-  @include tabular;
-
-  margin: 0;
-  font-size: $fs-xl;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-
-.monthly-total__breakdown {
-  @include tabular;
-
-  margin: $sp-2 0 0;
-  color: $c-ink-2;
-  font-size: $fs-sm;
-}
-
-.monthly-total__unavailable {
-  margin: 0 0 $sp-5;
-  color: $c-ink-2;
-  font-size: $fs-sm;
-}
-
 // Abschnittskopf «Erfasste Fixkosten» mit dem Button daneben — dasselbe Muster wie vorher der
 // Seitenkopf mit h1, nur eine Stufe tiefer (FE-FC-07).
 .section-header {

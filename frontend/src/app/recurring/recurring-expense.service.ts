@@ -9,9 +9,9 @@ import { RecurringExpenseResponse } from './recurring-expense.model';
  * `POST /api/recurring-expenses/{id}/dismiss` (FE-REC-01, BE-REC-02).
  *
  * <p>Hält den State selbst, wie `NotificationService`: die Liste wird von zwei Stellen gelesen —
- * der Abo-Übersicht und der Teaser-Card auf dem Dashboard — und beide sollen denselben Stand
- * zeigen. Anders als dort kein Bündeln gleichzeitiger Requests: die beiden Consumer sind nie
- * zugleich gemountet.
+ * der Abo-Übersicht und der Card «Monatliche fixe Ausgaben» auf dem Dashboard (FE-STS-06) — und
+ * beide sollen denselben Stand zeigen. Anders als dort kein Bündeln gleichzeitiger Requests: die
+ * beiden Consumer sind nie zugleich gemountet.
  */
 @Injectable({ providedIn: 'root' })
 export class RecurringExpenseService {
@@ -47,12 +47,6 @@ export class RecurringExpenseService {
    */
   readonly dismissed = computed(() => this.expenses().filter((e) => e.status === 'DISMISSED'));
 
-  /**
-   * Abgeleitet: Anzahl laufender Abos für die Teaser-Card — verneinte und ausgelaufene zählen
-   * nicht mit.
-   */
-  readonly count = computed(() => this.detected().length);
-
   /** Lädt die Abo-Übersicht neu. */
   load(): Observable<RecurringExpenseResponse[]> {
     return this.http
@@ -81,9 +75,15 @@ export class RecurringExpenseService {
   }
 
   /**
-   * Leert den State ohne Backend-Call. Wird beim Logout aufgerufen (`Shell.logout`) — sonst
-   * zeigte die Teaser-Card nach einem Login-Wechsel in derselben Tab-Session kurz die Zahl des
-   * vorherigen Users. Analog `NotificationService.clear`.
+   * Leert den State ohne Backend-Call. Wird beim Logout aufgerufen (`Shell.logout`), analog
+   * `NotificationService.clear`.
+   *
+   * <p>Seit FE-STS-06 eine Absicherung, keine Fehlerbehebung mehr: beide heutigen Consumer zeigen
+   * den State erst, nachdem ihr eigener Load durch ist — die Card «Monatliche fixe Ausgaben» über
+   * `Dashboard.monthlyTotal`, die Übersicht über ihr `@if (loading())`. Bis dahin zeigte der
+   * Abo-Teaser die Zahl ohne diese Wache, und ein Login-Wechsel in derselben Tab-Session liess sie
+   * kurz mit dem Stand des vorherigen Users stehen. Die Daten eines fremden Users sollen trotzdem
+   * nicht im Speicher des Tabs liegen bleiben, bis ein nächster Consumer sie ohne Wache liest.
    */
   clear(): void {
     this.expensesState.set([]);

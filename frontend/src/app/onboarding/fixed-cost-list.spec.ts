@@ -58,7 +58,7 @@ const SERAFE: FixedCostDetail = {
   monatsbetrag: 27.92,
 };
 
-/** Erkanntes Abo — zählt ins Total (FE-FC-07). */
+/** Erkanntes Abo — zählte bis FE-STS-06 ins Total dieser Seite. */
 const NETFLIX: RecurringExpenseResponse = {
   id: 1,
   payeeKey: 'NETFLIX',
@@ -69,7 +69,7 @@ const NETFLIX: RecurringExpenseResponse = {
   isNew: false,
 };
 
-/** Per «Kein Abo» verneint — bleibt auf der Seite, zählt aber nicht ins Total. */
+/** Per «Kein Abo» verneint — bleibt auf der Seite (FE-NOTIF-03). */
 const COOP_DISMISSED: RecurringExpenseResponse = {
   id: 2,
   payeeKey: 'COOP PRONTO',
@@ -128,7 +128,6 @@ describe('FixedCostList', () => {
    * Der eingebettete Abschnitt «Erkannte Abos» (FE-FC-05) lädt beim Aufbau seine eigene Liste.
    * Meist leer beantwortet: was er damit macht, prüft `recurring-expense-list.spec.ts` — dieser
    * Test kümmert sich nur darum, dass der Request nicht offen bleibt (`httpMock.verify()`).
-   * Mit Einträgen nur dort, wo das Total (FE-FC-07) sie braucht.
    */
   function flushRecurringExpenses(expenses: RecurringExpenseResponse[] = []): void {
     httpMock.expectOne('/api/recurring-expenses').flush(expenses);
@@ -267,20 +266,17 @@ describe('FixedCostList', () => {
     expect(text()).toContain('konnten nicht geladen werden');
   });
 
-  // FE-FC-07 (#355): die Seite hiess «Ausgaben», die Tabelle bekommt eine Zwischenüberschrift,
-  // und darüber steht das Total aus Fixkosten-Monatssumme und erkannten Abos. FE-FC-09 (#360)
-  // benennt die Seite zu «Budget» um.
-  describe('Seite «Budget» und Total (FE-FC-07, FE-FC-09)', () => {
+  // FE-FC-07 (#355): die Seite hiess «Ausgaben», die Tabelle bekommt eine Zwischenüberschrift.
+  // FE-FC-09 (#360) benennt die Seite zu «Budget» um. Das Total aus Fixkosten-Monatssumme und
+  // erkannten Abos (FE-FC-07) stand hier bis FE-STS-06 (#366) — seither auf dem Dashboard, sein
+  // Verhalten prüft `dashboard.spec.ts`.
+  describe('Seite «Budget» (FE-FC-07, FE-FC-09, FE-STS-06)', () => {
     function heading(level: 1 | 2 | 3, name: string): HTMLElement | null {
       return (
         Array.from(
           (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>(`h${level}`),
         ).find((h) => h.textContent?.trim() === name) ?? null
       );
-    }
-
-    function totalCard(): HTMLElement | null {
-      return (fixture.nativeElement as HTMLElement).querySelector('.monthly-total');
     }
 
     it('trägt den Titel «Budget» und die Zwischenüberschriften «Einkommen», «Ausgaben», «Erfasste Fixkosten» und «Erkannte Abos»', () => {
@@ -333,82 +329,21 @@ describe('FixedCostList', () => {
       expect(heading(3, 'Erfasste Fixkosten')?.id).toBe('fixed-costs-heading');
     });
 
-    it('summiert Fixkosten-Monatssumme und erkannte Abos, ohne die verneinten', () => {
-      // 1200 + 27.92 = 1227.92 Fixkosten, + 17.90 NETFLIX = 1245.82. COOP PRONTO (24.50) ist
-      // verneint und zählt nicht — sonst stünde 1270.32.
+    // FE-STS-06 (#366): die Card «Monatliche fixe Ausgaben» ist auf das Dashboard umgezogen —
+    // weder die Card noch ihr Ersatzsatz bei einem fehlenden Summanden steht noch hier.
+    it('zeigt die Card «Monatliche fixe Ausgaben» nicht mehr', () => {
       flushInitialLoad(summaryOf([MIETE, SERAFE], 3000, false), [NETFLIX, COOP_DISMISSED]);
 
-      expect(component.monthlyTotal()).toEqual({
-        fixedCosts: 1227.92,
-        recurring: 17.9,
-        total: 1245.82,
-      });
-      const card = totalCard();
-      expect(card?.querySelector('.card__title')?.textContent?.trim()).toBe(
-        'Monatliche fixe Ausgaben',
-      );
-      expect(card?.querySelector('.monthly-total__amount')?.textContent).toContain('1’245.82');
-      expect(text()).toContain('CHF 1’227.92 Fixkosten + CHF 17.90 erkannte Abos');
+      const root = fixture.nativeElement as HTMLElement;
+      expect(root.querySelector('.monthly-total')).toBeNull();
+      expect(text()).not.toContain('Monatliche fixe Ausgaben');
+      // Die restlichen Abschnitte stehen unverändert: Einkommen, Fixkosten, erkannte Abos.
+      expect(root.querySelector('app-income-card')).not.toBeNull();
+      expect(rowFor('Serafe')).toBeTruthy();
+      expect(root.querySelector('app-recurring-expense-list')?.textContent).toContain('NETFLIX');
     });
 
-    it('addiert in Rappen — 27.92 + 17.90 ergibt 45.82, nicht 45.8199…', () => {
-      flushInitialLoad(summaryOf([SERAFE], 3000, false), [NETFLIX]);
-
-      expect(component.monthlyTotal()?.total).toBe(45.82);
-    });
-
-    it('zeigt das Total auch ohne erkannte Abos — dann ist es die Fixkosten-Summe', () => {
-      flushInitialLoad(summaryOf([MIETE], 3000, false), []);
-
-      expect(component.monthlyTotal()).toEqual({ fixedCosts: 1200, recurring: 0, total: 1200 });
-      expect(totalCard()).not.toBeNull();
-    });
-
-    /** Der Satz, der an der Stelle der Card steht, wenn das Total fehlt. */
-    function unavailableNote(): string | null {
-      return (
-        (fixture.nativeElement as HTMLElement)
-          .querySelector('.monthly-total__unavailable')
-          ?.textContent?.trim() ?? null
-      );
-    }
-
-    it('blendet das Total aus, wenn die Abos nicht geladen werden konnten, und sagt warum', () => {
-      fixture.detectChanges();
-      httpMock.expectOne('/api/fixed-costs').flush(summaryOf([MIETE], 3000, false));
-      httpMock
-        .expectOne('/api/recurring-expenses')
-        .flush('boom', { status: 500, statusText: 'Internal Server Error' });
-      fixture.detectChanges();
-
-      // Die Fixkosten-Tabelle steht, das Total nicht: ihm fehlte ein Summand. Die Begründung
-      // steht an der Stelle der Card — die Meldung des Abo-Abschnitts selbst käme erst
-      // unterhalb der Tabelle.
-      expect(text()).toContain('Miete');
-      expect(component.monthlyTotal()).toBeNull();
-      expect(totalCard()).toBeNull();
-      expect(unavailableNote()).toBe(
-        'Total nicht verfügbar — die erkannten Abos konnten nicht geladen werden.',
-      );
-    });
-
-    it('blendet das Total aus, wenn die Fixkosten nicht geladen werden konnten, und sagt warum', () => {
-      fixture.detectChanges();
-      httpMock
-        .expectOne('/api/fixed-costs')
-        .flush('boom', { status: 500, statusText: 'Internal Server Error' });
-      flushRecurringExpenses([NETFLIX]);
-      fixture.detectChanges();
-
-      expect(text()).toContain('NETFLIX');
-      expect(component.monthlyTotal()).toBeNull();
-      expect(totalCard()).toBeNull();
-      expect(unavailableNote()).toBe(
-        'Total nicht verfügbar — die Fixkosten konnten nicht geladen werden.',
-      );
-    });
-
-    it('nennt beide Ursachen, wenn beide Requests fehlschlagen', () => {
+    it('zeigt auch keinen Total-Hinweis, wenn ein Request fehlschlägt', () => {
       fixture.detectChanges();
       httpMock
         .expectOne('/api/fixed-costs')
@@ -418,43 +353,10 @@ describe('FixedCostList', () => {
         .flush('boom', { status: 500, statusText: 'Internal Server Error' });
       fixture.detectChanges();
 
-      expect(unavailableNote()).toBe(
-        'Total nicht verfügbar — Fixkosten und Abos konnten nicht geladen werden.',
-      );
-    });
-
-    it('sagt nichts, solange die Abschnitte nur laden — der Hinweis blitzt nicht auf', () => {
-      fixture.detectChanges();
-
-      // Beide Requests stehen noch offen: kein Total, aber auch keine Begründung.
-      expect(component.monthlyTotal()).toBeNull();
-      expect(component.totalUnavailableReason()).toBeNull();
-      expect(unavailableNote()).toBeNull();
-
-      httpMock.expectOne('/api/fixed-costs').flush(summaryOf([MIETE], 3000, false));
-      flushRecurringExpenses();
-      fixture.detectChanges();
-
-      expect(totalCard()).not.toBeNull();
-      expect(unavailableNote()).toBeNull();
-    });
-
-    it('zieht ein per «Kein Abo» verneintes Abo sofort aus dem Total', () => {
-      flushInitialLoad(summaryOf([MIETE], 3000, false), [NETFLIX]);
-      expect(component.monthlyTotal()?.total).toBe(1217.9);
-
-      clickButton(
-        (fixture.nativeElement as HTMLElement).querySelector('app-recurring-expense-list')!,
-        'Kein Abo',
-      );
-      httpMock
-        .expectOne('/api/recurring-expenses/1/dismiss')
-        .flush({ ...NETFLIX, status: 'DISMISSED' });
-      fixture.detectChanges();
-
-      // Kein Reload der Fixkosten nötig: der Service ersetzt den Eintrag im State, das Total
-      // folgt als `computed`.
-      expect(component.monthlyTotal()).toEqual({ fixedCosts: 1200, recurring: 0, total: 1200 });
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector('.monthly-total__unavailable'),
+      ).toBeNull();
+      expect(text()).not.toContain('Total nicht verfügbar');
     });
   });
 
@@ -463,15 +365,15 @@ describe('FixedCostList', () => {
   // Abschnitt auch im Onboarding-Wizard eingebettet ist. Ihr eigenes Verhalten deckt
   // `income-card.spec.ts` ab; hier geht es nur um die Einbettung.
   describe('Abschnitt «Einkommen» (FE-FC-09)', () => {
-    it('rendert die Einkommens-Card oberhalb des Totals', () => {
+    it('rendert die Einkommens-Card oberhalb der Fixkosten-Tabelle', () => {
       flushInitialLoad(summaryOf([MIETE], 3000, false));
 
       const root = fixture.nativeElement as HTMLElement;
       const income = root.querySelector('app-income-card');
       expect(income).not.toBeNull();
-      const total = root.querySelector('.monthly-total');
+      const table = root.querySelector('table');
       expect(
-        income!.compareDocumentPosition(total!) & Node.DOCUMENT_POSITION_FOLLOWING,
+        income!.compareDocumentPosition(table!) & Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();
     });
 
@@ -831,7 +733,11 @@ describe('Route /budget (FE-FC-09)', () => {
     httpMock.expectOne('/api/notifications').flush([]);
     // FE-STS-04: Dasselbe für die Drei-Monats-Übersicht (BE-STS-07).
     httpMock.expectOne((r) => r.url === '/api/transactions/monthly-totals').flush([]);
-    // FE-REC-01: Und die Abo-Übersicht für die Teaser-Card.
+    // FE-STS-06: Und die beiden Summanden der Card «Monatliche fixe Ausgaben» — Fixkosten und
+    // erkannte Abos (bis dahin nur die Abos, für den Abo-Teaser aus FE-REC-01).
+    httpMock
+      .expectOne('/api/fixed-costs')
+      .flush({ fixedCosts: [], summeMonatlich: 0, monthlyIncome: 3800, exceedsIncome: false });
     httpMock.expectOne('/api/recurring-expenses').flush([]);
     root.detectChanges();
 

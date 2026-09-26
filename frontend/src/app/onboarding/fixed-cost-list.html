@@ -6,34 +6,10 @@
     (vormals FE-SET-03) — nur der Ort im UI hat sich geändert. Eigene Komponente statt inline,
     weil derselbe Abschnitt auch im Onboarding-Wizard eingebettet ist — kein dupliziertes
     Formular. Steht ganz oben: das Einkommen ist die Grundlage für die Warnung unterhalb
-    («Fixkosten übersteigen Einkommen») und das Total dieser Seite. Nach dem Speichern lädt die
-    Seite deshalb neu (`(saved)`), sonst zeigte die Warnung weiter das alte Einkommen.
+    («Fixkosten übersteigen Einkommen»). Nach dem Speichern lädt die Seite deshalb neu
+    (`(saved)`), sonst zeigte die Warnung weiter das alte Einkommen.
   -->
   <app-income-card (saved)="reload()" />
-
-  <!--
-    FE-FC-07: Total der monatlichen fixen Ausgaben — Fixkosten-Monatssumme plus erkannte Abos,
-    einfache Addition (siehe `monthlyTotal`). Steht erst, wenn beide Abschnitte geladen sind;
-    die Aufschlüsselung darunter zeigt, woraus die Zahl besteht. Gleicher Aufbau wie die
-    Safe-to-Spend-Card auf dem Dashboard: Card-Titel, grosser Betrag, Zeile darunter — aber in
-    $fs-xl statt $fs-hero, die Hero-Grösse bleibt dem Safe-to-Spend vorbehalten.
-  -->
-  @if (monthlyTotal(); as total) {
-    <app-card class="monthly-total" title="Monatliche fixe Ausgaben">
-      <p class="monthly-total__amount">{{ total.total | currency: 'CHF' : 'symbol' : '1.2-2' }}</p>
-      <p class="monthly-total__breakdown">
-        {{ total.fixedCosts | currency: 'CHF' : 'symbol' : '1.2-2' }} Fixkosten +
-        {{ total.recurring | currency: 'CHF' : 'symbol' : '1.2-2' }} erkannte Abos
-      </p>
-    </app-card>
-  } @else if (totalUnavailableReason(); as reason) {
-    <!--
-      Die Lücke erklärt sich an ihrer eigenen Stelle (siehe `totalUnavailableReason`). Gedämpfter
-      Satz statt `app-notice`: Der Fehler selbst ist schon gemeldet — hier steht nur, was er für
-      diese Zahl bedeutet. Ein zweiter roter Kasten machte aus einem Ausfall zwei.
-    -->
-    <p class="monthly-total__unavailable">{{ reason }}</p>
-  }
 
   <!--
     Zwischenüberschrift «Ausgaben» — gruppiert die beiden Unterabschnitte «Erfasste Fixkosten»
