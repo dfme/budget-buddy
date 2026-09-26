@@ -192,4 +192,20 @@ public class RecurringExpense {
             this.status = RecurringExpenseStatus.DETECTED;
         }
     }
+
+    /**
+     * Reaktiviert einen verneinten Eintrag (BE-REC-05): {@code DISMISSED} → {@code DETECTED}.
+     *
+     * <p>Wirkt nur auf {@link RecurringExpenseStatus#DISMISSED} — dieselbe Schranke wie bei
+     * {@link #markActive()}/{@link #markEnded()}, nur mit vertauschten Rollen: dort entscheidet
+     * die Aktivität in der Historie, hier eine ausdrückliche Nutzeraktion. Ein
+     * {@link RecurringExpenseStatus#ENDED}-Eintrag bleibt unangetastet — dafür ist weiterhin
+     * {@link #markActive()} zuständig, das ausschliesslich aus {@code detect()} läuft. Idempotent
+     * auf einem bereits reaktivierten Eintrag.
+     */
+    public void reactivate() {
+        if (this.status == RecurringExpenseStatus.DISMISSED) {
+            this.status = RecurringExpenseStatus.DETECTED;
+        }
+    }
 }

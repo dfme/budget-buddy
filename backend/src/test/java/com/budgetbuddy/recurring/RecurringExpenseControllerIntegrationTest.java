@@ -294,12 +294,88 @@ class RecurringExpenseControllerIntegrationTest {
                 .andExpect(status().isNotFound());
     }
 
+    // --- BE-REC-05: POST /api/recurring-expenses/{id}/reactivate ---
+
+    @Test
+    void reactivateSetsStatusToDetectedAndAnswersWith200() throws Exception {
+        long id = createRecurringExpense(lara, "NETFLIX");
+        mockMvc.perform(post("/api/recurring-expenses/" + id + "/dismiss").cookie(jwtCookie(lara)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/recurring-expenses/" + id + "/reactivate").cookie(jwtCookie(lara)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(id))
+                .andExpect(jsonPath("$.status").value("DETECTED"))
+                .andExpect(jsonPath("$.isNew").value(false));
+
+        assertThat(recurringExpenseRepository.findByIdAndUserId(id, lara))
+                .get()
+                .extracting(RecurringExpense::getStatus)
+                .isEqualTo(RecurringExpenseStatus.DETECTED);
+    }
+
+    @Test
+    void reactivateIsIdempotent() throws Exception {
+        long id = createRecurringExpense(lara, "NETFLIX");
+        mockMvc.perform(post("/api/recurring-expenses/" + id + "/dismiss").cookie(jwtCookie(lara)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/recurring-expenses/" + id + "/reactivate").cookie(jwtCookie(lara)))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/recurring-expenses/" + id + "/reactivate").cookie(jwtCookie(lara)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("DETECTED"));
+    }
+
+    /**
+     * AC4: Reaktivierte Zeile erscheint wieder in der Abo-Liste und verschwindet aus «Kein Abo».
+     */
+    @Test
+    void reactivatedEntryAppearsInTheListAgainWithStatusDetected() throws Exception {
+        long id = createRecurringExpense(lara, "NETFLIX");
+        mockMvc.perform(post("/api/recurring-expenses/" + id + "/dismiss").cookie(jwtCookie(lara)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/recurring-expenses/" + id + "/reactivate").cookie(jwtCookie(lara)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/recurring-expenses").cookie(jwtCookie(lara)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(id))
+                .andExpect(jsonPath("$[0].status").value("DETECTED"));
+    }
+
+    @Test
+    void aForeignEntryCannotBeReactivated() throws Exception {
+        long id = createRecurringExpense(lara, "NETFLIX");
+        mockMvc.perform(post("/api/recurring-expenses/" + id + "/dismiss").cookie(jwtCookie(lara)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/recurring-expenses/" + id + "/reactivate").cookie(jwtCookie(marc)))
+                .andExpect(status().isNotFound())
+                .andExpect(content().string(""));
+
+        assertThat(recurringExpenseRepository.findByIdAndUserId(id, lara))
+                .get()
+                .extracting(RecurringExpense::getStatus)
+                .isEqualTo(RecurringExpenseStatus.DISMISSED);
+    }
+
+    @Test
+    void unknownIdReturns404ForReactivate() throws Exception {
+        mockMvc.perform(post("/api/recurring-expenses/999999/reactivate").cookie(jwtCookie(lara)))
+                .andExpect(status().isNotFound());
+    }
+
     // --- 401 ohne JWT ---
 
     @Test
     void withoutJwtEveryEndpointReturns401() throws Exception {
         mockMvc.perform(get("/api/recurring-expenses")).andExpect(status().isUnauthorized());
         mockMvc.perform(post("/api/recurring-expenses/1/dismiss"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/recurring-expenses/1/reactivate"))
                 .andExpect(status().isUnauthorized());
     }
 

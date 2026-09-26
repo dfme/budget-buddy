@@ -86,6 +86,12 @@ export class RecurringExpenseList {
   /** Fehlermeldung des letzten fehlgeschlagenen «Kein Abo», oder `null`. */
   readonly dismissErrorMessage = signal<string | null>(null);
 
+  /** ID des Eintrags, dessen Reaktivieren-Request gerade läuft (BE-REC-05) — `null`, wenn keiner. */
+  readonly reactivatingId = signal<number | null>(null);
+
+  /** Fehlermeldung des letzten fehlgeschlagenen Reaktivieren, oder `null`. */
+  readonly reactivateErrorMessage = signal<string | null>(null);
+
   /**
    * Die Abo-Zeilen fürs Template, mit fertigem «seit»-Label. Als `computed` statt Methodenaufruf
    * im Template — dieselbe Begründung wie bei `Dashboard.totalRows`.
@@ -109,8 +115,9 @@ export class RecurringExpenseList {
 
   /**
    * Die verneinten Einträge für den Abschnitt «Kein Abo» (FE-NOTIF-03) — dieselbe Zeilenform,
-   * aber ohne «Neu» und ohne Button: `isNew` ist nach dem Dismiss immer `false`, und einen
-   * bereits verneinten Eintrag noch einmal zu verneinen wäre nur der idempotente Backend-Call.
+   * aber ohne «Neu»-Label: `isNew` ist nach dem Dismiss immer `false`. Statt des «Kein
+   * Abo»-Buttons trägt die Zeile seit BE-REC-05 einen Reaktivieren-Button — der Rückweg, den es
+   * bis dahin nicht gab.
    */
   readonly dismissedRows = computed<readonly ExpenseRow[]>(() =>
     this.recurringExpenses.dismissed().map(toRow),
@@ -150,6 +157,35 @@ export class RecurringExpenseList {
           `«${expense.payeeKey}» konnte nicht als Kein Abo markiert werden.`,
         );
         this.dismissingId.set(null);
+      },
+    });
+  }
+
+  /**
+   * Reaktiviert einen verneinten Eintrag (`POST /api/recurring-expenses/{id}/reactivate`,
+   * BE-REC-05).
+   *
+   * <p>Nur ein Request zur Zeit, analog {@link dismiss}: solange einer läuft, sind alle
+   * Reaktivieren-Buttons gesperrt.
+   *
+   * <p>Bei Erfolg ersetzt der Service den Eintrag im State durch die Antwort (`DETECTED`); die
+   * Zeile wandert damit aus {@link dismissedRows} zurück nach {@link rows}. Bei einem Fehler
+   * bleibt sie stehen, ein erneuter Klick versucht es wieder.
+   */
+  reactivate(expense: RecurringExpenseResponse): void {
+    if (this.reactivatingId() !== null) {
+      return;
+    }
+    this.reactivatingId.set(expense.id);
+    this.reactivateErrorMessage.set(null);
+
+    this.recurringExpenses.reactivate(expense.id).subscribe({
+      next: () => this.reactivatingId.set(null),
+      error: (_err: HttpErrorResponse) => {
+        this.reactivateErrorMessage.set(
+          `«${expense.payeeKey}» konnte nicht reaktiviert werden.`,
+        );
+        this.reactivatingId.set(null);
       },
     });
   }

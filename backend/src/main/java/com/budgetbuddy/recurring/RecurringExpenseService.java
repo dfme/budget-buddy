@@ -541,6 +541,35 @@ public class RecurringExpenseService
                 .noneMatch(e -> e.getStatus() == RecurringExpenseStatus.DETECTED);
     }
 
+    /**
+     * Reaktiviert einen per «Kein Abo» verneinten Eintrag (BE-REC-05): {@code DISMISSED} zurück
+     * auf {@code DETECTED}. Gegenstück zu {@link #dismiss(long, long)}, mit derselben
+     * Mandantenprüfung — {@link RecurringExpenseRepository#findByIdAndUserId} liefert nur den
+     * Eintrag des übergebenen Users, ein fremder oder unbekannter erzeugt dieselbe
+     * {@link RecurringExpenseNotFoundException}.
+     *
+     * <p>Anders als bei {@link #dismiss(long, long)} gibt es hier keine Bündel-Benachrichtigung zu
+     * pflegen: eine Reaktivierung ist eine reine Nutzeraktion und erzeugt keine neue Erkennung.
+     * {@code isNew} ist deshalb immer {@code false} — unabhängig davon, ob das ursprüngliche
+     * Bündel noch ein anderes offenes Mitglied hat und deshalb weiterhin ungelesen ist. Sonst
+     * trüge ein reaktivierter Eintrag fälschlich wieder das «Neu»-Label, obwohl er nicht neu
+     * erkannt, sondern nur wiederhergestellt wurde.
+     *
+     * <p>Idempotent: ein zweiter Aufruf auf einen bereits reaktivierten (oder nie verneinten)
+     * Eintrag ändert nichts (siehe {@link RecurringExpense#reactivate()}).
+     *
+     * @throws RecurringExpenseNotFoundException wenn die ID nicht existiert oder einem anderen
+     *     User gehört.
+     */
+    @Transactional
+    public RecurringExpenseResponse reactivate(long userId, long recurringExpenseId) {
+        RecurringExpense expense = recurringExpenseRepository
+                .findByIdAndUserId(recurringExpenseId, userId)
+                .orElseThrow(() -> new RecurringExpenseNotFoundException(userId, recurringExpenseId));
+        expense.reactivate();
+        return toResponse(expense, false);
+    }
+
     private static RecurringExpenseResponse toResponse(RecurringExpense expense, boolean isNew) {
         return new RecurringExpenseResponse(
                 expense.getId(),

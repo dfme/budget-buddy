@@ -15,6 +15,9 @@
     @if (dismissErrorMessage(); as message) {
       <app-notice variant="error" class="dismiss-error">{{ message }}</app-notice>
     }
+    @if (reactivateErrorMessage(); as message) {
+      <app-notice variant="error" class="reactivate-error">{{ message }}</app-notice>
+    }
 
     <app-card>
       @if (rows().length === 0) {
@@ -116,8 +119,8 @@
     <!--
       FE-NOTIF-03: Verneinte Einträge bleiben auf der Seite, in eigener Card unter der Abo-Liste.
       Eigene Klassen (`dismissed-expense`), nicht `expense` — die Abo-Liste oben soll für Tests
-      und Screenreader weiterhin genau die Abos sein. Keine Aktion pro Zeile: ein Rückgängig gibt
-      es (noch) nicht.
+      und Screenreader weiterhin genau die Abos sein. Seit BE-REC-05 bietet jede Zeile einen
+      Reaktivieren-Button — der Rückweg zurück nach `DETECTED`.
     -->
     @if (dismissedRows().length > 0) {
       <app-card class="dismissed" title="Kein Abo">
@@ -132,6 +135,34 @@
                 <span class="expense__since">{{ row.sinceLabel }}</span>
               </div>
               <app-amount class="expense__amount" [value]="row.amount" [hidePositiveSign]="true" />
+              <button
+                appButton
+                variant="ghost"
+                iconOnlyMobile
+                type="button"
+                class="dismissed-expense__reactivate"
+                [disabled]="reactivatingId() !== null"
+                [attr.aria-busy]="reactivatingId() === row.id ? 'true' : null"
+                [title]="reactivatingId() === row.id ? 'Wird reaktiviert …' : 'Reaktivieren'"
+                [attr.aria-label]="'Reaktivieren: ' + row.payeeKey"
+                (click)="reactivate(row)"
+              >
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M9 14 4 9l5-5" />
+                  <path d="M20 20v-7a4 4 0 0 0-4-4H4" />
+                </svg>
+                {{ reactivatingId() === row.id ? 'Wird reaktiviert …' : 'Reaktivieren' }}
+              </button>
             </li>
           }
         </ul>

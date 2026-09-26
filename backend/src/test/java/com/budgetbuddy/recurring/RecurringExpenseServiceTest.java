@@ -700,6 +700,74 @@ class RecurringExpenseServiceTest {
                 .isInstanceOf(RecurringExpenseNotFoundException.class);
     }
 
+    // --- BE-REC-05: reactivate() ---
+
+    @Test
+    void reactivateSetsStatusToDetectedAndReturnsTheUpdatedState() {
+        RecurringExpense entity = withId(NETFLIX, "20.90", 200L);
+        entity.dismiss();
+        when(repository.findByIdAndUserId(200L, USER_ID)).thenReturn(Optional.of(entity));
+
+        RecurringExpenseResponse response = service.reactivate(USER_ID, 200L);
+
+        assertThat(entity.getStatus()).isEqualTo(RecurringExpenseStatus.DETECTED);
+        assertThat(response.status()).isEqualTo(RecurringExpenseStatus.DETECTED);
+    }
+
+    /**
+     * Reaktivieren ist keine neue Erkennung: {@code isNew} bleibt {@code false}, selbst wenn das
+     * ursprüngliche Bündel wegen eines anderen offenen Mitglieds noch ungelesen ist — sonst
+     * trüge der Eintrag fälschlich wieder das «Neu»-Label.
+     */
+    @Test
+    void reactivateAnswersNotNewEvenWhenItsBundleNotificationIsUnread() {
+        RecurringExpense entity = withId(NETFLIX, "20.90", 200L, BUNDLE_ID);
+        entity.dismiss();
+        when(repository.findByIdAndUserId(200L, USER_ID)).thenReturn(Optional.of(entity));
+
+        RecurringExpenseResponse response = service.reactivate(USER_ID, 200L);
+
+        assertThat(response.isNew()).isFalse();
+        verify(notificationPort, never()).unreadIds(anyLong(), anyString());
+    }
+
+    @Test
+    void reactivateIsIdempotent() {
+        RecurringExpense entity = withId(NETFLIX, "20.90", 200L);
+        entity.dismiss();
+        when(repository.findByIdAndUserId(200L, USER_ID)).thenReturn(Optional.of(entity));
+
+        service.reactivate(USER_ID, 200L);
+        RecurringExpenseResponse response = service.reactivate(USER_ID, 200L);
+
+        assertThat(response.status()).isEqualTo(RecurringExpenseStatus.DETECTED);
+    }
+
+    /**
+     * Die Schranke aus {@link RecurringExpense#reactivate()}: ein ausgelaufener Eintrag ist keine
+     * Verneinung und bleibt unangetastet — dafür ist {@code markActive()} zuständig, das nur aus
+     * {@code detect()} läuft.
+     */
+    @Test
+    void reactivateLeavesAnEndedEntryUnchanged() {
+        RecurringExpense entity = withId(NETFLIX, "20.90", 200L);
+        entity.markEnded();
+        when(repository.findByIdAndUserId(200L, USER_ID)).thenReturn(Optional.of(entity));
+
+        RecurringExpenseResponse response = service.reactivate(USER_ID, 200L);
+
+        assertThat(entity.getStatus()).isEqualTo(RecurringExpenseStatus.ENDED);
+        assertThat(response.status()).isEqualTo(RecurringExpenseStatus.ENDED);
+    }
+
+    @Test
+    void reactivateThrowsNotFoundWhenTheEntryIsMissingOrForeign() {
+        when(repository.findByIdAndUserId(999L, USER_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.reactivate(USER_ID, 999L))
+                .isInstanceOf(RecurringExpenseNotFoundException.class);
+    }
+
     // --- Helfer ---
 
     /** Eine DETECTED-Zeile mit gesetzter ID im Bündel {@link #BUNDLE_ID}, wie sie aus der Datenbank käme. */

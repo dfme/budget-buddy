@@ -90,6 +90,10 @@ describe('RecurringExpenseList', () => {
     return el().querySelector<HTMLElement>('.dismissed');
   }
 
+  function reactivateButtons(): HTMLButtonElement[] {
+    return Array.from(el().querySelectorAll<HTMLButtonElement>('.dismissed-expense__reactivate'));
+  }
+
   function endedRows(): HTMLElement[] {
     return Array.from(el().querySelectorAll<HTMLElement>('.ended-expense'));
   }
@@ -196,7 +200,7 @@ describe('RecurringExpenseList', () => {
     expect(button.title).toBe('Kein Abo');
   });
 
-  it('zeigt verneinte Einträge in einem eigenen Abschnitt «Kein Abo», ohne Neu-Label und Button', () => {
+  it('zeigt verneinte Einträge in einem eigenen Abschnitt «Kein Abo», ohne Neu-Label und Dismiss-Button, aber mit Reaktivieren', () => {
     flushList([NETFLIX, SWISSCOM_DISMISSED]);
 
     // Die Abo-Liste bleibt genau die Abos (US-08 AC3: aus der Abo-Liste entfernt).
@@ -212,6 +216,48 @@ describe('RecurringExpenseList', () => {
     expect(dismissed[0].querySelector('.expense__amount')?.textContent).toContain('59.90');
     expect(dismissed[0].querySelector('.expense__new')).toBeNull();
     expect(dismissed[0].querySelector('.expense__dismiss')).toBeNull();
+    // BE-REC-05: der Rückweg aus «Kein Abo».
+    expect(reactivateButtons()).toHaveLength(1);
+    expect(reactivateButtons()[0].getAttribute('aria-label')).toBe('Reaktivieren: SWISSCOM');
+  });
+
+  // BE-REC-05
+  it('ruft bei Reaktivieren den reactivate-Endpoint auf und verschiebt den Eintrag zurück in die Abo-Liste', () => {
+    flushList([SWISSCOM_DISMISSED]);
+    expect(rows()).toHaveLength(0);
+
+    reactivateButtons()[0].click();
+    fixture.detectChanges();
+
+    expect(reactivateButtons()[0].disabled).toBe(true);
+    expect(reactivateButtons()[0].textContent?.trim()).toBe('Wird reaktiviert …');
+    expect(reactivateButtons()[0].getAttribute('aria-busy')).toBe('true');
+    expect(reactivateButtons()[0].title).toBe('Wird reaktiviert …');
+
+    const req = httpMock.expectOne('/api/recurring-expenses/3/reactivate');
+    expect(req.request.method).toBe('POST');
+    req.flush({ ...SWISSCOM_DISMISSED, status: 'DETECTED', isNew: false });
+    fixture.detectChanges();
+
+    expect(dismissedRows()).toHaveLength(0);
+    expect(dismissedSection()).toBeNull();
+    const list = rows();
+    expect(list).toHaveLength(1);
+    expect(list[0].querySelector('.expense__payee')?.textContent).toContain('SWISSCOM');
+  });
+
+  it('lässt den Eintrag bei einem fehlschlagenden Reaktivieren stehen und zeigt eine Meldung', () => {
+    flushList([SWISSCOM_DISMISSED]);
+
+    reactivateButtons()[0].click();
+    httpMock
+      .expectOne('/api/recurring-expenses/3/reactivate')
+      .flush(null, { status: 404, statusText: 'Not Found' });
+    fixture.detectChanges();
+
+    expect(dismissedRows()).toHaveLength(1);
+    expect(el().querySelector('.reactivate-error')?.textContent).toContain('SWISSCOM');
+    expect(reactivateButtons()[0].disabled).toBe(false);
   });
 
   // BE-REC-04: Ein ausgelaufenes Abo verlässt die Abo-Liste, aber nicht die Seite — sonst

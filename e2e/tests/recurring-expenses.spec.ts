@@ -204,6 +204,35 @@ test.describe('Abo-Erkennung', () => {
     await expect(page.locator('li.dismissed-expense').filter({ hasText: PAYEE })).toHaveCount(1);
   });
 
+  // BE-REC-05 (#368): der Rückweg aus «Kein Abo».
+  test('Reaktivieren bringt einen verneinten Eintrag zurück in die Abo-Liste, auch nach einem Reload', async ({
+    authenticatedContext,
+    authenticatedPage: page,
+  }) => {
+    await importFixture(authenticatedContext.request, FIXTURE_DETECTION);
+
+    await page.goto('/budget');
+    await page.getByRole('button', { name: `Kein Abo: ${PAYEE}` }).click();
+    const dismissedRow = page.locator('li.dismissed-expense').filter({ hasText: PAYEE });
+    await expect(dismissedRow).toHaveCount(1);
+    await expect(page.locator('li.expense').filter({ hasText: PAYEE })).toHaveCount(0);
+
+    await page.getByRole('button', { name: `Reaktivieren: ${PAYEE}` }).click();
+
+    // Kein Reload nötig: `reactivate` ersetzt den Eintrag lokal im State — die Zeile wandert
+    // sofort zurück in die Abo-Liste, ohne «Neu»-Label (BE-REC-05: keine neue Erkennung).
+    await expect(dismissedRow).toHaveCount(0);
+    const row = page.locator('li.expense').filter({ hasText: PAYEE });
+    await expect(row).toHaveCount(1);
+    await expect(row.locator('.expense__new')).toHaveCount(0);
+
+    // Neu laden: die Reaktivierung ist tatsächlich in der Datenbank angekommen, nicht nur im
+    // lokalen State ersetzt.
+    await page.reload();
+    await expect(page.locator('li.expense').filter({ hasText: PAYEE })).toHaveCount(1);
+    await expect(page.locator('li.dismissed-expense').filter({ hasText: PAYEE })).toHaveCount(0);
+  });
+
   // FE-FC-05 (#338) AC 4, FE-FC-07 (#355) AC 1 und FE-FC-09 (#360): alle drei alten Pfade leiten
   // auf die Budget-Seite um — Bookmarks und ältere Links landen dort, nicht über den Catch-all
   // auf dem Dashboard. `page.goto` ist ein Hard-Load: der Server muss den alten Pfad als

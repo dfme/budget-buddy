@@ -81,6 +81,23 @@ export class RecurringExpenseService {
   }
 
   /**
+   * Reaktiviert einen per «Kein Abo» verneinten Eintrag (BE-REC-05) und ersetzt ihn im State
+   * durch die Antwort — dieselbe Begründung wie bei {@link dismiss}: kein Reload, die Antwort ist
+   * der Eintrag in seinem neuen Zustand (`status=DETECTED`, `isNew=false`).
+   */
+  reactivate(id: number): Observable<RecurringExpenseResponse> {
+    return this.http
+      .post<RecurringExpenseResponse>(`/api/recurring-expenses/${id}/reactivate`, {})
+      .pipe(
+        tap((updated) => {
+          this.expensesState.update((list) =>
+            list.map((expense) => (expense.id === id ? updated : expense)),
+          );
+        }),
+      );
+  }
+
+  /**
    * Leert den State ohne Backend-Call. Wird beim Logout aufgerufen (`Shell.logout`) — sonst
    * zeigte die Teaser-Card nach einem Login-Wechsel in derselben Tab-Session kurz die Zahl des
    * vorherigen Users. Analog `NotificationService.clear`.
