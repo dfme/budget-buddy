@@ -335,9 +335,11 @@
   /* ---------- MoSCoW-Symbolbild ---------- */
   .moscow-fig{ margin:0; }
   .grid-2 > .bignum{ margin-top:0; }
-  .moscow-fig svg{ display:block; width:100%; max-width:380px; height:auto; }
+  .moscow-fig svg{ display:block; width:100%; max-width:400px; height:auto;
+                   filter:drop-shadow(0 6px 14px rgba(0,0,0,.25)); }
+  .moscow-fig .lbl.sm{ font-size:11px; }
   .moscow-fig .lbl{ font-family:var(--font-mono); font-size:13px; font-weight:600; letter-spacing:.08em; }
-  .moscow-fig figcaption{ margin-top:.55rem; font-size:.82rem; color:var(--c-ink-2); max-width:380px; line-height:1.45; }
+  .moscow-fig figcaption{ margin-top:.55rem; font-size:.82rem; color:var(--c-ink-2); max-width:400px; line-height:1.45; }
 
   /* ---------- Task-ID zerlegt ---------- */
   .idcode{ font-family:var(--font-mono); background:var(--c-surface); border:1px solid var(--c-line);
@@ -469,20 +471,36 @@
 
       <div class="grid-2" style="align-items:center; margin-top:1.2rem;">
         <figure class="moscow-fig">
-          <svg viewBox="0 0 286 194" role="img"
-               aria-label="Stufenpyramide aus drei Stufen: Must als breite Basis, darüber das schmalere Should, darüber das schmalste Could.">
+          <svg viewBox="0 0 300 222" role="img"
+               aria-label="Pyramide aus drei Stufen: Must als breite Basis, darüber das schmalere Should, an der Spitze Could.">
+            <defs>
+              <linearGradient id="mw-must" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="var(--c-accent)" stop-opacity="1"/>
+                <stop offset="1" stop-color="var(--c-accent)" stop-opacity="0.78"/>
+              </linearGradient>
+              <linearGradient id="mw-should" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="var(--c-accent)" stop-opacity="0.42"/>
+                <stop offset="1" stop-color="var(--c-accent)" stop-opacity="0.26"/>
+              </linearGradient>
+              <linearGradient id="mw-could" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="var(--c-accent)" stop-opacity="0.2"/>
+                <stop offset="1" stop-color="var(--c-accent)" stop-opacity="0.1"/>
+              </linearGradient>
+            </defs>
+            <!-- Bodenschatten -->
+            <ellipse cx="150" cy="208" rx="136" ry="7" fill="var(--c-accent)" fill-opacity="0.12"/>
             <!-- Must — die Basis, die alles trägt -->
-            <rect x="8" y="140" width="270" height="46" rx="7"
-                  fill="var(--c-accent)" fill-opacity="0.9" stroke="var(--c-accent)" stroke-width="1.5"/>
-            <text class="lbl" x="143" y="169" text-anchor="middle" fill="var(--c-bg)">MUST</text>
+            <path d="M54.2 140 H245.8 L290 200 H10 Z" fill="url(#mw-must)"
+                  stroke="var(--c-accent)" stroke-width="1.5" stroke-linejoin="round"/>
+            <text class="lbl" x="150" y="175" text-anchor="middle" fill="var(--c-bg)">MUST</text>
             <!-- Should -->
-            <rect x="42" y="88" width="202" height="46" rx="7"
-                  fill="var(--c-accent)" fill-opacity="0.22" stroke="var(--c-accent)" stroke-width="1.5"/>
-            <text class="lbl" x="143" y="117" text-anchor="middle" fill="var(--c-accent)">SHOULD</text>
-            <!-- Could -->
-            <rect x="76" y="36" width="134" height="46" rx="7"
-                  fill="var(--c-accent-soft)" stroke="var(--c-accent)" stroke-width="1.5"/>
-            <text class="lbl" x="143" y="65" text-anchor="middle" fill="var(--c-accent)">COULD</text>
+            <path d="M101.4 76 H198.6 L241.4 134 H58.6 Z" fill="url(#mw-should)"
+                  stroke="var(--c-accent)" stroke-width="1.5" stroke-linejoin="round"/>
+            <text class="lbl" x="150" y="110" text-anchor="middle" fill="var(--c-ink)">SHOULD</text>
+            <!-- Could — die Spitze, die zuerst fällt -->
+            <path d="M150 10 L194.2 70 H105.8 Z" fill="url(#mw-could)"
+                  stroke="var(--c-accent)" stroke-width="1.5" stroke-linejoin="round"/>
+            <text class="lbl sm" x="150" y="60" text-anchor="middle" fill="var(--c-accent)">COULD</text>
           </svg>
           <figcaption><b>Must trägt das Produkt</b> — jede Stufe darüber ist schmaler und im Zweifel die, die zuerst fällt.</figcaption>
         </figure>
