@@ -419,8 +419,8 @@ describe('Shell', () => {
       expect(notifications.notifications()).toEqual([]);
     });
 
-    // FE-REC-01: dieselbe Regression für die Abo-Summe auf dem Dashboard (seit FE-STS-06 in der
-    // Card «Monatliche fixe Ausgaben», davor die Zahl im Abo-Teaser).
+    // FE-REC-01: dieselbe Regression für den Abo-State. Seit FE-STS-06 warten dessen Consumer auf
+    // ihren eigenen Load; der Reset bleibt als Absicherung (siehe `RecurringExpenseService.clear`).
     it('leert den Abo-State beim Abmelden', () => {
       login(LARA);
       const recurringExpenses = TestBed.inject(RecurringExpenseService);

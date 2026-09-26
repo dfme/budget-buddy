@@ -1113,13 +1113,17 @@ describe('Dashboard', () => {
       return { status: 500, statusText: 'Server Error' };
     }
 
-    it('summiert Fixkosten-Monatssumme und erkannte Abos, ohne die verneinten', () => {
-      // 1227.92 Fixkosten + 17.90 = 1245.82. Das verneinte Abo (24.50) zählt nicht — sonst
-      // stünde 1270.32.
+    it('summiert Fixkosten-Monatssumme und laufende Abos, ohne verneinte und ausgelaufene', () => {
+      // 1227.92 Fixkosten + 17.90 = 1245.82. Das verneinte (24.50) und das ausgelaufene Abo
+      // (9.90, BE-REC-04) zählen nicht — sonst stünde 1280.22.
       httpMock.expectOne('/api/fixed-costs').flush(fixedCostSummary(1227.92));
       httpMock
         .expectOne('/api/recurring-expenses')
-        .flush([recurringExpense(1, 17.9), recurringExpense(2, 24.5, 'DISMISSED')]);
+        .flush([
+          recurringExpense(1, 17.9),
+          recurringExpense(2, 24.5, 'DISMISSED'),
+          recurringExpense(3, 9.9, 'ENDED'),
+        ]);
       expectSafeToSpendRequest(httpMock).flush(NORMAL);
       fixture.detectChanges();
 

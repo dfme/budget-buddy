@@ -20,14 +20,25 @@ export class RecurringExpenseService {
   private readonly expensesState = signal<RecurringExpenseResponse[]>([]);
 
   /**
-   * Alle Einträge des eingeloggten Users, beide Status, in der vom Backend gelieferten
-   * Reihenfolge (alphabetisch nach Empfänger). Die Consumer lesen {@link detected} und
-   * {@link dismissed}; das Ganze ist hier nur der gemeinsame Ausgangspunkt.
+   * Alle Einträge des eingeloggten Users, alle Status, in der vom Backend gelieferten
+   * Reihenfolge (alphabetisch nach Empfänger). Die Consumer lesen {@link detected},
+   * {@link ended} und {@link dismissed}; das Ganze ist hier nur der gemeinsame Ausgangspunkt.
    */
   readonly expenses = this.expensesState.asReadonly();
 
-  /** Erkannte Abos — die eigentliche Abo-Liste. */
+  /** Laufende Abos — die eigentliche Abo-Liste. */
   readonly detected = computed(() => this.expenses().filter((e) => e.status === 'DETECTED'));
+
+  /**
+   * Ausgelaufene Abos (BE-REC-04): der Empfänger hat in den jüngsten Monaten der Historie nicht
+   * mehr abgebucht. Sie stehen in einem eigenen Abschnitt «Beendet» — sichtbar, weil ein
+   * gekündigtes Abo eine Information ist und weil der Klick auf die zugehörige Benachrichtigung
+   * sonst ins Leere führte (dieselbe Begründung wie bei {@link dismissed}, FE-NOTIF-03).
+   *
+   * <p>Sie zählen weder in {@link count} noch ins Total der fixen Ausgaben auf `/budget`, weil
+   * beide auf {@link detected} aufsetzen — dieselbe Grenze, die der Safe-to-Spend zieht.
+   */
+  readonly ended = computed(() => this.expenses().filter((e) => e.status === 'ENDED'));
 
   /**
    * Per «Kein Abo» verneinte Einträge — der Abschnitt «Kein Abo» der Übersicht (FE-NOTIF-03).
@@ -64,9 +75,15 @@ export class RecurringExpenseService {
   }
 
   /**
-   * Leert den State ohne Backend-Call. Wird beim Logout aufgerufen (`Shell.logout`) — sonst
-   * zeigte die Card «Monatliche fixe Ausgaben» nach einem Login-Wechsel in derselben
-   * Tab-Session kurz die Abo-Summe des vorherigen Users. Analog `NotificationService.clear`.
+   * Leert den State ohne Backend-Call. Wird beim Logout aufgerufen (`Shell.logout`), analog
+   * `NotificationService.clear`.
+   *
+   * <p>Seit FE-STS-06 eine Absicherung, keine Fehlerbehebung mehr: beide heutigen Consumer zeigen
+   * den State erst, nachdem ihr eigener Load durch ist — die Card «Monatliche fixe Ausgaben» über
+   * `Dashboard.monthlyTotal`, die Übersicht über ihr `@if (loading())`. Bis dahin zeigte der
+   * Abo-Teaser die Zahl ohne diese Wache, und ein Login-Wechsel in derselben Tab-Session liess sie
+   * kurz mit dem Stand des vorherigen Users stehen. Die Daten eines fremden Users sollen trotzdem
+   * nicht im Speicher des Tabs liegen bleiben, bis ein nächster Consumer sie ohne Wache liest.
    */
   clear(): void {
     this.expensesState.set([]);

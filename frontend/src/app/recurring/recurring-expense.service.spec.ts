@@ -52,15 +52,24 @@ describe('RecurringExpenseService', () => {
     expect(service.detected().length).toBe(2);
   });
 
-  // FE-NOTIF-03: `GET` liefert beide Status. Der Service trennt sie; das Dashboard-Total summiert
-  // nur Abos — ein verneinter Eintrag ist keines.
-  it('trennt die Liste nach Status und zählt nur erkannte Abos', () => {
+  // FE-NOTIF-03 und BE-REC-04: `GET` liefert alle drei Status. Der Service trennt sie; das
+  // Dashboard-Total summiert nur laufende Abos — ein verneinter ist keines, ein ausgelaufener
+  // keines mehr.
+  it('trennt die Liste nach Status und zählt nur laufende Abos', () => {
     service.load().subscribe();
     const dismissed: RecurringExpenseResponse = { ...SPOTIFY, status: 'DISMISSED', isNew: false };
-    httpMock.expectOne('/api/recurring-expenses').flush([NETFLIX, dismissed]);
+    const ended: RecurringExpenseResponse = {
+      ...NETFLIX,
+      id: 3,
+      payeeKey: 'SWISSCOM',
+      status: 'ENDED',
+      isNew: false,
+    };
+    httpMock.expectOne('/api/recurring-expenses').flush([NETFLIX, dismissed, ended]);
 
     expect(service.detected()).toEqual([NETFLIX]);
     expect(service.dismissed()).toEqual([dismissed]);
+    expect(service.ended()).toEqual([ended]);
     expect(service.detected().length).toBe(1);
   });
 

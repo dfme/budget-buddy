@@ -89,6 +89,31 @@
     </app-card>
 
     <!--
+      BE-REC-04: Ausgelaufene Abos, zwischen den laufenden und den verneinten. Eigene Klassen
+      (`ended-expense`) aus demselben Grund wie unten — `li.expense` soll weiterhin genau die
+      laufenden Abos treffen, in Tests wie für Screenreader.
+    -->
+    @if (endedRows().length > 0) {
+      <app-card class="ended" title="Beendet">
+        <p class="ended__intro">
+          Zuletzt vor mehreren Monaten abgebucht — diese Abos mindern deinen Safe-to-Spend nicht
+          mehr. Bucht der Empfänger wieder ab, erscheinen sie automatisch wieder oben.
+        </p>
+        <ul class="ended-expenses">
+          @for (row of endedRows(); track row.id) {
+            <li class="ended-expense">
+              <div class="expense__main">
+                <span class="expense__payee">{{ row.payeeKey }}</span>
+                <span class="expense__since">{{ row.sinceLabel }}</span>
+              </div>
+              <app-amount class="expense__amount" [value]="row.amount" [hidePositiveSign]="true" />
+            </li>
+          }
+        </ul>
+      </app-card>
+    }
+
+    <!--
       FE-NOTIF-03: Verneinte Einträge bleiben auf der Seite, in eigener Card unter der Abo-Liste.
       Eigene Klassen (`dismissed-expense`), nicht `expense` — die Abo-Liste oben soll für Tests
       und Screenreader weiterhin genau die Abos sein. Keine Aktion pro Zeile: ein Rückgängig gibt

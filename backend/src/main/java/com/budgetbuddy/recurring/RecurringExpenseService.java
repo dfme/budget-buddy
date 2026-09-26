@@ -12,7 +12,7 @@ import java.time.Instant;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -36,9 +36,9 @@ import org.springframework.transaction.annotation.Transactional;
  * dazwischen 20.90 und 21.20 stehen. Der Empfänger kommt bereits normalisiert über den
  * {@link ExpenseHistoryPort}; welche Zeile des Bank-PDFs ihn trägt, weiss dieses Modul nicht.
  *
- * <p><strong>Was geschrieben wird.</strong> Pro neu erkanntem Empfänger genau eine Zeile mit
- * {@link RecurringExpenseStatus#DETECTED}: der Betrag des <em>jüngsten</em> qualifizierenden
- * Monatspaars und der erste Monat der Reihe in den Daten. Dazu <em>pro Lauf</em> eine
+ * <p><strong>Was geschrieben wird.</strong> Pro neu erkanntem Empfänger genau eine Zeile: der
+ * Betrag des <em>jüngsten</em> qualifizierenden Monatspaars und der erste Monat der Reihe in den
+ * Daten. Dazu <em>pro Lauf</em> eine
  * Benachrichtigung vom Typ {@value #NOTIFICATION_TYPE}, die alle Treffer des Laufs bündelt
  * («3 neue Abos erkannt: …») — der «Neu»-Hinweis aus US-08. Jede Zeile trägt die ID dieser
  * Benachrichtigung ({@code notification_id}, V14); der Verweis läuft seit FE-NOTIF-04 (#336) von
@@ -46,13 +46,32 @@ import org.springframework.transaction.annotation.Transactional;
  * mehrere Zeilen meldet. Ein Import, der 27 Abos auf einmal erkennt, erzeugte vorher 27
  * Benachrichtigungen, die nur einzeln als gelesen zu markieren waren.
  *
- * <p><strong>Was nicht angefasst wird.</strong> Ein Empfänger, für den bereits eine Zeile existiert,
- * wird übersprungen — in beiden Status. Bei {@code DISMISSED} ist das die Regel aus US-08 («künftige
- * Transaktionen desselben Empfängers werden nicht mehr automatisch erkannt»); bei {@code DETECTED}
- * verhindert es, dass jeder weitere Import dieselbe Benachrichtigung noch einmal erzeugt. Ein
- * gestiegener Abo-Preis aktualisiert die Zeile deshalb nicht — die Übersicht zeigt weiterhin den
- * Betrag der ersten Erkennung. Das ist eine bewusste Vereinfachung; sie ist im PR zu BE-REC-01
- * benannt.
+ * <p><strong>Bestehende Zeilen werden neu bewertet, nicht übersprungen (BE-REC-04, #350).</strong>
+ * Bis dahin übersprang jeder Lauf einen bekannten Empfänger vollständig: {@code amount} blieb die
+ * Momentaufnahme der ersten Erkennung, und eine ausgelaufene Reihe blieb {@code DETECTED}. Solange
+ * die Zeile nur in einer Liste stand, war das folgenlos; seit FE-FC-05 (#338) ist sie ein
+ * finanzieller Eingabewert des Safe-to-Spend, und beides kostet Geld — ein Preissprung über ±2 %
+ * zählte doppelt, ein gekündigtes Abo dauerhaft weiter.
+ *
+ * <p>Jeder Lauf prüft deshalb jede nicht verneinte Zeile gegen die volle Historie:
+ *
+ * <ul>
+ *   <li>{@code amount} und {@code firstDetectedMonth} folgen dem jüngsten qualifizierenden Paar
+ *       ({@link RecurringExpense#updateFrom}) — ein Preissprung über die Toleranz hinaus
+ *       eingeschlossen, denn er beginnt nach der Regel von {@link #qualify} eine neue Reihe.</li>
+ *   <li>Der Status folgt der Aktivität: ohne Abbuchung im Fenster
+ *       {@link #ACTIVE_WINDOW_MONTHS} wird die Zeile {@link RecurringExpenseStatus#ENDED}, mit
+ *       Abbuchung wieder {@link RecurringExpenseStatus#DETECTED}.</li>
+ * </ul>
+ *
+ * <p>Eine Aktualisierung erzeugt <strong>keine</strong> Benachrichtigung. Der «Neu»-Hinweis gilt
+ * dem Fund eines Abos, nicht seiner Preisänderung; ein Bündel für einen Empfänger, den der Nutzer
+ * längst kennt, wäre Rauschen im Badge.
+ *
+ * <p><strong>{@code DISMISSED} ist terminal.</strong> Ein verneinter Empfänger wird weder im Betrag
+ * noch im Status angefasst und nie wieder erkannt — die Regel aus US-08 AC3 («künftige
+ * Transaktionen desselben Empfängers werden nicht mehr automatisch erkannt»). Er ist der einzige
+ * Fall, der weiterhin vollständig übersprungen wird.
  *
  * <p><strong>Eine Zeile pro Empfänger.</strong> {@code UNIQUE (user_id, payee_key)} (V11) erlaubt
  * keine zweite. Zwei Abos beim selben Anbieter — Mobile und Internet bei Swisscom — ergeben damit
@@ -70,14 +89,16 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p><strong>Safe-to-Spend (FE-FC-05).</strong> Erkannte Abos mindern seit FE-FC-05 den
  * Safe-to-Spend wie Fixkosten-Positionen. Das budget-Modul liest dafür über
- * {@link RecurringExpenseAmountPort#detectedAmounts} nur die Beträge der {@code DETECTED}-Zeilen,
- * die im Aktivitätsfenster noch abgebucht wurden — eine Zeile verfällt nie von selbst, und ein
- * gekündigtes Abo darf nicht dauerhaft abgezogen werden. Die Zuordnung zur Abbuchung des Monats
- * und die Regel gegen Doppelzählung liegen drüben ({@code FixedCostDebitMatcher},
- * ADR-13-Nachtrag); die Toleranz dafür ist dieselbe wie hier bei der Erkennung.
+ * {@link RecurringExpenseAmountPort#detectedAmounts} die Beträge der {@code DETECTED}-Zeilen — und
+ * nur diese: dass eine Zeile noch läuft, hat dieser Service beim letzten Import entschieden und in
+ * den Status geschrieben. Bis BE-REC-04 prüfte der Lesepfad das selbst über ein Aktivitätsfenster
+ * (Review PR #345), weil die Zeile nie neu bewertet wurde; dieses Fenster ist mit der Neubewertung
+ * entfallen. Die Zuordnung zur Abbuchung des Monats und die Regel gegen Doppelzählung liegen
+ * drüben ({@code FixedCostDebitMatcher}, ADR-13-Nachtrag); die Toleranz dafür ist dieselbe wie
+ * hier bei der Erkennung.
  *
- * <p><strong>Mandantentrennung:</strong> alle Lesezugriffe — beide Fassungen von
- * {@link ExpenseHistoryPort#expenseHistory}, {@link RecurringExpenseRepository#findByUserId} und
+ * <p><strong>Mandantentrennung:</strong> alle Lesezugriffe — {@link ExpenseHistoryPort#expenseHistory},
+ * {@link RecurringExpenseRepository#findByUserId} und
  * {@link RecurringExpenseRepository#findByUserIdAndStatus} — sind auf den übergebenen User
  * eingeschränkt; geschrieben wird mit derselben ID.
  *
@@ -95,6 +116,22 @@ public class RecurringExpenseService
 
     /** Rappen — Zielskala aller Beträge (ADR-9). */
     private static final int RAPPEN_SCALE = ChfAmounts.RAPPEN_SCALE;
+
+    /**
+     * Wie viele Monate ein Empfänger ohne Belastung bleiben darf, bevor seine Zeile als
+     * ausgelaufen gilt ({@link RecurringExpenseStatus#ENDED}) — den jüngsten Monat der Historie
+     * eingeschlossen.
+     *
+     * <p>Drei und nicht zwei: Abbuchungstage verschieben sich über Wochenenden und Feiertage, eine
+     * Jahresrechnung kann einmal einen Monat später kommen, und ein einzelner ausgelassener Monat
+     * ist noch kein Kündigungsindiz. Bei zwei Monaten kippte eine am 1. September statt am 31.
+     * August gebuchte Belastung die Zeile.
+     *
+     * <p>Bis BE-REC-04 stand dieselbe Zahl als {@code ACTIVE_WINDOW_MONTHS} am
+     * {@link RecurringExpenseAmountPort} und wurde bei jedem Lesen des Safe-to-Spend ausgewertet.
+     * Sie ist eine Erkennungsregel und gehört deshalb hierher.
+     */
+    static final int ACTIVE_WINDOW_MONTHS = 3;
 
     private final ExpenseHistoryPort expenseHistoryPort;
     private final RecurringExpenseRepository recurringExpenseRepository;
@@ -120,53 +157,184 @@ public class RecurringExpenseService
      * {@code notificationId} auf nichts zeigt, hiesse ein Abo, das nie «Neu» war.
      *
      * <p>Die Notification entsteht <em>vor</em> den Zeilen, weil diese ihre ID tragen — und nur,
-     * wenn es mindestens einen Treffer gibt: ein Lauf ohne Ergebnis meldet nichts.
+     * wenn es mindestens einen <em>neuen</em> Treffer gibt. Die Neubewertung bestehender Zeilen
+     * (BE-REC-04) meldet nichts: ein Lauf, der nur einen Preis nachzieht oder ein Abo auslaufen
+     * lässt, erzeugt kein Bündel.
+     *
+     * <p><strong>Eine leere Historie ändert nichts.</strong> Keine Daten sind kein Beleg für ein
+     * Ende — sonst setzte ein Lauf ohne Ausgaben sämtliche Zeilen des Users auf
+     * {@link RecurringExpenseStatus#ENDED}.
      */
     @Override
     @Transactional
     public void detect(long userId) {
         List<ExpenseEntry> history = expenseHistoryPort.expenseHistory(userId);
+        if (history.isEmpty()) {
+            log.info("Abo-Erkennung: keine Belastungen, nichts zu bewerten.");
+            return;
+        }
 
-        // Bekannte Empfänger in beiden Status — beide werden übersprungen (siehe Klassen-Javadoc).
-        // Grossgeschrieben verglichen, weil V11 den Schlüssel so speichert.
-        Set<String> known = new HashSet<>();
-        for (RecurringExpense existing : recurringExpenseRepository.findByUserId(userId)) {
-            known.add(existing.getPayeeKey().toUpperCase(Locale.ROOT));
+        // Bestehende Zeilen nach Empfänger, grossgeschrieben verglichen, weil V11 den Schlüssel so
+        // speichert. Anders als bis BE-REC-04 ist das keine Ausschlussmenge mehr, sondern der
+        // Zugriff auf die Zeile, die neu bewertet wird.
+        Map<String, RecurringExpense> existing = new HashMap<>();
+        for (RecurringExpense row : recurringExpenseRepository.findByUserId(userId)) {
+            existing.put(row.getPayeeKey().toUpperCase(Locale.ROOT), row);
         }
 
         // TreeMap statt HashMap: die Reihenfolge, in der Zeilen und Notifications entstehen, soll
         // nicht an der Zeilenreihenfolge der Query hängen.
         Map<String, List<ExpenseEntry>> byPayee = new TreeMap<>();
         for (ExpenseEntry entry : history) {
-            String key = entry.payeeKey().toUpperCase(Locale.ROOT);
-            if (known.contains(key)) {
-                continue;
-            }
-            byPayee.computeIfAbsent(key, k -> new ArrayList<>()).add(entry);
+            byPayee.computeIfAbsent(entry.payeeKey().toUpperCase(Locale.ROOT), k -> new ArrayList<>())
+                    .add(entry);
         }
 
-        // Erst sammeln, dann schreiben: die Benachrichtigung nennt die Zahl und die Namen aller
-        // Treffer, und die Zeilen tragen ihre ID — beides steht erst nach dem Durchgang fest.
-        // TreeMap auch hier, damit die Reihenfolge in Text und Tabelle die der Empfänger ist.
-        Map<String, Detection> detections = new TreeMap<>();
-        for (Map.Entry<String, List<ExpenseEntry>> group : byPayee.entrySet()) {
-            qualify(group.getValue()).ifPresent(d -> detections.put(group.getKey(), d));
-        }
+        YearMonth activeFrom = latestMonth(history).minusMonths(ACTIVE_WINDOW_MONTHS - 1L);
 
-        if (!detections.isEmpty()) {
-            long notificationId = notificationPort.create(userId, NOTIFICATION_TYPE, null,
-                    message(List.copyOf(detections.keySet())));
-            Instant now = clock.instant();
-            for (Map.Entry<String, Detection> detection : detections.entrySet()) {
-                recurringExpenseRepository.save(new RecurringExpense(
-                        userId, detection.getKey(), detection.getValue().amount(),
-                        detection.getValue().firstMonth(), now, notificationId));
-            }
-        }
+        int updated = reevaluate(existing, byPayee, activeFrom);
+        int created = detectNew(userId, existing, byPayee, activeFrom);
 
         log.info("Abo-Erkennung: {} neue wiederkehrende Ausgabe(n) aus {} Belastung(en), "
-                        + "{} Empfänger bereits bekannt oder ausgeschlossen.",
-                detections.size(), history.size(), known.size());
+                        + "{} bestehende Zeile(n) neu bewertet, {} davon verändert, "
+                        + "{} Empfänger als «Kein Abo» ausgeschlossen.",
+                created, history.size(), existing.size() - dismissed(existing), updated,
+                dismissed(existing));
+    }
+
+    /**
+     * Bewertet die bestehenden, nicht verneinten Zeilen gegen die Historie neu (BE-REC-04): Betrag
+     * und Erstmonat folgen dem jüngsten qualifizierenden Paar, der Status der Aktivität.
+     *
+     * <p>Iteriert über die <em>Zeilen</em> und nicht über die Gruppen der Historie. Der Unterschied
+     * zählt für den Empfänger ohne jede Belastung in den Daten: er hat keine Gruppe, und ein
+     * Durchgang über die Gruppen liesse genau die Zeile stehen, die am eindeutigsten ausgelaufen
+     * ist.
+     *
+     * <p>Kein Aufruf von {@code save}: die Entities stammen aus dem Persistence Context dieser
+     * Transaktion und werden beim Commit geschrieben. Ein {@code save} wäre derselbe Merge noch
+     * einmal.
+     *
+     * @return wie viele Zeilen sich inhaltlich geändert haben — nur für das Log.
+     */
+    private static int reevaluate(Map<String, RecurringExpense> existing,
+            Map<String, List<ExpenseEntry>> byPayee, YearMonth activeFrom) {
+        int updated = 0;
+        for (Map.Entry<String, RecurringExpense> row : existing.entrySet()) {
+            RecurringExpense expense = row.getValue();
+            if (expense.getStatus() == RecurringExpenseStatus.DISMISSED) {
+                continue;
+            }
+            List<ExpenseEntry> group = byPayee.getOrDefault(row.getKey(), List.of());
+
+            RecurringExpenseStatus before = expense.getStatus();
+            BigDecimal amountBefore = expense.getAmount();
+            YearMonth firstMonthBefore = expense.getFirstDetectedMonth();
+
+            // Ohne Treffer bleibt die Zeile inhaltlich stehen. Das trifft nur eine geschrumpfte
+            // Historie; über DETECTED/ENDED entscheidet trotzdem die Aktivität unten.
+            qualify(group).ifPresent(d -> expense.updateFrom(d.amount(), d.firstMonth()));
+
+            if (isActive(group, activeFrom)) {
+                expense.markActive();
+            } else {
+                expense.markEnded();
+            }
+
+            if (expense.getStatus() != before
+                    || expense.getAmount().compareTo(amountBefore) != 0
+                    || !expense.getFirstDetectedMonth().equals(firstMonthBefore)) {
+                updated++;
+            }
+        }
+        return updated;
+    }
+
+    /**
+     * Legt für jeden bislang unbekannten Empfänger, dessen Gruppe qualifiziert, eine Zeile an und
+     * meldet alle zusammen in <em>einer</em> Bündel-Benachrichtigung (FE-NOTIF-04).
+     *
+     * <p>Erst sammeln, dann schreiben: die Benachrichtigung nennt die Zahl und die Namen aller
+     * Treffer, und die Zeilen tragen ihre ID — beides steht erst nach dem Durchgang fest. TreeMap
+     * auch hier, damit die Reihenfolge in Text und Tabelle die der Empfänger ist.
+     *
+     * <p>Eine Zeile, die schon bei ihrer Erkennung ausgelaufen ist, entsteht direkt als
+     * {@link RecurringExpenseStatus#ENDED} — der Fall des nachgereichten Jahresauszugs. Sie geht
+     * trotzdem ins Bündel: gefunden wurde sie, und «du hattest ein Abo, das ausgelaufen ist» ist
+     * genau die versteckte Kostenstelle, um die es in US-08 geht.
+     *
+     * @return wie viele Zeilen neu entstanden sind.
+     */
+    private int detectNew(long userId, Map<String, RecurringExpense> existing,
+            Map<String, List<ExpenseEntry>> byPayee, YearMonth activeFrom) {
+        Map<String, Detection> detections = new TreeMap<>();
+        for (Map.Entry<String, List<ExpenseEntry>> group : byPayee.entrySet()) {
+            if (existing.containsKey(group.getKey())) {
+                continue;
+            }
+            qualify(group.getValue()).ifPresent(d -> detections.put(group.getKey(), d));
+        }
+        if (detections.isEmpty()) {
+            return 0;
+        }
+
+        long notificationId = notificationPort.create(userId, NOTIFICATION_TYPE, null,
+                message(List.copyOf(detections.keySet())));
+        Instant now = clock.instant();
+        for (Map.Entry<String, Detection> detection : detections.entrySet()) {
+            RecurringExpense expense = new RecurringExpense(
+                    userId, detection.getKey(), detection.getValue().amount(),
+                    detection.getValue().firstMonth(), now, notificationId);
+            if (!isActive(byPayee.get(detection.getKey()), activeFrom)) {
+                expense.markEnded();
+            }
+            recurringExpenseRepository.save(expense);
+        }
+        return detections.size();
+    }
+
+    /**
+     * Der jüngste Monat der gesamten Ausgaben-Historie — der Bezugspunkt, gegen den
+     * {@link #isActive} misst.
+     *
+     * <p><strong>Die Daten des Users, nicht die Uhr.</strong> «Beendet» heisst «das Konto lief
+     * weiter, dieser Empfänger nicht». Endet schlicht die Datenlage, gibt es für kein Abo einen
+     * Beleg in eine der beiden Richtungen — und die Vorannahme bei Abos ist Weiterlaufen, sie
+     * verlängern sich von selbst. Gegen die Uhr gemessen, liesse ein nachgereichter Jahresauszug
+     * von 2025 jedes darin erkannte Abo sofort als ausgelaufen gelten.
+     *
+     * <p>Der Preis steht im ADR-13-Nachtrag: wer monatelang nichts importiert, behält seine
+     * Abo-Abzüge, statt sie wie bis BE-REC-04 nach drei Monaten zu verlieren. Das ist die
+     * gewollte Richtung — ADR-13 nennt «Safe-to-Spend zu hoch» die unangenehmere Fehlerrichtung,
+     * und genau die erzeugte das alte Lesefenster.
+     *
+     * @param history nicht leer — der Aufrufer hat den leeren Fall vorher abgefangen.
+     */
+    private static YearMonth latestMonth(List<ExpenseEntry> history) {
+        YearMonth latest = history.get(0).month();
+        for (ExpenseEntry entry : history) {
+            if (entry.month().isAfter(latest)) {
+                latest = entry.month();
+            }
+        }
+        return latest;
+    }
+
+    /**
+     * {@code true}, wenn der Empfänger ab {@code activeFrom} mindestens einmal belastet hat —
+     * unabhängig vom Betrag, wie schon beim Aktivitätsfenster des Lesepfads (FE-FC-05): ob eine
+     * Belastung die Abbuchung <em>dieses</em> Abos ist, entscheidet der Betragsvergleich im
+     * budget-Modul, nicht die Frage, ob der Empfänger überhaupt noch aktiv ist.
+     */
+    private static boolean isActive(List<ExpenseEntry> group, YearMonth activeFrom) {
+        return group != null && group.stream().anyMatch(e -> !e.month().isBefore(activeFrom));
+    }
+
+    /** Wie viele der bestehenden Zeilen verneint sind — nur für das Log. */
+    private static long dismissed(Map<String, RecurringExpense> existing) {
+        return existing.values().stream()
+                .filter(e -> e.getStatus() == RecurringExpenseStatus.DISMISSED)
+                .count();
     }
 
     /**
@@ -187,9 +355,10 @@ public class RecurringExpenseService
      * je Monat werden aufsteigend sortiert, bevor die Paare verglichen werden. Ohne das hinge bei
      * zwei gleichzeitig qualifizierenden Paaren — etwa zwei Coop-Einkäufe zu 49.90 und 50.00 in
      * beiden Monaten — der gespeicherte Betrag an der Zeilenreihenfolge der Query, die keine
-     * Zusage trägt ({@link ExpenseHistoryPort#expenseHistory}); und weil die Zeile danach nie
-     * aktualisiert wird, bliebe der Zufall dauerhaft. Mit der Sortierung ist es immer der
-     * <em>höchste</em> qualifizierende Betrag des jüngsten Paars (Review PR #298).
+     * Zusage trägt ({@link ExpenseHistoryPort#expenseHistory}). Seit BE-REC-04 schriebe jeder
+     * weitere Lauf den Zufall neu und die Zeile flackerte zwischen zwei Beträgen; vorher blieb er
+     * dauerhaft stehen. Mit der Sortierung ist es immer der <em>höchste</em> qualifizierende
+     * Betrag des jüngsten Paars (Review PR #298).
      *
      * @return leer, wenn kein Folgemonatspaar innerhalb der Toleranz liegt.
      */
@@ -244,8 +413,9 @@ public class RecurringExpenseService
     }
 
     /**
-     * Liefert die Abo-Übersicht des Users (BE-REC-02): alle Einträge, {@code DETECTED} wie
-     * {@code DISMISSED}, unterscheidbar am {@code status}-Feld. Das «Neu»-Flag kommt aus dem
+     * Liefert die Abo-Übersicht des Users (BE-REC-02): alle Einträge in allen drei Status,
+     * unterscheidbar am {@code status}-Feld — laufende ({@code DETECTED}), verneinte
+     * ({@code DISMISSED}) und ausgelaufene ({@code ENDED}, BE-REC-04). Das «Neu»-Flag kommt aus dem
      * Gelesen-Zustand der zugehörigen Notification, nicht aus einem eigenen Feld — siehe
      * Klassen-Javadoc zur Notification-Erzeugung in {@link #detect(long)}.
      *
@@ -256,6 +426,11 @@ public class RecurringExpenseService
      * inzwischen verneint wurde — die Benachrichtigung bleibt in der Glocke stehen (BE-REC-03
      * markiert sie nur als gelesen). «Entfernt» heisst seither «aus der Liste der Abos», nicht
      * «von der Seite».
+     *
+     * <p>Die Trennung in Abschnitte macht der Client: «Erkannte Abos», «Beendet» und «Kein Abo»
+     * stehen untereinander auf {@code /budget}. Ein ausgelaufener Eintrag verschwindet nicht von
+     * der Seite — aus demselben Grund wie ein verneinter (FE-NOTIF-03): die Bündel-Benachrichtigung
+     * bleibt in der Glocke stehen, und ihr Klick braucht ein Ziel.
      *
      * <p><strong>Mandantentrennung:</strong>
      * {@link RecurringExpenseRepository#findByUserIdOrderByPayeeKeyAsc} ist auf den übergebenen
@@ -277,39 +452,27 @@ public class RecurringExpenseService
     /**
      * {@inheritDoc}
      *
-     * <p>Aktiv heisst: der Empfänger der Zeile hat im Fenster {@code [month −
-     * (ACTIVE_WINDOW_MONTHS − 1), month]} mindestens eine Belastung — unabhängig vom Betrag. Der
-     * Betrag wird hier nicht verglichen, weil das die Aufgabe des Aufrufers ist: er entscheidet
-     * mit {@link RecurringExpenseAmountPort#withinTolerance}, welche Belastung die Abbuchung des
-     * Abos ist. Verglichen wird der Schlüssel, so wie {@link #detect(long)} ihn speichert
-     * (Grossschreibung, V11).
+     * <p>Ein einziger Zugriff auf den Status. Dass eine Zeile noch läuft, ist beim letzten Import
+     * entschieden und in {@link RecurringExpenseStatus#DETECTED} festgehalten worden
+     * (BE-REC-04) — der Lesepfad wiederholt diese Prüfung nicht.
      *
-     * <p>Erst die Zeilen, dann die Historie — ohne {@code DETECTED}-Zeile wird die Historie gar
-     * nicht geladen: der häufigste Fall auf dem Dashboard ist ein User ohne erkannte Abos.
+     * <p>Bis dahin lud er dafür die Historie des Aktivitätsfensters nach (Review PR #345), weil
+     * eine Zeile nie neu bewertet wurde und ein gekündigtes Abo sonst dauerhaft abgezogen worden
+     * wäre. Mit der Neubewertung ist dieses Fenster gegenstandslos: es prüfte bei jedem Aufruf des
+     * Dashboards, was einmal pro Import feststeht, und der Monat des Aufrufers spielt für die
+     * Frage keine Rolle mehr.
      *
      * <p><strong>Mandantentrennung:</strong>
-     * {@link RecurringExpenseRepository#findByUserIdAndStatus} und die gefensterte
-     * {@link ExpenseHistoryPort#expenseHistory(long, YearMonth, YearMonth)} sind auf den
-     * übergebenen User eingeschränkt. Es gehen nur Beträge über die Kante — der Safe-to-Spend
-     * braucht weder Empfänger noch «Neu»-Flag, und beides hätte im budget-Modul nichts zu suchen.
+     * {@link RecurringExpenseRepository#findByUserIdAndStatus} ist auf den übergebenen User
+     * eingeschränkt. Es gehen nur Beträge über die Kante — der Safe-to-Spend braucht weder
+     * Empfänger noch «Neu»-Flag, und beides hätte im budget-Modul nichts zu suchen.
      */
     @Override
     @Transactional(readOnly = true)
-    public List<BigDecimal> detectedAmounts(long userId, YearMonth month) {
-        List<RecurringExpense> detected = recurringExpenseRepository
-                .findByUserIdAndStatus(userId, RecurringExpenseStatus.DETECTED);
-        if (detected.isEmpty()) {
-            return List.of();
-        }
-
-        YearMonth from = month.minusMonths(RecurringExpenseAmountPort.ACTIVE_WINDOW_MONTHS - 1);
-        Set<String> activePayees = new HashSet<>();
-        for (ExpenseEntry entry : expenseHistoryPort.expenseHistory(userId, from, month)) {
-            activePayees.add(entry.payeeKey().toUpperCase(Locale.ROOT));
-        }
-
-        return detected.stream()
-                .filter(expense -> activePayees.contains(expense.getPayeeKey().toUpperCase(Locale.ROOT)))
+    public List<BigDecimal> detectedAmounts(long userId) {
+        return recurringExpenseRepository
+                .findByUserIdAndStatus(userId, RecurringExpenseStatus.DETECTED)
+                .stream()
                 .map(RecurringExpense::getAmount)
                 .toList();
     }
@@ -365,7 +528,13 @@ public class RecurringExpenseService
         return toResponse(expense, false);
     }
 
-    /** {@code true}, wenn kein Eintrag des Bündels mehr {@code DETECTED} ist. */
+    /**
+     * {@code true}, wenn kein Eintrag des Bündels mehr {@code DETECTED} ist.
+     *
+     * <p>Unverändert seit FE-NOTIF-04, und {@link RecurringExpenseStatus#ENDED} ändert daran
+     * nichts: ein ausgelaufener Eintrag ist kein offener Hinweis mehr, und die Prüfung läuft
+     * ohnehin nur aus {@link #dismiss} heraus — die Neubewertung markiert nie etwas als gelesen.
+     */
     private boolean bundleIsClosed(long userId, long notificationId) {
         return recurringExpenseRepository.findByUserIdAndNotificationId(userId, notificationId)
                 .stream()

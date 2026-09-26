@@ -15,19 +15,21 @@ import org.springframework.data.repository.query.Param;
 public interface RecurringExpenseRepository extends JpaRepository<RecurringExpense, Long> {
 
     /**
-     * Alle Einträge eines Users, beide Status. Die Erkennung braucht beide: {@code DETECTED}, um
-     * keine zweite Notification zu erzeugen, {@code DISMISSED}, um den Empfänger auszuschliessen.
-     * Die Einschränkung auf {@code userId} ist die Mandantentrennung; der Index kommt aus der
-     * {@code UNIQUE (user_id, payee_key)}-Constraint (V11).
+     * Alle Einträge eines Users, alle Status. Die Erkennung braucht sie vollständig: über
+     * {@code DETECTED} und {@code ENDED} bewertet sie Betrag und Status neu (BE-REC-04), über
+     * {@code DISMISSED} schliesst sie den Empfänger aus. Die Einschränkung auf {@code userId} ist
+     * die Mandantentrennung; der Index kommt aus der {@code UNIQUE (user_id, payee_key)}-Constraint
+     * (V11).
      */
     List<RecurringExpense> findByUserId(Long userId);
 
     /**
-     * Alle Einträge eines Users, beide Status, sortiert — für {@code list} (BE-REC-02). Seit
+     * Alle Einträge eines Users, alle Status, sortiert — für {@code list} (BE-REC-02). Seit
      * FE-NOTIF-03 gehören auch {@code DISMISSED}-Einträge in die Antwort: die Abo-Übersicht zeigt
      * sie in einem eigenen Abschnitt «Kein Abo», damit der Klick auf eine Benachrichtigung zu
-     * einem inzwischen verneinten Eintrag ein Ziel hat. Die Trennung nach Status macht der
-     * Client anhand des {@code status}-Felds.
+     * einem inzwischen verneinten Eintrag ein Ziel hat. Seit BE-REC-04 ebenso die
+     * {@code ENDED}-Einträge, im Abschnitt «Beendet». Die Trennung nach Status macht der Client
+     * anhand des {@code status}-Felds.
      *
      * <p>Alphabetisch nach {@code payee_key}, damit die Übersicht zwischen zwei Aufrufen nicht
      * springt — ohne {@code ORDER BY} hinge die Reihenfolge an der Datenbank. Der Schlüssel ist pro
@@ -37,9 +39,10 @@ public interface RecurringExpenseRepository extends JpaRepository<RecurringExpen
 
     /**
      * Alle Einträge eines Users in einem Status — für {@link RecurringExpenseAmountPort}
-     * (FE-FC-05): der Safe-to-Spend braucht genau die {@code DETECTED}-Zeilen, die verneinten
-     * dürfen ihn nicht mindern. Der Index kommt wie oben aus dem {@code user_id}-Präfix der
-     * {@code UNIQUE}-Constraint (V11); die Menge pro User ist klein.
+     * (FE-FC-05): der Safe-to-Spend braucht genau die {@code DETECTED}-Zeilen; verneinte
+     * ({@code DISMISSED}) und ausgelaufene ({@code ENDED}) dürfen ihn nicht mindern. Der Index
+     * kommt wie oben aus dem {@code user_id}-Präfix der {@code UNIQUE}-Constraint (V11); die
+     * Menge pro User ist klein.
      */
     List<RecurringExpense> findByUserIdAndStatus(Long userId, RecurringExpenseStatus status);
 

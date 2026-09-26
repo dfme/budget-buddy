@@ -31,7 +31,7 @@ const FAILED_TO_LOAD_TOTALS = 'Die Monatsübersicht konnte nicht geladen werden.
 export interface MonthlyTotal {
   /** Monatssumme der erfassten Fixkosten-Positionen (`summeMonatlich` aus dem Backend). */
   fixedCosts: number;
-  /** Summe der erkannten Abos — ohne die per «Kein Abo» verneinten. */
+  /** Summe der laufenden erkannten Abos — ohne verneinte («Kein Abo») und ausgelaufene. */
   recurring: number;
   /** `fixedCosts + recurring`. */
   total: number;
@@ -358,7 +358,8 @@ export class Dashboard {
    * (`FixedCostDebitMatcher`, ADR-13, FE-FC-05). Hier zählt jedes erkannte Abo — das Total kann
    * deshalb über der Safe-to-Spend-Minderung liegen, wenn Lara ein Abo auch manuell erfasst hat.
    * Das ist so gewollt (#355): die Card addiert, was die Budget-Seite zeigt. Verneinte Abos
-   * («Kein Abo») sind nicht drin — `detected()` filtert sie schon im Service.
+   * («Kein Abo») und ausgelaufene (`ENDED`, BE-REC-04) sind nicht drin — `detected()` filtert
+   * beide schon im Service.
    */
   readonly monthlyTotal = computed<MonthlyTotal | null>(() => {
     const summeMonatlich = this.fixedCostsMonthly();

@@ -1,11 +1,10 @@
 package com.budgetbuddy.recurring;
 
 import java.math.BigDecimal;
-import java.time.YearMonth;
 import java.util.List;
 
 /**
- * Lese-Port auf die Beträge der erkannten, nicht verneinten und noch aktiven Abos eines Users —
+ * Lese-Port auf die Beträge der erkannten, nicht verneinten und noch laufenden Abos eines Users —
  * die Information aus dem {@code recurring}-Modul, die das {@code budget}-Modul für den
  * Safe-to-Spend braucht (FE-FC-05, US-06/US-08).
  *
@@ -20,15 +19,22 @@ import java.util.List;
  * Abbuchung eines Abos ist — bleibt drüben im budget-Modul, wo dieselbe Regel schon für die
  * Fixkosten-Positionen gilt (ADR-13).
  *
- * <p><strong>Die Beträge sind Momentaufnahmen mit Toleranz.</strong> {@code recurring_expenses.amount}
- * ist der Betrag des jüngsten qualifizierenden Monatspaars zum Zeitpunkt der Erkennung und wird
- * danach nicht aktualisiert (BE-REC-01: bekannte Empfänger werden übersprungen). Die Erkennung
- * lässt zwischen zwei Monaten {@value #TOLERANCE_PERCENT}&nbsp;% Abweichung zu — genau die Klasse
- * von Abos, für die diese Toleranz existiert (Handy mit Verbrauchsanteil, Prämienanpassung),
- * bucht deshalb regelmässig <em>nicht</em> rappengenau den gelieferten Betrag ab. Wer einen
- * gelieferten Betrag gegen eine Belastung vergleicht, muss dieselbe Toleranz anwenden:
- * {@link #withinTolerance(BigDecimal, BigDecimal)} ist diese eine Regel, für die Erkennung wie
- * für den Safe-to-Spend (Review PR #345).
+ * <p><strong>Die Beträge sind aktuell, aber nicht rappengenau.</strong>
+ * {@code recurring_expenses.amount} ist der Betrag des jüngsten qualifizierenden Monatspaars;
+ * seit BE-REC-04 (#350) zieht ihn jeder Import nach, ein Preissprung über die Toleranz hinaus
+ * eingeschlossen. Die Erkennung lässt zwischen zwei Monaten {@value #TOLERANCE_PERCENT}&nbsp;%
+ * Abweichung zu — genau die Klasse von Abos, für die diese Toleranz existiert (Handy mit
+ * Verbrauchsanteil, Prämienanpassung), bucht deshalb regelmässig <em>nicht</em> rappengenau den
+ * gelieferten Betrag ab. Wer einen gelieferten Betrag gegen eine Belastung vergleicht, muss
+ * dieselbe Toleranz anwenden: {@link #withinTolerance(BigDecimal, BigDecimal)} ist diese eine
+ * Regel, für die Erkennung wie für den Safe-to-Spend (Review PR #345).
+ *
+ * <p><strong>Ob ein Abo noch läuft, steht im Status.</strong> Die Erkennung setzt eine Zeile ohne
+ * Abbuchung in den jüngsten Monaten der Historie auf {@code ENDED}; dieser Port liefert sie dann
+ * nicht mehr. Bis BE-REC-04 prüfte er das selbst über ein Aktivitätsfenster
+ * ({@code ACTIVE_WINDOW_MONTHS}), weil eine Zeile nie neu bewertet wurde — mit der Neubewertung
+ * ist das Fenster entfallen, und damit auch der {@code month}-Parameter dieser Methode: er
+ * beantwortete nur noch eine Frage, die niemand mehr stellt.
  */
 public interface RecurringExpenseAmountPort {
 
@@ -37,15 +43,6 @@ public interface RecurringExpenseAmountPort {
 
     /** {@link #TOLERANCE_PERCENT} als Faktor: {@code 0.02}. */
     BigDecimal TOLERANCE = BigDecimal.valueOf(TOLERANCE_PERCENT).movePointLeft(2);
-
-    /**
-     * Wie viele Monate ein Abo ohne Abbuchung bleiben darf, bevor es aus
-     * {@link #detectedAmounts} fällt — den angefragten Monat eingeschlossen. Drei, nicht zwei:
-     * Auszüge kommen rückdatiert, der Auszug des Vormonats liegt in den ersten Tagen des Monats
-     * oft noch nicht vor, und ein Abo, das im Vor-Vormonat zuletzt sichtbar war, ist dann noch
-     * kein Indiz für eine Kündigung.
-     */
-    int ACTIVE_WINDOW_MONTHS = 3;
 
     /**
      * {@code |candidate − reference| ≤ reference × 2 %}. Der Referenzbetrag ist die Basis, weil er
@@ -64,23 +61,18 @@ public interface RecurringExpenseAmountPort {
     }
 
     /**
-     * Liefert die Beträge der Abos des Users im Status {@link RecurringExpenseStatus#DETECTED},
-     * die in {@code month} oder den {@value #ACTIVE_WINDOW_MONTHS}&nbsp;−&nbsp;1 Monaten davor
-     * mindestens einmal abgebucht wurden.
+     * Liefert die Beträge der laufenden Abos des Users — der Zeilen im Status
+     * {@link RecurringExpenseStatus#DETECTED}.
      *
-     * <p>Per «Kein Abo» verneinte Einträge ({@code DISMISSED}) fliessen nicht ein — sie sind kein
-     * Abo und dürfen den Safe-to-Spend nicht mindern. Ebenso wenig ein Abo ohne Abbuchung im
-     * Fenster: die Zeile verfällt nie von selbst (Review PR #345), ein gekündigtes Abo bliebe
-     * sonst dauerhaft ein Abzug. Das Fenster ist die Grenze, ab der die Zeile als beendet gilt;
-     * der Nachlauf von bis zu zwei Monaten ist im ADR-13-Nachtrag festgehalten.
+     * <p>Die beiden anderen Status fliessen nicht ein, aus verschiedenen Gründen:
+     * {@code DISMISSED} ist die Aussage des Nutzers, dass dies kein Abo ist (US-08 AC3), und
+     * {@code ENDED} die Feststellung der Erkennung, dass die Reihe ausgelaufen ist (BE-REC-04) —
+     * ein gekündigtes Abo darf den Safe-to-Spend nicht weiter mindern.
      *
      * @param userId ID des eingeloggten Users (aus dem JWT).
-     * @param month der Monat, für den der Safe-to-Spend gerechnet wird — das obere Ende des
-     *     Fensters.
-     * @return je aktivem Abo ein Betrag in CHF als {@link BigDecimal} mit Skala 2 (ADR-9),
-     *     positiv; leere Liste, wenn keines erkannt oder keines im Fenster abgebucht ist. Die
-     *     Reihenfolge trägt keine Zusage — der Aufrufer summiert und vergleicht über Beträge,
-     *     nicht über Positionen.
+     * @return je laufendem Abo ein Betrag in CHF als {@link BigDecimal} mit Skala 2 (ADR-9),
+     *     positiv; leere Liste, wenn keines läuft. Die Reihenfolge trägt keine Zusage — der
+     *     Aufrufer summiert und vergleicht über Beträge, nicht über Positionen.
      */
-    List<BigDecimal> detectedAmounts(long userId, YearMonth month);
+    List<BigDecimal> detectedAmounts(long userId);
 }
