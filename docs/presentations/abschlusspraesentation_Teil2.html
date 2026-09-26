@@ -6,7 +6,7 @@
 <title>BudgetBuddy — Teil 2: Methodik &amp; Arbeitsweise</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plexcommit+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
     --c-bg:#ffffff;
@@ -370,6 +370,12 @@
   .figure figcaption .src{ font-family:var(--font-mono); font-size:.7rem; color:var(--c-ink-3); }
   @media (max-width:820px){ .figure img{ max-height:38vh; } }
 
+  /* Vollbild-Abbildung: Folie nur mit Bild, so gross wie der Viewport zulässt */
+  .slide.image-slide{ padding:1.2rem 1.5rem 4.5rem; }
+  .image-slide .slide-inner{ max-width:none; }
+  .image-slide .figure{ margin:0; }
+  .image-slide .figure img{ max-height:calc(100vh - 6rem); max-height:calc(100dvh - 6rem); }
+
   /* ---------- Referentennotizen ---------- */
   .notes{ display:none; }
 
@@ -551,6 +557,7 @@
         <p><b>Abgelöst:</b> SQLite (ADR-5) überlebte auf Render keinen Redeploy, ADR-12 löst es ab. ADR-5 bleibt im Repo und erklärt, warum die Wahl damals richtig war.</p>
         <p><b>Ergänzt:</b> ADR-10 (Render) bleibt gültig, der Nachtrag hält nur den Wechsel vom Free- auf den Starter-Plan fest.</p>
         <p>Auslöser ist immer ein konkretes Projektereignis. Im Alltag zieht der Skill betroffene Doku im selben PR mit, belegt mit <code>file:line</code>, und beschreibt den Ist-Zustand. Die KI schreibt, der Mensch prüft im Review.</p>
+        <p><b>Erfahrung aus dem Projekt:</b> Mit Claude ist das Nachführen aller Dokumente, also ADRs, Architektur, User Stories, <code>CLAUDE.md</code> und Javadoc, <b>extrem viel einfacher</b> geworden. Früher blieb Doku liegen, heute kostet sie fast nichts mehr.</p>
       </div>
     </div>
   </section>
@@ -587,19 +594,11 @@
   </section>
 
   <!-- 5 — Sprint Board -->
-  <section class="slide">
+  <section class="slide image-slide">
     <div class="slide-inner">
-      <div class="eyebrow">Das Sprint Board in Betrieb</div>
-      <h2>Das Board <em>ist</em> der Stand — keine Statusrunde nötig</h2>
-
       <figure class="figure">
         <img src="Sprintboard.png" width="1769" height="865"
              alt="Screenshot des BudgetBuddy Sprint Boards mit fünf Spalten: Backlog 7 Karten und 21 Story Points, Todo 6 und 5, In Progress 2, Review 1, Done 312 Karten und 366 Story Points.">
-        <figcaption>
-          <span class="fact">Backlog → Todo → In Progress → Review → Done</span>
-          <span><b>Jede Karte ist eine Arbeitseinheit</b> — wie eine entsteht und wie sie durch Git wandert, zeigen die nächsten beiden Folien.</span>
-          <span class="src">GitHub Project Board · Done: 312 Karten / 366 Story Points</span>
-        </figcaption>
       </figure>
 
       <div class="notes">
