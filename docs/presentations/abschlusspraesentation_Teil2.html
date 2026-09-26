@@ -442,12 +442,10 @@
 
       <div class="notes">
         <div class="cue">Einstieg · 60 Sek</div>
-        <p>In Teil 1 ging es darum, <b>was</b> gebaut wurde und warum so. In diesem Teil geht es um die andere Hälfte: <b>wie</b> entschieden und gearbeitet wurde.</p>
-        <p><b>Eine Einordnung vorweg, damit nichts grösser klingt, als es ist:</b> Unser Vorgehen ist durch diesen Kurs geprägt. ADRs, User Stories mit Acceptance Criteria, die MoSCoW-Priorisierung und der Sprint-Rhythmus kommen aus den Modulen — wir haben sie nicht erfunden, sondern an einem echten Projekt ausprobiert. Und der letzte Block, der KI-gestützte Entwicklungszyklus, ist ohnehin genau das, wofür dieses CAS da ist.</p>
-        <p>Der Unterschied zur Übungsaufgabe ist, <b>was davon den Kontakt mit der Realität überlebt hat</b>. Manches haben wir angepasst, manches hat sich erst im Betrieb als richtig erwiesen, und an einer Stelle mussten wir eine eigene Regel zurücknehmen. Genau diese Stellen zeige ich in den nächsten zehn Minuten — nicht die Lehrbuchfassung.</p>
-        <p>Der Leitsatz für die nächsten zehn Minuten: <b>Jede Methodik-Entscheidung hat einen dokumentierten Grund und ist im Repo nachlesbar</b> — nicht „wir haben das halt so gemacht". Das ist die eigentliche Botschaft, alles Weitere sind Belege dafür.</p>
-        <p>Fünf Themen in dieser Reihenfolge: Requirements, ADRs als Prozess, der Sprint-Rhythmus samt Board, Git und CI/CD, und zum Schluss der Teil, der diesen Kurs eigentlich ausmacht — die Projektregeln in <code>CLAUDE.md</code> und der KI-gestützte Entwicklungszyklus.</p>
-        <p><b>Zeitbudget im Kopf behalten:</b> rund zwei Minuten pro Thema. Board und <code>CLAUDE.md</code> sind kurze Zwischenfolien von je einer halben bis einer Minute — die Zeit gehört den Skills am Schluss.</p>
+        <p>Teil 1 war das <b>Was</b>, jetzt kommt das <b>Wie</b>: wie wir entschieden und gearbeitet haben.</p>
+        <p>Die Methoden stammen aus dem Kurs. Spannend ist, <b>was davon im echten Projekt überlebt hat</b> und was wir anpassen mussten.</p>
+        <p>Leitsatz: <b>Jede Methodik-Entscheidung hat einen dokumentierten Grund und ist im Repo nachlesbar.</b></p>
+        <p>Fünf Themen, je ca. 2 Min: Requirements, ADRs, Sprints und Board, Git und CI/CD, <code>CLAUDE.md</code> und Skills. Die meiste Zeit gehört den Skills.</p>
       </div>
     </div>
   </section>
@@ -494,13 +492,10 @@
 
       <div class="notes">
         <div class="cue">Requirements · 2 Min</div>
-        <p>Am Anfang standen nicht Features, sondern zwei <b>Personas</b>: Lara und Marc. Der Name in der Überschrift ist wörtlich gemeint — jede Story nennt die Persona, für die sie da ist. Jede der 14 User Stories ist aus der Sicht einer der beiden formuliert und trägt <b>Acceptance Criteria im Given/When/Then-Format</b> — prüfbare Sätze, keine Absichtserklärungen. Das ist der Unterschied zwischen „Der Nutzer soll seine Ausgaben sehen" und einem Kriterium, an dem ein Test scheitern kann.</p>
-        <p><b>Must</b> sind US-03 Fixkosten-Wizard, US-04 PDF-Upload, US-05 Kategorisierung und US-06 Safe-to-Spend. Gemeinsam sind sie die Kette vom Kontoauszug zur Zahl. Fällt ein Glied aus, hat die App keinen Nutzen mehr.</p>
-        <p><b>Should:</b> US-08 Abo-Erkennung ist umgesetzt und in Betrieb. US-09 KI-Monatsbericht ist es nicht. Falls danach gefragt wird: ein leerer Package-Stub, keine Klassen — als offene Lücke benennen, nicht beschönigen.</p>
-        <p><b>Could:</b> US-11 OpenBanking trägt eine eigene Notiz — Implementierung erst nach Abschluss aller Must- und Should-Stories. US-07 Sparziel ebenso. Beide sind dokumentiert, keines angefangen. Das ist eine Entscheidung, kein Versäumnis.</p>
-        <p><b>Won&#39;t — hier lohnt der Hinweis:</b> Keine einzige unserer 14 Stories trägt die Priorität „Won&#39;t". Das heisst nicht, dass wir das W weggelassen hätten — diese Entscheide fallen eine Ebene höher, <b>bevor</b> überhaupt eine Story geschrieben wird. Kein B2B- oder Berater-Tool, kein Rollout ausserhalb der Schweiz: beides steht als Key Decision im Projekt-<code>CLAUDE.md</code>.</p>
-        <p>Der Nutzen ist derselbe wie bei den anderen drei Stufen: <b>Eine aufgeschriebene Absage muss nicht noch einmal diskutiert werden.</b> Ohne sie landet man bei jeder Ideenrunde wieder bei Mehrwährungsfähigkeit und Berater-Ansicht — und jedes Mal entscheidet, wer gerade die besseren Argumente hat, statt dass die Grenze steht.</p>
-        <p><b>Der Punkt, auf den es ankommt:</b> MoSCoW zeigt seinen Wert nicht beim Planen, sondern beim <b>Streichen</b>. Als absehbar war, dass nicht alles fertig wird, musste nicht diskutiert werden, was fällt — die Reihenfolge stand seit dem ersten Sprint fest und war begründet. Genau darum können wir heute offen sagen, was fehlt, ohne dass es nach Zufall aussieht.</p>
+        <p>Ausgangspunkt sind zwei <b>Personas</b>, Lara und Marc. Alle 14 User Stories haben <b>Acceptance Criteria in Given/When/Then</b>, also Sätze, an denen ein Test scheitern kann.</p>
+        <p><b>Must:</b> US-03 bis US-06, die Kette vom Kontoauszug zur Zahl. <b>Should:</b> US-08 Abos ist umgesetzt, US-09 KI-Monatsbericht nicht (offen benennen). <b>Could:</b> US-07 und US-11 bewusst nicht angefangen.</p>
+        <p><b>Won&#39;t</b> steht nicht in den Stories, sondern eine Ebene höher als Key Decision: kein B2B, nur Schweiz. Eine aufgeschriebene Absage muss man nicht neu diskutieren.</p>
+        <p><b>Kernaussage:</b> MoSCoW zeigt seinen Wert beim <b>Streichen</b>. Was fällt, stand von Anfang an fest.</p>
       </div>
     </div>
   </section>
@@ -551,16 +546,11 @@
       </div>
 
       <div class="notes">
-        <div class="cue">ADR-Prozess · 2 Min — die zwei Beispiele als Paar erzählen</div>
-        <p>Die konkreten Entscheide kamen in Teil 1. Hier geht es um etwas anderes: <b>was mit einem Entscheid passiert, nachdem er gefällt ist.</b></p>
-        <p>Die naheliegende Annahme wäre, dass ADRs Abgabedokumente sind — einmal geschrieben, abgelegt, nie wieder geöffnet. Bei uns ist das Gegenteil der Fall: <b>Fünf der 16 ADRs sind nachträglich ergänzt oder abgelöst worden.</b> Ich zeige zwei, weil sie die beiden Arten der Nachführung gegenüberstellen.</p>
-        <p><b>Erstes Beispiel — abgelöst.</b> SQLite war im Mai eine vernünftige MVP-Wahl. Im August stellte sich heraus, dass das Filesystem auf dem Render Free-Plan ephemer ist: Die Datenbankdatei überlebte keinen Redeploy. ADR-12 löst ADR-5 ab — aber <b>ADR-5 bleibt im Repo</b> und erklärt weiterhin, warum die Wahl damals richtig war. Nur beides zusammen ergibt die Geschichte; das Ergebnis allein wäre die halbe Information.</p>
-        <p><b>Zweites Beispiel — ergänzt.</b> ADR-10 hat den Entscheid für Render nie revidiert. Nur das Gratis-Tier reichte nicht: Der Dienst spinnt nach 15 Minuten ohne Traffic herunter und braucht rund eine Minute zum Hochfahren. Der Nachtrag hält den Wechsel auf die Starter-Instanz fest — <b>der ADR selbst bleibt gültig</b>. Das ist der häufigere Fall: nicht Kurswechsel, sondern Präzisierung.</p>
-        <p><b>Der gemeinsame Nenner, und darauf kommt es an:</b> In beiden Fällen ist der Auslöser ein konkretes Projektereignis mit Datum — ein Plattformverhalten, das wir beobachtet haben. Keine Nachführung lautet „nach reiflicher Überlegung doch anders". Die Entscheide sind an dieses Projekt gebunden, nicht an ein Lehrbuch.</p>
-        <p><b>Zur Zeile unten — wie das im Alltag läuft:</b> Die Nachführung ist kein eigener Arbeitsschritt, den jemand einplant. Sie steckt im Skill, der ein Issue umsetzt: Berührt der Diff eine Aussage in einem ADR, einer User Story, in <code>CLAUDE.md</code> oder in einem Javadoc, wird sie im selben PR mitgezogen. Zwei Regeln halten das dicht — jede Aussage über den Code wird mit <code>file:line</code> belegt, und Dokumentation beschreibt den <b>Ist-Zustand, nie den geplanten</b>.</p>
-        <p><b>Ein Beispiel aus dem Projekt:</b> Der FE-FC-05-Nachtrag zu ADR-13 entstand nicht, weil jemand „mal die Doku aktualisieren" wollte, sondern weil die Änderung eine Zeile im ADR widerlegt hat. Im selben PR mitgezogen wurden der ADR, die betroffene User Story und mehrere Javadoc-Stellen — alles, was durch die Änderung unwahr geworden wäre.</p>
-        <p><b>Wichtig für die Einordnung:</b> Die KI schreibt das, der Mensch prüft es im Review. Das Verfahren macht nicht die Doku richtig — es sorgt dafür, dass niemand vergisst, sie anzufassen. Genau daran scheitert Dokumentation sonst.</p>
-        <p><b>Wenn Zeit bleibt — der ehrliche Gegenpol:</b> Pflege ist kein Selbstläufer. Die ADR-7-Aussage „JWT niemals im <code>localStorage</code>" stand in ADR-0, ADR-2 und <code>CLAUDE.md</code> dreimal falsch beziehungsweise unvollständig da; es brauchte drei Korrekturrunden über drei Issues, bis alles deckungsgleich war. Dokumentation altert — die Frage ist nur, ob es jemand merkt. Daraus ist die Regel geworden: Jede Aussage über den Code wird mit <code>file:line</code> belegt, und Dokumentation beschreibt den Ist-Zustand, nie den geplanten.</p>
+        <div class="cue">ADR-Prozess · 2 Min</div>
+        <p>Frage hier: <b>Was passiert mit einem Entscheid, nachdem er gefällt ist?</b> Fünf der 16 ADRs wurden später ergänzt oder abgelöst.</p>
+        <p><b>Abgelöst:</b> SQLite (ADR-5) überlebte auf Render keinen Redeploy, ADR-12 löst es ab. ADR-5 bleibt im Repo und erklärt, warum die Wahl damals richtig war.</p>
+        <p><b>Ergänzt:</b> ADR-10 (Render) bleibt gültig, der Nachtrag hält nur den Wechsel vom Free- auf den Starter-Plan fest.</p>
+        <p>Auslöser ist immer ein konkretes Projektereignis. Im Alltag zieht der Skill betroffene Doku im selben PR mit, belegt mit <code>file:line</code>, und beschreibt den Ist-Zustand. Die KI schreibt, der Mensch prüft im Review.</p>
       </div>
     </div>
   </section>
@@ -589,12 +579,9 @@
 
       <div class="notes">
         <div class="cue">Scrum · 2 Min</div>
-        <p>Das Projekt läuft in Zwei-Wochen-Sprints über ein GitHub Project Board. Velocity und Carryover werden nicht geschätzt, sondern <b>aus dem Board abgeleitet</b> — was im letzten Sprint tatsächlich fertig wurde, ist die Planungsgrundlage für den nächsten. Die Sprint-Vorschläge liegen versioniert unter <code>docs/plans/sprints/</code>.</p>
-        <p><b>Zur Lehre aus dem Juli:</b> Anfangs trugen Issues ihre Sprint-Zuordnung an zwei Orten — im Milestone und im Iteration-Feld. Zwei Datenhaltungen für dieselbe Tatsache laufen zuverlässig auseinander, und taten es auch. Seither gilt: Die Zuordnung steht ausschliesslich im Iteration-Feld, Milestones werden für die Planung nicht mehr verwendet.</p>
-        <p><b>Das Prinzip trägt weiter:</b> Abhängigkeiten stehen im Relationships-Panel und nicht als Freitext im Issue; Story Points und Area stehen im Board und nicht im Plan-Dokument. Der Plan hält fest, was zum Zeitpunkt der Planung galt — das Board hält, was jetzt gilt. Eine Kopie wäre ab ihrer Erzeugung veraltet.</p>
-        <p><b>Zum Diagramm — kurz auf die ersten zwei Balken zeigen:</b> Sprint 1 und 2 liegen bei 24 und 28 Punkten, ab Sprint 3 bei 54 bis 70. Die ersten beiden Sprints waren Aufbau — Setup, erste Migrationen, Deployment-Pipeline —, und wer daraus die Velocity ableitet, plant den nächsten Sprint systematisch zu klein. Ab Sprint 3 pendelt sie um 60 und ist damit belastbar.</p>
-        <p><b>Der Einbruch in Sprint 4</b> (54 nach 67) ist kein Fehler im Prozess: Solche Ausschläge sind der Grund, warum wir den Mittelwert der letzten Sprints nehmen und nicht den letzten Wert. Sieben Balken sind genug, um das zu sehen — bei dreien hätte man es nicht erkannt.</p>
-        <p>Das Diagramm ist ausserdem der <b>Beleg für den Rhythmus selbst</b>: sieben Sprints gelaufen, vier davon mit einem eigenen Planungsdokument unter <code>docs/plans/sprints/</code> (SPRINT-04 bis SPRINT-07) — die ersten drei liefen, bevor wir die Sprintplanung selbst dokumentiert haben. Der sichtbare Carryover zwischen Sprints ist kein Makel, sondern der Grund, warum die Sprint-Zuordnung überhaupt beweglich sein muss.</p>
+        <p>Zwei-Wochen-Sprints auf einem GitHub Project Board. Velocity und Carryover werden <b>aus dem Board abgeleitet</b>, nicht geschätzt.</p>
+        <p><b>Lehre aus dem Juli:</b> Sprint-Zuordnung stand in Milestone <b>und</b> Iteration-Feld und lief auseinander. Seither gibt es nur noch das Iteration-Feld, also eine Quelle pro Tatsache.</p>
+        <p><b>Diagramm:</b> Sprint 1 und 2 waren Aufbau (24 und 28 Punkte), ab Sprint 3 liegt die Velocity um 60. Den Einbruch in Sprint 4 glättet der Mittelwert.</p>
       </div>
     </div>
   </section>
@@ -616,12 +603,9 @@
       </figure>
 
       <div class="notes">
-        <div class="cue">Kurz zeigen · 30 Sek — nicht vorlesen, auf zwei Stellen zeigen</div>
-        <p>Gerade eben ging es um den Rhythmus und darum, dass das Iteration-Feld die einzige Quelle ist. <b>Das hier ist dasselbe Board, nur angeschaut.</b> Die fünf Spalten sind der Weg, den jede Arbeitseinheit nimmt — und sie sind nicht zufällig deckungsgleich mit dem Git-Ablauf, der in zwei Folien kommt.</p>
-        <p><b>Der Punkt in einem Satz:</b> Wer wissen will, woran gerade jemand arbeitet, schaut aufs Board statt zu fragen. Wir hatten keine täglichen Statusrunden — das Board hat sie ersetzt.</p>
-        <p><b>Erste Stelle zum Zeigen — die Zähler.</b> Jede Spalte trägt ihre Kartenzahl und ihre Story Points. <code>Done</code> steht bei 312 Karten und 366 Punkten; das ist die Summe über alle sieben Sprints und die Quelle für das Velocity-Diagramm von vorhin. <code>In Progress</code> steht bei zwei — mehr als eine Handvoll gleichzeitig wäre ein Warnsignal.</p>
-        <p><b>Zweite Stelle — falls jemand genau hinsieht:</b> In <code>Review</code> liegt Issue #350, in <code>In Progress</code> der zugehörige Pull Request #359. Das ist kein Zufall, sondern genau das, was der <code>/implement-issue</code>-Skill am Ende dieses Blocks tut: Er zieht die Issue-Karte auf <code>Review</code>, sobald der PR offen ist. Der Screenshot zeigt also den Prozess, während er läuft.</p>
-        <p><b>Ebenfalls sichtbar</b>, falls die Frage kommt: Die Karten tragen Labels für Story Points, Bereich und Priorität sowie die <code>us-XX</code>-Zuordnung zur User Story — damit hängt jede Karte an einer Anforderung aus Folie 2.</p>
+        <div class="cue">Kurz zeigen · 30 Sek</div>
+        <p>Dasselbe Board, diesmal als Bild. Die fünf Spalten entsprechen dem Git-Ablauf. Das Board hat tägliche Statusrunden ersetzt.</p>
+        <p><b>Zeigen:</b> <code>Done</code> hat 312 Karten und 366 Punkte, die Quelle der Velocity. Issue #350 liegt in <code>Review</code>, PR #359 in <code>In Progress</code>: der Skill-Ablauf in Aktion.</p>
       </div>
     </div>
   </section>
@@ -663,12 +647,10 @@
       </div>
 
       <div class="notes">
-        <div class="cue">Anatomie · 45 Sek — die ID zerlegen, den Rest nur überfliegen</div>
-        <p><b>Die Task-ID ist der rote Faden des ganzen Projekts</b>, deshalb lohnt sich ein Blick auf ihren Aufbau. <code>BE-CAT-02</code> heisst: Backend, Kategorisierung, zweite Arbeitseinheit in diesem Bereich.</p>
-        <p>Die Nummer läuft <b>pro Bereich</b>, nicht global — <code>BE-CAT-02</code> und <code>FE-CAT-02</code> sind zwei verschiedene Aufgaben. Dadurch bleibt die ID sprechend: Wer sie liest, weiss ohne Nachschlagen, wo der Code landet.</p>
-        <p><b>Bugs bekommen keine eigene Reihe.</b> Sie erhalten die nächste freie Nummer im betroffenen Bereich; der Typ steckt im Label und im Branch-Präfix <code>fix/</code> statt <code>feature/</code>. Eine ID wird nie wiederverwendet — auch nicht die des Tasks, der den Bug eingebaut hat, sonst bricht die Rückverfolgbarkeit.</p>
-        <p><b>Zu den Abschnitten:</b> Beschreibung und Acceptance Criteria sind der fachliche Teil; hier im Beispiel fünf prüfbare Haken, darunter „Timeout ist auf 10s gesetzt" und „API-Key wird aus Umgebungsvariable gelesen, nie hardcodiert" — Sätze, an denen ein Test scheitern kann. Die Definition of Done ist für jedes Issue dieselbe: Review, grüner Build, Happy Path getestet.</p>
-        <p><b>Ehrlich dazusagen, falls jemand genau hinschaut:</b> Dieses Issue ist vom 10. Juni und trägt Metadaten und Abhängigkeiten noch <em>im Text</em>. Genau das haben wir später herausgenommen — seither stehen Story Points, Area und Sprint im Board und die Abhängigkeiten im Relationships-Panel. Das ist dieselbe Lehre wie beim Milestone von vorhin: eine Tatsache, zwei Orte, und sie laufen auseinander.</p>
+        <div class="cue">Anatomie · 45 Sek</div>
+        <p><code>BE-CAT-02</code> heisst Backend, Kategorisierung, zweite Aufgabe. Die Nummer läuft pro Bereich, die ID sagt also, wo der Code landet.</p>
+        <p>Bugs bekommen die nächste freie Nummer im Bereich und den Branch-Präfix <code>fix/</code>. IDs werden nie wiederverwendet.</p>
+        <p>Die ACs sind prüfbare Haken, die DoD ist für alle Issues gleich. Dieses Issue ist alt und hat Metadaten noch im Text, heute stehen sie im Board.</p>
       </div>
     </div>
   </section>
@@ -698,12 +680,10 @@
 
       <div class="notes">
         <div class="cue">Git &amp; CI/CD · 2 Min</div>
-        <p>Jede Arbeit beginnt mit einem <b>Issue</b>. Dessen Kennung — etwa <code>BE-CAT-06</code> — erscheint danach im Branchnamen, im Commit und im PR-Titel. Damit ist von jeder Codezeile aus rückwärts auffindbar, welches Issue sie begründet hat, und umgekehrt hängt an jedem Issue der PR, der es geschlossen hat.</p>
-        <p><b>Die Pipeline entlanggehen:</b> Jeder PR läuft durch den Build — Backend <code>mvn verify</code>, Frontend Test und Produktions-Build. Erst ein grüner PR ist mergebar. Ein Push auf <code>main</code> startet dann das Continuous Deployment, das denselben Build wiederverwendet statt ihn zu wiederholen; nur bei Erfolg löst der Render Deploy Hook aus.</p>
-        <p><i>Falls jemand nach den Workflows fragt:</i> Der Build steht als wiederverwendbarer Workflow in <code>build.yml</code> und ist die gemeinsame Quelle beider Einstiege — <code>ci.yml</code> ruft ihn bei Pull Requests auf, <code>cd.yml</code> beim Push auf <code>main</code>.</p>
-        <p><b>Der Punkt an Schritt 5:</b> Ein erfolgreicher Deploy-Hook sagt nur, dass die Plattform den Auftrag angenommen hat. Der Smoke-Test fragt danach die laufende Instanz, welchen Commit sie ausführt, und vergleicht ihn mit dem erwarteten — erst das ist ein Nachweis. Ohne ihn hätten wir mehrfach geglaubt, eine Änderung sei live, obwohl der Container noch die alte Version hielt.</p>
-        <p><i>Falls nach dem Wie gefragt wird:</i> Die Instanz meldet ihren Commit über den Actuator-Endpunkt <code>/actuator/info</code>; die Pipeline pollt ihn, bis der Commit passt und der Health-Check 200 liefert.</p>
-        <p><b>Wenn Zeit bleibt — ein Gate, das aus Schaden entstand:</b> Flyway hält jede angewandte Migration mit Prüfsumme fest. Wird eine gemergte Datei nachträglich angefasst, bricht jede Datenbank beim nächsten Start mit „Migration checksum mismatch". Ein eigener CI-Job prüft das bei jedem PR. Der Notfall-Ausweg ist bewusst ein Label am PR und kein Commit-Marker: sichtbar, zurücknehmbar, und die Timeline hält fest, wer es wann gesetzt hat.</p>
+        <p>Die Task-ID aus dem Issue steht in Branch, Commit und PR-Titel. So lässt sich jede Codezeile auf ihr Issue zurückführen.</p>
+        <p><b>Pipeline:</b> Jeder PR baut Backend und Frontend. Nur grüne PRs werden gemerged. Der Push auf <code>main</code> deployt auf Render.</p>
+        <p><b>Schritt 5:</b> Der Smoke-Test prüft, welchen Commit die laufende Instanz wirklich ausführt. Erst das beweist, dass die Änderung live ist.</p>
+        <p><i>Falls Zeit:</i> Ein CI-Job verhindert, dass gemergte Flyway-Migrationen nachträglich geändert werden.</p>
       </div>
     </div>
   </section>
@@ -739,13 +719,10 @@
       </div>
 
       <div class="notes">
-        <div class="cue">Brücke zu den Skills · 60 Sek — zügig, die Skills brauchen die Zeit</div>
-        <p><code>CLAUDE.md</code> liegt im Repo-Root und wird von jedem Claude-Lauf automatisch gelesen — niemand muss den Kontext neu erklären. Entscheidend ist, <b>was darin steht</b>: keine allgemeinen Ratschläge, sondern die Eigenheiten dieses Projekts.</p>
-        <p><b>Erste Regel — das Sicherheitsnetz.</b> Der Halbsatz „auch nicht auf explizite Benutzeranfrage" ist der wichtigste der ganzen Datei: Die Regel bindet die KI <b>gegen den Menschen</b>. Wer im Eifer „commit das mal schnell auf main" tippt, bekommt einen Hinweis auf die Regel statt eines Commits. Das ist kein Misstrauen gegenüber dem Modell, sondern gegenüber der eigenen Unachtsamkeit um 23 Uhr.</p>
-        <p><b>Zweite Regel — das Fachwissen.</b> <code>BigDecimal</code> statt <code>double</code> ist eine Selbstverständlichkeit für jemanden, der schon einmal Geld in Fliesskomma gerechnet hat — aber sie steht nicht im Code, sie steht in ADR-9. Ohne diese Zeile hätte ein Lauf irgendwann ein <code>double</code> vorgeschlagen, und in der Safe-to-Spend-Berechnung wäre der Rundungsfehler nicht mehr auszuschliessen. Das ist genau der Kernwert der App.</p>
-        <p><b>Dritte Regel — die Rückkopplung zu vorhin.</b> „Beim Anlegen von Issues nie Milestone oder Sprint setzen" ist die Julilehre von Folie 4, <b>in eine Regel übersetzt</b>. Das Auseinanderlaufen ist einmal passiert; seither steht die Konsequenz da, wo sie beim nächsten Mal gelesen wird. Genauso wichtig ist der Nachsatz: Die Einplanung bleibt eine Kapazitätsentscheidung des Teams — die KI darf sie vorschlagen, nicht treffen.</p>
-        <p><b>Zur Zahl:</b> 130 Zeilen, 79 Commits. Die Datei ist kein Setup-Schritt vom ersten Tag, sondern wächst mit — wie die ADRs. Fast jede Zeile hat einen Vorfall als Ursprung.</p>
-        <p><b>Überleitung:</b> Das ist der Kontext. Was die KI damit konkret tut, steht auf der nächsten Folie.</p>
+        <div class="cue">Brücke zu den Skills · 60 Sek</div>
+        <p><code>CLAUDE.md</code> wird bei jedem Claude-Lauf automatisch gelesen. Sie enthält die Eigenheiten dieses Projekts, keine allgemeinen Tipps.</p>
+        <p><b>Drei Beispiele:</b> Nie auf <code>main</code> committen, <b>auch nicht auf Anfrage</b>, schützt vor der eigenen Unachtsamkeit. <code>BigDecimal</code> schützt den Kernwert der App. Kein Milestone und kein Sprint an Issues ist die Julilehre als Regel.</p>
+        <p>Die Datei wächst mit, fast jede Zeile hat einen Vorfall als Ursprung. <b>Überleitung:</b> Was die KI damit tut, zeigt die nächste Folie.</p>
       </div>
     </div>
   </section>
@@ -773,16 +750,12 @@
       </div>
 
       <div class="notes">
-        <div class="cue">Der Kursbezug · 2 Min — hier Zeit investieren, das ist der ADAI-Kern</div>
-        <p>Der interessanteste Teil des Kurses ist in diesem Projekt kein Feature, sondern die Arbeitsweise. Drei Claude-Code-Skills automatisieren den Entwicklungszyklus von der Sprintplanung bis zum Review. Sie sind im Repo versioniert, laufen bei allen drei Entwicklern gleich — und haben dieselben Grenzen.</p>
-        <p><b>/plan-sprint</b> prüft Backlog-Hygiene, leitet Velocity und Carryover aus dem Board ab, kreuzt Abhängigkeiten gegen und legt den Vorschlag als Datei ab. Das Board wird erst auf ausdrücklichen Zuruf geschrieben — die Einplanung bleibt eine Kapazitätsentscheidung des Teams.</p>
-        <p><b>/implement-issue</b> geht ein Issue end-to-end durch: einlesen und übernehmen, Rückfragen klären, Plan vorlegen und bestätigen lassen, Branch anlegen, Code und Tests schreiben, Security-Review gegen eine auf diese App zugeschnittene Matrix — Mandantentrennung, ADR-7-Invarianten, Secrets, Upload-Grenzen, Datenminimierung beim Claude-Call —, lokalen Review vorlegen, PR öffnen.</p>
-        <p><b>/review-pr</b> liest PR und Issue ein, prüft den Diff gegen die Gegenseite, führt die Tests selbst aus, trennt blockierende von nicht-blockierenden Befunden und setzt sie als Inline-Threads ab. Warum Inline und nicht im Review-Body: Ein Body ist für die Ruleset-Regel unsichtbar und hält den Merge nicht auf.</p>
-        <p><b>Zur Grenze — der wichtigste Satz des Blocks:</b> Jeder Skill hält vor dem Schreiben an und legt vor, was er zu tun gedenkt. Das ist keine technische Einschränkung, sondern eine bewusste: Ein Agent, der selbst merged, nimmt die einzige Stelle aus dem Prozess, an der jemand die Verantwortung trägt.</p>
-        <p><b>Zum automatischen Review — der Punkt ist „dasselbe":</b> Die GitHub Action ruft nicht irgendeine Prüfung auf, sondern denselben <code>/review-pr</code>-Skill, der auch lokal läuft. Er liegt eingecheckt unter <code>.claude/skills/review-pr/</code> und ist nach dem Checkout im Workspace verfügbar. Lokales und automatisches Review können deshalb nicht auseinanderlaufen — es gibt nur eine Fassung der Regeln.</p>
-        <p>Ausgelöst wird er beim Öffnen eines PR, bei jedem weiteren Push und beim Wechsel von Entwurf auf „Ready for review". <b>Entwürfe bleiben bewusst aussen vor</b>, sonst liefe bei jedem Zwischenstand ein vollständiges Review.</p>
-        <p><b>Und die Grenze bleibt:</b> Er fängt ab, was ein müder Mensch um 23 Uhr übersieht — er entscheidet nicht, ob etwas gemerged wird. Ein Action-Lauf ist kein Dev; die Freigabe durch mindestens eine Person bleibt, und das Ruleset auf <code>main</code> erzwingt das ohnehin.</p>
-        <p><b>Damit gebe ich nun weiter an Sergio für die Demo.</b></p>
+        <div class="cue">Der Kursbezug · 2 Min, hier Zeit investieren</div>
+        <p>Drei versionierte Skills automatisieren den Zyklus, bei allen drei Entwicklern gleich.</p>
+        <p><b>/plan-sprint</b> schlägt den Sprint aus Board-Daten vor. <b>/implement-issue</b> setzt ein Issue um, mit Plan, Tests, Security-Review und PR. <b>/review-pr</b> prüft den PR, führt die Tests aus und setzt blockierende Befunde als Inline-Threads.</p>
+        <p><b>Wichtigster Satz:</b> Jeder Skill hält vor dem Schreiben an und fragt. Mergen tut immer ein Mensch.</p>
+        <p>Die GitHub Action ruft <b>denselben</b> <code>/review-pr</code>-Skill auf, also können lokales und automatisches Review nicht auseinanderlaufen. Er fängt Fehler ab, die Freigabe bleibt bei einer Person.</p>
+        <p><b>Übergabe an Sergio für die Demo.</b></p>
       </div>
     </div>
   </section>
@@ -794,7 +767,7 @@
       <h1>Demo</h1>
       <div class="notes">
         <div class="cue">Übergabe</div>
-        <p>Standbild für den Sprecher- und Bildschirmwechsel. Hier stehen bleiben, bis Sergio übernommen hat — der Handoff ist nicht Teil der zehn Minuten.</p>
+        <p>Standbild für den Wechsel. Stehen bleiben, bis Sergio übernommen hat.</p>
       </div>
     </div>
   </section>
