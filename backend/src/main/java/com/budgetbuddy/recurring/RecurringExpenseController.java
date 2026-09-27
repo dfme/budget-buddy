@@ -77,10 +77,13 @@ public class RecurringExpenseController {
 
     @PostMapping("/{id}/reactivate")
     @Operation(summary = "Verneinten Eintrag reaktivieren",
-            description = "Setzt einen als Kein Abo markierten Eintrag des Users zurück auf "
-                    + "status=DETECTED und liefert seinen aktuellen Zustand. isNew ist in der "
-                    + "Antwort immer false — eine Reaktivierung ist keine neue Erkennung. "
-                    + "Idempotent — ein zweiter Aufruf ändert den Status nicht erneut.")
+            description = "Hebt die Kein-Abo-Markierung eines Eintrags des Users auf und bewertet "
+                    + "ihn gegen die volle Ausgaben-Historie neu — wie jeder Import es für nicht "
+                    + "verneinte Zeilen tut. Liefert status=DETECTED, wenn der Empfänger weiterhin "
+                    + "aktiv ist, sonst status=ENDED, falls er inzwischen ausgelaufen ist; Betrag "
+                    + "und firstDetectedMonth folgen dabei dem jüngsten qualifizierenden Paar. "
+                    + "isNew ist in der Antwort immer false — eine Reaktivierung ist keine neue "
+                    + "Erkennung. Idempotent — ein zweiter Aufruf ändert den Status nicht erneut.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Eintrag aktualisiert"),
         @ApiResponse(responseCode = "401", description = "Nicht authentifiziert", content = {}),
