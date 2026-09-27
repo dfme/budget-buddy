@@ -185,9 +185,7 @@ export class RecurringExpenseList {
     this.recurringExpenses.reactivate(expense.id).subscribe({
       next: () => this.reactivatingId.set(null),
       error: (_err: HttpErrorResponse) => {
-        this.reactivateErrorMessage.set(
-          `«${expense.payeeKey}» konnte nicht reaktiviert werden.`,
-        );
+        this.reactivateErrorMessage.set(`«${expense.payeeKey}» konnte nicht reaktiviert werden.`);
         this.reactivatingId.set(null);
       },
     });
