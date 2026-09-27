@@ -464,17 +464,17 @@
 
       <div class="bignum">
         <div><div class="n">7</div><div class="l">Sprints</div></div>
-        <div><div class="n">364</div><div class="l">Story Points</div></div>
+        <div><div class="n">366</div><div class="l">Story Points</div></div>
         <div><div class="n">16</div><div class="l">ADRs</div></div>
         <div><div class="n">10/14</div><div class="l">User Stories</div></div>
-        <div><div class="n">176</div><div class="l">Pull Requests</div></div>
+        <div><div class="n">183</div><div class="l">Pull Requests</div></div>
       </div>
 
       <div class="notes">
         <div class="cue">Einstieg · 20 Sek</div>
         <p>Guten Tag zusammen. Ich zeige euch in den nächsten Minuten, was BudgetBuddy technisch ist und warum es so gebaut ist, wie es gebaut ist — ohne in Code-Details abzudriften.</p>
         <p>Der Kernwert in einem Satz: ein wöchentlicher Safe-to-Spend-Betrag, den man wirklich glauben kann, weil er aus den echten Kontobewegungen berechnet wird, nicht aus einem Budget, das man selbst eingetippt hat.</p>
-        <p>Ein paar Zahlen zum Projekt: sieben Sprints, 364 Story Points, 16 ADRs, 10 von 14 User Stories umgesetzt, 176 gemergte Pull Requests.</p>
+        <p>Ein paar Zahlen zum Projekt: sieben Sprints, 366 Story Points, 16 ADRs, 10 von 14 User Stories umgesetzt, 183 gemergte Pull Requests.</p>
       </div>
     </div>
   </section>
@@ -571,21 +571,26 @@
           <figcaption><span class="fact">Testdaten</span><span>Echter (synthetischer) PostFinance-Kontoauszug</span></figcaption>
         </figure>
 
-        <div class="mask" style="margin-top:0; flex:1; min-width:340px; display:flex; flex-direction:column; gap:1rem;">
-          <div class="side">
-            <div class="k">Buchungstext (lokal, Lookup-Stufe sieht das)</div>
-            <div class="txt">TWINT CHF <em>42.50</em> AN <em>LEA MUSTER</em> IBAN <em>CH93 0076 2011 6238 5295 7</em></div>
-          </div>
-          <div class="side out">
-            <div class="k">→ An Claude gesendet (PromptSanitizer)</div>
-            <div class="txt">TWINT CHF <b>&lt;BETRAG&gt;</b> AN <b>&lt;NAME&gt;</b> IBAN <b>&lt;IBAN&gt;</b></div>
-          </div>
+        <div style="display:flex; flex-direction:column; gap:16px; flex:1">
+          <p style="font-size:24px; font-weight:600; color:var(--c-ink-2)">Buchungstext (lokal, Lookup-Stufe sieht das)</p>
+          <p style="padding:28px; font-family:var(--font-mono); font-size:28px; font-weight:400; color:var(--c-negative); background:var(--c-surface); border:1px solid var(--c-negative); border-radius:12px">TWINT CHF 42.50 AN LEA MUSTER IBAN CH93 0076 2011 6238 5295 7</p>
+          <p style="font-size:24px; font-weight:600; color:var(--c-ink-2)">→ An Claude gesendet (PromptSanitizer)</p>
+          <p style="padding:28px; font-family:var(--font-mono); font-size:28px; font-weight:400; color:var(--c-accent); background:var(--c-surface); border:1px solid var(--c-accent); border-radius:12px">TWINT CHF &lt;BETRAG&gt; AN &lt;NAME&gt; IBAN &lt;IBAN&gt;</p>
         </div>
+      </div>
+
+      <div style="display:flex; flex-wrap:wrap; gap:16px; margin-top:1.2rem;">
+        <p style="padding:10px 20px; font-size:24px; color:var(--c-accent); background:var(--c-accent-soft); border-radius:256px">IBAN</p>
+        <p style="padding:10px 20px; font-size:24px; color:var(--c-accent); background:var(--c-accent-soft); border-radius:256px">Karten-/Kontonummern</p>
+        <p style="padding:10px 20px; font-size:24px; color:var(--c-accent); background:var(--c-accent-soft); border-radius:256px">Beträge</p>
+        <p style="padding:10px 20px; font-size:24px; color:var(--c-accent); background:var(--c-accent-soft); border-radius:256px">Namen</p>
+        <p style="padding:10px 20px; font-size:24px; color:var(--c-accent); background:var(--c-accent-soft); border-radius:256px">Telefonnummern</p>
+        <p style="padding:10px 20px; font-size:24px; color:var(--c-accent); background:var(--c-accent-soft); border-radius:256px">E-Mail</p>
       </div>
 
       <div class="notes">
         <div class="cue">Security: Claude · 1–2 Min</div>
-        <p>Was hinausgeht, ist nicht der rohe Buchungstext, sondern seine maskierte Fassung — IBAN, Karten- und Kontonummern, Beträge, Namen natürlicher Gegenparteien, Telefonnummern und E-Mail-Adressen fallen vorher weg. Das passiert an genau einer Stelle im Code.</p>
+        <p>Was hinausgeht, ist nicht der rohe Buchungstext, sondern seine maskierte Fassung — IBAN, Karten- und Kontonummern, Beträge, Namen natürlicher Gegenparteien, Telefonnummern und E-Mail-Adressen fallen vorher weg. Das passiert an genau einer Stelle im Code. Ehrlich dazu: IBAN und Name maskieren heute echte Buchungstexte, der Betrag steht aktuell in einem eigenen Feld und nicht im Text selbst — die Betrags-Regel ist eine Regressionsbremse für den Tag, an dem ein Layout ihn doch mal in den Text druckt.</p>
         <p>Die Lookup-Stufe davor sieht weiterhin den unmaskierten Text — sie bleibt aber lokal, ihr Input verlässt das System nie. Wir sind transparent über die bekannten Lücken, nicht Blackbox: zum Beispiel ein Vorname in einer Freitext-Zweckzeile.</p>
       </div>
     </div>
@@ -620,7 +625,7 @@
       <h2>Bewusst einfach</h2>
 
       <div class="grid-4">
-        <div class="card accent"><span class="role">Wird deployt</span><h3>Render</h3><p>Single JAR · Frankfurt/EU · 7 CHF/Monat</p></div>
+        <div class="card accent"><span class="role">Wird deployt</span><h3>Render</h3><p>Single JAR · Frankfurt/EU · $7/Monat</p></div>
         <div class="card"><span class="role">Migriert beim Start</span><h3>Neon Postgres</h3><p>PostgreSQL 18 · Frankfurt/EU · Free</p></div>
         <div class="card out"><span class="role">Unverändert</span><h3>Anthropic Claude</h3><p>Ext. System · $ / Tokens</p></div>
         <div class="card out"><span class="role">Unverändert</span><h3>BetterStack</h3><p>Log-Sink · Frankfurt/EU · Free</p></div>
