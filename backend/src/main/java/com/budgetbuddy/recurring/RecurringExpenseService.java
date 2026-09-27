@@ -68,10 +68,13 @@ import org.springframework.transaction.annotation.Transactional;
  * dem Fund eines Abos, nicht seiner Preisänderung; ein Bündel für einen Empfänger, den der Nutzer
  * längst kennt, wäre Rauschen im Badge.
  *
- * <p><strong>{@code DISMISSED} ist terminal.</strong> Ein verneinter Empfänger wird weder im Betrag
- * noch im Status angefasst und nie wieder erkannt — die Regel aus US-08 AC3 («künftige
- * Transaktionen desselben Empfängers werden nicht mehr automatisch erkannt»). Er ist der einzige
- * Fall, der weiterhin vollständig übersprungen wird.
+ * <p><strong>{@code DISMISSED} ist terminal — für {@code detect()}, nicht für den Nutzer.</strong>
+ * Ein verneinter Empfänger wird von diesem Lauf weder im Betrag noch im Status angefasst und
+ * nie automatisch wieder erkannt — die Regel aus US-08 AC3 («künftige Transaktionen desselben
+ * Empfängers werden nicht mehr automatisch erkannt»). Er ist der einzige Fall, der weiterhin
+ * vollständig übersprungen wird. Seit BE-REC-05 gibt es einen expliziten Rückweg über
+ * {@link #reactivate(long, long)} — eine bewusste Nutzeraktion, keine automatische Erkennung, und
+ * die Verneinung bleibt deshalb die einzige Ausnahme von der laufenden Neubewertung (BE-REC-04).
  *
  * <p><strong>Eine Zeile pro Empfänger.</strong> {@code UNIQUE (user_id, payee_key)} (V11) erlaubt
  * keine zweite. Zwei Abos beim selben Anbieter — Mobile und Internet bei Swisscom — ergeben damit
@@ -543,10 +546,25 @@ public class RecurringExpenseService
 
     /**
      * Reaktiviert einen per «Kein Abo» verneinten Eintrag (BE-REC-05): {@code DISMISSED} zurück
-     * auf {@code DETECTED}. Gegenstück zu {@link #dismiss(long, long)}, mit derselben
-     * Mandantenprüfung — {@link RecurringExpenseRepository#findByIdAndUserId} liefert nur den
-     * Eintrag des übergebenen Users, ein fremder oder unbekannter erzeugt dieselbe
+     * auf {@code DETECTED} oder {@code ENDED}, je nach Aktivität in der Historie. Gegenstück zu
+     * {@link #dismiss(long, long)}, mit derselben Mandantenprüfung —
+     * {@link RecurringExpenseRepository#findByIdAndUserId} liefert nur den Eintrag des
+     * übergebenen Users, ein fremder oder unbekannter erzeugt dieselbe
      * {@link RecurringExpenseNotFoundException}.
+     *
+     * <p><strong>Keine blinde Rückstellung auf {@code DETECTED}.</strong> Seit BE-REC-04 bewertet
+     * {@link #detect(long)} jede nicht verneinte Zeile bei jedem Import neu — {@code DISMISSED}
+     * ist dabei die einzige Ausnahme (siehe Klassen-Javadoc), eine verneinte Zeile bleibt also mit
+     * ihrem Betrag und Erstmonat vom Tag der Verneinung eingefroren. Ohne die Neubewertung hier
+     * käme ein längst gekündigter Empfänger nach der Reaktivierung als aktives Abo mit veraltetem
+     * Betrag zurück und minderte den Safe-to-Spend fälschlich, bis der nächste Import kommt.
+     * {@link #reevaluateAgainstHistory} holt deshalb genau das nach, was {@code detect()} für
+     * jede andere Zeile ohnehin tut — für diese eine, gerade reaktivierte.
+     *
+     * <p>Die Neubewertung läuft nur, wenn der Eintrag tatsächlich {@code DISMISSED} war: ein
+     * {@code ENDED}-Eintrag bleibt unangetastet (dafür ist {@code detect()} zuständig, nicht
+     * dieser Endpoint), und ein bereits reaktivierter bleibt bei seinem aktuellen Stand stehen —
+     * dieselbe Schranke wie in {@link RecurringExpense#reactivate()}.
      *
      * <p>Anders als bei {@link #dismiss(long, long)} gibt es hier keine Bündel-Benachrichtigung zu
      * pflegen: eine Reaktivierung ist eine reine Nutzeraktion und erzeugt keine neue Erkennung.
@@ -556,7 +574,7 @@ public class RecurringExpenseService
      * erkannt, sondern nur wiederhergestellt wurde.
      *
      * <p>Idempotent: ein zweiter Aufruf auf einen bereits reaktivierten (oder nie verneinten)
-     * Eintrag ändert nichts (siehe {@link RecurringExpense#reactivate()}).
+     * Eintrag ändert nichts.
      *
      * @throws RecurringExpenseNotFoundException wenn die ID nicht existiert oder einem anderen
      *     User gehört.
@@ -566,8 +584,34 @@ public class RecurringExpenseService
         RecurringExpense expense = recurringExpenseRepository
                 .findByIdAndUserId(recurringExpenseId, userId)
                 .orElseThrow(() -> new RecurringExpenseNotFoundException(userId, recurringExpenseId));
-        expense.reactivate();
+        if (expense.getStatus() == RecurringExpenseStatus.DISMISSED) {
+            expense.reactivate();
+            reevaluateAgainstHistory(userId, expense);
+        }
         return toResponse(expense, false);
+    }
+
+    /**
+     * Bewertet eine einzelne, gerade reaktivierte Zeile gegen die volle Historie neu (BE-REC-04,
+     * BE-REC-05) — dieselbe Regel wie {@link #reevaluate}, nur für eine Zeile statt für den
+     * ganzen Erkennungslauf: {@code amount}/{@code firstDetectedMonth} folgen dem jüngsten
+     * qualifizierenden Paar, der Status ({@code DETECTED}/{@code ENDED}) der Aktivität im Fenster
+     * {@link #ACTIVE_WINDOW_MONTHS}.
+     *
+     * <p>Eine leere Historie ändert nichts — dieselbe Begründung wie in {@link #detect(long)}:
+     * keine Daten sind kein Beleg für ein Ende.
+     */
+    private void reevaluateAgainstHistory(long userId, RecurringExpense expense) {
+        List<ExpenseEntry> history = expenseHistoryPort.expenseHistory(userId);
+        if (history.isEmpty()) {
+            return;
+        }
+        String payeeKey = expense.getPayeeKey();
+        List<ExpenseEntry> group = history.stream()
+                .filter(entry -> entry.payeeKey().toUpperCase(Locale.ROOT).equals(payeeKey))
+                .toList();
+        YearMonth activeFrom = latestMonth(history).minusMonths(ACTIVE_WINDOW_MONTHS - 1L);
+        reevaluate(Map.of(payeeKey, expense), Map.of(payeeKey, group), activeFrom);
     }
 
     private static RecurringExpenseResponse toResponse(RecurringExpense expense, boolean isNew) {

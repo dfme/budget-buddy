@@ -744,6 +744,57 @@ class RecurringExpenseServiceTest {
     }
 
     /**
+     * BE-REC-04 gilt auch beim Reaktivieren (Review-Befund): eine verneinte Zeile ist seit ihrer
+     * Verneinung eingefroren (siehe Klassen-Javadoc, «DISMISSED ist terminal — für detect(),
+     * nicht für den Nutzer»). Bucht der Empfänger seither nicht mehr ab, darf die Reaktivierung
+     * ihn nicht blind als laufendes Abo zurückbringen — sie landet stattdessen auf `ENDED`, mit
+     * dem letzten in der Historie belegten Betrag.
+     */
+    @Test
+    void reactivatingAPayeeThatHasSinceGoneQuietResultsInEnded() {
+        RecurringExpense entity = withId(NETFLIX, "20.90", 200L);
+        entity.dismiss();
+        when(repository.findByIdAndUserId(200L, USER_ID)).thenReturn(Optional.of(entity));
+        // Netflix nur die alte Reihe (Januar/Februar) — nichts mehr seither. Spotify hält die
+        // Historie insgesamt aktuell (September), sonst wäre Netflix' letzter Monat selbst schon
+        // der jüngste der Historie und das Aktivitätsfenster begänne erst danach.
+        history(
+                entry(NETFLIX, "20.90", 2026, 1),
+                entry(NETFLIX, "20.90", 2026, 2),
+                entry("SPOTIFY AB", "12.95", 2026, 9));
+
+        RecurringExpenseResponse response = service.reactivate(USER_ID, 200L);
+
+        assertThat(entity.getStatus()).isEqualTo(RecurringExpenseStatus.ENDED);
+        assertThat(response.status()).isEqualTo(RecurringExpenseStatus.ENDED);
+        assertThat(entity.getAmount()).isEqualByComparingTo("20.90");
+    }
+
+    /**
+     * Springt der Preis, während der Empfänger verneint war, hätte eine blinde Rückstellung den
+     * alten Betrag stehen lassen — die echte Abbuchung träfe dessen ±2 %-Band nicht mehr und
+     * zählte zusätzlich als variable Ausgabe (Review-Befund).
+     */
+    @Test
+    void reactivatingAPayeeAfterAPriceJumpAdoptsTheNewAmountAndFirstMonth() {
+        RecurringExpense entity = withId(NETFLIX, "20.90", 200L);
+        entity.dismiss();
+        when(repository.findByIdAndUserId(200L, USER_ID)).thenReturn(Optional.of(entity));
+        history(
+                entry(NETFLIX, "20.90", 2026, 1),
+                entry(NETFLIX, "20.90", 2026, 2),
+                entry(NETFLIX, "24.90", 2026, 8),
+                entry(NETFLIX, "24.90", 2026, 9));
+
+        RecurringExpenseResponse response = service.reactivate(USER_ID, 200L);
+
+        assertThat(entity.getStatus()).isEqualTo(RecurringExpenseStatus.DETECTED);
+        assertThat(entity.getAmount()).isEqualByComparingTo("24.90");
+        assertThat(entity.getFirstDetectedMonth()).isEqualTo(YearMonth.of(2026, 8));
+        assertThat(response.status()).isEqualTo(RecurringExpenseStatus.DETECTED);
+    }
+
+    /**
      * Die Schranke aus {@link RecurringExpense#reactivate()}: ein ausgelaufener Eintrag ist keine
      * Verneinung und bleibt unangetastet — dafür ist {@code markActive()} zuständig, das nur aus
      * {@code detect()} läuft.
@@ -758,6 +809,9 @@ class RecurringExpenseServiceTest {
 
         assertThat(entity.getStatus()).isEqualTo(RecurringExpenseStatus.ENDED);
         assertThat(response.status()).isEqualTo(RecurringExpenseStatus.ENDED);
+        // Die Neubewertung läuft nur für tatsächlich verneinte Zeilen — ein ENDED-Eintrag ist
+        // keine davon und wird nicht einmal angefragt.
+        verify(expenseHistoryPort, never()).expenseHistory(anyLong());
     }
 
     @Test

@@ -58,7 +58,8 @@ function toRow(expense: RecurringExpenseResponse): ExpenseRow {
  *
  * <p>Der State liegt im {@link RecurringExpenseService}, weil die Card «Monatliche fixe Ausgaben»
  * des Dashboards dieselbe Liste summiert. Hier liegt nur, was allein diese Seite betrifft: Lade-
- * und Fehlerzustand sowie die ID des Eintrags, dessen «Kein Abo» gerade läuft.
+ * und Fehlerzustand sowie die ID des Eintrags, dessen «Kein Abo» oder Reaktivieren (BE-REC-05)
+ * gerade läuft.
  *
  * <p>«Kein Abo» fragt nicht nach, anders als das Löschen einer Fixkosten-Position: der Eintrag
  * geht nicht verloren, er wechselt auf `DISMISSED`, und das Backend ist idempotent. Ein Modal
@@ -168,9 +169,11 @@ export class RecurringExpenseList {
    * <p>Nur ein Request zur Zeit, analog {@link dismiss}: solange einer läuft, sind alle
    * Reaktivieren-Buttons gesperrt.
    *
-   * <p>Bei Erfolg ersetzt der Service den Eintrag im State durch die Antwort (`DETECTED`); die
-   * Zeile wandert damit aus {@link dismissedRows} zurück nach {@link rows}. Bei einem Fehler
-   * bleibt sie stehen, ein erneuter Klick versucht es wieder.
+   * <p>Bei Erfolg ersetzt der Service den Eintrag im State durch die Antwort — das Backend
+   * bewertet ihn dabei gegen die volle Historie neu (BE-REC-04): ein noch aktiver Empfänger kommt
+   * als `DETECTED` zurück und die Zeile wandert aus {@link dismissedRows} nach {@link rows}, ein
+   * inzwischen ausgelaufener als `ENDED` nach {@link endedRows}. Bei einem Fehler bleibt sie
+   * stehen, ein erneuter Klick versucht es wieder.
    */
   reactivate(expense: RecurringExpenseResponse): void {
     if (this.reactivatingId() !== null) {

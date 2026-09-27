@@ -19,10 +19,12 @@ public enum RecurringExpenseStatus {
     DETECTED,
 
     /**
-     * Vom Nutzer als «Kein Abo» markiert (BE-REC-02, US-08). Der Empfänger bleibt dauerhaft von
-     * der Erkennung ausgeschlossen — deshalb wird die Zeile nicht gelöscht, sondern umgestellt.
-     * Terminal: {@link RecurringExpenseService#detect(long)} bewertet einen solchen Eintrag nie
-     * neu, weder im Betrag noch im Status.
+     * Vom Nutzer als «Kein Abo» markiert (BE-REC-02, US-08). Der Empfänger bleibt von der
+     * automatischen Erkennung ausgeschlossen — deshalb wird die Zeile nicht gelöscht, sondern
+     * umgestellt. Terminal für {@link RecurringExpenseService#detect(long)}: der Lauf bewertet
+     * einen solchen Eintrag nie neu, weder im Betrag noch im Status. Kein Endzustand für den
+     * Nutzer — {@link RecurringExpenseService#reactivate(long, long)} (BE-REC-05) ist der
+     * explizite Rückweg zurück auf {@link #DETECTED}/{@link #ENDED}.
      */
     DISMISSED,
 

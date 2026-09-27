@@ -18,8 +18,9 @@ import java.time.YearMonth;
  * <p>Eine erkannte wiederkehrende Ausgabe eines Users (US-08): ein Empfänger, der in mindestens
  * zwei aufeinanderfolgenden Monaten einen ähnlichen Betrag belastet hat. Pro User und
  * {@code payeeKey} gibt es genau eine Zeile ({@code UNIQUE (user_id, payee_key)}) — so bleibt ein
- * «Kein Abo» ({@link RecurringExpenseStatus#DISMISSED}) dauerhaft, weil die Erkennung daneben keine
- * zweite Zeile anlegen kann.
+ * «Kein Abo» ({@link RecurringExpenseStatus#DISMISSED}) bestehen, bis der Nutzer ihn reaktiviert
+ * ({@link #reactivate()}, BE-REC-05); die automatische Erkennung legt daneben keine zweite Zeile
+ * an.
  *
  * <p><strong>Die Zeile wird seit BE-REC-04 (#350) bei jedem Erkennungslauf neu bewertet</strong>
  * (V16): {@link #updateFrom} zieht Betrag und Erstmonat auf das jüngste qualifizierende Paar nach,

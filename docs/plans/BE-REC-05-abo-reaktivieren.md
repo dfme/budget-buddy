@@ -13,8 +13,19 @@ Wird eine automatisch erkannte Abo-Zeile per «Kein Abo» verneint, landet sie d
 Abschnitt «Kein Abo» (`RecurringExpenseStatus.DISMISSED`) — ein Rückweg fehlt. Es gibt weder
 einen Reaktivieren-Endpoint noch eine Aktion in der Liste. Klickt eine Person versehentlich
 «Kein Abo», sitzt sie fest — auch ein erneuter PDF-Import bringt den Empfänger nie zurück nach
-`DETECTED`, weil `RecurringExpenseService.detect()` bereits bekannte Empfänger («in beiden
-Status») überspringt.
+`DETECTED`, weil `RecurringExpenseService.detect()` verneinte Empfänger weiterhin überspringt
+(seit BE-REC-04, #359, nur noch `DISMISSED` — ein `ENDED`-Eintrag wird bei jedem Import erneut
+bewertet).
+
+## Nachtrag (Review)
+
+Die erste Fassung dieses Plans stützte sich noch auf den Stand vor BE-REC-04: `reactivate()`
+setzte `DISMISSED` blind auf `DETECTED`, ohne die Zeile — anders als jede andere nicht verneinte
+Zeile — gegen die Historie neu zu bewerten. Der Review-Befund dazu: eine lange verneinte Zeile
+käme mit eingefrorenem Betrag als aktives Abo zurück, selbst wenn der Empfänger inzwischen
+gekündigt hat oder der Preis gesprungen ist. Behoben durch `reevaluateAgainstHistory` in
+`RecurringExpenseService` — dieselbe Regel wie `reevaluate()`, nur für die eine reaktivierte
+Zeile. Ergebnis ist seither `DETECTED` **oder** `ENDED`, je nach Aktivität.
 
 ## Entscheide
 
@@ -50,7 +61,9 @@ Status») überspringt.
 
 1. `RecurringExpense.reactivate()`: `DISMISSED → DETECTED`, sonst No-Op — idempotent.
 2. `RecurringExpenseService.reactivate(userId, id)`: `findByIdAndUserId` (gleiche Mandantenprüfung
-   wie `dismiss`), `RecurringExpenseNotFoundException` bei Fehlen/fremdem User,
+   wie `dismiss`), `RecurringExpenseNotFoundException` bei Fehlen/fremdem User; war der Eintrag
+   tatsächlich `DISMISSED`, wird er zusätzlich gegen die volle Historie neu bewertet
+   (`reevaluateAgainstHistory`, siehe Nachtrag) — Ergebnis ist `DETECTED` oder `ENDED`.
    `toResponse(expense, false)`.
 3. `RecurringExpenseController`: `POST /api/recurring-expenses/{id}/reactivate`, Swagger-Doku
    analog `dismiss` (200/401/404).
@@ -62,7 +75,8 @@ Status») überspringt.
 ## Test-Strategie
 
 - **Unit** (`RecurringExpenseServiceTest`): Statuswechsel, Idempotenz, No-Op auf `ENDED`, 404 bei
-  fremdem/fehlendem Eintrag.
+  fremdem/fehlendem Eintrag; Reaktivieren eines inzwischen ausgelaufenen Empfängers ergibt `ENDED`
+  mit aktuellem Betrag, Reaktivieren nach Preissprung übernimmt den neuen Betrag (Nachtrag).
 - **Integration** (`RecurringExpenseControllerIntegrationTest`): 200 + Statuswechsel, Idempotenz,
   Mandantentrennung (404 für fremden User), 404 unbekannte ID, 401 ohne JWT, Eintrag erscheint
   nach Reaktivierung wieder in der Hauptliste.
@@ -80,3 +94,8 @@ Status») überspringt.
 - [ ] Reaktivierte Zeile erscheint wieder in der Abo-Liste und verschwindet aus «Kein Abo»
 - [ ] Test deckt: Reaktivieren einer `DISMISSED`-Zeile
 - [ ] Test deckt: Reaktivieren respektiert Mandantentrennung (fremder User erhält 404/403)
+
+> **Nachtrag:** Das erste AC («zurück auf `DETECTED`») ist vor BE-REC-04 (#359) formuliert, das
+> jede nicht verneinte Zeile bei jedem Import neu bewertet. Mit der Neubewertung beim Reaktivieren
+> (siehe oben) landet ein inzwischen ausgelaufener Empfänger korrekt auf `ENDED` statt auf
+> `DETECTED` — er verschwindet trotzdem aus «Kein Abo», was die eigentliche Absicht des AC ist.
