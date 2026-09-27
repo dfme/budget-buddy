@@ -18,8 +18,9 @@ import java.time.YearMonth;
  * <p>Eine erkannte wiederkehrende Ausgabe eines Users (US-08): ein Empfänger, der in mindestens
  * zwei aufeinanderfolgenden Monaten einen ähnlichen Betrag belastet hat. Pro User und
  * {@code payeeKey} gibt es genau eine Zeile ({@code UNIQUE (user_id, payee_key)}) — so bleibt ein
- * «Kein Abo» ({@link RecurringExpenseStatus#DISMISSED}) dauerhaft, weil die Erkennung daneben keine
- * zweite Zeile anlegen kann.
+ * «Kein Abo» ({@link RecurringExpenseStatus#DISMISSED}) bestehen, bis der Nutzer ihn reaktiviert
+ * ({@link #reactivate()}, BE-REC-05); die automatische Erkennung legt daneben keine zweite Zeile
+ * an.
  *
  * <p><strong>Die Zeile wird seit BE-REC-04 (#350) bei jedem Erkennungslauf neu bewertet</strong>
  * (V16): {@link #updateFrom} zieht Betrag und Erstmonat auf das jüngste qualifizierende Paar nach,
@@ -189,6 +190,22 @@ public class RecurringExpense {
      */
     public void markActive() {
         if (this.status == RecurringExpenseStatus.ENDED) {
+            this.status = RecurringExpenseStatus.DETECTED;
+        }
+    }
+
+    /**
+     * Reaktiviert einen verneinten Eintrag (BE-REC-05): {@code DISMISSED} → {@code DETECTED}.
+     *
+     * <p>Wirkt nur auf {@link RecurringExpenseStatus#DISMISSED} — dieselbe Schranke wie bei
+     * {@link #markActive()}/{@link #markEnded()}, nur mit vertauschten Rollen: dort entscheidet
+     * die Aktivität in der Historie, hier eine ausdrückliche Nutzeraktion. Ein
+     * {@link RecurringExpenseStatus#ENDED}-Eintrag bleibt unangetastet — dafür ist weiterhin
+     * {@link #markActive()} zuständig, das ausschliesslich aus {@code detect()} läuft. Idempotent
+     * auf einem bereits reaktivierten Eintrag.
+     */
+    public void reactivate() {
+        if (this.status == RecurringExpenseStatus.DISMISSED) {
             this.status = RecurringExpenseStatus.DETECTED;
         }
     }

@@ -5,8 +5,9 @@ import { Observable, tap } from 'rxjs';
 import { RecurringExpenseResponse } from './recurring-expense.model';
 
 /**
- * Zentraler State und Kapselung von `GET /api/recurring-expenses` und
- * `POST /api/recurring-expenses/{id}/dismiss` (FE-REC-01, BE-REC-02).
+ * Zentraler State und Kapselung von `GET /api/recurring-expenses`,
+ * `POST /api/recurring-expenses/{id}/dismiss` und `POST /api/recurring-expenses/{id}/reactivate`
+ * (FE-REC-01, BE-REC-02, BE-REC-05).
  *
  * <p>Hält den State selbst, wie `NotificationService`: die Liste wird von zwei Stellen gelesen —
  * der Abo-Übersicht und der Card «Monatliche fixe Ausgaben» auf dem Dashboard (FE-STS-06) — und
@@ -35,8 +36,8 @@ export class RecurringExpenseService {
    * gekündigtes Abo eine Information ist und weil der Klick auf die zugehörige Benachrichtigung
    * sonst ins Leere führte (dieselbe Begründung wie bei {@link dismissed}, FE-NOTIF-03).
    *
-   * <p>Sie zählen weder in {@link count} noch ins Total der fixen Ausgaben auf `/budget`, weil
-   * beide auf {@link detected} aufsetzen — dieselbe Grenze, die der Safe-to-Spend zieht.
+   * <p>Sie zählen nicht ins Total der fixen Ausgaben auf `/budget`, weil das auf {@link detected}
+   * aufsetzt — dieselbe Grenze, die der Safe-to-Spend zieht.
    */
   readonly ended = computed(() => this.expenses().filter((e) => e.status === 'ENDED'));
 
@@ -65,6 +66,23 @@ export class RecurringExpenseService {
   dismiss(id: number): Observable<RecurringExpenseResponse> {
     return this.http
       .post<RecurringExpenseResponse>(`/api/recurring-expenses/${id}/dismiss`, {})
+      .pipe(
+        tap((updated) => {
+          this.expensesState.update((list) =>
+            list.map((expense) => (expense.id === id ? updated : expense)),
+          );
+        }),
+      );
+  }
+
+  /**
+   * Reaktiviert einen per «Kein Abo» verneinten Eintrag (BE-REC-05) und ersetzt ihn im State
+   * durch die Antwort — dieselbe Begründung wie bei {@link dismiss}: kein Reload, die Antwort ist
+   * der Eintrag in seinem neuen Zustand (`status=DETECTED` oder `status=ENDED`, `isNew=false`).
+   */
+  reactivate(id: number): Observable<RecurringExpenseResponse> {
+    return this.http
+      .post<RecurringExpenseResponse>(`/api/recurring-expenses/${id}/reactivate`, {})
       .pipe(
         tap((updated) => {
           this.expensesState.update((list) =>

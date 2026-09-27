@@ -23,7 +23,8 @@ h3 {
   font-size: $fs-sm;
 }
 
-.dismiss-error {
+.dismiss-error,
+.reactivate-error {
   display: block;
   margin-bottom: $sp-4;
 }
@@ -98,7 +99,8 @@ h3 {
   font-weight: 500;
 }
 
-.expense__dismiss {
+.expense__dismiss,
+.dismissed-expense__reactivate {
   white-space: nowrap;
 }
 

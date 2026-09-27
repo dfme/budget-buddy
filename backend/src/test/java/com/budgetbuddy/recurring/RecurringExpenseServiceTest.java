@@ -700,6 +700,128 @@ class RecurringExpenseServiceTest {
                 .isInstanceOf(RecurringExpenseNotFoundException.class);
     }
 
+    // --- BE-REC-05: reactivate() ---
+
+    @Test
+    void reactivateSetsStatusToDetectedAndReturnsTheUpdatedState() {
+        RecurringExpense entity = withId(NETFLIX, "20.90", 200L);
+        entity.dismiss();
+        when(repository.findByIdAndUserId(200L, USER_ID)).thenReturn(Optional.of(entity));
+
+        RecurringExpenseResponse response = service.reactivate(USER_ID, 200L);
+
+        assertThat(entity.getStatus()).isEqualTo(RecurringExpenseStatus.DETECTED);
+        assertThat(response.status()).isEqualTo(RecurringExpenseStatus.DETECTED);
+    }
+
+    /**
+     * Reaktivieren ist keine neue Erkennung: {@code isNew} bleibt {@code false}, selbst wenn das
+     * ursprüngliche Bündel wegen eines anderen offenen Mitglieds noch ungelesen ist — sonst
+     * trüge der Eintrag fälschlich wieder das «Neu»-Label.
+     */
+    @Test
+    void reactivateAnswersNotNewEvenWhenItsBundleNotificationIsUnread() {
+        RecurringExpense entity = withId(NETFLIX, "20.90", 200L, BUNDLE_ID);
+        entity.dismiss();
+        when(repository.findByIdAndUserId(200L, USER_ID)).thenReturn(Optional.of(entity));
+
+        RecurringExpenseResponse response = service.reactivate(USER_ID, 200L);
+
+        assertThat(response.isNew()).isFalse();
+        verify(notificationPort, never()).unreadIds(anyLong(), anyString());
+    }
+
+    @Test
+    void reactivateIsIdempotent() {
+        RecurringExpense entity = withId(NETFLIX, "20.90", 200L);
+        entity.dismiss();
+        when(repository.findByIdAndUserId(200L, USER_ID)).thenReturn(Optional.of(entity));
+
+        service.reactivate(USER_ID, 200L);
+        RecurringExpenseResponse response = service.reactivate(USER_ID, 200L);
+
+        assertThat(response.status()).isEqualTo(RecurringExpenseStatus.DETECTED);
+    }
+
+    /**
+     * BE-REC-04 gilt auch beim Reaktivieren (Review-Befund): eine verneinte Zeile ist seit ihrer
+     * Verneinung eingefroren (siehe Klassen-Javadoc, «DISMISSED ist terminal — für detect(),
+     * nicht für den Nutzer»). Bucht der Empfänger seither nicht mehr ab, darf die Reaktivierung
+     * ihn nicht blind als laufendes Abo zurückbringen — sie landet stattdessen auf `ENDED`, mit
+     * dem letzten in der Historie belegten Betrag.
+     */
+    @Test
+    void reactivatingAPayeeThatHasSinceGoneQuietResultsInEnded() {
+        RecurringExpense entity = withId(NETFLIX, "20.90", 200L);
+        entity.dismiss();
+        when(repository.findByIdAndUserId(200L, USER_ID)).thenReturn(Optional.of(entity));
+        // Netflix nur die alte Reihe (Januar/Februar) — nichts mehr seither. Spotify hält die
+        // Historie insgesamt aktuell (September), sonst wäre Netflix' letzter Monat selbst schon
+        // der jüngste der Historie und das Aktivitätsfenster begänne erst danach.
+        history(
+                entry(NETFLIX, "20.90", 2026, 1),
+                entry(NETFLIX, "20.90", 2026, 2),
+                entry("SPOTIFY AB", "12.95", 2026, 9));
+
+        RecurringExpenseResponse response = service.reactivate(USER_ID, 200L);
+
+        assertThat(entity.getStatus()).isEqualTo(RecurringExpenseStatus.ENDED);
+        assertThat(response.status()).isEqualTo(RecurringExpenseStatus.ENDED);
+        assertThat(entity.getAmount()).isEqualByComparingTo("20.90");
+    }
+
+    /**
+     * Springt der Preis, während der Empfänger verneint war, hätte eine blinde Rückstellung den
+     * alten Betrag stehen lassen — die echte Abbuchung träfe dessen ±2 %-Band nicht mehr und
+     * zählte zusätzlich als variable Ausgabe (Review-Befund).
+     */
+    @Test
+    void reactivatingAPayeeAfterAPriceJumpAdoptsTheNewAmountAndFirstMonth() {
+        RecurringExpense entity = withId(NETFLIX, "20.90", 200L);
+        entity.dismiss();
+        when(repository.findByIdAndUserId(200L, USER_ID)).thenReturn(Optional.of(entity));
+        history(
+                entry(NETFLIX, "20.90", 2026, 1),
+                entry(NETFLIX, "20.90", 2026, 2),
+                entry(NETFLIX, "24.90", 2026, 8),
+                entry(NETFLIX, "24.90", 2026, 9));
+
+        RecurringExpenseResponse response = service.reactivate(USER_ID, 200L);
+
+        assertThat(entity.getStatus()).isEqualTo(RecurringExpenseStatus.DETECTED);
+        assertThat(entity.getAmount()).isEqualByComparingTo("24.90");
+        assertThat(entity.getFirstDetectedMonth()).isEqualTo(YearMonth.of(2026, 8));
+        assertThat(response.status()).isEqualTo(RecurringExpenseStatus.DETECTED);
+    }
+
+    /**
+     * Die Schranke aus {@link RecurringExpense#reactivate()}: ein ausgelaufener Eintrag ist keine
+     * Verneinung und bleibt unangetastet — dafür ist {@code markActive()} zuständig, das nur aus
+     * {@code detect()} läuft.
+     */
+    @Test
+    void reactivateLeavesAnEndedEntryUnchanged() {
+        RecurringExpense entity = withId(NETFLIX, "20.90", 200L);
+        entity.markEnded();
+        when(repository.findByIdAndUserId(200L, USER_ID)).thenReturn(Optional.of(entity));
+
+        RecurringExpenseResponse response = service.reactivate(USER_ID, 200L);
+
+        assertThat(entity.getStatus()).isEqualTo(RecurringExpenseStatus.ENDED);
+        assertThat(response.status()).isEqualTo(RecurringExpenseStatus.ENDED);
+        // Die Neubewertung läuft nur für tatsächlich verneinte Zeilen — ein ENDED-Eintrag ist
+        // keine davon und wird nicht einmal angefragt.
+        verify(expenseHistoryPort, never()).expenseHistory(anyLong());
+    }
+
+    @Test
+    void reactivateThrowsNotFoundWhenTheEntryIsMissingOrForeign() {
+        when(repository.findByIdAndUserId(999L, USER_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.reactivate(USER_ID, 999L))
+                .isInstanceOf(RecurringExpenseNotFoundException.class);
+    }
+
     // --- Helfer ---
 
     /** Eine DETECTED-Zeile mit gesetzter ID im Bündel {@link #BUNDLE_ID}, wie sie aus der Datenbank käme. */
