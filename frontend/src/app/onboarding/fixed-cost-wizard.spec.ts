@@ -45,18 +45,22 @@ function summaryOf(fixedCosts: FixedCostDetail[]): FixedCostSummary {
  * /api/budget/safe-to-spend`) — ohne Login läse `AuthService.currentUser()` `null` und der Call
  * bliebe unbeantwortet offen, was `httpMock.verify()` aufdeckte. Ihr eigenes Verhalten deckt
  * `income-card.spec.ts` ab.
+ *
+ * <p>Onboarding noch offen: seit FE-FC-12 (#375) ist der Wizard nur in diesem Zustand erreichbar
+ * (`onboardingPendingGuard`). Die Komponente liest das Flag nicht, der Test bildet damit aber den
+ * realen Zustand ab.
  */
 const LARA: User = {
   id: 1,
   email: 'lara@example.ch',
   monthlyIncome: 3000,
-  onboardingCompleted: true,
+  onboardingCompleted: false,
   firstName: null,
   lastName: null,
 };
 
-/** Antwort von POST /api/users/me/onboarding-complete. */
-const LARA_ONBOARDED: User = LARA;
+/** Antwort von POST /api/users/me/onboarding-complete — das Flag steht danach auf `true`. */
+const LARA_ONBOARDED: User = { ...LARA, onboardingCompleted: true };
 
 /** Loggt via `AuthService.login()` ein, damit `currentUser()` synchron befüllt ist. */
 function loginAs(mock: HttpTestingController, user: User): void {
