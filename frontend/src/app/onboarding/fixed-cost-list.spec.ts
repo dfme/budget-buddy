@@ -311,11 +311,13 @@ describe('FixedCostList', () => {
     it('stellt «+ Neue Position» neben die Zwischenüberschrift, nicht neben den Titel', () => {
       flushInitialLoad(summaryOf([MIETE], 3000, false));
 
-      const button = (fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>(
-        '.section-header a[appButton]',
+      const button = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
+        '.section-header button[appButton]',
       );
       expect(button?.textContent?.trim()).toBe('+ Neue Position');
-      expect(button?.getAttribute('href')).toBe('/onboarding');
+      // Seit FE-FC-10 ein Button, der den Dialog öffnet — kein Link mehr in den Wizard.
+      expect(button?.type).toBe('button');
+      expect(button?.hasAttribute('href')).toBe(false);
       expect(button?.parentElement?.querySelector('h3')?.textContent?.trim()).toBe(
         'Erfasste Fixkosten',
       );
@@ -456,6 +458,161 @@ describe('FixedCostList', () => {
   });
 
   // --- AC4: Warnung Fixkosten >= Einkommen ---
+
+  describe('Dialog «Neue Position» (FE-FC-10)', () => {
+    const KRANKENKASSE: FixedCostDetail = {
+      id: 3,
+      bezeichnung: 'Krankenkasse',
+      betrag: 1200,
+      intervall: 'quartalsweise',
+      monatsbetrag: 400,
+    };
+
+    function root(): HTMLElement {
+      return fixture.nativeElement as HTMLElement;
+    }
+
+    function dialog(): HTMLElement | null {
+      return root().querySelector('app-fixed-cost-create-dialog');
+    }
+
+    function newPositionButton(): HTMLButtonElement {
+      return root().querySelector<HTMLButtonElement>('.section-header button')!;
+    }
+
+    function fillAndSave(bezeichnung: string, betrag: string, intervall: string): void {
+      const name = root().querySelector<HTMLInputElement>('#create-bezeichnung')!;
+      name.value = bezeichnung;
+      name.dispatchEvent(new Event('input'));
+      const amount = root().querySelector<HTMLInputElement>('#create-betrag')!;
+      amount.value = betrag;
+      amount.dispatchEvent(new Event('input'));
+      const interval = root().querySelector<HTMLSelectElement>('#create-intervall')!;
+      interval.value = intervall;
+      interval.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+      const buttons = dialog()!.querySelectorAll<HTMLButtonElement>('.modal__actions button');
+      buttons[buttons.length - 1].click();
+      fixture.detectChanges();
+    }
+
+    beforeEach(() => {
+      // Der Fokus-Trap des Modals braucht die Komponente im echten Dokument.
+      document.body.appendChild(fixture.nativeElement);
+    });
+
+    afterEach(() => fixture.nativeElement.remove());
+
+    it('öffnet über «+ Neue Position» den Dialog innerhalb der Seite', () => {
+      // Dass nicht navigiert wird, belegt das fehlende `href` (Test «stellt «+ Neue Position» …»
+      // oben) — ein Button ohne `routerLink` kann gar nicht navigieren. Hier zählt, dass der
+      // Dialog in dieser Komponente entsteht und die Seite darunter stehen bleibt.
+      flushInitialLoad(summaryOf([MIETE], 3000, false));
+      expect(dialog()).toBeNull();
+
+      newPositionButton().click();
+      fixture.detectChanges();
+
+      expect(root().querySelector('.fixed-cost-list app-fixed-cost-create-dialog')).not.toBeNull();
+      expect(rowFor('Miete')).toBeTruthy();
+    });
+
+    it('öffnet über «Jetzt erfassen» im Leerzustand denselben Dialog — ein Button, kein Link', () => {
+      flushInitialLoad(summaryOf([], 3000, false));
+
+      const link = root().querySelector<HTMLElement>('.status.empty .link-button')!;
+      expect(link.tagName).toBe('BUTTON');
+      expect(link.hasAttribute('href')).toBe(false);
+      expect(link.textContent?.trim()).toBe('Jetzt erfassen');
+      link.click();
+      fixture.detectChanges();
+
+      expect(dialog()).not.toBeNull();
+    });
+
+    it('setzt nach dem Speichern aus dem Leerzustand den Fokus auf «+ Neue Position»', async () => {
+      // «Jetzt erfassen» verschwindet mit der ersten Position — ohne gezielten Fokus fiele er
+      // auf `body` (Review-Befund #373).
+      flushInitialLoad(summaryOf([], 3000, false));
+      const link = root().querySelector<HTMLButtonElement>('.status.empty .link-button')!;
+      link.focus();
+      link.click();
+      fixture.detectChanges();
+
+      fillAndSave('Krankenkasse', '1200', 'quartalsweise');
+      httpMock.expectOne({ method: 'POST', url: '/api/fixed-costs' }).flush({});
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(newPositionButton());
+
+      httpMock
+        .expectOne({ method: 'GET', url: '/api/fixed-costs' })
+        .flush(summaryOf([KRANKENKASSE], 3000, false));
+      await fixture.whenStable();
+
+      // Überdauert das Neuladen: der Button steht ausserhalb von Lade- und Leerzustand.
+      expect(document.activeElement).toBe(newPositionButton());
+    });
+
+    it('schliesst nach dem Speichern und zeigt die neue Zeile samt Total aus dem Neuladen', () => {
+      flushInitialLoad(summaryOf([MIETE], 3000, false));
+      newPositionButton().click();
+      fixture.detectChanges();
+
+      fillAndSave('Krankenkasse', '1200', 'quartalsweise');
+      const post = httpMock.expectOne({ method: 'POST', url: '/api/fixed-costs' });
+      post.flush({ id: 3, bezeichnung: 'Krankenkasse', betrag: 1200, intervall: 'quartalsweise' });
+      fixture.detectChanges();
+
+      httpMock
+        .expectOne({ method: 'GET', url: '/api/fixed-costs' })
+        .flush(summaryOf([MIETE, KRANKENKASSE], 3000, false));
+      fixture.detectChanges();
+
+      expect(dialog()).toBeNull();
+      expect(text()).toContain('Krankenkasse');
+      expect(root().querySelector('tfoot')?.textContent?.replace(/\s+/g, ' ')).toContain(
+        'CHF 1’600.00',
+      );
+    });
+
+    it('zeigt die Einkommens-Warnung, wenn die neue Position das Einkommen übersteigen lässt', () => {
+      flushInitialLoad(summaryOf([MIETE], 1500, false));
+      expect(root().querySelector('.income-warning')).toBeNull();
+      newPositionButton().click();
+      fixture.detectChanges();
+
+      fillAndSave('Krankenkasse', '1200', 'quartalsweise');
+      httpMock.expectOne({ method: 'POST', url: '/api/fixed-costs' }).flush({});
+      fixture.detectChanges();
+      httpMock
+        .expectOne({ method: 'GET', url: '/api/fixed-costs' })
+        .flush(summaryOf([MIETE, KRANKENKASSE], 1500, true));
+      fixture.detectChanges();
+
+      expect(root().querySelector('.income-warning')).not.toBeNull();
+    });
+
+    it('schliesst beim Abbrechen ohne Request, und der nächste Dialog ist leer', () => {
+      flushInitialLoad(summaryOf([MIETE], 3000, false));
+      newPositionButton().click();
+      fixture.detectChanges();
+
+      const name = root().querySelector<HTMLInputElement>('#create-bezeichnung')!;
+      name.value = 'Halbfertig';
+      name.dispatchEvent(new Event('input'));
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      fixture.detectChanges();
+
+      // `httpMock.verify()` im afterEach belegt: weder POST noch erneutes GET.
+      expect(dialog()).toBeNull();
+      expect(text()).toContain('Miete');
+
+      newPositionButton().click();
+      fixture.detectChanges();
+      expect(root().querySelector<HTMLInputElement>('#create-bezeichnung')!.value).toBe('');
+    });
+  });
 
   it('zeigt die Warnung prominent mit den konkreten Beträgen, wenn die Fixkosten das Einkommen erreichen oder übersteigen', () => {
     flushInitialLoad(summaryOf([MIETE], 1200, true));

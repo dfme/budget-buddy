@@ -1,0 +1,8 @@
+@use 'tokens' as *;
+
+// Gleicher Feldabstand wie im Wizard (`fixed-cost-wizard.scss`).
+form {
+  display: flex;
+  flex-direction: column;
+  gap: $sp-4;
+}

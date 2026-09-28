@@ -26,6 +26,31 @@ class Host {
   readonly disabled = signal(false);
 }
 
+/** Eingabe-Dialog (FE-FC-10): Formular im Body, verknüpft über `confirmForm`. */
+@Component({
+  imports: [Modal],
+  template: `
+    <app-modal
+      title="Neue Position"
+      confirmLabel="Speichern"
+      initialFocus="content"
+      confirmForm="host-form"
+      [confirmDisabled]="disabled()"
+      (confirm)="confirmed.set(confirmed() + 1)"
+    >
+      <form id="host-form" (submit)="$event.preventDefault(); submitted.set(submitted() + 1)">
+        <input id="first" type="text" />
+        <input id="second" type="number" />
+      </form>
+    </app-modal>
+  `,
+})
+class FormHost {
+  readonly confirmed = signal(0);
+  readonly submitted = signal(0);
+  readonly disabled = signal(false);
+}
+
 describe('Modal', () => {
   let fixture: ComponentFixture<Host>;
   let host: Host;
@@ -150,5 +175,72 @@ describe('Modal', () => {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     fixture.detectChanges();
     expect(host.open()).toBe(false);
+  });
+
+  // --- FE-FC-10: Eingabe-Dialog ---
+
+  it('lässt den Bestätigen-Button ohne confirmForm ein gewöhnlicher Button', () => {
+    const confirm = button('Trotzdem importieren');
+
+    expect(confirm.type).toBe('button');
+    expect(confirm.hasAttribute('form')).toBe(false);
+  });
+
+  describe('mit initialFocus="content" und confirmForm', () => {
+    let formFixture: ComponentFixture<FormHost>;
+    let formHost: FormHost;
+
+    function formButton(label: string): HTMLButtonElement {
+      const match = Array.from<HTMLButtonElement>(
+        formFixture.nativeElement.querySelectorAll('.modal__actions button'),
+      ).find((btn) => btn.textContent?.trim() === label);
+      if (!match) {
+        throw new Error(`Kein Button mit der Beschriftung "${label}"`);
+      }
+      return match;
+    }
+
+    beforeEach(() => {
+      formFixture = TestBed.createComponent(FormHost);
+      formHost = formFixture.componentInstance;
+      document.body.appendChild(formFixture.nativeElement);
+      formFixture.detectChanges();
+    });
+
+    afterEach(() => formFixture.nativeElement.remove());
+
+    it('markiert «Abbrechen» nicht als Startfokus — die Falle wählt das erste Feld', () => {
+      // Wie oben nur die Verdrahtung: ohne `cdkFocusInitial` fokussiert die Fokus-Falle das
+      // erste tabbable Element im Panel. Dass das im Browser das Feld ist, prüft kein jsdom.
+      const marked = formFixture.nativeElement.querySelectorAll('[cdkFocusInitial]');
+      expect(marked).toHaveLength(0);
+      expect(formFixture.nativeElement.querySelector('.modal__panel input')?.id).toBe('first');
+    });
+
+    it('macht die bestätigende Aktion zum Submit-Button des Formulars', () => {
+      // `button.form` ist der Form-Owner nach HTML-Spec: der Button liegt ausserhalb des
+      // projizierten `<form>` und gehört über das `form`-Attribut trotzdem dazu. Genau das macht
+      // ihn zum Default-Button, an dem die Implicit Submission per Enter hängt.
+      const confirm = formButton('Speichern');
+
+      expect(confirm.type).toBe('submit');
+      expect(confirm.form).toBe(formFixture.nativeElement.querySelector('#host-form'));
+    });
+
+    it('sendet beim Klick das Formular ab, statt zusätzlich confirm zu emittieren', () => {
+      formButton('Speichern').click();
+
+      expect(formHost.submitted()).toBe(1);
+      expect(formHost.confirmed()).toBe(0);
+    });
+
+    it('sendet bei confirmDisabled nichts ab', () => {
+      formHost.disabled.set(true);
+      formFixture.detectChanges();
+
+      formButton('Speichern').click();
+
+      expect(formHost.submitted()).toBe(0);
+    });
   });
 });

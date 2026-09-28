@@ -19,11 +19,25 @@
   <div class="modal__actions">
     <!-- Der Fokus startet auf «Abbrechen»: Bei einem Bestätigungsdialog ist das Abbrechen die
          folgenlose Wahl — ein versehentliches Enter direkt nach dem Öffnen darf nicht die
-         Aktion auslösen, die der Dialog gerade absichern soll. -->
-    <button appButton variant="ghost" type="button" cdkFocusInitial (click)="cancel.emit()">
+         Aktion auslösen, die der Dialog gerade absichern soll. Ein Eingabe-Dialog wählt mit
+         `initialFocus="content"` stattdessen das erste Feld (FE-FC-10). -->
+    <button
+      appButton
+      variant="ghost"
+      type="button"
+      [attr.cdkFocusInitial]="initialFocus() === 'cancel' ? '' : null"
+      (click)="cancel.emit()"
+    >
       {{ cancelLabel() }}
     </button>
-    <button appButton type="button" [disabled]="confirmDisabled()" (click)="confirm.emit()">
+    <!-- Mit `confirmForm` der Submit-Button des Formulars im Body (FE-FC-10), siehe modal.ts. -->
+    <button
+      appButton
+      [type]="confirmForm() === null ? 'button' : 'submit'"
+      [attr.form]="confirmForm()"
+      [disabled]="confirmDisabled()"
+      (click)="onConfirmClick()"
+    >
       {{ confirmLabel() }}
     </button>
   </div>
