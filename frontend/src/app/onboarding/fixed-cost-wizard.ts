@@ -21,7 +21,13 @@ import { Input } from '../shared/input/input';
 import { Notice } from '../shared/notice/notice';
 import { INTERVALL_OPTIONS, Intervall } from './fixed-cost.model';
 import { FixedCostService } from './fixed-cost.service';
-import { MIN_BETRAG_CHF, maxTwoDecimals, nonBlank } from './fixed-cost.validators';
+import {
+  MIN_BETRAG_CHF,
+  betragErrorMessage,
+  bezeichnungErrorMessage,
+  maxTwoDecimals,
+  nonBlank,
+} from './fixed-cost.validators';
 
 /**
  * Erfassungsformular für eine Fixkosten-Position (FE-FC-01, US-03), mit dem eingebetteten
@@ -129,32 +135,12 @@ export class FixedCostWizard {
 
   /** Fehlermeldung fürs Bezeichnungs-Feld oder `null`, solange gültig oder unberührt. */
   bezeichnungError(): string | null {
-    const control = this.form.controls.bezeichnung;
-    if (!control.touched || control.valid) {
-      return null;
-    }
-    if (control.hasError('required')) {
-      return 'Bezeichnung ist erforderlich.';
-    }
-    return null;
+    return bezeichnungErrorMessage(this.form.controls.bezeichnung);
   }
 
   /** Fehlermeldung fürs Betrags-Feld oder `null`, solange gültig oder unberührt. */
   betragError(): string | null {
-    const control = this.form.controls.betrag;
-    if (!control.touched || control.valid) {
-      return null;
-    }
-    if (control.hasError('required')) {
-      return 'Betrag ist erforderlich.';
-    }
-    if (control.hasError('min')) {
-      return 'Betrag muss grösser als 0 sein.';
-    }
-    if (control.hasError('maxDecimals')) {
-      return 'Betrag darf höchstens zwei Nachkommastellen haben.';
-    }
-    return null;
+    return betragErrorMessage(this.form.controls.betrag);
   }
 
   submit(): void {

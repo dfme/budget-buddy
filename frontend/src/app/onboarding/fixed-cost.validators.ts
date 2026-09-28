@@ -1,4 +1,4 @@
-import { ValidatorFn } from '@angular/forms';
+import { AbstractControl, ValidatorFn } from '@angular/forms';
 
 /**
  * Kleinster erfassbarer Betrag in CHF. CHF-Beträge sind rappengenau (ADR-9), ein Rappen ist
@@ -41,3 +41,38 @@ export const maxTwoDecimals: ValidatorFn = (control) => {
   const [, decimals = ''] = String(value).split('.');
   return decimals.length <= 2 ? null : { maxDecimals: true };
 };
+
+/**
+ * Fehlermeldung fürs Bezeichnungs-Feld oder `null`, solange es gültig oder unberührt ist.
+ *
+ * <p>Geteilt von Wizard, Inline-Edit und Neue-Position-Dialog (FE-FC-10) — die drei Formulare
+ * prüfen dieselben Regeln und sollen sie mit denselben Worten melden. Bis FE-FC-10 stand die
+ * Logik als Kopie in jeder Komponente.
+ */
+export function bezeichnungErrorMessage(control: AbstractControl): string | null {
+  if (!control.touched || control.valid) {
+    return null;
+  }
+  return control.hasError('required') ? 'Bezeichnung ist erforderlich.' : null;
+}
+
+/**
+ * Fehlermeldung fürs Betrags-Feld oder `null`, solange es gültig oder unberührt ist — passend zu
+ * `Validators.required`, `Validators.min(MIN_BETRAG_CHF)` und {@link maxTwoDecimals}. Geteilt wie
+ * {@link bezeichnungErrorMessage}.
+ */
+export function betragErrorMessage(control: AbstractControl): string | null {
+  if (!control.touched || control.valid) {
+    return null;
+  }
+  if (control.hasError('required')) {
+    return 'Betrag ist erforderlich.';
+  }
+  if (control.hasError('min')) {
+    return 'Betrag muss grösser als 0 sein.';
+  }
+  if (control.hasError('maxDecimals')) {
+    return 'Betrag darf höchstens zwei Nachkommastellen haben.';
+  }
+  return null;
+}
