@@ -36,11 +36,13 @@ class RecurringExpenseOpenApiTest {
     @Autowired private MockMvc mockMvc;
 
     @Test
-    void bothRecurringExpenseEndpointsAppearInTheOpenApiDocument() throws Exception {
+    void allRecurringExpenseEndpointsAppearInTheOpenApiDocument() throws Exception {
         mockMvc.perform(get("/v3/api-docs"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.paths['/api/recurring-expenses'].get").exists())
-                .andExpect(jsonPath("$.paths['/api/recurring-expenses/{id}/dismiss'].post").exists());
+                .andExpect(jsonPath("$.paths['/api/recurring-expenses/{id}/dismiss'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/recurring-expenses/{id}/reactivate'].post")
+                        .exists());
     }
 
     @Test
@@ -49,6 +51,8 @@ class RecurringExpenseOpenApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.paths['/api/recurring-expenses'].get.summary").isNotEmpty())
                 .andExpect(jsonPath("$.paths['/api/recurring-expenses/{id}/dismiss'].post.summary")
+                        .isNotEmpty())
+                .andExpect(jsonPath("$.paths['/api/recurring-expenses/{id}/reactivate'].post.summary")
                         .isNotEmpty());
     }
 
@@ -59,6 +63,9 @@ class RecurringExpenseOpenApiTest {
                 .andExpect(jsonPath("$.paths['/api/recurring-expenses'].get.responses['200'].content"
                         + "['*/*'].schema.type").value("array"))
                 .andExpect(jsonPath("$.paths['/api/recurring-expenses/{id}/dismiss'].post"
+                        + ".responses['200'].content['*/*'].schema.$ref")
+                        .value("#/components/schemas/RecurringExpenseResponse"))
+                .andExpect(jsonPath("$.paths['/api/recurring-expenses/{id}/reactivate'].post"
                         + ".responses['200'].content['*/*'].schema.$ref")
                         .value("#/components/schemas/RecurringExpenseResponse"));
     }

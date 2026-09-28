@@ -8,7 +8,7 @@ import { User } from './auth/user.model';
 import { authGuard } from './core/guards/auth.guard';
 import { onboardingGuard } from './core/guards/onboarding.guard';
 
-/** Eine Nutzerin mit abgeschlossenem Onboarding — die Guards von /ausgaben lassen sie durch. */
+/** Eine Nutzerin mit abgeschlossenem Onboarding — die Guards von /budget lassen sie durch. */
 const LARA_ONBOARDED: User = {
   id: 1,
   email: 'lara@example.ch',
@@ -19,16 +19,17 @@ const LARA_ONBOARDED: User = {
 };
 
 /**
- * Die Umleitungen auf die Ausgaben-Seite (FE-FC-07, #355): `/fixkosten` (Name der Seite bis
- * FE-FC-07) und `/abos` (eigene Seite bis FE-FC-05) führen beide nach `/ausgaben`, damit
- * Bookmarks und ältere Links nicht im Catch-all aufs Dashboard landen.
+ * Die Umleitungen auf die Budget-Seite (FE-FC-09, #360): `/ausgaben` (Name der Seite bis
+ * FE-FC-09), `/fixkosten` (Name der Seite bis FE-FC-07) und `/abos` (eigene Seite bis FE-FC-05)
+ * führen alle drei nach `/budget`, damit Bookmarks und ältere Links nicht im Catch-all aufs
+ * Dashboard landen.
  *
  * <p>Zwei Ebenen, wie in `onboarding.guard.spec.ts`: die Navigation am echten Router belegt das
  * Verhalten, die Struktur-Tests belegen `pathMatch: 'full'`. Letzteres lässt sich am Router
  * nicht beobachten — `/abos/x` landet mit und ohne `pathMatch: 'full'` im Catch-all, einmal
- * direkt, einmal über `/ausgaben/x`. Der Unterschied ist nur in der Route-Definition sichtbar.
+ * direkt, einmal über `/budget/x`. Der Unterschied ist nur in der Route-Definition sichtbar.
  */
-describe('Umleitungen auf /ausgaben (FE-FC-07)', () => {
+describe('Umleitungen auf /budget (FE-FC-09)', () => {
   let httpMock: HttpTestingController;
   let router: Router;
 
@@ -52,44 +53,44 @@ describe('Umleitungen auf /ausgaben (FE-FC-07)', () => {
     httpMock.expectOne('/api/users/me').flush(LARA_ONBOARDED);
   }
 
-  it.each(['/fixkosten', '/abos'])('leitet %s nach /ausgaben um', async (oldPath) => {
+  it.each(['/ausgaben', '/fixkosten', '/abos'])('leitet %s nach /budget um', async (oldPath) => {
     const navigation = router.navigateByUrl(oldPath);
     await answerProfile();
     await navigation;
 
-    expect(router.url).toBe('/ausgaben');
+    expect(router.url).toBe('/budget');
   });
 
-  it('erreicht /ausgaben direkt, mit beiden Guards', async () => {
-    const navigation = router.navigateByUrl('/ausgaben');
+  it('erreicht /budget direkt, mit beiden Guards', async () => {
+    const navigation = router.navigateByUrl('/budget');
     await answerProfile();
     await navigation;
 
-    expect(router.url).toBe('/ausgaben');
+    expect(router.url).toBe('/budget');
   });
 });
 
-describe('Routen-Definition der Ausgaben-Seite (FE-FC-07)', () => {
+describe('Routen-Definition der Budget-Seite (FE-FC-09)', () => {
   function routeOf(path: string) {
     const route = routes.find((candidate) => candidate.path === path);
     expect(route, `Route '${path}' fehlt`).toBeDefined();
     return route!;
   }
 
-  it('schützt /ausgaben mit authGuard und onboardingGuard', () => {
-    expect(routeOf('ausgaben').canActivate).toEqual([authGuard, onboardingGuard]);
+  it('schützt /budget mit authGuard und onboardingGuard', () => {
+    expect(routeOf('budget').canActivate).toEqual([authGuard, onboardingGuard]);
   });
 
-  it.each(['fixkosten', 'abos'])(
+  it.each(['ausgaben', 'fixkosten', 'abos'])(
     'definiert /%s als vollständige Umleitung ohne eigene Guards',
     (oldPath) => {
       const route = routeOf(oldPath);
 
-      expect(route.redirectTo).toBe('ausgaben');
+      expect(route.redirectTo).toBe('budget');
       // Ohne `pathMatch: 'full'` griffe der Redirect als Präfix und schickte /abos/x nach
-      // /ausgaben/x — ein Pfad, den es nicht gibt.
+      // /budget/x — ein Pfad, den es nicht gibt.
       expect(route.pathMatch).toBe('full');
-      // Guards gehören ans Ziel, nicht an die Umleitung: /ausgaben bringt seine eigenen mit.
+      // Guards gehören ans Ziel, nicht an die Umleitung: /budget bringt seine eigenen mit.
       expect(route.canActivate).toBeUndefined();
     },
   );

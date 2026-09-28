@@ -1,9 +1,12 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { Router, provideRouter } from '@angular/router';
 
+import { AuthService } from '../auth/auth.service';
 import { User } from '../auth/user.model';
+import { IncomeCard } from '../income/income-card';
 import { FixedCostWizard } from './fixed-cost-wizard';
 import { FixedCost, INTERVALL_OPTIONS } from './fixed-cost.model';
 
@@ -14,15 +17,31 @@ const MIETE: FixedCost = {
   intervall: 'monatlich',
 };
 
-/** Antwort von POST /api/users/me/onboarding-complete. */
-const LARA_ONBOARDED: User = {
+/**
+ * Eingeloggte Nutzerin mit bereits erfasstem Einkommen — der Normalfall für die Tests dieser
+ * Datei, die sich nicht für die eingebettete Einkommens-Card interessieren. Der Konstruktor von
+ * `IncomeCard` überspringt dank `monthlyIncome` den Vorschlags-Call (`GET
+ * /api/budget/safe-to-spend`) — ohne Login läse `AuthService.currentUser()` `null` und der Call
+ * bliebe unbeantwortet offen, was `httpMock.verify()` aufdeckte. Ihr eigenes Verhalten deckt
+ * `income-card.spec.ts` ab.
+ */
+const LARA: User = {
   id: 1,
   email: 'lara@example.ch',
-  monthlyIncome: null,
+  monthlyIncome: 3000,
   onboardingCompleted: true,
   firstName: null,
   lastName: null,
 };
+
+/** Antwort von POST /api/users/me/onboarding-complete. */
+const LARA_ONBOARDED: User = LARA;
+
+/** Loggt via `AuthService.login()` ein, damit `currentUser()` synchron befüllt ist. */
+function loginAs(mock: HttpTestingController, user: User): void {
+  TestBed.inject(AuthService).login(user.email, 'irrelevant').subscribe();
+  mock.expectOne('/api/auth/login').flush(user);
+}
 
 describe('FixedCostWizard', () => {
   let fixture: ComponentFixture<FixedCostWizard>;
@@ -36,14 +55,31 @@ describe('FixedCostWizard', () => {
       providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
     }).compileComponents();
 
+    httpMock = TestBed.inject(HttpTestingController);
+    loginAs(httpMock, LARA);
+
     fixture = TestBed.createComponent(FixedCostWizard);
     component = fixture.componentInstance;
-    httpMock = TestBed.inject(HttpTestingController);
     navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     fixture.detectChanges();
   });
 
   afterEach(() => httpMock.verify());
+
+  // FE-FC-09 (#360): die Einkommens-Card ist dieselbe Komponente wie auf der Budget-Seite; ihr
+  // eigenes Verhalten deckt `income-card.spec.ts` ab, hier geht es nur um die Einbettung.
+  it('rendert die Einkommens-Card oberhalb des Fixkosten-Formulars', () => {
+    const root = fixture.nativeElement as HTMLElement;
+    const income = root.querySelector('app-income-card');
+    expect(income).not.toBeNull();
+    // Über `#bezeichnung` statt `querySelector('form')`: die eingebettete Einkommens-Card
+    // bringt ihr eigenes `<form>` mit, das sonst zuerst träfe.
+    const fixedCostForm = root.querySelector('#bezeichnung')?.closest('form');
+    expect(fixedCostForm).not.toBeNull();
+    expect(
+      income!.compareDocumentPosition(fixedCostForm!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
 
   // --- AC1: Validierungsfehler inline ---
 
@@ -63,6 +99,33 @@ describe('FixedCostWizard', () => {
     expect(component.bezeichnungError()).toBeNull();
     expect(component.betragError()).toBeNull();
     expect(component.form.invalid).toBe(true);
+  });
+
+  /**
+   * Der Submit-Button des Fixkosten-Formulars, über `#bezeichnung` gesucht statt über
+   * `button[type="submit"]`: die eingebettete Einkommens-Card bringt ihren eigenen
+   * Submit-Button mit, der sonst zuerst träfe.
+   */
+  function fixedCostSubmitButton(): HTMLButtonElement {
+    return (fixture.nativeElement as HTMLElement)
+      .querySelector('#bezeichnung')!
+      .closest('form')!
+      .querySelector('button[type="submit"]') as HTMLButtonElement;
+  }
+
+  // FE-FC-09 (#360): vorher liess sich der Button immer klicken (Fehler zeigten sich erst nach
+  // dem Klick), die eingebettete Einkommens-Card deaktiviert ihren Button dagegen bis zur
+  // Gültigkeit — dieselbe Inkonsistenz nebeneinander auf einer Seite. Angeglichen: beide Buttons
+  // verhalten sich jetzt gleich.
+  it('sperrt den Submit-Button, solange das Formular ungültig ist', () => {
+    expect(fixedCostSubmitButton().disabled).toBe(true);
+  });
+
+  it('gibt den Submit-Button frei, sobald alle Pflichtfelder gültig sind', () => {
+    component.form.setValue({ bezeichnung: 'Miete', betrag: 1200, intervall: 'monatlich' });
+    fixture.detectChanges();
+
+    expect(fixedCostSubmitButton().disabled).toBe(false);
   });
 
   it('lehnt eine Bezeichnung aus reinem Leerraum ab und sendet nicht', () => {
@@ -305,10 +368,11 @@ describe('FixedCostWizard', () => {
     expect(navigate).toHaveBeenCalledWith(['/dashboard']);
   });
 
-  it('beschriftet den Button mit «Keine Fixkosten», solange nichts gespeichert wurde', () => {
+  it('beschriftet den Button mit «Später erfassen», solange nichts gespeichert wurde', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('Keine Fixkosten — weiter zum Dashboard');
+    expect(text).toContain('Später erfassen — weiter zum Dashboard');
     expect(component.hasSaved()).toBe(false);
+    expect(component.hasEnteredData()).toBe(false);
   });
 
   it('beschriftet den Button nach der ersten gespeicherten Position um', () => {
@@ -318,13 +382,31 @@ describe('FixedCostWizard', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(component.hasSaved()).toBe(true);
     expect(text).toContain('Fertig — weiter zum Dashboard');
-    expect(text).not.toContain('Keine Fixkosten');
+    expect(text).not.toContain('Später erfassen');
+  });
+
+  // FE-FC-09 (#360): die Einkommens-Card zählt genauso wie eine Fixkosten-Position — wer nur
+  // sein Einkommen erfasst, hat nicht «nichts» getan, der alte Text «Keine Fixkosten» wäre hier
+  // irreführend gewesen.
+  it('beschriftet den Button um, sobald nur das Einkommen gespeichert wurde (ohne Fixkosten)', () => {
+    const income = fixture.debugElement.query(By.directive(IncomeCard))
+      .componentInstance as IncomeCard;
+    income.incomeForm.controls.betrag.setValue(3800);
+    income.submitIncome();
+    httpMock.expectOne('/api/users/me/income').flush({ ...LARA, monthlyIncome: 3800 });
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(component.hasSaved()).toBe(false);
+    expect(component.hasEnteredData()).toBe(true);
+    expect(text).toContain('Fertig — weiter zum Dashboard');
+    expect(text).not.toContain('Später erfassen');
   });
 
   it('schliesst auch nach gespeicherter Position ueber denselben Request ab', () => {
-    // US-03 laesst beide Wege aus dem Wizard heraus: «Keine Fixkosten» bestaetigen ODER
-    // mindestens eine Position gespeichert. Ohne diesen Pfad sperrte der onboardingGuard
-    // genau die Nutzer ein, die ihre Fixkosten korrekt erfasst haben.
+    // US-03 laesst beide Wege aus dem Wizard heraus: ohne Eingabe bestaetigen ODER mindestens
+    // etwas gespeichert (Fixkosten oder Einkommen, FE-FC-09). Ohne diesen Pfad sperrte der
+    // onboardingGuard genau die Nutzer ein, die ihre Fixkosten korrekt erfasst haben.
     saveMiete();
 
     component.finishOnboarding();

@@ -126,7 +126,7 @@ export const test = base.extend<{
    *
    * Wer diese Fixture nimmt, bekommt deshalb genau das, was `authenticatedContext` bewusst
    * verhindert: Der `onboardingGuard` wirft jede Navigation auf `/dashboard`, `/categories`,
-   * `/import`, `/ausgaben` und `/einstellungen` in den Wizard zurück. Für alles andere als den
+   * `/import`, `/budget` und `/einstellungen` in den Wizard zurück. Für alles andere als den
    * Onboarding-Abschluss ist `authenticatedPage` der richtige Einstieg.
    *
    * **Nicht mit `authenticatedContext` im selben Test kombinieren.** Beide sitzen auf derselben

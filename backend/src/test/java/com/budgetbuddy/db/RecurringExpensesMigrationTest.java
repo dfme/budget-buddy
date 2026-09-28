@@ -19,9 +19,10 @@ import org.springframework.test.context.DynamicPropertySource;
 
 /**
  * Verifiziert die Flyway-Migrationen der {@code recurring_expenses}-Tabelle gegen eine echte
- * PostgreSQL-Datenbank: V11 (Anlage, DB-09) und V14 (Spalte {@code notification_id},
+ * PostgreSQL-Datenbank: V11 (Anlage, DB-09), V14 (Spalte {@code notification_id},
  * FE-NOTIF-04 — der Backfill dieser Migration liegt in
- * {@link RecurringExpensesNotificationIdMigrationTest}).
+ * {@link RecurringExpensesNotificationIdMigrationTest}) und V16 (Status {@code ENDED},
+ * BE-REC-04).
  *
  * <p>V11 statt V09 wie im Issue-Titel: V09 ({@code add_token_version_to_users}, BE-AUTH-11) und
  * V10 ({@code create_notifications_table}, DB-08) sind auf main vergeben. Der Migrations-Guard
@@ -31,7 +32,7 @@ import org.springframework.test.context.DynamicPropertySource;
  * mit einer eigenen Datenbank für diese Klasse (siehe {@link PostgresTestDatabase}).
  *
  * <p>Zwei Fälle gehen über reine Schema-Introspektion hinaus und setzen echte {@code INSERT}s ab
- * ({@link #statusAcceptsOnlyDetectedAndDismissed}, {@link #payeeKeyIsUniquePerUser}): Eine
+ * ({@link #statusAcceptsOnlyDetectedDismissedAndEnded}, {@link #payeeKeyIsUniquePerUser}): Eine
  * Constraint, deren Wirkung niemand ausgelöst hat, ist unbelegt — der Katalogeintrag allein sagt
  * nur, dass sie <em>dasteht</em>.
  */
@@ -175,7 +176,7 @@ class RecurringExpensesMigrationTest {
     }
 
     @Test
-    void statusAcceptsOnlyDetectedAndDismissed() {
+    void statusAcceptsOnlyDetectedDismissedAndEnded() {
         // Erst die Definition, damit ein Fehlschlag unten nicht mit einem anderen Constraint-
         // Verstoss verwechselt wird. singleElement statt anySatisfy: Die Tabelle soll genau
         // diese eine CHECK-Constraint tragen, eine zweite wäre selbst ein Befund.
@@ -184,14 +185,18 @@ class RecurringExpensesMigrationTest {
                 .asString()
                 .contains("status")
                 .contains("DETECTED")
-                .contains("DISMISSED");
+                .contains("DISMISSED")
+                .contains("ENDED");
 
-        // ... dann die Wirkung. Beide erlaubten Werte gehen durch, alles andere wird abgewiesen —
-        // ohne diesen Teil wäre nur belegt, dass die Constraint dasteht, nicht dass sie greift.
+        // ... dann die Wirkung. Alle drei erlaubten Werte gehen durch, alles andere wird
+        // abgewiesen — ohne diesen Teil wäre nur belegt, dass die Constraint dasteht, nicht dass
+        // sie greift. ENDED ist seit V16 (BE-REC-04) dabei: der Wert, den die Erkennung einer
+        // ausgelaufenen Abo-Reihe gibt.
         insertRecurringExpense("SPOTIFY", "12.95", "DETECTED", "2026-07");
         insertRecurringExpense("NETFLIX", "19.90", "DISMISSED", "2026-07");
+        insertRecurringExpense("SALT MOBILE", "39.95", "ENDED", "2026-07");
 
-        assertThatThrownBy(() -> insertRecurringExpense("SALT", "39.95", "NONSENSE", "2026-07"))
+        assertThatThrownBy(() -> insertRecurringExpense("SUNRISE", "39.95", "NONSENSE", "2026-07"))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 

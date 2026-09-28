@@ -1,10 +1,28 @@
 <section class="wizard">
-  <h1>Fixkosten erfassen</h1>
+  <h1>Budget</h1>
+  <!--
+    FE-FC-09: «Budget» statt «Fixkosten erfassen» — seit die Einkommens-Card hier eingebettet
+    ist, sind Einkommen und Fixkosten zwei gleichrangige Abschnitte auf derselben Seite, keiner
+    ist mehr der alleinige Titel. Der Hinweis auf «Budget» als späteren Bearbeitungsort schliesst
+    den Kreis zur Seite gleichen Namens (/budget, FE-FC-09).
+  -->
   <p class="lead">
-    Trage deine wiederkehrenden Kosten ein — Miete, Krankenkasse, Handy. Sie werden vom
-    Safe-to-Spend abgezogen.
+    Einkommen und Fixkosten erfassen — beide bilden die Grundlage für deinen Safe-to-Spend-Betrag.
+    Du kannst sie später jederzeit unter «Budget» anpassen.
   </p>
 
+  <!--
+    FE-FC-09: derselbe eingebettete Abschnitt «Einkommen» wie auf der Budget-Seite
+    (onboarding/fixed-cost-list.html) — beide Werte fliessen in den Safe-to-Spend ein, und
+    wer sie schon beim ersten Einrichten kennt, sieht nicht erst nach dem Onboarding einen
+    Hinweis auf fehlendes Einkommen. Optional wie überall: leer lassen und der Abschluss unten
+    schliesst das Onboarding trotzdem ab.
+  -->
+  <app-income-card />
+
+  <!-- Eigene Zwischenüberschrift, analog «Einkommen»: seit FE-FC-09 zwei gleichrangige
+       Abschnitte statt eines impliziten Haupttitels. -->
+  <h2>Fixkosten</h2>
   <app-card>
     <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
       <app-field label="Bezeichnung" inputId="bezeichnung" [error]="bezeichnungError()">
@@ -49,7 +67,7 @@
         <app-notice variant="error">{{ message }}</app-notice>
       }
 
-      <button appButton block type="submit" [disabled]="submitting()">
+      <button appButton block type="submit" [disabled]="form.invalid || submitting()">
         {{ submitting() ? 'Wird gespeichert…' : 'Fixkosten speichern' }}
       </button>
     </form>
@@ -73,10 +91,10 @@
     >
       @if (completing()) {
         Wird abgeschlossen…
-      } @else if (hasSaved()) {
+      } @else if (hasEnteredData()) {
         Fertig — weiter zum Dashboard
       } @else {
-        Keine Fixkosten — weiter zum Dashboard
+        Später erfassen — weiter zum Dashboard
       }
     </button>
   </div>

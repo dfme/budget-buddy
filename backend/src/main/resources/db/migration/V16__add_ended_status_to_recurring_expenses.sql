@@ -1,0 +1,43 @@
+-- BE-REC-04 (#350): dritter Status ENDED für recurring_expenses.
+--
+-- Bis hierher überspringt RecurringExpenseService.detect jeden bekannten Empfänger. Eine Zeile
+-- wird nach der Erkennung nie neu bewertet: ihr amount bleibt die Momentaufnahme des ersten
+-- qualifizierenden Paars, und eine beendete Abo-Reihe (gekündigtes Netflix) bleibt DETECTED.
+-- Seit FE-FC-05 (#338) ist die Zeile ein finanzieller Eingabewert des Safe-to-Spend; ein
+-- gekündigtes Abo minderte ihn damit dauerhaft weiter.
+--
+-- ENDED ist die Aussage «diese Reihe ist in den Daten ausgelaufen». Sie ist ausdrücklich NICHT
+-- DISMISSED: das heisst «war nie ein Abo» und ist die Entscheidung des Nutzers (US-08 AC3).
+-- Beide Aussagen in einen Wert zu legen, hiesse eine Nutzereingabe mit einem Messergebnis zu
+-- verwechseln — der Nutzer könnte seinen Ausschluss nicht mehr von einer Beobachtung des
+-- Systems unterscheiden, und eine wieder anlaufende Abbuchung dürfte den Ausschluss nicht
+-- aufheben, die Beendigung aber schon.
+--
+-- Status statt eines zweiten Feldes (boolean active / ended_at): V11 hält im Kommentar zur
+-- CHECK-Constraint fest, dass ein dritter Status «eine Migration — für eine Zustandsmaschine
+-- die richtige Hürde» ist. Genau diese Hürde ist hier genommen. Ein Feld neben dem Status
+-- ergäbe zwei Dimensionen für einen Zustand, und jede Query auf «zählt im Safe-to-Spend»
+-- müsste beide lesen und in derselben Reihenfolge kombinieren.
+--
+-- Zustandsmaschine nach diesem Task (RecurringExpenseService):
+--
+--   (neu)             -> DETECTED | ENDED     Erkennung, mit Bündel-Benachrichtigung
+--   DETECTED          -> DETECTED             Betrag/Erstmonat aktualisiert, keine Benachrichtigung
+--   DETECTED         <-> ENDED                Aktivität entscheidet, keine Benachrichtigung
+--   DETECTED | ENDED  -> DISMISSED            nur durch den Nutzer (dismiss)
+--   DISMISSED         -> DISMISSED            terminal, wird nie neu bewertet
+--
+-- Kein Backfill. Bestandszeilen stehen auf DETECTED und bleiben dort; der nächste Import
+-- bewertet sie neu und setzt ENDED, wo die Reihe ausgelaufen ist. Ein Backfill in SQL müsste
+-- die Erkennungsregel ein zweites Mal ausdrücken — sie steht im Service und soll dort bleiben.
+--
+-- Die Constraint wird ersetzt statt ergänzt: zwei CHECKs auf derselben Spalte gelten
+-- konjunktiv, die alte würde 'ENDED' weiterhin abweisen. Der Name ist der, den Postgres für
+-- eine inline am Spaltentyp notierte Constraint vergibt ({tabelle}_{spalte}_check). Bewusst
+-- ohne IF EXISTS: träfe der Name nicht, liefe das ADD durch und die alte Constraint bliebe
+-- daneben stehen — die Tabelle wiese ENDED ab, ohne dass die Migration etwas meldet. Ein
+-- lauter Abbruch hier ist das kleinere Übel.
+ALTER TABLE recurring_expenses DROP CONSTRAINT recurring_expenses_status_check;
+
+ALTER TABLE recurring_expenses ADD CONSTRAINT recurring_expenses_status_check
+    CHECK (status IN ('DETECTED', 'DISMISSED', 'ENDED'));

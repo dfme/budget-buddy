@@ -14,11 +14,11 @@ import { expect, test } from '../fixtures/auth.fixture';
  * Teststart also schon auf `true`. Der Übergang `false → true` ist über jene Fixture prinzipiell
  * nicht beobachtbar — deshalb gibt es die zweite.
  *
- * Zwei Tests, weil US-03 zwei Wege aus dem Wizard kennt: «Keine Fixkosten» bestätigen und
- * Abschluss nach mindestens einer gespeicherten Position. Der Wizard unterscheidet sie
- * ausschliesslich über die Button-Beschriftung, die Aktion ist dieselbe
- * (`fixed-cost-wizard.ts`, `hasSaved`). Dass beide wirklich zum Dashboard führen und nicht bloss
- * gleich aussehen, war bisher nur im Unit-Test belegt.
+ * Zwei Tests, weil US-03 zwei Wege aus dem Wizard kennt: ohne Eingabe bestätigen und Abschluss
+ * nach mindestens einer gespeicherten Fixkosten-Position (oder einem gespeicherten Einkommen,
+ * FE-FC-09). Der Wizard unterscheidet sie ausschliesslich über die Button-Beschriftung, die
+ * Aktion ist dieselbe (`fixed-cost-wizard.ts`, `hasEnteredData`). Dass beide wirklich zum
+ * Dashboard führen und nicht bloss gleich aussehen, war bisher nur im Unit-Test belegt.
  *
  * Das gilt zusätzlich zu den beiden Fällen aus E2E-FC-01 (`fixed-cost-wizard.spec.ts`), die den
  * von CLAUDE.md geforderten Happy Path und Fehlerpfad für US-03 abdecken. Die Vorgabe ist ein
@@ -34,7 +34,7 @@ test.describe('Onboarding-Abschluss', () => {
    * Verwechslung schriebe der Test sich sonst selbst hinein.
    */
   const BUTTON_MIT_POSITION = 'Fertig — weiter zum Dashboard';
-  const BUTTON_OHNE_POSITION = 'Keine Fixkosten — weiter zum Dashboard';
+  const BUTTON_OHNE_POSITION = 'Später erfassen — weiter zum Dashboard';
 
   /** Irgendeine gültige Position — der Betrag spielt hier keine Rolle, nur ihre Existenz. */
   const POSITION = { bezeichnung: 'Miete', betrag: '1450', intervall: 'monatlich' };
@@ -51,7 +51,7 @@ test.describe('Onboarding-Abschluss', () => {
   async function erwarteWizardZwang(page: Page): Promise<void> {
     await page.goto('/dashboard');
     await expect(page).toHaveURL(/\/onboarding$/);
-    await expect(page.getByRole('heading', { name: 'Fixkosten erfassen' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Budget', exact: true })).toBeVisible();
   }
 
   /**
@@ -112,12 +112,12 @@ test.describe('Onboarding-Abschluss', () => {
     await erwarteDauerhaftOnboardet(page);
   });
 
-  test('Weg B: ohne Position führt «Keine Fixkosten» ebenfalls aufs Dashboard', async ({
+  test('Weg B: ohne jede Eingabe führt der Abschluss ebenfalls aufs Dashboard', async ({
     freshUserPage: page,
   }) => {
     await erwarteWizardZwang(page);
 
-    // Nichts gespeichert — `hasSaved` ist falsch, der Button trägt die andere Beschriftung.
+    // Nichts gespeichert — `hasEnteredData` ist falsch, der Button trägt die andere Beschriftung.
     const abschluss = page.getByRole('button', { name: BUTTON_OHNE_POSITION });
     await expect(abschluss).toBeVisible();
     await abschluss.click();

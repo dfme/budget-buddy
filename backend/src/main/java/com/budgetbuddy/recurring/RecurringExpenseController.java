@@ -41,11 +41,12 @@ public class RecurringExpenseController {
 
     @GetMapping
     @Operation(summary = "Abo-Übersicht des Users auflisten",
-            description = "Liefert die wiederkehrenden Ausgaben des eingeloggten Users in beiden "
-                    + "Status (DETECTED und DISMISSED), alphabetisch nach Empfänger, inkl. "
-                    + "Neu-Flag. Ein per Kein-Abo markierter Eintrag bleibt mit status=DISMISSED "
-                    + "enthalten — die Übersicht zeigt ihn in einem eigenen Abschnitt. Ein User "
-                    + "ohne Einträge bekommt eine leere Liste, keinen Fehler.")
+            description = "Liefert die wiederkehrenden Ausgaben des eingeloggten Users in allen "
+                    + "drei Status (DETECTED, ENDED und DISMISSED), alphabetisch nach Empfänger, "
+                    + "inkl. Neu-Flag. Ein per Kein-Abo markierter Eintrag bleibt mit "
+                    + "status=DISMISSED enthalten, ein ausgelaufenes Abo mit status=ENDED — die "
+                    + "Übersicht zeigt beide in je einem eigenen Abschnitt. Ein User ohne "
+                    + "Einträge bekommt eine leere Liste, keinen Fehler.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Liste zurückgegeben, ggf. leer"),
         @ApiResponse(responseCode = "401", description = "Nicht authentifiziert", content = {})
@@ -72,5 +73,26 @@ public class RecurringExpenseController {
             @AuthenticationPrincipal Long userId,
             @Parameter(description = "ID des Abo-Eintrags", example = "42") @PathVariable long id) {
         return recurringExpenseService.dismiss(userId, id);
+    }
+
+    @PostMapping("/{id}/reactivate")
+    @Operation(summary = "Verneinten Eintrag reaktivieren",
+            description = "Hebt die Kein-Abo-Markierung eines Eintrags des Users auf und bewertet "
+                    + "ihn gegen die volle Ausgaben-Historie neu — wie jeder Import es für nicht "
+                    + "verneinte Zeilen tut. Liefert status=DETECTED, wenn der Empfänger weiterhin "
+                    + "aktiv ist, sonst status=ENDED, falls er inzwischen ausgelaufen ist; Betrag "
+                    + "und firstDetectedMonth folgen dabei dem jüngsten qualifizierenden Paar. "
+                    + "isNew ist in der Antwort immer false — eine Reaktivierung ist keine neue "
+                    + "Erkennung. Idempotent — ein zweiter Aufruf ändert den Status nicht erneut.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Eintrag aktualisiert"),
+        @ApiResponse(responseCode = "401", description = "Nicht authentifiziert", content = {}),
+        @ApiResponse(responseCode = "404",
+                description = "Kein Abo-Eintrag dieser ID für den User", content = {})
+    })
+    public RecurringExpenseResponse reactivate(
+            @AuthenticationPrincipal Long userId,
+            @Parameter(description = "ID des Abo-Eintrags", example = "42") @PathVariable long id) {
+        return recurringExpenseService.reactivate(userId, id);
     }
 }

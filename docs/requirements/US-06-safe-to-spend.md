@@ -30,8 +30,8 @@ Bei einem erkannten Abo NETFLIX über 17.90 CHF, das im laufenden Monat noch nic
 
 **Given** der Betrag ist negativ, **When** ich das Dashboard öffne, **Then** wird ein rot hinterlegtes Banner mit dem Text "Achtung: Dein Budget für diese Woche ist überzogen" am oberen Rand des Dashboards angezeigt.
 
-**Given** kein Monatseinkommen erfasst ist, **When** ich das Dashboard öffne, **Then** wird statt des Safe-to-Spend-Betrags der Hinweis "Bitte erfasse dein Monatseinkommen in den Einstellungen" angezeigt — keine Division wird ausgeführt.
+**Given** kein Monatseinkommen erfasst ist, **When** ich das Dashboard öffne, **Then** wird statt des Safe-to-Spend-Betrags der Hinweis "Bitte erfasse dein Monatseinkommen auf der Budget-Seite" angezeigt — keine Division wird ausgeführt.
 
 **Given** weniger als 7 Tage im laufenden Monat verbleiben, **When** der Safe-to-Spend berechnet wird, **Then** wird als Divisor mindestens 1 (volle Woche) verwendet, um Division durch 0 oder unrealistische Beträge zu vermeiden — der Wert wird mit dem Hinweis "Letzte Woche des Monats" angezeigt.
 
-**Given** importierte Transaktionen mindestens 2 Monate umfassen und eine regelmässige Gutschrift desselben Absenders mit gleichem Betrag (±5%) erkennbar ist, **When** das Dashboard geladen wird und kein Einkommen manuell erfasst ist, **Then** schlägt das System diesen Betrag automatisch als Monatseinkommen vor mit dem Hinweis "Regelmässige Gutschrift von X CHF erkannt — als Monatseinkommen übernehmen?" — eine manuelle Eingabe in den Einstellungen bleibt jederzeit möglich und überschreibt die automatische Schätzung.
+**Given** importierte Transaktionen mindestens 2 Monate umfassen und eine regelmässige Gutschrift desselben Absenders mit gleichem Betrag (±5%) erkennbar ist, **When** das Dashboard geladen wird und kein Einkommen manuell erfasst ist, **Then** schlägt das System diesen Betrag automatisch als Monatseinkommen vor mit dem Hinweis "Regelmässige Gutschrift von X CHF erkannt — als Monatseinkommen übernehmen?" — eine manuelle Eingabe auf der Budget-Seite bleibt jederzeit möglich und überschreibt die automatische Schätzung.

@@ -71,6 +71,8 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `BE-REC-01` | [RecurringExpenseService: Erkennung](BE-REC-01-recurring-expense-detection.md) | [#253](https://github.com/dfme/budget-buddy/issues/253) | US-08 | Sprint 6 |
 | `BE-REC-02` | [REST-Endpoints Abo-Übersicht](BE-REC-02-abo-uebersicht-endpoints.md) | [#254](https://github.com/dfme/budget-buddy/issues/254) | US-08 | Sprint 6 |
 | `BE-REC-03` | [Dismiss markiert Benachrichtigung als gelesen](BE-REC-03-dismiss-marks-notification-read.md) | [#324](https://github.com/dfme/budget-buddy/issues/324) | US-08 | Sprint 7 |
+| `BE-REC-04` | [Abo-Zeilen beim Import neu bewerten](BE-REC-04-abo-zeilen-neu-bewerten.md) | [#350](https://github.com/dfme/budget-buddy/issues/350) | US-08 | Sprint 7 |
+| `BE-REC-05` | [Verneintes Abo aus «Kein Abo» wieder aktivieren können](BE-REC-05-abo-reaktivieren.md) | [#368](https://github.com/dfme/budget-buddy/issues/368) | US-08 | — |
 | `BE-STS-01` | [SafeToSpendService](BE-STS-01-safe-to-spend-service.md) | [#21](https://github.com/dfme/budget-buddy/issues/21) | US-06 | Sprint 4 |
 | `BE-STS-02` | [Einkommens-Heuristik](BE-STS-02-einkommens-heuristik.md) | [#22](https://github.com/dfme/budget-buddy/issues/22) | US-06 | Sprint 4 |
 | `BE-STS-03` | [GET /budget/safe-to-spend](BE-STS-03-safe-to-spend-endpoint.md) | [#23](https://github.com/dfme/budget-buddy/issues/23) | US-06 | Sprint 4 |
@@ -114,6 +116,8 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `FE-FC-04` | [Fixkosten-Tabelle läuft auf schmalen Viewports über die Card hinaus](FE-FC-04-tabelle-overflow.md) | [#172](https://github.com/dfme/budget-buddy/issues/172) | — | Sprint 5 |
 | `FE-FC-05` | [Fixkosten- und Abo-Ansicht zusammenführen](FE-FC-05-fixkosten-abos-zusammenfuehren.md) | [#338](https://github.com/dfme/budget-buddy/issues/338) | US-03, US-08 | — |
 | `FE-FC-07` | [Fixkosten-Seite zu «Ausgaben» umbenennen (Route, Nav, Titel) und kombiniertes Total anzeigen](FE-FC-07-ausgaben-seite.md) | [#355](https://github.com/dfme/budget-buddy/issues/355) | US-08 | Sprint 7 |
+| `FE-FC-08` | [Aktions-Buttons mit Icons (Bearbeiten, Löschen, Kein Abo): Icon + Text ab 900px, nur Icon und drei Spalten auf Mobile](FE-FC-08-icon-buttons-mobile-table.md) | [#356](https://github.com/dfme/budget-buddy/issues/356) | US-03 | Sprint 7 |
+| `FE-FC-09` | [Einkommen aus Einstellungen auf die Ausgaben-Seite verschieben, Seite zu «Budget» umbenennen](FE-FC-09-budget-seite.md) | [#360](https://github.com/dfme/budget-buddy/issues/360) | US-14, US-06 | Sprint 7 |
 | `FE-NOTIF-01` | [Notification-Glocke in der App-Shell](FE-NOTIF-01-notification-bell.md) | [#247](https://github.com/dfme/budget-buddy/issues/247) | US-08 | Sprint 6 |
 | `FE-NOTIF-02` | [Glocke: Dropdown auf Desktop ausserhalb des Viewports, Icon passt nicht zum Design](FE-NOTIF-02-bell-dropdown-icon.md) | [#308](https://github.com/dfme/budget-buddy/issues/308) | US-08 | Sprint 7 |
 | `FE-NOTIF-03` | [Verneinte Abos bleiben auf /abos sichtbar — Abschnitt «Kein Abo»](FE-NOTIF-03-abo-hinweis-verneinter-eintrag.md) | [#333](https://github.com/dfme/budget-buddy/issues/333) | US-08 | Sprint 7 |
@@ -129,10 +133,13 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `FE-SET-03` | [Einkommen manuell erfassen und ändern](FE-SET-03-einkommen-aendern.md) | [#179](https://github.com/dfme/budget-buddy/issues/179) | US-14 | Sprint 5 |
 | `FE-SET-04` | [Erscheinungsbild: Hell, Dunkel, System](FE-SET-04-erscheinungsbild.md) | [#180](https://github.com/dfme/budget-buddy/issues/180) | US-14 | Sprint 5 |
 | `FE-SET-05` | [Konto löschen: Aktion in den Einstellungen](FE-SET-05-delete-account.md) | [#299](https://github.com/dfme/budget-buddy/issues/299) | US-02 | Sprint 6 |
+| `FE-SET-06` | [Konto löschen: Abstand zwischen Hinweistext und Button fehlt](FE-SET-06-abstand-loeschkarte.md) | [#365](https://github.com/dfme/budget-buddy/issues/365) | — | Sprint 7 |
 | `FE-STS-01` | [Safe-to-Spend Dashboard-Widget](FE-STS-01-safe-to-spend-widget.md) | [#33](https://github.com/dfme/budget-buddy/issues/33) | US-06 | Sprint 4 |
 | `FE-STS-02` | [Negativ-Banner](FE-STS-02-negativ-banner.md) | [#34](https://github.com/dfme/budget-buddy/issues/34) | US-06 | Sprint 4 |
 | `FE-STS-03` | [No-Income State und Einkommens-Vorschlag](FE-STS-03-no-income-state-and-suggestion.md) | [#35](https://github.com/dfme/budget-buddy/issues/35) | US-06 | Sprint 4 |
 | `FE-STS-04` | [Dashboard: Monatsnavigation und Drei-Monats-Übersicht](FE-STS-04-dashboard-monatsuebersicht.md) | [#250](https://github.com/dfme/budget-buddy/issues/250) | US-12 | Sprint 6 |
+| `FE-STS-05` | [Drei-Monats-Übersicht: horizontaler Scrollbalken trotz Platz links/rechts](FE-STS-05-totals-table-scrollbar.md) | [#361](https://github.com/dfme/budget-buddy/issues/361) | — | Sprint 7 |
+| `FE-STS-06` | [«Monatliche fixe Ausgaben»-Karte von der Budget-Seite ins Dashboard verschieben](FE-STS-06-fixkosten-total-dashboard.md) | [#366](https://github.com/dfme/budget-buddy/issues/366) | US-06 | Sprint 7 |
 | `FE-UI-01` | [UI-Design definieren: 3 klickbare Varianten](FE-UI-01-design-varianten.md) | [#80](https://github.com/dfme/budget-buddy/issues/80) | US-05, US-06 | Sprint 3 |
 | `FE-UI-02` | [Design-Token-Fundament (Variante A, theme-fähig)](FE-UI-02-design-token-fundament.md) | [#99](https://github.com/dfme/budget-buddy/issues/99) | — | Sprint 3 |
 | `FE-UI-03` | [Shared-Basiskomponenten (Variante A)](FE-UI-03-shared-basiskomponenten.md) | [#100](https://github.com/dfme/budget-buddy/issues/100) | — | Sprint 3 |

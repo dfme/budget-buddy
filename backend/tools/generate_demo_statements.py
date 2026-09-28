@@ -159,8 +159,14 @@ LARA_OCCASIONAL = [
 ]
 
 
-def _lara_month(rng, y, m, max_day):
-    """Buchungen eines Monats fuer Lara, aufsteigend nach Tag."""
+def _lara_month(rng, y, m, max_day, min_count=None, extra=None):
+    """Buchungen eines Monats fuer Lara, aufsteigend nach Tag.
+
+    min_count: falls gesetzt, werden weitere Kleinbuchungen (Tage duerfen sich
+    wiederholen -- wie bei Marc) angehaengt, bis die Zeilenzahl erreicht ist.
+    extra: zusaetzliche, konkret vorgegebene Buchungen als
+    (tag, text, betrag, kind, haendler, ort)-Tupel.
+    """
     monat = MONTHS_DE[m].upper()
     yy = f"{y % 100:02d}"
     rows = []
@@ -172,6 +178,13 @@ def _lara_month(rng, y, m, max_day):
         if day > max_day:
             return
         rows.append((day, text, Decimal(amount), block, credit))
+
+    def block_for(kind, merchant, city, day):
+        if kind == "card":
+            return fx._post_card(merchant, city, stamp(max(1, day - 1)))
+        if kind == "wallet":
+            return fx._post_wallet(merchant, city, stamp(max(1, day - 1)))
+        return fx._post_plain(merchant)
 
     # -- Fixkosten (die drei monatlichen Positionen aus dem Onboarding) --------
     add(1, "DAUERAUFTRAG", "650.00",
@@ -205,12 +218,7 @@ def _lara_month(rng, y, m, max_day):
     for day in sorted(rng.sample(range(2, 29), 18)):
         text, base, kind, merchant, city = rng.choice(LARA_VARIABLE)
         amount = _jitter(rng, base)
-        if kind == "card":
-            block = fx._post_card(merchant, city, stamp(max(1, day - 1)))
-        elif kind == "wallet":
-            block = fx._post_wallet(merchant, city, stamp(max(1, day - 1)))
-        else:
-            block = fx._post_plain(merchant)
+        block = block_for(kind, merchant, city, day)
         add(day, text, str(amount), block)
 
     if rng.random() < 0.75:
@@ -220,6 +228,20 @@ def _lara_month(rng, y, m, max_day):
                                  "BST-99231")
                  if kind == "online" else fx._post_card(merchant, "BERN (CH)", stamp(day - 1)))
         add(day, text, str(_jitter(rng, base)), block)
+
+    # -- Konkret vorgegebene Zusatzbuchungen -----------------------------------
+    for day, text, amount, kind, merchant, city in (extra or []):
+        add(day, text, amount, block_for(kind, merchant, city, day))
+
+    # -- Auffuellen bis min_count -----------------------------------------------
+    # Tage duerfen sich wiederholen (wie bei Marc): range(2, 29) traegt nur 27
+    # eindeutige Tage, ein Zielwert darueber ist mit rng.sample allein nicht
+    # erreichbar.
+    while min_count is not None and len(rows) < min_count:
+        day = rng.randint(2, max(2, max_day))
+        text, base, kind, merchant, city = rng.choice(LARA_VARIABLE)
+        amount = _jitter(rng, base)
+        add(day, text, str(amount), block_for(kind, merchant, city, day))
 
     rows.sort(key=lambda r: r[0])
     return [fx._post_row(stamp(day), text, str(amount), stamp(day), block, credit=credit)
@@ -397,7 +419,7 @@ def _report(filename, count, lookup_hits, debits, credits, saldo, pages):
           f"Schlusssaldo {fx._swiss(saldo)}")
 
 
-def generate_lara(months, as_of, seed):
+def generate_lara(months, as_of, seed, min_count=None, extra=None):
     print("Lara Bieri -- PostFinance")
     fx.OUT = OUT_DIR
     fx.AUTHOR = AUTHOR
@@ -414,7 +436,7 @@ def generate_lara(months, as_of, seed):
         last = _last_day(y, m)
         max_day = as_of.day if (y, m) == (as_of.year, as_of.month) else last
         end_day = min(max_day, last)
-        rows = _lara_month(rng, y, m, max_day)
+        rows = _lara_month(rng, y, m, max_day, min_count=min_count, extra=extra)
         totals = fx._post_chain(rows, saldo, patterns)
         yy = f"{y % 100:02d}"
         meta = {"period": f"01.{m:02d}.{y} - {end_day:02d}.{m:02d}.{y}",
@@ -462,6 +484,17 @@ def generate_marc(months, as_of, seed):
     return written
 
 
+def _parse_extra(spec):
+    """'Tag|Text|Betrag|Kind|Haendler|Ort' -> (tag, text, betrag, kind, haendler, ort)."""
+    parts = spec.split("|")
+    if len(parts) != 6:
+        raise SystemExit(f"--extra erwartet 6 mit '|' getrennte Felder, erhalten: {spec!r}")
+    day, text, amount, kind, merchant, city = parts
+    if kind not in ("card", "wallet", "plain"):
+        raise SystemExit(f"--extra: Kind muss card/wallet/plain sein, erhalten: {kind!r}")
+    return int(day), text, amount, kind, merchant, city
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--end-month", metavar="YYYY-MM",
@@ -470,8 +503,22 @@ def main():
                         help="Stichtag, bis zu dem der letzte Auszug reicht "
                              "(Default: heute)")
     parser.add_argument("--months", type=int, default=6,
-                        help="Anzahl Auszuege je Persona (Default: 6, Issue verlangt >= 3)")
+                        help="Anzahl Auszuege je Persona (Default: 6, Issue verlangt >= 3 "
+                             "-- nur erzwungen, wenn --persona both)")
+    parser.add_argument("--persona", choices=["lara", "marc", "both"], default="both",
+                        help="Nur eine Persona neu erzeugen (Default: both)")
+    parser.add_argument("--min-count", type=int,
+                        help="Lara: Buchungen mit weiteren Kleinbuchungen auffuellen, "
+                             "bis diese Zahl je Monat erreicht ist (nur --persona lara)")
+    parser.add_argument("--extra", action="append", metavar="TAG|TEXT|BETRAG|KIND|HAENDLER|ORT",
+                        help="Lara: konkrete Zusatzbuchung einfuegen (wiederholbar); "
+                             "KIND ist card/wallet/plain, nur mit --persona lara --months 1")
     args = parser.parse_args()
+
+    if args.min_count is not None and args.persona != "lara":
+        raise SystemExit("--min-count ist nur mit --persona lara definiert")
+    if args.extra and (args.persona != "lara" or args.months != 1):
+        raise SystemExit("--extra ist nur mit --persona lara --months 1 eindeutig")
 
     as_of = date.fromisoformat(args.as_of) if args.as_of else date.today()
     if args.end_month:
@@ -482,8 +529,12 @@ def main():
         # Ein vollstaendig vergangener Endmonat: der letzte Auszug reicht dann
         # bis zum Monatsende, nicht bis heute.
         as_of = date(y, m, _last_day(y, m))
-    if args.months < 3:
+    if args.months < 3 and args.persona == "both":
         raise SystemExit("--months darf nicht unter 3 liegen (#258 verlangt mind. 3)")
+    if args.months < 1:
+        raise SystemExit("--months muss mindestens 1 sein")
+
+    extra = [_parse_extra(e) for e in args.extra] if args.extra else None
 
     months = _months_back((y, m), args.months)
     os.makedirs(OUT_DIR, exist_ok=True)
@@ -492,9 +543,14 @@ def main():
     print(f"Monate:  {months[0][0]}-{months[0][1]:02d} bis {months[-1][0]}-{months[-1][1]:02d} "
           f"(letzter Auszug bis {as_of.isoformat()})\n")
 
-    written = generate_lara(months, as_of, "INFRA-38")
-    print()
-    written += generate_marc(months, as_of, "INFRA-38")
+    written = []
+    if args.persona in ("lara", "both"):
+        written += generate_lara(months, as_of, "INFRA-38",
+                                 min_count=args.min_count, extra=extra)
+    if args.persona in ("marc", "both"):
+        if args.persona == "both":
+            print()
+        written += generate_marc(months, as_of, "INFRA-38")
 
     print(f"\n{len(written)} Auszuege geschrieben.")
     print("Login-Daten und Import: backend/tools/seed_demo_accounts.sh")

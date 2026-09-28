@@ -28,20 +28,24 @@ function toRow(expense: RecurringExpenseResponse): ExpenseRow {
 }
 
 /**
- * Abschnitt «Erkannte Abos» auf `/ausgaben`: erkannte wiederkehrende Ausgaben mit «Neu»-Label
- * und «Kein Abo»-Button (FE-REC-01, US-08), darunter die verneinten Einträge in einem eigenen
- * Abschnitt «Kein Abo» (FE-NOTIF-03).
+ * Abschnitt «Erkannte Abos» auf `/budget`: laufende wiederkehrende Ausgaben mit «Neu»-Label
+ * und «Kein Abo»-Button (FE-REC-01, US-08), darunter die ausgelaufenen in einem Abschnitt
+ * «Beendet» (BE-REC-04) und die verneinten in einem Abschnitt «Kein Abo» (FE-NOTIF-03).
  *
  * <p>Bis FE-FC-05 war das eine eigene Seite unter `/abos`. Seither bettet `FixedCostList` die
  * Komponente unter der Fixkosten-Tabelle ein — manuell erfasste Fixkosten und automatisch
  * erkannte Abos sind verwandte Inhalte, und seit FE-FC-05 wirken beide gleich auf den
  * Safe-to-Spend. Die Komponente blieb eigenständig statt ins Fixkosten-Template zu wandern: sie
- * hat eigenen Lade- und Fehlerzustand, eigene Tests, und `RecurringExpenseService` zählt dieselbe
- * Liste weiterhin für die Teaser-Card des Dashboards.
+ * hat eigenen Lade- und Fehlerzustand, eigene Tests, und `RecurringExpenseService` liefert dieselbe
+ * Liste dem Dashboard für die Card «Monatliche fixe Ausgaben» (FE-STS-06).
  *
  * <p>Jede Zeile ist eine erkannte <em>Gruppe</em> — derselbe Empfänger, in mindestens zwei
  * aufeinanderfolgenden Monaten mit demselben Betrag belastet. Die Einzelbuchungen zeigt die
  * Übersicht nicht; dafür steht der erste Monat der Reihe («seit …») in der Zeile.
+ *
+ * <p>Der Abschnitt «Beendet» folgt derselben Regel wie «Kein Abo»: ein Eintrag verlässt die Seite
+ * nie, er wechselt nur den Abschnitt. Ein Abo, das ausläuft, verschwände sonst wortlos aus der
+ * Übersicht — und der Nutzer sähe nicht, warum sein Safe-to-Spend gestiegen ist.
  *
  * <p>Der Abschnitt «Kein Abo» ist der Grund, warum der Klick auf eine
  * `RECURRING_EXPENSE_DETECTED`-Benachrichtigung immer ein Ziel hat: die Benachrichtigung bleibt
@@ -49,12 +53,13 @@ function toRow(expense: RecurringExpenseResponse): ExpenseRow {
  * nur als gelesen). Stünde der Eintrag dann nirgends, landete der Klick auf einer Seite ohne
  * ihn — genau das schliesst #333 AC1 aus. US-08 AC3 («wird aus der Abo-Übersicht entfernt»)
  * heisst seither: aus der Liste der Abos, nicht von der Seite. Ohne verneinte Einträge fehlt der
- * Abschnitt ganz. Der Klick führt seit FE-FC-05 auf die Seite mit diesem Abschnitt (seit FE-FC-07
- * `/ausgaben`).
+ * Abschnitt ganz. Der Klick führt seit FE-FC-05 auf die Seite mit diesem Abschnitt (seit FE-FC-09
+ * `/budget`, davor `/ausgaben`).
  *
- * <p>Der State liegt im {@link RecurringExpenseService}, weil die Teaser-Card des Dashboards
- * dieselbe Liste zählt. Hier liegt nur, was allein diese Seite betrifft: Lade- und
- * Fehlerzustand sowie die ID des Eintrags, dessen «Kein Abo» gerade läuft.
+ * <p>Der State liegt im {@link RecurringExpenseService}, weil die Card «Monatliche fixe Ausgaben»
+ * des Dashboards dieselbe Liste summiert. Hier liegt nur, was allein diese Seite betrifft: Lade-
+ * und Fehlerzustand sowie die ID des Eintrags, dessen «Kein Abo» oder Reaktivieren (BE-REC-05)
+ * gerade läuft.
  *
  * <p>«Kein Abo» fragt nicht nach, anders als das Löschen einer Fixkosten-Position: der Eintrag
  * geht nicht verloren, er wechselt auf `DISMISSED`, und das Backend ist idempotent. Ein Modal
@@ -82,6 +87,12 @@ export class RecurringExpenseList {
   /** Fehlermeldung des letzten fehlgeschlagenen «Kein Abo», oder `null`. */
   readonly dismissErrorMessage = signal<string | null>(null);
 
+  /** ID des Eintrags, dessen Reaktivieren-Request gerade läuft (BE-REC-05) — `null`, wenn keiner. */
+  readonly reactivatingId = signal<number | null>(null);
+
+  /** Fehlermeldung des letzten fehlgeschlagenen Reaktivieren, oder `null`. */
+  readonly reactivateErrorMessage = signal<string | null>(null);
+
   /**
    * Die Abo-Zeilen fürs Template, mit fertigem «seit»-Label. Als `computed` statt Methodenaufruf
    * im Template — dieselbe Begründung wie bei `Dashboard.totalRows`.
@@ -91,9 +102,23 @@ export class RecurringExpenseList {
   );
 
   /**
+   * Die ausgelaufenen Einträge für den Abschnitt «Beendet» (BE-REC-04) — dieselbe Zeilenform wie
+   * die verneinten, und aus demselben Grund ohne «Neu» und ohne Button: der Eintrag ist erledigt,
+   * und «Kein Abo» wäre für ihn die falsche Aussage («war nie ein Abo» statt «läuft nicht mehr»).
+   *
+   * <p>Ein ausgelaufenes Abo kann durchaus noch ein ungelesenes Bündel haben — es taucht dann mit
+   * `isNew` hier auf, ohne dass die Zeile es zeigt. Das ist gewollt: «Neu» wirbt für etwas, das
+   * gerade beginnt.
+   */
+  readonly endedRows = computed<readonly ExpenseRow[]>(() =>
+    this.recurringExpenses.ended().map(toRow),
+  );
+
+  /**
    * Die verneinten Einträge für den Abschnitt «Kein Abo» (FE-NOTIF-03) — dieselbe Zeilenform,
-   * aber ohne «Neu» und ohne Button: `isNew` ist nach dem Dismiss immer `false`, und einen
-   * bereits verneinten Eintrag noch einmal zu verneinen wäre nur der idempotente Backend-Call.
+   * aber ohne «Neu»-Label: `isNew` ist nach dem Dismiss immer `false`. Statt des «Kein
+   * Abo»-Buttons trägt die Zeile seit BE-REC-05 einen Reaktivieren-Button — der Rückweg, den es
+   * bis dahin nicht gab.
    */
   readonly dismissedRows = computed<readonly ExpenseRow[]>(() =>
     this.recurringExpenses.dismissed().map(toRow),
@@ -133,6 +158,35 @@ export class RecurringExpenseList {
           `«${expense.payeeKey}» konnte nicht als Kein Abo markiert werden.`,
         );
         this.dismissingId.set(null);
+      },
+    });
+  }
+
+  /**
+   * Reaktiviert einen verneinten Eintrag (`POST /api/recurring-expenses/{id}/reactivate`,
+   * BE-REC-05).
+   *
+   * <p>Nur ein Request zur Zeit, analog {@link dismiss}: solange einer läuft, sind alle
+   * Reaktivieren-Buttons gesperrt.
+   *
+   * <p>Bei Erfolg ersetzt der Service den Eintrag im State durch die Antwort — das Backend
+   * bewertet ihn dabei gegen die volle Historie neu (BE-REC-04): ein noch aktiver Empfänger kommt
+   * als `DETECTED` zurück und die Zeile wandert aus {@link dismissedRows} nach {@link rows}, ein
+   * inzwischen ausgelaufener als `ENDED` nach {@link endedRows}. Bei einem Fehler bleibt sie
+   * stehen, ein erneuter Klick versucht es wieder.
+   */
+  reactivate(expense: RecurringExpenseResponse): void {
+    if (this.reactivatingId() !== null) {
+      return;
+    }
+    this.reactivatingId.set(expense.id);
+    this.reactivateErrorMessage.set(null);
+
+    this.recurringExpenses.reactivate(expense.id).subscribe({
+      next: () => this.reactivatingId.set(null),
+      error: (_err: HttpErrorResponse) => {
+        this.reactivateErrorMessage.set(`«${expense.payeeKey}» konnte nicht reaktiviert werden.`);
+        this.reactivatingId.set(null);
       },
     });
   }

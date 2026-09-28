@@ -48,6 +48,8 @@ class RecurringExpenseDetectionIntegrationTest {
 
     private static final String POST_JAHR = "/pdf/Post_Kontoauszug_2025_240_Buchungen.pdf";
 
+    private static final String NETFLIX = "NETFLIX INTERNATIONAL BV";
+
     /** Ein erwarteter Eintrag: Betrag des jüngsten Paars und erster Monat der Reihe. */
     private record Erwartung(String amount, String firstMonth) {}
 
@@ -175,19 +177,121 @@ class RecurringExpenseDetectionIntegrationTest {
                 "INSERT INTO recurring_expenses"
                         + " (user_id, payee_key, amount, status, first_detected_month)"
                         + " VALUES (?, ?, ?, 'DISMISSED', '2024-11')",
-                lara, "NETFLIX INTERNATIONAL BV", new BigDecimal("20.90"));
+                lara, NETFLIX, new BigDecimal("20.90"));
 
         service.detect(lara);
 
         List<Map<String, Object>> netflix = jdbcTemplate.queryForList(
                 "SELECT status FROM recurring_expenses WHERE user_id = ? AND payee_key = ?",
-                lara, "NETFLIX INTERNATIONAL BV");
+                lara, NETFLIX);
         assertThat(netflix).hasSize(1);
         assertThat(netflix.getFirst().get("status")).isEqualTo("DISMISSED");
         assertThat(count("recurring_expenses", lara)).isEqualTo(ERKANNT.size());
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT message FROM notifications WHERE user_id = ?", String.class, lara))
                 .startsWith("7 neue Abos erkannt: ");
+    }
+
+    // --- BE-REC-04: der zweite Import bewertet die Zeilen neu ---
+
+    /**
+     * AC 1 im echten Schema: Netflix steigt nach dem Jahresauszug von 20.90 auf 25.90. Der zweite
+     * Lauf zieht Betrag und Erstmonat nach — ohne zweite Zeile ({@code UNIQUE (user_id, payee_key)})
+     * und ohne zweites Bündel.
+     *
+     * <p>Der Sprung liegt ausserhalb der ±2 %, das Paar über ihn hinweg qualifiziert also nicht und
+     * die Reihe beginnt im Januar 2026 neu — genau der Fall, der bis BE-REC-04 im Safe-to-Spend
+     * doppelt zählte (ADR-13-Nachtrag, «Abbuchung ausserhalb des Bands»).
+     */
+    @Test
+    void aPriceJumpAfterTheFirstRun_updatesTheRowWithoutASecondNotification() {
+        importStatement(lara, POST_JAHR);
+        service.detect(lara);
+
+        insertExpense(lara, LocalDate.of(2026, 1, 3), "LASTSCHRIFT", NETFLIX, new BigDecimal("25.90"));
+        insertExpense(lara, LocalDate.of(2026, 2, 3), "LASTSCHRIFT", NETFLIX, new BigDecimal("25.90"));
+
+        service.detect(lara);
+
+        Map<String, Object> netflix = jdbcTemplate.queryForMap(
+                "SELECT amount, status, first_detected_month, notification_id"
+                        + " FROM recurring_expenses WHERE user_id = ? AND payee_key = ?",
+                lara, NETFLIX);
+        assertThat((BigDecimal) netflix.get("amount")).isEqualByComparingTo("25.90");
+        assertThat(netflix.get("first_detected_month")).isEqualTo("2026-01");
+        assertThat(netflix.get("status")).isEqualTo("DETECTED");
+        assertThat(count("recurring_expenses", lara)).isEqualTo(ERKANNT.size());
+        assertThat(count("notifications", lara)).isEqualTo(1);
+    }
+
+    /**
+     * AC 2 im echten Schema: nach dem Jahresauszug 2025 folgen nur noch fremde Belastungen. Die
+     * acht Reihen haben im Fenster der drei jüngsten Monate keine Abbuchung mehr und laufen aus —
+     * sie mindern damit den Safe-to-Spend nicht mehr, ohne dass jemand «Kein Abo» klicken müsste.
+     */
+    @Test
+    void payeesThatStopDebiting_becomeEndedAndDropOutOfDetectedAmounts() {
+        importStatement(lara, POST_JAHR);
+        service.detect(lara);
+        assertThat(service.detectedAmounts(lara)).hasSize(ERKANNT.size());
+
+        insertExpense(lara, LocalDate.of(2026, 4, 8), "LASTSCHRIFT", "COOP BERN",
+                new BigDecimal("45.60"));
+
+        service.detect(lara);
+
+        List<String> status = jdbcTemplate.queryForList(
+                "SELECT status FROM recurring_expenses WHERE user_id = ?", String.class, lara);
+        assertThat(status).hasSize(ERKANNT.size()).containsOnly("ENDED");
+        assertThat(service.detectedAmounts(lara)).isEmpty();
+        // Keine neue Meldung für das Auslaufen — der «Neu»-Hinweis gilt dem Fund (AC 4).
+        assertThat(count("notifications", lara)).isEqualTo(1);
+    }
+
+    /** Bucht der Empfänger wieder ab, läuft die Zeile wieder — lautlos und ohne neue Zeile. */
+    @Test
+    void anEndedPayeeThatDebitsAgain_returnsToDetected() {
+        importStatement(lara, POST_JAHR);
+        service.detect(lara);
+        insertExpense(lara, LocalDate.of(2026, 4, 8), "LASTSCHRIFT", "COOP BERN",
+                new BigDecimal("45.60"));
+        service.detect(lara);
+
+        insertExpense(lara, LocalDate.of(2026, 5, 3), "LASTSCHRIFT", NETFLIX, new BigDecimal("20.90"));
+        insertExpense(lara, LocalDate.of(2026, 6, 3), "LASTSCHRIFT", NETFLIX, new BigDecimal("20.90"));
+
+        service.detect(lara);
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT status FROM recurring_expenses WHERE user_id = ? AND payee_key = ?",
+                String.class, lara, NETFLIX)).isEqualTo("DETECTED");
+        assertThat(count("recurring_expenses", lara)).isEqualTo(ERKANNT.size());
+        assertThat(count("notifications", lara)).isEqualTo(1);
+    }
+
+    /**
+     * Mandantentrennung der Aktivitätsprüfung: Marc bucht NETFLIX weiter, Lara nicht. Griffe die
+     * Prüfung über den User hinweg, hielte Marcs Abbuchung Laras Zeile am Leben und minderte
+     * ihren Safe-to-Spend um ein Abo, das sie gekündigt hat.
+     *
+     * <p>Diese Prüfung lag bis BE-REC-04 im Lesepfad des budget-Moduls und ist mit dem
+     * Aktivitätsfenster hierher gewandert.
+     */
+    @Test
+    void aForeignUsersDebitsDoNotKeepAnOwnPayeeActive() {
+        importStatement(lara, POST_JAHR);
+        service.detect(lara);
+        insertExpense(lara, LocalDate.of(2026, 4, 8), "LASTSCHRIFT", "COOP BERN",
+                new BigDecimal("45.60"));
+        insertExpense(marc, LocalDate.of(2026, 4, 3), "LASTSCHRIFT", NETFLIX, new BigDecimal("20.90"));
+        insertExpense(marc, LocalDate.of(2026, 5, 3), "LASTSCHRIFT", NETFLIX, new BigDecimal("20.90"));
+
+        service.detect(lara);
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT status FROM recurring_expenses WHERE user_id = ? AND payee_key = ?",
+                String.class, lara, NETFLIX)).isEqualTo("ENDED");
+        assertThat(service.detectedAmounts(lara)).isEmpty();
     }
 
     /**
@@ -198,7 +302,7 @@ class RecurringExpenseDetectionIntegrationTest {
     @Test
     void anotherUsersTransactions_doNotLeakIntoDetection() {
         importStatement(lara, POST_JAHR);
-        insertExpense(marc, LocalDate.of(2025, 2, 5), "LASTSCHRIFT", "NETFLIX INTERNATIONAL BV",
+        insertExpense(marc, LocalDate.of(2025, 2, 5), "LASTSCHRIFT", NETFLIX,
                 new BigDecimal("20.90"));
 
         service.detect(marc);
