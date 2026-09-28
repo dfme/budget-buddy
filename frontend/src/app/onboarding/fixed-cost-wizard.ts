@@ -1,10 +1,19 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 
 import { AuthService } from '../auth/auth.service';
+import { IncomeCard } from '../income/income-card';
 import { Button } from '../shared/button/button';
 import { Card } from '../shared/card/card';
 import { Field } from '../shared/field/field';
@@ -15,19 +24,28 @@ import { FixedCostService } from './fixed-cost.service';
 import { MIN_BETRAG_CHF, maxTwoDecimals, nonBlank } from './fixed-cost.validators';
 
 /**
- * Erfassungsformular für eine Fixkosten-Position (FE-FC-01, US-03).
+ * Erfassungsformular für eine Fixkosten-Position (FE-FC-01, US-03), mit dem eingebetteten
+ * {@link IncomeCard} darüber (FE-FC-09) — wer sein Einkommen schon beim ersten Einrichten
+ * kennt, muss dafür nicht erst den Wizard verlassen. Der Seitenkopf heisst deshalb «Budget»,
+ * nicht mehr «Fixkosten erfassen»: Einkommen und Fixkosten sind hier zwei gleichrangige
+ * Abschnitte, jeder mit eigener Zwischenüberschrift. Beide Abschnitte sind unabhängig: die
+ * Einkommens-Card speichert für sich über `PUT /users/me/income`, das Onboarding lässt sich
+ * ohne erfasstes Einkommen abschliessen (optional wie auf der Budget-Seite).
  *
  * <p>Reactive Form mit `Bezeichnung`, `Betrag` (CHF > 0) und `Intervall`; jedes Feld meldet
- * seinen Fehler inline unter sich, sobald es berührt und ungültig ist. Nach erfolgreichem
- * Absenden bleibt das Formular stehen und wird geleert, damit mehrere Positionen
+ * seinen Fehler inline unter sich, sobald es berührt und ungültig ist. Der Submit-Button ist
+ * bis zur Gültigkeit deaktiviert (`form.invalid`) — dasselbe Muster wie bei {@link IncomeCard}
+ * und dem Passwort-Formular in `settings.ts`, statt eines Klicks auf ein leeres Formular, der
+ * `submit()` intern trotzdem noch gegen ein Absenden per Enter-Taste absichert. Nach
+ * erfolgreichem Absenden bleibt das Formular stehen und wird geleert, damit mehrere Positionen
  * hintereinander erfassbar sind — Lara erfasst im Onboarding typischerweise Miete,
  * Krankenkasse und Handy am Stück.
  *
  * <p>Der Abschluss des Onboardings hängt seit FE-FC-02 (#25) hier: ein Button unter dem
  * Formular ruft `POST /api/users/me/onboarding-complete` und navigiert aufs Dashboard. Er
- * deckt beide Wege aus US-03 ab — «Keine Fixkosten» bestätigen und «mindestens ein
- * Eintrag gespeichert»; unterschieden werden sie nur durch die Beschriftung, die Aktion
- * ist dieselbe.
+ * deckt beide Wege aus US-03 ab — ohne jede Eingabe bestätigen und «mindestens etwas
+ * erfasst» (seit FE-FC-09 Fixkosten <em>oder</em> Einkommen, {@link hasEnteredData});
+ * unterschieden werden sie nur durch die Beschriftung, die Aktion ist dieselbe.
  *
  * <p>Bewusst <em>nicht</em> Teil dieser Komponente: die Liste mit Bearbeiten/Löschen
  * (FE-FC-03, #26). Der Name «Wizard» benennt die Komponente, nicht den Ablauf.
@@ -37,7 +55,7 @@ import { MIN_BETRAG_CHF, maxTwoDecimals, nonBlank } from './fixed-cost.validator
  */
 @Component({
   selector: 'app-fixed-cost-wizard',
-  imports: [ReactiveFormsModule, Card, Field, Input, Notice, Button],
+  imports: [ReactiveFormsModule, Card, Field, IncomeCard, Input, Notice, Button],
   templateUrl: './fixed-cost-wizard.html',
   styleUrl: './fixed-cost-wizard.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -48,6 +66,13 @@ export class FixedCostWizard {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+
+  /**
+   * Die eingebettete Einkommens-Card. Gebraucht für ihren `incomeSaved`-Zustand — nur die
+   * Komponente selbst weiss, ob in dieser Sitzung erfolgreich gespeichert wurde.
+   * `undefined`, bis die View steht.
+   */
+  private readonly incomeSection = viewChild(IncomeCard);
 
   /** Auswahl des Intervall-Dropdowns — Wert und Anzeigetext (mit Umlaut) getrennt. */
   readonly intervallOptions = INTERVALL_OPTIONS;
@@ -61,16 +86,24 @@ export class FixedCostWizard {
   /** `true`, solange ein Request läuft — sperrt den Submit-Button. */
   readonly submitting = signal(false);
 
+  /** `true`, sobald in dieser Sitzung mindestens eine Fixkosten-Position gespeichert wurde. */
+  readonly hasSaved = signal(false);
+
   /**
-   * `true`, sobald in dieser Sitzung mindestens eine Position gespeichert wurde.
+   * `true`, sobald in dieser Sitzung mindestens eine Fixkosten-Position <em>oder</em> ein
+   * Einkommen gespeichert wurde (FE-FC-09) — vor der Einkommens-Card entschied allein
+   * {@link hasSaved} über die Beschriftung des Abschluss-Buttons, was seither irreführend
+   * wäre: wer nur sein Einkommen erfasst, hat nicht «nichts» getan.
    *
-   * <p>Steuert ausschliesslich die Beschriftung des Abschluss-Buttons, nicht seine Wirkung:
-   * beide Wege aus US-03 lösen denselben Request aus. Der Wert ist bewusst sitzungslokal
-   * und wird nicht aus `GET /api/fixed-costs` abgeleitet — ein Request nur für die Wortwahl
+   * <p>Steuert ausschliesslich die Beschriftung, nicht die Wirkung des Buttons: alle Wege aus
+   * US-03 lösen denselben Request aus. Beide Signale bleiben sitzungslokal und werden nicht aus
+   * `GET /api/fixed-costs` oder dem Nutzerprofil abgeleitet — ein Request nur für die Wortwahl
    * eines Buttons wäre nicht zu rechtfertigen, und die bereits erfassten Positionen zeigt
    * ohnehin erst die Liste aus FE-FC-03 (#26).
    */
-  readonly hasSaved = signal(false);
+  readonly hasEnteredData = computed(
+    () => this.hasSaved() || (this.incomeSection()?.incomeSaved() ?? false),
+  );
 
   /** `true`, solange der Abschluss-Request läuft — sperrt den Abschluss-Button. */
   readonly completing = signal(false);
@@ -166,11 +199,11 @@ export class FixedCostWizard {
   /**
    * Schliesst das Onboarding ab und navigiert aufs Dashboard (US-03).
    *
-   * <p>Deckt beide Wege ab, mit denen der Wizard laut US-03 verlassen werden darf: die
-   * ausdrückliche «Keine Fixkosten»-Bestätigung und den Abschluss nach mindestens einer
-   * gespeicherten Position. Das Backend setzt `onboardingCompleted`, der `AuthService`
-   * übernimmt das aktualisierte Profil in den State — erst dadurch lässt der
-   * `onboardingGuard` die Navigation aufs Dashboard passieren.
+   * <p>Deckt beide Wege ab, mit denen der Wizard laut US-03 verlassen werden darf: ohne jede
+   * Eingabe bestätigen und den Abschluss nach mindestens einer gespeicherten Fixkosten-Position
+   * oder einem gespeicherten Einkommen ({@link hasEnteredData}). Das Backend setzt
+   * `onboardingCompleted`, der `AuthService` übernimmt das aktualisierte Profil in den State —
+   * erst dadurch lässt der `onboardingGuard` die Navigation aufs Dashboard passieren.
    *
    * <p>Bei einem Fehler bleibt der Nutzer im Wizard und sieht eine Meldung: eine
    * Navigation trotz gescheitertem Abschluss würde der Guard sofort zurückdrehen und

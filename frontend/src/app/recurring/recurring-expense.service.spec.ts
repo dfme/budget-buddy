@@ -49,19 +49,28 @@ describe('RecurringExpenseService', () => {
 
     expect(received).toEqual([NETFLIX, SPOTIFY]);
     expect(service.expenses()).toEqual([NETFLIX, SPOTIFY]);
-    expect(service.count()).toBe(2);
+    expect(service.detected().length).toBe(2);
   });
 
-  // FE-NOTIF-03: `GET` liefert beide Status. Der Service trennt sie; die Teaser-Card zählt nur
-  // Abos — ein verneinter Eintrag ist keines.
-  it('trennt die Liste nach Status und zählt nur erkannte Abos', () => {
+  // FE-NOTIF-03 und BE-REC-04: `GET` liefert alle drei Status. Der Service trennt sie; das
+  // Dashboard-Total summiert nur laufende Abos — ein verneinter ist keines, ein ausgelaufener
+  // keines mehr.
+  it('trennt die Liste nach Status und zählt nur laufende Abos', () => {
     service.load().subscribe();
     const dismissed: RecurringExpenseResponse = { ...SPOTIFY, status: 'DISMISSED', isNew: false };
-    httpMock.expectOne('/api/recurring-expenses').flush([NETFLIX, dismissed]);
+    const ended: RecurringExpenseResponse = {
+      ...NETFLIX,
+      id: 3,
+      payeeKey: 'SWISSCOM',
+      status: 'ENDED',
+      isNew: false,
+    };
+    httpMock.expectOne('/api/recurring-expenses').flush([NETFLIX, dismissed, ended]);
 
     expect(service.detected()).toEqual([NETFLIX]);
     expect(service.dismissed()).toEqual([dismissed]);
-    expect(service.count()).toBe(1);
+    expect(service.ended()).toEqual([ended]);
+    expect(service.detected().length).toBe(1);
   });
 
   it('markiert einen Eintrag als Kein Abo und ersetzt ihn im State durch die Antwort', () => {
@@ -81,7 +90,7 @@ describe('RecurringExpenseService', () => {
     expect(service.expenses()).toEqual([dismissed, SPOTIFY]);
     expect(service.detected()).toEqual([SPOTIFY]);
     expect(service.dismissed()).toEqual([dismissed]);
-    expect(service.count()).toBe(1);
+    expect(service.detected().length).toBe(1);
   });
 
   it('lässt den State bei einem fehlschlagenden dismiss unverändert', () => {
@@ -96,6 +105,40 @@ describe('RecurringExpenseService', () => {
     expect(service.expenses()).toEqual([NETFLIX]);
   });
 
+  // BE-REC-05
+  it('reaktiviert einen Eintrag und ersetzt ihn im State durch die Antwort', () => {
+    const dismissed: RecurringExpenseResponse = { ...SPOTIFY, status: 'DISMISSED', isNew: false };
+    service.load().subscribe();
+    httpMock.expectOne('/api/recurring-expenses').flush([NETFLIX, dismissed]);
+
+    let received: RecurringExpenseResponse | undefined;
+    service.reactivate(2).subscribe((response) => (received = response));
+
+    const req = httpMock.expectOne('/api/recurring-expenses/2/reactivate');
+    expect(req.request.method).toBe('POST');
+    const reactivated: RecurringExpenseResponse = { ...SPOTIFY, status: 'DETECTED', isNew: false };
+    req.flush(reactivated);
+
+    expect(received).toEqual(reactivated);
+    expect(service.expenses()).toEqual([NETFLIX, reactivated]);
+    expect(service.detected()).toEqual([NETFLIX, reactivated]);
+    expect(service.dismissed()).toEqual([]);
+    expect(service.detected().length).toBe(2);
+  });
+
+  it('lässt den State bei einem fehlschlagenden reactivate unverändert', () => {
+    const dismissed: RecurringExpenseResponse = { ...NETFLIX, status: 'DISMISSED', isNew: false };
+    service.load().subscribe();
+    httpMock.expectOne('/api/recurring-expenses').flush([dismissed]);
+
+    service.reactivate(1).subscribe({ error: () => undefined });
+    httpMock
+      .expectOne('/api/recurring-expenses/1/reactivate')
+      .flush(null, { status: 404, statusText: 'Not Found' });
+
+    expect(service.expenses()).toEqual([dismissed]);
+  });
+
   it('leert den State ohne Backend-Call', () => {
     service.load().subscribe();
     httpMock.expectOne('/api/recurring-expenses').flush([NETFLIX]);
@@ -103,6 +146,6 @@ describe('RecurringExpenseService', () => {
     service.clear();
 
     expect(service.expenses()).toEqual([]);
-    expect(service.count()).toBe(0);
+    expect(service.detected().length).toBe(0);
   });
 });

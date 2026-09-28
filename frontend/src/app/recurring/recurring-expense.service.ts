@@ -5,13 +5,14 @@ import { Observable, tap } from 'rxjs';
 import { RecurringExpenseResponse } from './recurring-expense.model';
 
 /**
- * Zentraler State und Kapselung von `GET /api/recurring-expenses` und
- * `POST /api/recurring-expenses/{id}/dismiss` (FE-REC-01, BE-REC-02).
+ * Zentraler State und Kapselung von `GET /api/recurring-expenses`,
+ * `POST /api/recurring-expenses/{id}/dismiss` und `POST /api/recurring-expenses/{id}/reactivate`
+ * (FE-REC-01, BE-REC-02, BE-REC-05).
  *
  * <p>Hält den State selbst, wie `NotificationService`: die Liste wird von zwei Stellen gelesen —
- * der Abo-Übersicht und der Teaser-Card auf dem Dashboard — und beide sollen denselben Stand
- * zeigen. Anders als dort kein Bündeln gleichzeitiger Requests: die beiden Consumer sind nie
- * zugleich gemountet.
+ * der Abo-Übersicht und der Card «Monatliche fixe Ausgaben» auf dem Dashboard (FE-STS-06) — und
+ * beide sollen denselben Stand zeigen. Anders als dort kein Bündeln gleichzeitiger Requests: die
+ * beiden Consumer sind nie zugleich gemountet.
  */
 @Injectable({ providedIn: 'root' })
 export class RecurringExpenseService {
@@ -20,14 +21,25 @@ export class RecurringExpenseService {
   private readonly expensesState = signal<RecurringExpenseResponse[]>([]);
 
   /**
-   * Alle Einträge des eingeloggten Users, beide Status, in der vom Backend gelieferten
-   * Reihenfolge (alphabetisch nach Empfänger). Die Consumer lesen {@link detected} und
-   * {@link dismissed}; das Ganze ist hier nur der gemeinsame Ausgangspunkt.
+   * Alle Einträge des eingeloggten Users, alle Status, in der vom Backend gelieferten
+   * Reihenfolge (alphabetisch nach Empfänger). Die Consumer lesen {@link detected},
+   * {@link ended} und {@link dismissed}; das Ganze ist hier nur der gemeinsame Ausgangspunkt.
    */
   readonly expenses = this.expensesState.asReadonly();
 
-  /** Erkannte Abos — die eigentliche Abo-Liste. */
+  /** Laufende Abos — die eigentliche Abo-Liste. */
   readonly detected = computed(() => this.expenses().filter((e) => e.status === 'DETECTED'));
+
+  /**
+   * Ausgelaufene Abos (BE-REC-04): der Empfänger hat in den jüngsten Monaten der Historie nicht
+   * mehr abgebucht. Sie stehen in einem eigenen Abschnitt «Beendet» — sichtbar, weil ein
+   * gekündigtes Abo eine Information ist und weil der Klick auf die zugehörige Benachrichtigung
+   * sonst ins Leere führte (dieselbe Begründung wie bei {@link dismissed}, FE-NOTIF-03).
+   *
+   * <p>Sie zählen nicht ins Total der fixen Ausgaben auf `/budget`, weil das auf {@link detected}
+   * aufsetzt — dieselbe Grenze, die der Safe-to-Spend zieht.
+   */
+  readonly ended = computed(() => this.expenses().filter((e) => e.status === 'ENDED'));
 
   /**
    * Per «Kein Abo» verneinte Einträge — der Abschnitt «Kein Abo» der Übersicht (FE-NOTIF-03).
@@ -35,9 +47,6 @@ export class RecurringExpenseService {
    * verneinten Eintrag nicht auf einer Seite landet, auf der er fehlt.
    */
   readonly dismissed = computed(() => this.expenses().filter((e) => e.status === 'DISMISSED'));
-
-  /** Abgeleitet: Anzahl erkannter Abos für die Teaser-Card — Verneinte zählen nicht mit. */
-  readonly count = computed(() => this.detected().length);
 
   /** Lädt die Abo-Übersicht neu. */
   load(): Observable<RecurringExpenseResponse[]> {
@@ -67,9 +76,32 @@ export class RecurringExpenseService {
   }
 
   /**
-   * Leert den State ohne Backend-Call. Wird beim Logout aufgerufen (`Shell.logout`) — sonst
-   * zeigte die Teaser-Card nach einem Login-Wechsel in derselben Tab-Session kurz die Zahl des
-   * vorherigen Users. Analog `NotificationService.clear`.
+   * Reaktiviert einen per «Kein Abo» verneinten Eintrag (BE-REC-05) und ersetzt ihn im State
+   * durch die Antwort — dieselbe Begründung wie bei {@link dismiss}: kein Reload, die Antwort ist
+   * der Eintrag in seinem neuen Zustand (`status=DETECTED` oder `status=ENDED`, `isNew=false`).
+   */
+  reactivate(id: number): Observable<RecurringExpenseResponse> {
+    return this.http
+      .post<RecurringExpenseResponse>(`/api/recurring-expenses/${id}/reactivate`, {})
+      .pipe(
+        tap((updated) => {
+          this.expensesState.update((list) =>
+            list.map((expense) => (expense.id === id ? updated : expense)),
+          );
+        }),
+      );
+  }
+
+  /**
+   * Leert den State ohne Backend-Call. Wird beim Logout aufgerufen (`Shell.logout`), analog
+   * `NotificationService.clear`.
+   *
+   * <p>Seit FE-STS-06 eine Absicherung, keine Fehlerbehebung mehr: beide heutigen Consumer zeigen
+   * den State erst, nachdem ihr eigener Load durch ist — die Card «Monatliche fixe Ausgaben» über
+   * `Dashboard.monthlyTotal`, die Übersicht über ihr `@if (loading())`. Bis dahin zeigte der
+   * Abo-Teaser die Zahl ohne diese Wache, und ein Login-Wechsel in derselben Tab-Session liess sie
+   * kurz mit dem Stand des vorherigen Users stehen. Die Daten eines fremden Users sollen trotzdem
+   * nicht im Speicher des Tabs liegen bleiben, bis ein nächster Consumer sie ohne Wache liest.
    */
   clear(): void {
     this.expensesState.set([]);

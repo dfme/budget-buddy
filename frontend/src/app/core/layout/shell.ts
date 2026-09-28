@@ -105,7 +105,7 @@ export class Shell {
     { path: '/dashboard', label: 'Übersicht', icon: '◎' },
     { path: '/categories', label: 'Transaktionen', icon: '≡' },
     { path: '/import', label: 'Import', icon: '↑' },
-    { path: '/ausgaben', label: 'Ausgaben', icon: '▦' },
+    { path: '/budget', label: 'Budget', icon: '▦' },
   ];
 
   protected toggleAccountMenu(): void {
@@ -140,8 +140,9 @@ export class Shell {
    *
    * <p>{@link NotificationService.clear} verhindert, dass die Benachrichtigungen dieses Users
    * kurz aufblitzen, bevor ein nächster Login in derselben Tab-Session neu lädt — der Service ist
-   * `providedIn: 'root'` und überlebt den Wechsel. {@link RecurringExpenseService.clear} aus
-   * demselben Grund für die Zahl in der Abo-Teaser-Card (FE-REC-01).
+   * `providedIn: 'root'` und überlebt den Wechsel. {@link RecurringExpenseService.clear} leert
+   * den Abo-State ebenso — seit FE-STS-06 als Absicherung, weil dessen Consumer ohnehin auf ihren
+   * eigenen Load warten (Begründung dort).
    */
   protected logout(): void {
     this.accountMenuOpen.set(false);

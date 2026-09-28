@@ -13,11 +13,11 @@ import { bell } from '../support/notifications';
  * (`BE-REC-02`) und der Screen (`FE-REC-01`) existieren bereits; dieser Task liefert nur die
  * Playwright-Abdeckung.
  *
- * Einstieg über `authenticatedPage`/`authenticatedContext`: `/ausgaben` liegt hinter `authGuard`
+ * Einstieg über `authenticatedPage`/`authenticatedContext`: `/budget` liegt hinter `authGuard`
  * UND `onboardingGuard`, die Fixture erledigt beides über die API (siehe
  * `fixtures/auth.fixture.ts`). Die Abo-Übersicht ist seit FE-FC-05 (#338) der Abschnitt
- * «Erkannte Abos» auf dieser Seite — die bis FE-FC-07 (#355) `/fixkosten` hiess; `/abos` und
- * `/fixkosten` leiten nur noch dorthin um.
+ * «Erkannte Abos» auf dieser Seite — die bis FE-FC-09 (#360) «Ausgaben» und bis FE-FC-07 (#355)
+ * «Fixkosten» hiess; `/ausgaben`, `/abos` und `/fixkosten` leiten nur noch dorthin um.
  *
  * <p>Die Abo-Erkennung läuft synchron am Ende desselben Import-Jobs
  * (`ImportJobRunner.detectRecurringExpenses`, vor `finishSuccessfully`), ein separates Warten
@@ -42,8 +42,9 @@ test.describe('Abo-Erkennung', () => {
 
   /**
    * Dritte Monatsbuchung (August 2025) desselben Empfängers/Betrags — Nachweis, dass die
-   * Erkennung nach «Kein Abo» nicht erneut anspringt (`RecurringExpenseService`: ein bereits
-   * bekannter Empfänger wird übersprungen, unabhängig vom Status).
+   * Erkennung nach «Kein Abo» nicht erneut anspringt (`RecurringExpenseService`: ein
+   * `DISMISSED`-Empfänger bleibt ausgeschlossen; seit BE-REC-04 werden nur `DETECTED`- und
+   * `ENDED`-Zeilen neu bewertet).
    */
   const FIXTURE_PERSISTENCE = join(
     __dirname,
@@ -70,8 +71,8 @@ test.describe('Abo-Erkennung', () => {
   }) => {
     await importFixture(authenticatedContext.request, FIXTURE_DETECTION);
 
-    await page.goto('/ausgaben');
-    await expect(page.getByRole('heading', { level: 2, name: 'Erkannte Abos' })).toBeVisible();
+    await page.goto('/budget');
+    await expect(page.getByRole('heading', { level: 3, name: 'Erkannte Abos' })).toBeVisible();
 
     // AC 1: die Zeile der erkannten Gruppe — Empfänger und «seit»-Label (erster Monat der Reihe).
     const row = page.locator('li.expense').filter({ hasText: PAYEE });
@@ -93,7 +94,7 @@ test.describe('Abo-Erkennung', () => {
   }) => {
     await importFixture(authenticatedContext.request, FIXTURE_BUNDLE);
 
-    await page.goto('/ausgaben');
+    await page.goto('/budget');
     await expect(page.locator('li.expense')).toHaveCount(2);
     await expect(page.locator('li.expense .expense__new')).toHaveCount(2);
 
@@ -108,10 +109,10 @@ test.describe('Abo-Erkennung', () => {
     await expect(aboItems.first()).toContainText(`2 neue Abos erkannt: ${PAYEE_2}, ${PAYEE}`);
 
     // AC 2 (FE-NOTIF-01, unverändert): der Einzelklick liest die Benachrichtigung und führt
-    // nach /ausgaben (FE-FC-05, umbenannt in FE-FC-07). Die Abo-Benachrichtigung ist danach
-    // gelesen …
+    // nach /budget (FE-FC-05, seither umbenannt über FE-FC-07 zu FE-FC-09). Die
+    // Abo-Benachrichtigung ist danach gelesen …
     await aboItems.first().click();
-    await expect(page).toHaveURL(/\/ausgaben$/);
+    await expect(page).toHaveURL(/\/budget$/);
     await bell(page).click();
     await expect(
       page.locator('.bell-list__item:visible').filter({ hasText: /Abos? erkannt/ }),
@@ -136,7 +137,7 @@ test.describe('Abo-Erkennung', () => {
     await importFixture(authenticatedContext.request, FIXTURE_DETECTION);
     await importFixture(authenticatedContext.request, FIXTURE_BUNDLE);
 
-    await page.goto('/ausgaben');
+    await page.goto('/budget');
     await expect(page.locator('li.expense .expense__new')).toHaveCount(2);
     await expect(bell(page).locator('.bell__badge')).toHaveCount(1);
 
@@ -164,7 +165,7 @@ test.describe('Abo-Erkennung', () => {
   }) => {
     await importFixture(authenticatedContext.request, FIXTURE_DETECTION);
 
-    await page.goto('/ausgaben');
+    await page.goto('/budget');
     const row = page.locator('li.expense').filter({ hasText: PAYEE });
     await expect(row).toHaveCount(1);
 
@@ -203,27 +204,63 @@ test.describe('Abo-Erkennung', () => {
     await expect(page.locator('li.dismissed-expense').filter({ hasText: PAYEE })).toHaveCount(1);
   });
 
-  // FE-FC-05 (#338) AC 4 und FE-FC-07 (#355) AC 1: beide alten Pfade leiten auf die Seite
-  // «Ausgaben» um — Bookmarks und ältere Links landen dort, nicht über den Catch-all auf dem
-  // Dashboard. `page.goto` ist ein Hard-Load: der Server muss den alten Pfad als SPA-Shell
-  // ausliefern (Catch-all, INFRA-17) UND der Angular-Router muss ihn umleiten — der Test belegt
-  // beides in einem.
-  for (const oldPath of ['/fixkosten', '/abos']) {
-    test(`${oldPath} leitet auf /ausgaben um`, async ({ authenticatedPage: page }) => {
+  // BE-REC-05 (#368): der Rückweg aus «Kein Abo».
+  test('Reaktivieren bringt einen verneinten Eintrag zurück in die Abo-Liste, auch nach einem Reload', async ({
+    authenticatedContext,
+    authenticatedPage: page,
+  }) => {
+    await importFixture(authenticatedContext.request, FIXTURE_DETECTION);
+
+    await page.goto('/budget');
+    await page.getByRole('button', { name: `Kein Abo: ${PAYEE}` }).click();
+    const dismissedRow = page.locator('li.dismissed-expense').filter({ hasText: PAYEE });
+    await expect(dismissedRow).toHaveCount(1);
+    await expect(page.locator('li.expense').filter({ hasText: PAYEE })).toHaveCount(0);
+
+    await page.getByRole('button', { name: `Reaktivieren: ${PAYEE}` }).click();
+
+    // Kein Reload nötig: `reactivate` ersetzt den Eintrag lokal im State — die Zeile wandert
+    // sofort zurück in die Abo-Liste, ohne «Neu»-Label (BE-REC-05: keine neue Erkennung).
+    await expect(dismissedRow).toHaveCount(0);
+    const row = page.locator('li.expense').filter({ hasText: PAYEE });
+    await expect(row).toHaveCount(1);
+    await expect(row.locator('.expense__new')).toHaveCount(0);
+
+    // Neu laden: die Reaktivierung ist tatsächlich in der Datenbank angekommen, nicht nur im
+    // lokalen State ersetzt.
+    await page.reload();
+    await expect(page.locator('li.expense').filter({ hasText: PAYEE })).toHaveCount(1);
+    await expect(page.locator('li.dismissed-expense').filter({ hasText: PAYEE })).toHaveCount(0);
+  });
+
+  // FE-FC-05 (#338) AC 4, FE-FC-07 (#355) AC 1 und FE-FC-09 (#360): alle drei alten Pfade leiten
+  // auf die Budget-Seite um — Bookmarks und ältere Links landen dort, nicht über den Catch-all
+  // auf dem Dashboard. `page.goto` ist ein Hard-Load: der Server muss den alten Pfad als
+  // SPA-Shell ausliefern (Catch-all, INFRA-17) UND der Angular-Router muss ihn umleiten — der
+  // Test belegt beides in einem.
+  for (const oldPath of ['/ausgaben', '/fixkosten', '/abos']) {
+    test(`${oldPath} leitet auf /budget um`, async ({ authenticatedPage: page }) => {
       await page.goto(oldPath);
 
-      await expect(page).toHaveURL(/\/ausgaben$/);
-      await expect(page.getByRole('heading', { level: 1, name: 'Ausgaben' })).toBeVisible();
+      await expect(page).toHaveURL(/\/budget$/);
+      await expect(page.getByRole('heading', { level: 1, name: 'Budget' })).toBeVisible();
+      // `exact`: bis FE-STS-06 stand hier auch die Card «Monatliche fixe Ausgaben» (ebenfalls h2),
+      // die der Teilstring getroffen hätte. Seither liegt sie auf dem Dashboard; `exact` bleibt,
+      // damit eine künftige h2 mit «Ausgaben» im Namen den Test nicht mehrdeutig macht.
       await expect(
-        page.getByRole('heading', { level: 2, name: 'Erfasste Fixkosten' }),
+        page.getByRole('heading', { level: 2, name: 'Ausgaben', exact: true }),
       ).toBeVisible();
-      await expect(page.getByRole('heading', { level: 2, name: 'Erkannte Abos' })).toBeVisible();
+      await expect(
+        page.getByRole('heading', { level: 3, name: 'Erfasste Fixkosten' }),
+      ).toBeVisible();
+      await expect(page.getByRole('heading', { level: 3, name: 'Erkannte Abos' })).toBeVisible();
     });
   }
 
   // FE-FC-07 (#355) AC 5/6: das Total der monatlichen fixen Ausgaben ist die einfache Summe aus
-  // Fixkosten-Monatssumme und den angezeigten erkannten Abos — und ein verneintes Abo fällt
-  // sofort heraus. Fixkosten-Position über die API wie in `safe-to-spend.spec.ts`: der Wizard
+  // Fixkosten-Monatssumme und den erkannten Abos — und ein verneintes Abo fällt heraus. Seit
+  // FE-STS-06 (#366) steht die Card auf dem Dashboard und verlinkt auf die Budget-Seite, wo
+  // «Kein Abo» sitzt. Fixkosten-Position über die API wie in `safe-to-spend.spec.ts`: der Wizard
   // hat seine eigene Abdeckung (E2E-FC-01).
   test('Total summiert Fixkosten und erkannte Abos, «Kein Abo» zieht das Abo wieder ab', async ({
     authenticatedContext: context,
@@ -235,27 +272,32 @@ test.describe('Abo-Erkennung', () => {
     expect(fixedCost.status(), 'Vorbedingung: POST /api/fixed-costs').toBe(201);
     await importFixture(context.request, FIXTURE_DETECTION);
 
-    await page.goto('/ausgaben');
+    await page.goto('/dashboard');
 
     // 1200.00 + 15.90. Format der CurrencyPipe unter de-CH — U+2019 als Tausendertrenner und
     // NBSP nach «CHF», siehe die Herleitung in `fixed-cost-wizard.spec.ts`.
     const total = page.locator('.monthly-total__amount');
-    await expect(total).toHaveText(/^CHF\s1\u2019215\.90$/);
+    await expect(total).toHaveText(/^\s*CHF\s1\u2019215\.90\s*$/);
     await expect(page.locator('.monthly-total__breakdown')).toHaveText(
       /CHF\s1\u2019200\.00 Fixkosten \+ CHF\s15\.90 erkannte Abos/,
     );
 
-    await page.getByRole('button', { name: `Kein Abo: ${PAYEE}` }).click();
+    // Die ganze Card ist der Link auf die Budget-Seite, wo die erkannten Abos stehen.
+    await page.locator('a.monthly-total').click();
+    await expect(page).toHaveURL(/\/budget$/);
+    await expect(page.locator('.monthly-total')).toHaveCount(0);
 
-    // Kein Reload: das Total folgt dem State des Abo-Service, sobald der Dismiss geantwortet hat.
-    await expect(total).toHaveText(/^CHF\s1\u2019200\.00$/);
+    await page.getByRole('button', { name: `Kein Abo: ${PAYEE}` }).click();
     await expect(page.locator('li.dismissed-expense').filter({ hasText: PAYEE })).toHaveCount(1);
+
+    // Zurück auf dem Dashboard zählt das verneinte Abo nicht mehr mit.
+    await page.goto('/dashboard');
+    await expect(total).toHaveText(/^\s*CHF\s1\u2019200\.00\s*$/);
   });
 
   // Review-Befund zu #355: Das Total auszublenden, wenn ein Summand fehlt, ist richtig — die
-  // Nutzerin soll aber an der Stelle der fehlenden Zahl erfahren, warum. Die Meldung des
-  // Abo-Abschnitts selbst steht unterhalb der Fixkosten-Tabelle, also ausserhalb des ersten
-  // Bildschirms.
+  // Nutzerin soll aber an der Stelle der fehlenden Zahl erfahren, warum. Seit FE-STS-06 (#366)
+  // auf dem Dashboard, wo es sonst gar keine Meldung zum Abo-Ausfall gäbe.
   test('fällt die Abo-Liste aus, erklärt sich die Lücke an der Stelle des Totals', async ({
     authenticatedContext: context,
     authenticatedPage: page,
@@ -270,18 +312,52 @@ test.describe('Abo-Erkennung', () => {
     // Zuschnitt hält den Test auf genau einem fehlgeschlagenen Request (vgl.
     // `categorization.spec.ts`).
     await page.route('**/api/recurring-expenses', (route) =>
-      route.fulfill({ status: 500, contentType: 'application/json', body: '{}' }),
+      route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: '{}',
+      }),
     );
 
-    await page.goto('/ausgaben');
+    await page.goto('/dashboard');
 
     // Kein Total — ihm fehlt ein Summand, und 1'200.00 wäre schlicht falsch.
-    await expect(page.locator('.monthly-total')).toHaveCount(0);
     await expect(page.locator('.monthly-total__unavailable')).toHaveText(
       'Total nicht verfügbar — die erkannten Abos konnten nicht geladen werden.',
     );
+    await expect(page.locator('a.monthly-total')).toHaveCount(0);
 
-    // Die Fixkosten-Tabelle steht unbeirrt daneben: ein Ausfall nimmt nicht die ganze Seite mit.
-    await expect(page.getByRole('row').filter({ hasText: 'Miete' })).toHaveCount(1);
+    // Der Safe-to-Spend steht unbeirrt darüber: ein Ausfall nimmt nicht die ganze Seite mit.
+    await expect(page.locator('.safe-to-spend-card')).toBeVisible();
+  });
+
+  // FE-FC-08 (#356): unter 900px ist «Kein Abo» nur ein Icon, wie Bearbeiten/Löschen der
+  // Fixkosten (`fixed-cost-list-mobile.spec.ts`). Belegt Grösse, unveränderten Namen und Tooltip —
+  // und dass der Klick auch über das Icon wirkt. Review-Befund #367: der Component-Test prüft nur
+  // die Klasse, nicht die gerenderte Fläche.
+  test.describe('Smartphone, 390px', () => {
+    test.use({ viewport: { width: 390, height: 844 } });
+
+    test('«Kein Abo» als 44px-Icon-Button mit unverändertem Namen und Tooltip', async ({
+      authenticatedContext,
+      authenticatedPage: page,
+    }) => {
+      await importFixture(authenticatedContext.request, FIXTURE_DETECTION);
+      await page.goto('/budget');
+
+      const button = page.getByRole('button', { name: `Kein Abo: ${PAYEE}` });
+      await expect(button).toBeVisible();
+      await expect(button).toHaveAttribute('title', 'Kein Abo');
+      await expect(button.locator('svg')).toBeVisible();
+      const box = await button.boundingBox();
+      expect(box?.width).toBeGreaterThanOrEqual(44);
+      expect(box?.height).toBeGreaterThanOrEqual(44);
+      // Nur das Icon: ein sichtbares Label daneben machte den Button deutlich breiter.
+      expect(box?.width).toBeLessThan(48);
+
+      await button.click();
+      await expect(page.locator('li.expense').filter({ hasText: PAYEE })).toHaveCount(0);
+      await expect(page.locator('li.dismissed-expense').filter({ hasText: PAYEE })).toHaveCount(1);
+    });
   });
 });

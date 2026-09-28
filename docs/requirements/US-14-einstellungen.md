@@ -1,8 +1,8 @@
-# US-14: Passwort, Einkommen und Erscheinungsbild in Einstellungen anpassen
+# US-14: Passwort, Einkommen und Erscheinungsbild anpassen
 
 **Persona:** Marc  
 **MoSCoW:** Should  
-**Story:** Als Marc möchte ich mein Passwort, mein Einkommen und das Erscheinungsbild (hell/dunkel) in den Einstellungen anpassen können, damit ich mein Konto aktuell halte und die App so aussieht, wie ich sie gerne nutze.
+**Story:** Als Marc möchte ich mein Passwort und das Erscheinungsbild (hell/dunkel) in den Einstellungen sowie mein Einkommen auf der Budget-Seite anpassen können, damit ich mein Konto aktuell halte und die App so aussieht, wie ich sie gerne nutze.
 
 ---
 
@@ -12,9 +12,9 @@
 
 **Given** das eingegebene aktuelle Passwort ist falsch, **When** ich speichere, **Then** wird die Änderung abgelehnt mit "Aktuelles Passwort falsch".
 
-**Given** ich mein Monatseinkommen in den Einstellungen ändere, **When** ich speichere, **Then** wird der Safe-to-Spend-Betrag auf dem Dashboard sofort mit dem neuen Wert neu berechnet.
+**Given** ich mein Monatseinkommen auf der Budget-Seite ändere, **When** ich speichere, **Then** wird der Safe-to-Spend-Betrag auf dem Dashboard sofort mit dem neuen Wert neu berechnet.
 
-**Given** kein Monatseinkommen manuell erfasst ist, **When** ich die Einstellungen öffne, **Then** wird das Einkommensfeld als optional gekennzeichnet; wurde ein Einkommen automatisch geschätzt (→ US-06), erscheint der Schätzwert als Vorschlag — das Feld kann leer bleiben, wenn die automatische Schätzung verwendet werden soll.
+**Given** kein Monatseinkommen manuell erfasst ist, **When** ich die Budget-Seite öffne, **Then** wird das Einkommensfeld als optional gekennzeichnet; wurde ein Einkommen automatisch geschätzt (→ US-06), erscheint der Schätzwert als Vorschlag — das Feld kann leer bleiben, wenn die automatische Schätzung verwendet werden soll.
 
 **Given** ich bin in den Einstellungen, **When** ich unter "Erscheinungsbild" zwischen "Hell", "Dunkel" und "System" wähle, **Then** stellt sich die gesamte App sofort und ohne Reload auf das gewählte Theme um — inklusive Diagrammen, die ihre Farben neu aufbauen.
 
@@ -27,6 +27,18 @@
 ---
 
 ## Hinweise
+
+**Einkommen liegt seit FE-FC-09 (#360) auf der Budget-Seite UND im Onboarding-Wizard, nicht mehr
+in den Einstellungen:** Das Formular selbst (`PUT /users/me/income` und dessen Validierung) ist
+unverändert — nur der Ort im UI hat sich geändert. Ursprünglich (FE-SET-03) ein Abschnitt von
+[settings.html](../../frontend/src/app/settings/settings.html); seit FE-FC-09 die eigenständige
+Komponente [frontend/src/app/income/income-card.html](../../frontend/src/app/income/income-card.html),
+eingebettet sowohl auf der Budget-Seite
+([fixed-cost-list.html](../../frontend/src/app/onboarding/fixed-cost-list.html)) als auch im
+Onboarding-Wizard
+([fixed-cost-wizard.html](../../frontend/src/app/onboarding/fixed-cost-wizard.html)) — wer sein
+Einkommen schon beim ersten Einrichten kennt, muss den Wizard dafür nicht verlassen. Wie überall
+optional: leer lassen und «Später erfassen» schliesst das Onboarding trotzdem ab.
 
 **Scope-Entscheid Theme-Präferenz:** Die Wahl wird *client-only* in `localStorage` gehalten, mit `prefers-color-scheme` als Default. Damit bleibt die Erweiterung ein reines Frontend-Thema — kein Feld an `users`, keine Flyway-Migration, kein zusätzlicher Endpoint. Die geräteübergreifende Variante (Präferenz im Nutzerprofil) ist die bewusst verworfene Alternative; die Herleitung steht in [design/README.md](../../design/README.md) unter „Nutzerseitige Theme-Präferenz".
 

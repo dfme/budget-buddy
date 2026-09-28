@@ -147,16 +147,20 @@ Angular Feature-Folders analog zu den Backend-Modulen, unterhalb von `frontend/s
 frontend/
   └── src/app/
         ├── auth/          (US-01: Login/Register)
-        ├── onboarding/    (US-03: Fixkosten-Wizard und die Seite «Ausgaben» unter /ausgaben —
+        ├── onboarding/    (US-03: Fixkosten-Wizard und die Seite «Budget» unter /budget —
         │                   Fixkosten-Liste, seit FE-FC-05 mit dem eingebetteten Abschnitt
-        │                   «Erkannte Abos» aus recurring/, seit FE-FC-07 mit dem Total beider)
+        │                   «Erkannte Abos» aus recurring/, seit FE-FC-07 mit dem Total beider,
+        │                   seit FE-FC-09 mit dem eingebetteten Abschnitt «Einkommen» aus income/)
         ├── transactions/  (US-04: Upload, US-05: Kategorisierung, US-13: pro Kategorie)
         ├── dashboard/     (US-06: Safe-to-Spend, US-10: Monatsvergleich, US-12: Monatswechsel)
         ├── recurring/     (US-08: Abo-Übersicht — Komponente, Service, Model; keine eigene Route)
+        ├── income/        (US-14: Einkommen erfassen/ändern — Komponente, kein eigener State-
+        │                   Service, keine eigene Route; eingebettet in onboarding/, seit FE-FC-09
+        │                   auf der Budget-Seite UND im Onboarding-Wizard, davor in settings/)
         ├── notifications/ (US-08: Glocke mit Ungelesen-Badge in der App-Shell)
         ├── savings/       (US-07: Sparziel — geplant, noch nicht angelegt)
         ├── reports/       (US-09: KI-Monatsbericht — geplant, noch nicht angelegt)
-        ├── settings/      (US-02: Consent/Löschen, US-14: Passwort/Einkommen)
+        ├── settings/      (US-02: Consent/Löschen, US-14: Passwort/Erscheinungsbild)
         ├── styleguide/    (Dev-only Komponenten-Showcase, FE-UI-03 — nicht in der Navigation)
         ├── shared/        (domänenübergreifende UI-Komponenten, Pipes)
         └── core/          (Guards, Auth-State, HTTP-Error-Handling)

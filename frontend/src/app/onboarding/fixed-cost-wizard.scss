@@ -18,6 +18,12 @@ h1 {
   color: $c-ink-2;
 }
 
+// Zwischenüberschrift «Fixkosten» (FE-FC-09), analog «Einkommen» in `income-card.scss` — beide
+// Abschnitte auf gleicher Ebene, keiner mehr der alleinige Seitentitel.
+h2 {
+  margin: 0 0 $sp-4;
+}
+
 form {
   display: flex;
   flex-direction: column;

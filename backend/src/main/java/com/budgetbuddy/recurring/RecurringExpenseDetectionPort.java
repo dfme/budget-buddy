@@ -14,8 +14,16 @@ public interface RecurringExpenseDetectionPort {
 
     /**
      * Sucht in der gesamten Ausgaben-Historie des Users nach wiederkehrenden Ausgaben, legt für
-     * jede <em>neu</em> erkannte einen {@code DETECTED}-Eintrag an und benachrichtigt den User.
-     * Bereits bekannte oder als «Kein Abo» markierte Empfänger bleiben unberührt.
+     * jede <em>neu</em> erkannte einen Eintrag an und benachrichtigt den User.
+     *
+     * <p>Seit BE-REC-04 (#350) bewertet derselbe Lauf auch die <em>bestehenden</em> Einträge neu:
+     * Betrag und Erstmonat folgen dem jüngsten qualifizierenden Paar, und eine Reihe ohne
+     * Abbuchung in den jüngsten Monaten der Historie wird {@code ENDED} und mindert den
+     * Safe-to-Spend nicht mehr. Diese Neubewertung erzeugt keine Benachrichtigung — der
+     * «Neu»-Hinweis gilt dem Fund eines Abos, nicht seiner Preisänderung.
+     *
+     * <p>Als «Kein Abo» markierte Empfänger ({@code DISMISSED}) bleiben als einzige vollständig
+     * unberührt (US-08 AC3).
      *
      * <p>Darf eine {@link RuntimeException} werfen — der Aufrufer isoliert sie, damit ein Fehler
      * in der Erkennung den Import nicht auf {@code FAILED} setzt.

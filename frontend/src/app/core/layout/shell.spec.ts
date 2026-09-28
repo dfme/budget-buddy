@@ -40,7 +40,7 @@ describe('Shell', () => {
           { path: 'dashboard', component: RouteStub },
           { path: 'categories', component: RouteStub },
           { path: 'import', component: RouteStub },
-          { path: 'ausgaben', component: RouteStub },
+          { path: 'budget', component: RouteStub },
           { path: 'einstellungen', component: RouteStub },
           { path: 'login', component: RouteStub },
         ]),
@@ -121,13 +121,13 @@ describe('Shell', () => {
       '/dashboard',
       '/categories',
       '/import',
-      '/ausgaben',
+      '/budget',
     ]);
     expect(links.map((a) => a.textContent?.trim().replace(/\s+/g, ' '))).toEqual([
       '◎ Übersicht',
       '≡ Transaktionen',
       '↑ Import',
-      '▦ Ausgaben',
+      '▦ Budget',
     ]);
   });
 
@@ -419,7 +419,8 @@ describe('Shell', () => {
       expect(notifications.notifications()).toEqual([]);
     });
 
-    // FE-REC-01: dieselbe Regression für die Zahl in der Abo-Teaser-Card des Dashboards.
+    // FE-REC-01: dieselbe Regression für den Abo-State. Seit FE-STS-06 warten dessen Consumer auf
+    // ihren eigenen Load; der Reset bleibt als Absicherung (siehe `RecurringExpenseService.clear`).
     it('leert den Abo-State beim Abmelden', () => {
       login(LARA);
       const recurringExpenses = TestBed.inject(RecurringExpenseService);
@@ -435,12 +436,12 @@ describe('Shell', () => {
           isNew: true,
         },
       ]);
-      expect(recurringExpenses.count()).toBe(1);
+      expect(recurringExpenses.detected().length).toBe(1);
 
       query<HTMLButtonElement>('.nav__logout')!.click();
       httpMock.expectOne('/api/auth/logout').flush(null);
 
-      expect(recurringExpenses.count()).toBe(0);
+      expect(recurringExpenses.detected().length).toBe(0);
     });
 
     it('leert den Notification-State auch, wenn der Logout-Call fehlschlägt', () => {

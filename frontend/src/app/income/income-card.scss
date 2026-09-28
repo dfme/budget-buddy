@@ -1,0 +1,37 @@
+@use 'tokens' as *;
+
+:host {
+  display: block;
+}
+
+// Zwischenüberschrift ausserhalb der Card, analog «Erfasste Fixkosten» auf der Budget-Seite.
+h2 {
+  margin: 0 0 $sp-4;
+}
+
+// Der einbettende Container spendiert keinen Abstand zwischen seinen Kindern — die Card trägt
+// ihren `margin-bottom` deshalb selbst, analog `.monthly-total` auf der Budget-Seite.
+.income-card {
+  display: block;
+  margin-bottom: $sp-5;
+}
+
+.income-form {
+  display: flex;
+  flex-direction: column;
+  gap: $sp-4;
+}
+
+// Analog `.no-income` im Dashboard (FE-STS-03): Hinweis und Button untereinander, damit der
+// Übernehmen-Button nicht in der Notice-Live-Region liegt (a11y).
+.income-suggestion {
+  display: flex;
+  flex-direction: column;
+  gap: $sp-3;
+}
+
+.income-hint {
+  margin: $sp-2 0 0;
+  font-size: $fs-sm;
+  color: $c-ink-2;
+}
