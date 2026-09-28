@@ -27,6 +27,11 @@ let nextId = 0;
  * Dialog-Testfall schreiben liesse. Stattdessen `cdkTrapFocus` aus `@angular/cdk/a11y`: das ist
  * genau der in FE-UI-02 (#99) dokumentierte Zweck des CDK — eigener Variante-A-Look über
  * Tokens, a11y-harte Primitive aus der Bibliothek.
+ *
+ * <p><strong>Eingabe-Dialoge (FE-FC-10).</strong> Ein Formular im Body wird mit
+ * {@link confirmForm} zum Formular des Dialogs: die bestätigende Aktion wird dessen Submit-Button,
+ * Klick und Enter laufen beide über `ngSubmit`. Mit {@link initialFocus} `'content'` startet der
+ * Fokus im ersten Feld statt auf «Abbrechen».
  */
 @Component({
   selector: 'app-modal',
@@ -68,6 +73,31 @@ export class Modal {
    */
   readonly confirmDisabled = input(false, { transform: booleanAttribute });
 
+  /**
+   * Wo der Fokus beim Öffnen startet (FE-FC-10). `'cancel'` (Default) setzt ihn auf «Abbrechen»
+   * — richtig für einen Bestätigungsdialog, siehe `modal.html`. `'content'` lässt die Fokus-Falle
+   * das erste fokussierbare Element im Panel wählen, bei einem Eingabe-Dialog das erste Feld: dort
+   * ist Tippen die erwartete erste Handlung, und ein Enter ist durch die Validierung abgesichert.
+   */
+  readonly initialFocus = input<'cancel' | 'content'>('cancel');
+
+  /**
+   * ID eines Formulars im Body, das die bestätigende Aktion absendet (FE-FC-10) — oder `null`.
+   *
+   * <p>Gesetzt wird der Bestätigen-Button zu `type="submit"` mit `form="<id>"`. Er liegt im DOM
+   * ausserhalb des projizierten `<form>`, gehört über das `form`-Attribut aber trotzdem dazu und
+   * ist damit dessen Default-Button. Das ist die Voraussetzung dafür, dass Enter in einem Feld
+   * das Formular absendet: nach HTML-Spec gibt es diese Implicit Submission bei mehr als einem
+   * Feld nur mit einem Submit-Button. Ohne ihn funktioniert Enter nur zufällig — im Konto-löschen-
+   * Dialog der Einstellungen, weil dessen Formular ein einziges Feld hat.
+   *
+   * <p>In diesem Modus emittiert der Button **kein** {@link confirm}: der Klick löst `ngSubmit` am
+   * Formular aus, ein zusätzliches `confirm` wäre ein zweiter Submit. Ein gesperrter Button
+   * ({@link confirmDisabled}) blockiert auch das Enter — ein gesperrter Default-Button unterdrückt
+   * die Implicit Submission.
+   */
+  readonly confirmForm = input<string | null>(null);
+
   /** Der User hat die Aktion bestätigt. */
   readonly confirm = output<void>();
 
@@ -76,4 +106,11 @@ export class Modal {
 
   /** ID des Titels für `aria-labelledby`. */
   readonly titleId = `modal-title-${nextId++}`;
+
+  /** Klick auf die bestätigende Aktion — mit {@link confirmForm} übernimmt das Formular. */
+  onConfirmClick(): void {
+    if (this.confirmForm() === null) {
+      this.confirm.emit();
+    }
+  }
 }
