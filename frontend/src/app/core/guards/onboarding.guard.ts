@@ -22,9 +22,8 @@ import { AuthService } from '../../auth/auth.service';
  * davon, wer zuerst fertig ist.
  *
  * <p>Bewusst <em>nicht</em> an `/onboarding` selbst gehängt: das wäre eine Endlosschleife.
- * Die Route bleibt umgekehrt auch nach abgeschlossenem Onboarding per Direkt-Link
- * erreichbar — solange die Fixkosten-Liste (FE-FC-03, #26) fehlt, ist der Wizard der
- * einzige Weg, später eine Position nachzutragen.
+ * Die Gegenrichtung — ein onboardeter User ruft den Wizard per Direkt-Link auf — deckt
+ * {@link onboardingPendingGuard} ab.
  */
 export const onboardingGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
@@ -37,4 +36,26 @@ export const onboardingGuard: CanActivateFn = () => {
         user === null || user.onboardingCompleted ? true : router.createUrlTree(['/onboarding']),
       ),
     );
+};
+
+/**
+ * Sperrt den Wizard, sobald das Onboarding abgeschlossen ist (FE-FC-12, #375) — die Umkehrung
+ * von {@link onboardingGuard}, darum an `/onboarding` statt an den übrigen Routes.
+ *
+ * <p>Ein onboardeter User wird auf `/budget` umgeleitet. Nachträgliche Änderungen an den
+ * Fixkosten laufen dort über `FixedCostList`, die seit FE-FC-10 (#372) auch neue Positionen im
+ * Overlay-Dialog anlegt. Ein zweiter Weg über den Wizard wäre nicht nur doppelt, sondern würde
+ * am Ende auch `finishOnboarding()` erneut anbieten, das für diesen User nicht mehr gedacht ist.
+ *
+ * <p>Anonyme Nutzer und solche mit offenem Onboarding lässt der Guard durch. Den Anonymfall
+ * entscheidet wie beim {@link onboardingGuard} der {@link authGuard} im selben
+ * `canActivate`-Array, ohne dass es auf die Ausführungsreihenfolge ankäme.
+ */
+export const onboardingPendingGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+
+  return auth
+    .ensureCurrentUser()
+    .pipe(map((user) => (user?.onboardingCompleted ? router.createUrlTree(['/budget']) : true)));
 };

@@ -108,8 +108,8 @@ Test durchs Login-Formular zu klicken — womit ein Bug im Auth-UI die halbe Sui
 ```ts
 import { expect, test } from '../fixtures/auth.fixture';
 
-test('Fixkosten-Wizard speichert einen Posten', async ({ authenticatedPage }) => {
-  await authenticatedPage.goto('/onboarding');
+test('Budget-Seite zeigt die Fixkosten', async ({ authenticatedPage }) => {
+  await authenticatedPage.goto('/budget');
   // … die Session steht schon
 });
 ```
@@ -119,8 +119,9 @@ zugehörige BrowserContext, z. B. für `context.cookies()`) und `testUser` (die 
 Credentials).
 
 Daneben gibt es seit E2E-FC-02 `freshUserPage` und `freshUserContext`: registriert, aber **ohne**
-abgeschlossenes Onboarding. Sie sind für genau einen Fall da — den Onboarding-Abschluss selbst.
-`authenticatedPage` ruft `onboarding-complete` unbedingt, der Übergang `false → true` ist über sie
+abgeschlossenes Onboarding. Sie sind für die Fälle da, die ein offenes Onboarding brauchen: den
+Onboarding-Abschluss selbst und den Wizard unter `/onboarding`, den der `onboardingPendingGuard`
+seit FE-FC-12 für onboardete User auf `/budget` umleitet. `authenticatedPage` ruft `onboarding-complete` unbedingt, der Übergang `false → true` ist über sie
 also prinzipiell nicht beobachtbar. Für alles andere bleibt `authenticatedPage` der Einstieg: Wer
 `freshUserPage` nimmt, wird vom `onboardingGuard` bei jeder geschützten Route in den Wizard
 zurückgeworfen. Beide dürfen nicht im selben Test stehen — sie teilen sich einen Cookie-Jar.

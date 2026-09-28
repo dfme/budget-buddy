@@ -2,7 +2,7 @@ import { Routes } from '@angular/router';
 
 import { authGuard } from './core/guards/auth.guard';
 import { devOnlyGuard } from './core/guards/dev-only.guard';
-import { onboardingGuard } from './core/guards/onboarding.guard';
+import { onboardingGuard, onboardingPendingGuard } from './core/guards/onboarding.guard';
 
 /**
  * Platzhalter-Routes für das Skeleton. Feature-Routes werden mit den jeweiligen
@@ -69,9 +69,11 @@ export const routes: Routes = [
     loadComponent: () => import('./settings/settings').then((m) => m.Settings),
   },
   {
-    // Ohne `onboardingGuard` — das Ziel der Umleitung darf sich nicht selbst umleiten.
+    // Ohne `onboardingGuard` — das Ziel der Umleitung darf sich nicht selbst umleiten. Die
+    // Gegenrichtung übernimmt `onboardingPendingGuard` (FE-FC-12): wer schon onboardet ist,
+    // bearbeitet seine Fixkosten unter /budget und kommt nicht mehr in den Wizard.
     path: 'onboarding',
-    canActivate: [authGuard],
+    canActivate: [authGuard, onboardingPendingGuard],
     loadComponent: () => import('./onboarding/fixed-cost-wizard').then((m) => m.FixedCostWizard),
   },
   {
