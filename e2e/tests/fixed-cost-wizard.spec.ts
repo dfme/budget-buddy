@@ -21,7 +21,7 @@ async function completeOnboarding(page: Page): Promise<void> {
  * Redirect des `onboardingGuard`; der ist in `auth.spec.ts` für Registrierung und Login schon
  * doppelt belegt.
  *
- * Für die Gegenprobe in der Liste unter `/budget` schliesst {@link completeOnboarding} das
+ * Für die Gegenprobe in der Tabelle unter `/budget` schliesst {@link completeOnboarding} das
  * Onboarding per API ab — mit offenem Onboarding würde der `onboardingGuard` die Navigation
  * dorthin zurück in den Wizard werfen. Der Abschluss über den Wizard-Button selbst ist Sache von
  * `onboarding-completion.spec.ts` (E2E-FC-02).
@@ -61,36 +61,36 @@ test.describe('Fixkosten-Wizard', () => {
     await page.goto('/onboarding');
     await expect(page.getByRole('heading', { name: 'Budget', exact: true })).toBeVisible();
 
-    // Über die Labels statt über IDs: `app-field` verknüpft `<label for>` mit der projizierten
-    // Eingabe, das ist derselbe Weg, den ein Screenreader-Nutzer nimmt.
-    await page.getByLabel('Bezeichnung').fill(POSITION.bezeichnung);
-    await page.getByLabel('Betrag (CHF)').fill(POSITION.betrag);
-    await page.getByLabel('Intervall').selectOption(POSITION.intervall);
-    await page.getByRole('button', { name: 'Fixkosten speichern' }).click();
+    // Seit FE-FC-13 (#376) dasselbe Muster wie auf /budget: kein Inline-Formular mehr, sondern
+    // «+ Neue Position» öffnet den Dialog. Die Felder werden im Dialog gesucht — über die Labels
+    // statt über IDs: `app-field` verknüpft `<label for>` mit der projizierten Eingabe, das ist
+    // derselbe Weg, den ein Screenreader-Nutzer nimmt.
+    await page.getByRole('button', { name: '+ Neue Position' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Neue Position' });
+    await dialog.getByLabel('Bezeichnung').fill(POSITION.bezeichnung);
+    await dialog.getByLabel('Betrag (CHF)').fill(POSITION.betrag);
+    await dialog.getByLabel('Intervall').selectOption(POSITION.intervall);
+    await dialog.getByRole('button', { name: 'Speichern' }).click();
+    await expect(dialog).toBeHidden();
 
-    // Der Erfolg meldet sich als `variant="info"` und damit höflich (role="status") — eine
-    // gespeicherte Position soll den Screenreader nicht unterbrechen (`notice.ts`). `variant` ist
-    // ein Angular-Input und im DOM unsichtbar; geprüft werden seine beiden Abdrücke.
-    const success = page.locator('app-notice.notice--info[role="status"]');
-    // Der Text wird am `.notice__body` geprüft, nicht am Host: app-notice rendert seit
-    // FE-UI-07 ein eigenes Icon, das in den textContent des Hosts mit einflösse.
-    const successText = success.locator('.notice__body');
-    await expect(success).toBeVisible();
-    await expect(successText).toHaveText(`«${POSITION.bezeichnung}» wurde gespeichert.`);
+    // Die Position steht sofort in der Tabelle des Wizards — ohne Seitenwechsel. Zellen einzeln
+    // statt als Zeilentext: nur so ist belegt, dass der Betrag pro Intervall und der
+    // Monatsbetrag an den *richtigen* Stellen stehen und nicht bloss irgendwo in der Zeile. Seit
+    // FE-FC-08 (#356) drei Spalten: Betrag und Intervall stehen als Unterzeile in der
+    // Bezeichnungs-Zelle, der Monatsbetrag in der zweiten.
+    await expect(page).toHaveURL(/\/onboarding$/);
+    const wizardRow = page.getByRole('row').filter({ hasText: POSITION.bezeichnung });
+    await expect(wizardRow).toHaveCount(1);
+    await expect(wizardRow.getByRole('cell').nth(0).locator('.subline')).toHaveText(UNTERZEILE);
+    await expect(wizardRow.getByRole('cell').nth(1)).toHaveText(MONATSBETRAG);
 
-    // Gegenprobe zur Erfolgsmeldung: die trägt nur die Bezeichnung aus der HTTP-Response. Dass die
-    // Position wirklich persistiert ist und über einen zweiten Endpoint wieder herauskommt, zeigt
-    // erst die Liste.
+    // Gegenprobe über eine zweite Seite: die Tabelle im Wizard lädt zwar selbst per GET neu,
+    // aber erst ein frischer Seitenaufbau schliesst aus, dass sie bloss lokalen Zustand zeigt.
     await completeOnboarding(page);
     await page.goto('/budget');
 
     const row = page.getByRole('row').filter({ hasText: POSITION.bezeichnung });
     await expect(row).toHaveCount(1);
-
-    // Zellen einzeln statt als Zeilentext: nur so ist belegt, dass der Betrag pro Intervall und
-    // der Monatsbetrag an den *richtigen* Stellen stehen und nicht bloss irgendwo in der Zeile.
-    // Seit FE-FC-08 (#356) drei Spalten: Betrag und Intervall stehen als Unterzeile in der
-    // Bezeichnungs-Zelle, der Monatsbetrag in der zweiten.
     await expect(row.getByRole('cell').nth(0).locator('.subline')).toHaveText(UNTERZEILE);
     await expect(row.getByRole('cell').nth(1)).toHaveText(MONATSBETRAG);
   });
@@ -100,42 +100,38 @@ test.describe('Fixkosten-Wizard', () => {
   }) => {
     await page.goto('/onboarding');
 
-    // FE-FC-09 (#360): der Button ist bis zur Gültigkeit deaktiviert — dasselbe Muster wie bei
-    // der eingebetteten Einkommens-Card. Ein Klick auf das leere Formular ist deshalb kein Weg
-    // mehr, die Feldfehler auszulösen; sie erscheinen beim Verlassen des jeweiligen Felds
-    // (blur), einzeln statt gesammelt per `markAllAsTouched()`.
-    const submitButton = page.getByRole('button', { name: 'Fixkosten speichern' });
-    await expect(submitButton).toBeDisabled();
+    // Seit FE-FC-13 (#376) im Dialog «Neue Position». Anders als das frühere Inline-Formular
+    // sperrt der Dialog «Speichern» nicht bis zur Gültigkeit (FE-FC-10): der Klick auf das leere
+    // Formular zeigt beide Feldfehler gesammelt und lässt den Dialog offen.
+    await page.getByRole('button', { name: '+ Neue Position' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Neue Position' });
+    const saveButton = dialog.getByRole('button', { name: 'Speichern' });
+    await saveButton.click();
 
-    await page.getByLabel('Bezeichnung').focus();
-    await page.getByLabel('Betrag (CHF)').focus(); // blurt Bezeichnung
-    await page.getByLabel('Intervall').focus(); // blurt Betrag
-
-    await expect(page.locator('p.field__error')).toHaveText([
+    await expect(dialog.locator('p.field__error')).toHaveText([
       'Bezeichnung ist erforderlich.',
       'Betrag ist erforderlich.',
     ]);
-    await expect(submitButton).toBeDisabled();
+    await expect(dialog).toBeVisible();
 
     // Zweite Variante aus dem AC-Wortlaut («Pflichtfeld leer bzw. ungültiger Betrag»): ein Betrag
     // mit drei Nachkommastellen. Ohne `maxTwoDecimals` liefe er bis in den Request und würde in
     // DECIMAL(10,2) still gerundet — stilles Runden ist bei Geld die unangenehme Variante.
-    await page.getByLabel('Bezeichnung').fill('Handy');
-    await page.getByLabel('Betrag (CHF)').fill('10.999');
-    await page.getByLabel('Intervall').focus(); // blurt Betrag erneut mit dem neuen Wert
+    await dialog.getByLabel('Bezeichnung').fill('Handy');
+    await dialog.getByLabel('Betrag (CHF)').fill('10.999');
+    await saveButton.click();
 
-    await expect(page.locator('p.field__error')).toHaveText([
+    await expect(dialog.locator('p.field__error')).toHaveText([
       'Betrag darf höchstens zwei Nachkommastellen haben.',
     ]);
-    await expect(submitButton).toBeDisabled();
+    await expect(dialog).toBeVisible();
 
-    // Kein Erfolgszustand daneben, und kein Wizard-Abschluss: die URL bleibt der Wizard — die für
-    // den Nutzer sichtbare Bedeutung ist, dass ihn nichts aufs Dashboard trägt.
-    await expect(page.locator('app-notice.notice--info')).toHaveCount(0);
+    // Kein Wizard-Abschluss: die URL bleibt der Wizard — die für den Nutzer sichtbare Bedeutung
+    // ist, dass ihn nichts aufs Dashboard trägt.
     await expect(page).toHaveURL(/\/onboarding$/);
 
-    // Und der eigentliche Beleg für «kein Speichern»: die Liste ist leer. Dass im Formular keine
-    // Erfolgsmeldung steht, zeigt das nicht — ein Request könnte trotzdem rausgegangen sein.
+    // Und der eigentliche Beleg für «kein Speichern»: die Liste ist leer. Dass der Dialog offen
+    // bleibt, zeigt das nicht — ein Request könnte trotzdem rausgegangen sein.
     await completeOnboarding(page);
     await page.goto('/budget');
     await expect(page.getByText('Noch keine Fixkosten erfasst.')).toBeVisible();

@@ -83,7 +83,7 @@ die im JAR gebündelte SPA aus«) schlägt dann als Einziger fehl und nennt gena
 | --- | --- |
 | `tests/auth.spec.ts` | Register → Login → Dashboard → Logout, Cookie-Flags, Fehlerpfad (ohne Cookie, falsche Credentials) |
 | `tests/spa-routing.spec.ts` | Deep-Link-Status-Codes des Artefakts (SPA offen, API geschützt) |
-| `tests/fixed-cost-wizard.spec.ts` | Fixkosten-Wizard (US-03): Happy Path bis in die Liste, Fehlerpfad mit Validierung |
+| `tests/fixed-cost-wizard.spec.ts` | Fixkosten-Wizard (US-03): Happy Path über den Dialog «Neue Position» bis in die Tabelle des Wizards, Gegenprobe auf `/budget`; Fehlerpfad mit Validierung im Dialog |
 | `tests/onboarding-completion.spec.ts` | Onboarding-Abschluss (US-03): beide Wege aus dem Wizard aufs Dashboard, mit Gegenprobe über einen Reload |
 | `tests/pdf-import.spec.ts` | PDF-Upload (US-04): Happy Path mit Anzahl-Meldung, Weg über die Glocke zurück zur Übersicht (FE-NOTIF-05), Fehlerpfad mit unlesbarem PDF |
 | `tests/categorization.spec.ts` | Kategorisierung (US-05): Happy Path mit Korrektur über einen Reload, Fehlerpfad mit 500 auf dem Korrektur-PUT |
@@ -155,7 +155,7 @@ Auth-Flow als Verifikation der Harness selbst. Abgedeckt sind inzwischen **alle 
 (`categorization.spec.ts`, E2E-CAT-01) und US-06 (`safe-to-spend.spec.ts`, E2E-STS-01).
 
 Über dieses Minimum hinaus deckt `onboarding-completion.spec.ts` (E2E-FC-02) die beiden Wege ab,
-auf denen US-03 den Wizard verlassen lässt — «Keine Fixkosten» und «mindestens ein Eintrag». Ein
+auf denen US-03 den Wizard verlassen lässt — «Später erfassen» und «mindestens ein Eintrag». Ein
 Happy Path und ein Fehlerpfad sind die Untergrenze pro Story, nicht die Obergrenze.
 
 Dazu kommt `month-switch.spec.ts` (E2E-STS-02) für die Should-Have-Story US-12. Sie steht

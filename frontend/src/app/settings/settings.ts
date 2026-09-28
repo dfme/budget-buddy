@@ -88,7 +88,7 @@ export class Settings {
     }
 
     // Beide Meldungen zurücksetzen: sonst stünde nach einem zweiten Versuch die alte
-    // Erfolgsmeldung neben dem laufenden Request (analog fixed-cost-wizard.ts).
+    // Erfolgsmeldung neben dem laufenden Request (analog income-card.ts).
     this.passwordSaved.set(false);
     this.passwordErrorMessage.set(null);
     this.passwordSubmitting.set(true);
