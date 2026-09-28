@@ -3,12 +3,15 @@
 **Für:** Sergio, Vortragende:r Bereich 3 (Demo) der
 [Abschlusspräsentation](../presentations/abschlusspraesentation.md) — Jason (Bereich 1,
 Architektur) und Daniel (Bereich 2, Methodik) reden vor dir, insgesamt 30 Minuten, dein Anteil
-ca. 10 Minuten (B30–B34), fest eingeplant, nicht wie bei der Testpräsentation verkürzt.
+**ca. 11–12 Minuten** (B30–B34 plus **B32b**, neu) — im Team abgesprochen, dass Bereich 3
+gegenüber den ursprünglich geplanten 10 Minuten um **maximal 2 Minuten** wachsen darf, damit die
+Aboerkennung Platz hat (siehe B32b unten); nicht so verkürzt wie bei der Testpräsentation.
 **Wann:** Termin gemäss Kursplan (im Team noch zu bestätigen, siehe „Offene Punkte" unten).
 **Ziel:** Der volle Flow, nicht die verkürzte Fassung — Live-Registrierung + Onboarding
-(B30), PDF-Import (B31), Kategorisierung + 1 Korrektur (B32), Safe-to-Spend (B33),
-**Konto löschen** (B34). Anders als die [Testpräsentation](testpraesentation-playbook.md):
-`lara@demo.bb` existiert zu Beginn **nicht** und wird live angelegt, nicht vorher geseedet.
+(B30), PDF-Import (B31), Kategorisierung + 1 Korrektur (B32), **zweiter Import + automatische
+Aboerkennung (B32b, neu)**, Safe-to-Spend (B33), **Konto löschen** (B34). Anders als die
+[Testpräsentation](testpraesentation-playbook.md): `lara@demo.bb` existiert zu Beginn **nicht**
+und wird live angelegt, nicht vorher geseedet.
 
 Dieses Playbook übernimmt den B30–B34-Ablauf aus
 [abschlusspraesentation.md](../presentations/abschlusspraesentation.md#bereich-3--demo--10-min),
@@ -62,24 +65,29 @@ nochmal prüfen, nicht nur verlassen auf den einen Request 12 Minuten vorher.
       ohnehin schon separat gepflegt wird.)
 - [ ] `ANTHROPIC_API_KEY` auf der deployten Instanz gesetzt — sonst zeigt B32 nur Lookup +
       pauschal „Sonstiges" statt der echten Mischung.
-- [ ] September-Kontoauszug für Lara vorhanden:
-      [`docs/demo/statements/PostFinance_Kontoauszug_Lara_2026-09.pdf`](statements/PostFinance_Kontoauszug_Lara_2026-09.pdf)
-      lokal gesichert (derselbe, der schon für die Testpräsentation genutzt wurde).
-      **Nur relevant, falls die Präsentation noch im September 2026 stattfindet** —
-      `SafeToSpendService` rechnet ausschliesslich für den laufenden Monat
+- [ ] **Zwei** Kontoauszüge für Lara lokal gesichert, nicht nur einer:
+      [`PostFinance_Kontoauszug_Lara_2026-09.pdf`](statements/PostFinance_Kontoauszug_Lara_2026-09.pdf)
+      für B31 (derselbe, der schon für die Testpräsentation genutzt wurde) **und**
+      [`PostFinance_Kontoauszug_Lara_2026-08.pdf`](statements/PostFinance_Kontoauszug_Lara_2026-08.pdf)
+      für B32b (Aboerkennung braucht zwei aufeinanderfolgende Kalendermonate mit demselben
+      Empfänger, siehe B32b unten). **Nur relevant, falls die Präsentation noch im September 2026
+      stattfindet** — `SafeToSpendService` rechnet ausschliesslich für den laufenden Monat
       ([docs/demo/README.md](README.md#vor-der-präsentation-neu-generieren)); fällt der Termin in
-      den Oktober, vorher `generate_demo_statements.py` neu laufen lassen und einen frischen
-      Oktober-Auszug für Lara vorbereiten.
+      den Oktober, vorher `generate_demo_statements.py` neu laufen lassen und frische Auszüge für
+      September **und** Oktober für Lara vorbereiten (die beiden dann jeweils als „laufender
+      Monat" und „Vormonat" für B31/B32b verwenden).
 - [ ] Laras Passwort im Team vereinbart, im Passwortmanager griffbereit (nicht live tippen).
-- [ ] Laras Zahlen bereit, um sie beim Onboarding ohne Nachschlagen einzutippen:
+- [ ] Laras Zahlen bereit, um sie beim Onboarding ohne Nachschlagen einzutippen — Einkommen
+      **und** Fixkosten werden auf derselben `/onboarding`-Seite erfasst, kein Umweg über
+      Einstellungen nötig (seit FE-FC-09 liegt die Einkommens-Card direkt im Onboarding):
 
-  | Bezeichnung | Betrag | Intervall |
+  | Feld | Wert | Intervall |
   | --- | --- | --- |
+  | Monatseinkommen | 1'900.– | — |
   | WG-Zimmer Länggasse | 650.– | monatlich |
   | Krankenkasse CSS | 180.– | monatlich |
   | Handy Salt | 25.– | monatlich |
   | Semestergebühr Uni Bern | 1'500.– | jährlich |
-  | *(Einkommen, separat in Einstellungen)* | 1'900.– | — |
 
 - [ ] Kurz geprüft, dass `feature/abschlusspraesentation` (Foliengrundlage) auf dem Stand von
       `main` ist — betrifft nur die Folien/Inhalte von Bereich 1/2, nicht die Demo selbst (die
@@ -105,11 +113,15 @@ nochmal prüfen, nicht nur verlassen auf den einen Request 12 Minuten vorher.
 
 | Nr | Min | Screen |
 | --- | --- | --- |
-| B30 | 0:00–2:00 | `/register` → `/onboarding` → `/dashboard` → `/einstellungen` |
+| B30 | 0:00–2:00 | `/register` → `/onboarding` → `/dashboard` |
 | B31 | 2:00–4:00 | `/import` |
 | B32 | 4:00–6:00 | `/import` (gleiche Seite) |
-| B33 | 6:00–7:00 | `/dashboard` |
-| B34 | 7:00–9:00 | `/einstellungen` |
+| B32b | 6:00–8:00 | `/import` → Glocke → `/budget` |
+| B33 | 8:00–9:00 | `/dashboard` |
+| B34 | 9:00–11:00 | `/einstellungen` |
+
+11 von maximal 12 Minuten verplant (1 Minute Puffer) — die ursprünglichen Zeiten für B30–B34
+bleiben unverändert, B32b kommt als eigener Block dazwischen.
 
 ### B30 — Registrierung + Onboarding (0:00–2:00)
 
@@ -119,26 +131,33 @@ nochmal prüfen, nicht nur verlassen auf den einen Request 12 Minuten vorher.
    (optional)" kannst du auslassen — für die Demo nicht nötig. Button „Konto erstellen" klicken.
 2. Die App setzt direkt ein JWT-Cookie (Auto-Login) und leitet automatisch auf `/onboarding`
    weiter — kein separater Login-Schritt.
-3. Onboarding-Seite (H1 „Fixkosten erfassen") ist ein Ein-Item-pro-Schritt-Formular: Felder
-   „Bezeichnung", „Betrag (CHF)", „Intervall". Die vier Positionen aus der Tabelle oben
-   nacheinander eintippen. Nach der letzten Position „Fertig — weiter zum Dashboard" klicken.
-4. Auf `/dashboard` erscheint der Hinweis „Kein Einkommen erfasst" / „Bitte erfasse dein
-   Monatseinkommen in den Einstellungen" — über die Navigation (Account-Menü) zu
-   „Einstellungen" (`/einstellungen`), im Feld „Monatseinkommen (CHF)" `1900` eintragen und
-   speichern.
-5. Zurück auf `/dashboard` — die Safe-to-Spend-Card zeigt jetzt einen Betrag (noch ohne den
-   September-Import, nur aus Fixkosten/Einkommen).
+3. Onboarding-Seite (H1 „Budget") zeigt **Einkommen und Fixkosten auf derselben Seite** — seit
+   FE-FC-09 keine getrennten Schritte mehr, kein Umweg über Einstellungen nötig:
+   - Card „Einkommen": Feld „Monatseinkommen (CHF)" → `1900`, Button „Einkommen speichern".
+   - Darunter „Fixkosten": Felder „Bezeichnung" / „Betrag (CHF)" / „Intervall", Button
+     „Fixkosten speichern" — die vier Positionen aus der Tabelle oben nacheinander eintippen und
+     je einzeln speichern.
+4. Nach der letzten Fixkosten-Position „Fertig — weiter zum Dashboard" klicken (Button heisst nur
+   dann so, wenn schon Daten erfasst wurden — sonst „Später erfassen — weiter zum Dashboard").
+5. Auf `/dashboard` zeigt die Safe-to-Spend-Card sofort einen Betrag — der
+   „Kein Einkommen erfasst"-Banner erscheint in diesem Ablauf gar nicht, weil das Einkommen
+   bereits im Onboarding gesetzt wurde.
 
 **Sagst du (sinngemäss):**
 
 > „Das ist Lara — 22, Studentin in Bern, eine unserer zwei Personas. Wir registrieren sie hier
 > live, öffentlich, über genau denselben Endpoint, den jede echte Nutzerin auch durchläuft."
 > *(Registrierung abschicken)* „Kein separater Login danach — das Konto setzt direkt ein
-> JWT-Cookie." *(Onboarding, Fixkosten eintippen)* „WG-Zimmer, Krankenkasse, Handy, anteilig die
-> Semestergebühr — Laras Fixkosten." *(Dashboard, Banner zeigen)* „Ohne Einkommen kann die App
-> noch nichts ausrechnen, das sagt sie auch klar." *(Einkommen setzen)* „1'900 Franken — und
-> jetzt haben wir die Basis für das, was BudgetBuddy eigentlich ausmacht: was passiert mit den
-> echten Ausgaben."
+> JWT-Cookie." *(Onboarding, Einkommen eintippen)* „Ihr Einkommen — 1'900 Franken." *(Fixkosten
+> eintippen)* „Und ihre Fixkosten: WG-Zimmer, Krankenkasse, Handy, anteilig die
+> Semestergebühr. Beides auf einer Seite, weil beides gleichermassen in den Safe-to-Spend
+> einfliesst." *(Dashboard zeigen)* „Und schon steht ein erster Betrag — noch ohne die echten
+> Ausgaben. Genau die holen wir jetzt rein."
+
+**Hinweis für die Foliengrundlage:** [abschlusspraesentation.md](../presentations/abschlusspraesentation.md)
+beschreibt B30 noch mit dem alten Ablauf (Fixkosten-Wizard → Dashboard-Banner → Einkommen separat
+in den Einstellungen) — das ist seit FE-FC-09 überholt. Falls Bereich 1/2 Screenshots oder
+Formulierungen davon übernehmen, dem Team den neuen Ablauf hier zeigen.
 
 **Zeitdruck-Ventil:** Läuft die Zeitprobe hier über 2 Minuten, eher auf 1–2 Fixkosten-Positionen
 kürzen (z. B. nur WG-Zimmer + CSS) als B30 ganz zu streichen — das Team hat diesen Schritt bewusst
@@ -193,15 +212,60 @@ die App."
 
 ---
 
-### B33 — Safe-to-Spend (6:00–7:00)
+### B32b — Zweiter Import + Aboerkennung (6:00–8:00, neu)
+
+**Warum hier und nicht in B31/B32:** Die Aboerkennung braucht zwei aufeinanderfolgende
+Kalendermonate mit demselben Empfänger und einem Betrag innerhalb ±2% Toleranz — mit nur einem
+Import (B31) hat noch nichts zwei Treffer. Ein eigener Block hält B31 (Import-Mechanik/Async) und
+B32 (Kategorisierung/Korrektur) sauber bei ihrem jeweiligen Punkt, statt einen dritten Punkt dort
+hineinzumischen. Vor B33 platziert, weil `SafeToSpendService` nur den laufenden Monat
+(September) rechnet — der zusätzliche August-Import verändert die Safe-to-Spend-Zahl in B33
+nicht, es gibt also keine verwirrende Zahlenänderung direkt vor dem Finale.
+
+**Tust du:**
+1. Auf `/import` bleiben (oder erneut dorthin), zweite Datei hochladen:
+   `PostFinance_Kontoauszug_Lara_2026-08.pdf`. Läuft wie in B31 (kurz „Kontoauszug wird
+   gelesen …", Fortschrittsbalken, Erfolgsmeldung „N Transaktionen erkannt.") — die
+   Async-Erklärung aus B31 hier nicht wiederholen.
+2. Die Aboerkennung läuft automatisch am Ende desselben Import-Jobs, noch bevor der Import als
+   fertig gemeldet wird — kein zusätzliches Warten nötig über den normalen Import-Fortschritt
+   hinaus.
+3. Sobald der Import fertig ist, zeigt die Benachrichtigungsglocke (Sidebar/Topbar, auf jeder
+   Seite sichtbar) ein neues ungelesenes Badge — kurz draufzeigen, Dropdown öffnen: Text „N neues
+   Abo erkannt: …" bzw. „N neue Abos erkannt: …" mit den Empfängernamen.
+4. Über die Navigation zu „Budget" (`/budget`) wechseln, zum Abschnitt „Erkannte Abos" scrollen.
+   Vier Positionen tragen jetzt ein „Neu"-Tag neben der „seit …"-Angabe (so lange die
+   zugehörige Benachrichtigung ungelesen ist): „WG LAENGGASSE 42" (Miete), „CSS VERSICHERUNG AG",
+   „SALT MOBILE SA" — und, als eigentliche Pointe, **„SPOTIFY AB" (12.90)**. Auf die Spotify-Zeile
+   zeigen: die steht **nicht** in Laras Fixkosten aus B30.
+
+**Sagst du:**
+
+> „Noch ein zweiter Kontoauszug — der von August. Der zeigt eine weitere Fähigkeit: Taucht
+> derselbe Empfänger in zwei aufeinanderfolgenden Monaten mit ähnlichem Betrag auf, erkennt
+> BudgetBuddy das automatisch als Abo, ganz ohne dass Lara das irgendwo einträgt." *(auf die
+> Glocke zeigen)* „Hier — vier neue Hinweise." *(zu Budget wechseln, „Erkannte Abos" zeigen)*
+> „Miete, Krankenkasse, Handy-Abo — die kennt Lara zwar schon aus ihren eigenen Fixkosten, die
+> App findet sie hier unabhängig davon in den echten Kontobewegungen wieder. Aber hier" *(auf
+> Spotify zeigen)* „— Spotify hat sie nirgends eingetragen. Das findet die App ganz von selbst,
+> allein daraus, dass derselbe Betrag zwei Monate in Folge abgebucht wurde."
+
+**Falls die Erkennung aus irgendeinem Grund nicht sofort sichtbar ist:** `/budget` einmal neu
+laden (F5) — die Anzeige liest beim Laden aus der DB, ein hängender Zustand ist unwahrscheinlich,
+da die Erkennung synchron vor dem „fertig" des Import-Jobs läuft.
+
+---
+
+### B33 — Safe-to-Spend (8:00–9:00)
 
 **Tust du:**
 1. Über die Navigation zurück auf „Übersicht" (`/dashboard`).
 2. Safe-to-Spend-Card zeigen — der Betrag hat sich gegenüber B30 verändert (September-Import
-   jetzt eingerechnet).
+   jetzt eingerechnet; der zusätzliche August-Import aus B32b wirkt sich auf diese Zahl nicht
+   aus, da nur der laufende Monat gerechnet wird).
 3. Optional, falls Zeit bleibt: Drei-Monats-Tabelle darunter („Drei Monate bis …", Spalten
-   Monat/Einnahmen/Ausgaben/Differenz) — bei Lara zeigt sie nur den aktuellen Monat mit Daten,
-   die übrigen sauber mit „–" statt „0.00".
+   Monat/Einnahmen/Ausgaben/Differenz) — zeigt dank B32b jetzt auch für August echte Zahlen statt
+   „–".
 
 **Sagst du:**
 
@@ -214,7 +278,7 @@ die App."
 
 ---
 
-### B34 — Konto löschen (7:00–9:00)
+### B34 — Konto löschen (9:00–11:00)
 
 **Tust du:**
 1. Über das Account-Menü zu „Einstellungen" (`/einstellungen`), zur Card „Konto löschen"
@@ -238,11 +302,12 @@ danach wieder frei für den nächsten Durchlauf (Zeitprobe, Aufzeichnung, o. Ä.
 Zurücksetzen nötig. Nur ein abgebrochener Testlauf, der B34 nicht erreicht, braucht das manuelle
 Zurücksetzen aus Abschnitt 2.
 
-**Falls Zeit übrig bleibt (kein fester Puffer-Slot, siehe unten):** die „Erkannte Abos"-Sektion
-auf `/ausgaben` zeigen — **es gibt keine eigene `/abos`-Seite mehr**, `/abos` leitet inzwischen
-auf `/ausgaben` um; Abos erscheinen dort als Abschnitt unterhalb der Fixkosten-Tabelle. Das
-Konto ist dann aber schon gelöscht (B34 war der letzte Schritt) — Puffer-Feature also **vor**
-B34 einschieben, falls überhaupt, nicht danach.
+**Falls Zeit übrig bleibt (kein fester Puffer-Slot, siehe unten):** auf `/budget` (vor B34, das
+Konto ist danach gelöscht) den „Kein Abo"-Button einer der in B32b gezeigten Zeilen zeigen — die
+Zeile wandert in eine eigene Card „Kein Abo" darunter und lässt sich von dort per „Reaktivieren"
+zurückholen. Zeigt, dass die Erkennung korrigierbar ist, nicht nur automatisch. (Die frühere
+Idee, hier erstmals „Erkannte Abos" zu zeigen, entfällt — das übernimmt jetzt B32b als fester
+Schritt, nicht als Puffer.)
 
 ---
 
@@ -256,6 +321,8 @@ B34 einschieben, falls überhaupt, nicht danach.
 | Registrierung schlägt mit `409` fehl (Lara existiert doch schon) | Vorbereitung in Abschnitt 2 hat das ausgeschlossen — falls doch: kurz auf zweitem Tab `lara2@demo.bb` registrieren und live erklären, dass es sich um eine frische Kopie handelt, statt die Demo abzubrechen |
 | Onboarding-Eingabe dauert zu lange | Zeitdruck-Ventil in B30: auf 1–2 Fixkosten-Positionen kürzen, nicht B30 streichen |
 | September-Auszug passt nicht mehr zum laufenden Monat (Termin rutscht in den Oktober) | Vorher `generate_demo_statements.py` neu laufen lassen (Abschnitt 2) |
+| B32b: keine Abos erkannt (z. B. falsche Monats-Kombination erwischt) | August+September sind fest verdrahtete, identische Beträge im Generator (Miete/CSS/Salt/**Spotify**, Spotify eigens für B32b ergänzt, nicht in den Fixkosten) — bei korrektem Dateipaar praktisch ausgeschlossen; zur Sicherheit vor der Präsentation einmal in der Zeitprobe verifizieren, nicht erst live entdecken |
+| Bereich 3 überschreitet die vereinbarten max. 12 Minuten (10 + 2) | Zeitdruck-Ventile in B30/B32 zuerst ziehen, B34s optionalen Login-Fehlschlag-Check (Schritt 4) weglassen, bevor B32b gekürzt wird — B32b ist der neue Inhalt, den das Team extra Zeit dafür eingeräumt hat |
 
 ---
 
@@ -265,8 +332,8 @@ B34 einschieben, falls überhaupt, nicht danach.
 | --- | --- |
 | Registrierung (`/register`) | H1 „Registrieren", Felder „E-Mail" / „Passwort" / „Vorname (optional)" / „Nachname (optional)", Button „Konto erstellen" (während Submit „Konto wird angelegt…") |
 | Login (`/login`) | H1 „Login", Felder „E-Mail" / „Passwort", Button „Einloggen" (während Submit „Wird eingeloggt…") |
-| Nav | „Übersicht" (`/dashboard`), „Transaktionen" (`/categories`), „Import" (`/import`), „Ausgaben" (`/ausgaben`) — Einstellungen im Account-Menü, nicht in der Hauptnav |
-| Onboarding (`/onboarding`) | H1 „Fixkosten erfassen", Felder „Bezeichnung" / „Betrag (CHF)" / „Intervall", Buttons „Fertig — weiter zum Dashboard" / „Keine Fixkosten — weiter zum Dashboard" (Wizard ist überspringbar) |
+| Nav | „Übersicht" (`/dashboard`), „Transaktionen" (`/categories`), „Import" (`/import`), „Budget" (`/budget`) — Einstellungen im Account-Menü, nicht in der Hauptnav |
+| Onboarding (`/onboarding`) | H1 „Budget", Card „Einkommen" (Feld „Monatseinkommen (CHF)", Button „Einkommen speichern") **und** Abschnitt „Fixkosten" (Felder „Bezeichnung" / „Betrag (CHF)" / „Intervall", Button „Fixkosten speichern") auf derselben Seite, Abschluss-Button „Fertig — weiter zum Dashboard" bzw. „Später erfassen — weiter zum Dashboard" wenn nichts eingegeben wurde (beides überspringbar) |
 | Import | H1 „Import", Dropzone „PDF-Datei hierhin ziehen oder" / Button „Datei wählen", Hinweis „Nur .pdf · maximal 10 MB" |
 | Import — während Parsen | „Kontoauszug wird gelesen …" |
 | Import — Fortschritt | „X von Y Transaktionen kategorisiert" |
@@ -274,11 +341,13 @@ B34 einschieben, falls überhaupt, nicht danach.
 | Import — Duplikat (409) | Modal „Kontoauszug bereits importiert", Buttons „Trotzdem importieren" / „Abbrechen" |
 | Dashboard — Safe-to-Spend | Card-Titel „Safe-to-Spend", darunter „noch N Woche(n) im Monat", ggf. „Letzte Woche des Monats" |
 | Dashboard — Budget überzogen | „Achtung: Dein Budget für diese Woche ist überzogen" |
-| Dashboard — kein Einkommen | „Kein Einkommen erfasst" / „Bitte erfasse dein Monatseinkommen in den Einstellungen" |
+| Dashboard — kein Einkommen | „Kein Einkommen erfasst" / „Bitte erfasse dein Monatseinkommen auf der Budget-Seite" (in B30 nicht sichtbar, da Einkommen schon im Onboarding gesetzt wird) |
 | Dashboard — Drei-Monats-Tabelle | Titel „Drei Monate bis {Monat}", Spalten „Monat / Einnahmen / Ausgaben / Differenz" |
-| Dashboard — Abo-Teaser | Card „Abos", CTA „Zu Ausgaben →" (führt auf `/ausgaben`, **keine** eigene Abo-Seite mehr) |
-| Ausgaben (`/ausgaben`) | H1 „Ausgaben", Fixkosten-Tabelle, Abschnitt „Erkannte Abos" darunter |
-| Einstellungen (`/einstellungen`) | Card „Einkommen" (Feld „Monatseinkommen (CHF)"), Card „Konto löschen" (Bestätigungsdialog mit Passwort) |
+| Dashboard — Teaser-Card | Card „Monatliche fixe Ausgaben" (Total aus Fixkosten + erkannten Abos, darunter „X Fixkosten + Y erkannte Abos"), CTA „Zu Budget →", führt auf `/budget` — **keine** eigene Abo-Karte/-Seite mehr |
+| Budget (`/budget`) | H1 „Budget", Card „Einkommen" (wie im Onboarding), Zwischenüberschrift „Ausgaben" mit „Erfasste Fixkosten" und „Erkannte Abos" darunter |
+| Budget — Erkannte Abos | H3 „Erkannte Abos", neue Zeilen tragen ein „Neu"-Tag neben „seit …", solange die zugehörige Benachrichtigung ungelesen ist; Button je Zeile „Kein Abo" (verschiebt sie in Card „Kein Abo" mit „Reaktivieren"-Button) |
+| Benachrichtigungsglocke | Ungelesen-Badge, Dropdown-Text „N neues Abo erkannt: …" bzw. „N neue Abos erkannt: …" (Empfängernamen, bei vielen „und N weitere") |
+| Einstellungen (`/einstellungen`) | Card „Passwort", Theme-Auswahl, Card „Konto löschen" (Bestätigungsdialog mit Passwort) — **kein** Einkommensfeld mehr (seit FE-FC-09 auf `/budget`/`/onboarding`) |
 | Nach Konto-Löschung | Login-Seite zeigt „Dein Konto wurde gelöscht. Alle deine Daten sind entfernt." |
 | Kategorie „Sonstiges" | Icon 🗂️, Slug `sonstiges` — Fallback, wenn auch Claude unsicher war |
 
@@ -292,6 +361,20 @@ B34 einschieben, falls überhaupt, nicht danach.
       klären, nicht erst live improvisieren.
 - [ ] Vor der Präsentation kurz prüfen, ob `lara@demo.bb` auf der deployten Instanz seit der
       Testpräsentation tatsächlich wieder frei ist (Abschnitt 2).
-- [ ] Zeitprobe für B30–B34 als Ganzes, insbesondere den Onboarding-Schritt (Ein-Item-pro-Schritt-
-      Formular ist potenziell langsamer als ein einzelnes Wizard-Formular mit allen Feldern auf
-      einer Seite).
+- [ ] Zeitprobe für B30–B34 als Ganzes, insbesondere den Onboarding-Schritt (Einkommen + je eine
+      Fixkosten-Position einzeln speichern ist potenziell langsamer als ein Formular mit allen
+      Feldern auf einmal).
+- [ ] **[abschlusspraesentation.md](../presentations/abschlusspraesentation.md) ist an mehreren
+      Stellen veraltet gegenüber dem aktuellen Code** und sollte vor dem Vortrag aktualisiert
+      werden, nicht nur dieses Playbook: B30 beschreibt noch den Fixkosten-Wizard mit
+      anschliessendem Dashboard-Banner und separatem Einkommens-Schritt in den Einstellungen
+      (seit FE-FC-09 liegt Einkommen direkt im Onboarding); Verweise auf eine „Ausgaben"-Seite
+      (`/ausgaben`) meinen inzwischen `/budget`; ein „Abos"-Teaser mit eigener Abo-Karte existiert
+      auf dem Dashboard nicht mehr, ersetzt durch die Card „Monatliche fixe Ausgaben". Ergänzend
+      fehlt dort auch B32b (Aboerkennung) komplett, weil das Dokument die Zeitbudget-Erweiterung
+      noch nicht kennt.
+- [ ] **Zeitbudget-Erweiterung für Bereich 3 (max. +2 Minuten wegen B32b) mit Jason/Daniel bzw.
+      der Kursleitung abgestimmt?** Im Team wurde das für dieses Playbook bereits freigegeben
+      (siehe Kopf), aber die 30-Minuten-Gesamtzeit und die Aufteilung der drei Bereiche stehen in
+      [abschlusspraesentation.md](../presentations/abschlusspraesentation.md) — dort sollte die
+      Änderung ebenfalls landen, nicht nur hier.
