@@ -18,64 +18,21 @@
     Hinweis auf fehlendes Einkommen. Optional wie überall: leer lassen und der Abschluss unten
     schliesst das Onboarding trotzdem ab.
   -->
-  <app-income-card />
+  <app-income-card (saved)="fixedCosts.reload()" />
 
-  <!-- Eigene Zwischenüberschrift, analog «Einkommen»: seit FE-FC-09 zwei gleichrangige
-       Abschnitte statt eines impliziten Haupttitels. -->
-  <h2>Fixkosten</h2>
-  <app-card>
-    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
-      <app-field label="Bezeichnung" inputId="bezeichnung" [error]="bezeichnungError()">
-        <input
-          appInput
-          id="bezeichnung"
-          type="text"
-          formControlName="bezeichnung"
-          autocomplete="off"
-          required
-        />
-      </app-field>
+  <!--
+    FE-FC-13: derselbe Fixkosten-Abschnitt wie auf /budget — Tabelle mit Total, Bearbeiten,
+    Löschen und «+ Neue Position», die den Dialog öffnet. Bis dahin stand hier ein eigenes
+    Inline-Formular, das nach jedem Speichern leer war: wer mehrere Positionen am Stück erfasste,
+    sah nirgends, was schon gespeichert war. Eigene Zwischenüberschrift «Fixkosten» als h2,
+    analog «Einkommen» — hier gibt es keine Gruppe «Ausgaben» darüber. Speichert die
+    Einkommens-Card, lädt der Abschnitt neu: die Warnung «Fixkosten übersteigen Einkommen» hängt
+    an seinem Request.
+  -->
+  <app-fixed-cost-section #fixedCosts heading="Fixkosten" [headingLevel]="2" />
 
-      <app-field label="Betrag (CHF)" inputId="betrag" [error]="betragError()">
-        <input
-          appInput
-          id="betrag"
-          type="number"
-          formControlName="betrag"
-          inputmode="decimal"
-          min="0.01"
-          step="0.01"
-          required
-        />
-      </app-field>
-
-      <!-- Ohne [error]: das Feld startet auf «monatlich» und kann ohne Leer-Option nicht
-           ungültig werden (siehe Kommentar am Formular). -->
-      <app-field label="Intervall" inputId="intervall">
-        <select appInput id="intervall" formControlName="intervall" required>
-          @for (option of intervallOptions; track option.value) {
-            <option [value]="option.value">{{ option.label }}</option>
-          }
-        </select>
-      </app-field>
-
-      @if (savedBezeichnung(); as bezeichnung) {
-        <app-notice variant="info">«{{ bezeichnung }}» wurde gespeichert.</app-notice>
-      }
-
-      @if (errorMessage(); as message) {
-        <app-notice variant="error">{{ message }}</app-notice>
-      }
-
-      <button appButton block type="submit" [disabled]="form.invalid || submitting()">
-        {{ submitting() ? 'Wird gespeichert…' : 'Fixkosten speichern' }}
-      </button>
-    </form>
-  </app-card>
-
-  <!-- Ausserhalb des <form>: der Abschluss ist keine Formular-Absendung, sondern verlässt
-       den Wizard. Innerhalb wäre er ein zweiter Button, den Enter im Formular auslösen
-       könnte — das Onboarding wäre versehentlich beendet. -->
+  <!-- Abgesetzt unter dem Fixkosten-Abschnitt: der Abschluss verlässt den Wizard und gehört
+       nicht in dieselbe Fläche wie die Erfassung. -->
   <div class="wizard__finish">
     @if (completeError(); as message) {
       <app-notice variant="error">{{ message }}</app-notice>

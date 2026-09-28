@@ -1,5 +1,8 @@
+import { registerLocaleData } from '@angular/common';
+import localeDeCh from '@angular/common/locales/de-CH';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { LOCALE_ID } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { Router, provideRouter } from '@angular/router';
@@ -8,14 +11,32 @@ import { AuthService } from '../auth/auth.service';
 import { User } from '../auth/user.model';
 import { IncomeCard } from '../income/income-card';
 import { FixedCostWizard } from './fixed-cost-wizard';
-import { FixedCost, INTERVALL_OPTIONS } from './fixed-cost.model';
+import { FixedCostDetail, FixedCostSummary } from './fixed-cost.model';
 
-const MIETE: FixedCost = {
+// Der CurrencyPipe der Fixkosten-Tabelle nutzt den app-weiten LOCALE_ID (de-CH); die Locale-Daten
+// müssen dafür registriert sein — im echten App-Bootstrap erledigt das app.config.ts.
+registerLocaleData(localeDeCh);
+
+const MIETE: FixedCostDetail = {
   id: 1,
   bezeichnung: 'Miete',
   betrag: 1200,
   intervall: 'monatlich',
+  monatsbetrag: 1200,
 };
+
+const KRANKENKASSE: FixedCostDetail = {
+  id: 2,
+  bezeichnung: 'Krankenkasse',
+  betrag: 1200,
+  intervall: 'quartalsweise',
+  monatsbetrag: 400,
+};
+
+function summaryOf(fixedCosts: FixedCostDetail[]): FixedCostSummary {
+  const summeMonatlich = fixedCosts.reduce((sum, item) => sum + item.monatsbetrag, 0);
+  return { fixedCosts, summeMonatlich, monthlyIncome: 3000, exceedsIncome: false };
+}
 
 /**
  * Eingeloggte Nutzerin mit bereits erfasstem Einkommen — der Normalfall für die Tests dieser
@@ -43,6 +64,12 @@ function loginAs(mock: HttpTestingController, user: User): void {
   mock.expectOne('/api/auth/login').flush(user);
 }
 
+/**
+ * Der Wizard als Seite: Einbettung von Einkommens-Card und Fixkosten-Abschnitt, die Beschriftung
+ * und Wirkung des Abschluss-Buttons. Tabelle, Bearbeiten, Löschen und der Dialog selbst sind in
+ * `fixed-cost-section.spec.ts` bzw. `fixed-cost-create-dialog.spec.ts` belegt — hier nur, dass der
+ * Wizard sie tatsächlich bekommt (FE-FC-13).
+ */
 describe('FixedCostWizard', () => {
   let fixture: ComponentFixture<FixedCostWizard>;
   let component: FixedCostWizard;
@@ -52,7 +79,12 @@ describe('FixedCostWizard', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [FixedCostWizard],
-      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        { provide: LOCALE_ID, useValue: 'de-CH' },
+      ],
     }).compileComponents();
 
     httpMock = TestBed.inject(HttpTestingController);
@@ -61,287 +93,222 @@ describe('FixedCostWizard', () => {
     fixture = TestBed.createComponent(FixedCostWizard);
     component = fixture.componentInstance;
     navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    // Der Fokus-Trap des Modals braucht die Komponente im echten Dokument.
+    document.body.appendChild(fixture.nativeElement);
     fixture.detectChanges();
   });
 
-  afterEach(() => httpMock.verify());
+  afterEach(() => {
+    fixture.nativeElement.remove();
+    httpMock.verify();
+  });
+
+  function root(): HTMLElement {
+    return fixture.nativeElement as HTMLElement;
+  }
+
+  /** Beantwortet das `GET /api/fixed-costs`, mit dem der Fixkosten-Abschnitt startet. */
+  function flushFixedCosts(fixedCosts: FixedCostDetail[]): void {
+    httpMock.expectOne({ method: 'GET', url: '/api/fixed-costs' }).flush(summaryOf(fixedCosts));
+    fixture.detectChanges();
+  }
+
+  /** Bezeichnungen in der Fixkosten-Tabelle, in DOM-Reihenfolge. */
+  function tableRows(): string[] {
+    return Array.from(root().querySelectorAll('app-fixed-cost-section tbody > tr .name')).map(
+      (cell) => cell.firstChild?.textContent?.trim() ?? '',
+    );
+  }
+
+  function newPositionButton(): HTMLButtonElement {
+    return root().querySelector<HTMLButtonElement>(
+      'app-fixed-cost-section .section-header button',
+    )!;
+  }
+
+  /** Füllt den offenen Dialog «Neue Position» aus und klickt «Speichern». */
+  function fillDialogAndSave(bezeichnung: string, betrag: string, intervall: string): void {
+    const name = root().querySelector<HTMLInputElement>('#create-bezeichnung')!;
+    name.value = bezeichnung;
+    name.dispatchEvent(new Event('input'));
+    const amount = root().querySelector<HTMLInputElement>('#create-betrag')!;
+    amount.value = betrag;
+    amount.dispatchEvent(new Event('input'));
+    const interval = root().querySelector<HTMLSelectElement>('#create-intervall')!;
+    interval.value = intervall;
+    interval.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    const buttons = root().querySelectorAll<HTMLButtonElement>(
+      'app-fixed-cost-create-dialog .modal__actions button',
+    );
+    buttons[buttons.length - 1].click();
+    fixture.detectChanges();
+  }
+
+  function finishButtonText(): string {
+    return root().querySelector('.wizard__finish button')?.textContent?.trim() ?? '';
+  }
+
+  // --- FE-FC-13: Tabelle + Dialog statt Inline-Formular ---
 
   // FE-FC-09 (#360): die Einkommens-Card ist dieselbe Komponente wie auf der Budget-Seite; ihr
   // eigenes Verhalten deckt `income-card.spec.ts` ab, hier geht es nur um die Einbettung.
-  it('rendert die Einkommens-Card oberhalb des Fixkosten-Formulars', () => {
-    const root = fixture.nativeElement as HTMLElement;
-    const income = root.querySelector('app-income-card');
+  it('rendert die Einkommens-Card oberhalb des Fixkosten-Abschnitts', () => {
+    flushFixedCosts([MIETE]);
+
+    const income = root().querySelector('app-income-card');
+    const section = root().querySelector('app-fixed-cost-section');
     expect(income).not.toBeNull();
-    // Über `#bezeichnung` statt `querySelector('form')`: die eingebettete Einkommens-Card
-    // bringt ihr eigenes `<form>` mit, das sonst zuerst träfe.
-    const fixedCostForm = root.querySelector('#bezeichnung')?.closest('form');
-    expect(fixedCostForm).not.toBeNull();
+    expect(section).not.toBeNull();
     expect(
-      income!.compareDocumentPosition(fixedCostForm!) & Node.DOCUMENT_POSITION_FOLLOWING,
+      income!.compareDocumentPosition(section!) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   });
 
-  // --- AC1: Validierungsfehler inline ---
+  it('zeigt den Abschnitt unter der Zwischenüberschrift «Fixkosten» als h2, gleichrangig mit «Einkommen»', () => {
+    flushFixedCosts([]);
 
-  it('sendet nichts und zeigt alle Feldfehler, wenn das Formular leer ist', () => {
-    component.submit();
-    fixture.detectChanges();
-
-    httpMock.expectNone('/api/fixed-costs');
-    expect(component.form.controls.bezeichnung.touched).toBe(true);
-    expect(component.form.controls.betrag.touched).toBe(true);
-    expect(component.bezeichnungError()).toBe('Bezeichnung ist erforderlich.');
-    expect(component.betragError()).toBe('Betrag ist erforderlich.');
+    const h2s = Array.from(root().querySelectorAll('h2')).map((h) => h.textContent?.trim());
+    expect(h2s).toEqual(['Einkommen', 'Fixkosten']);
   });
 
-  it('haelt Feldfehler zurueck, solange das Feld unberuehrt ist', () => {
-    // Ohne diese Zusicherung wuerde das Formular den Nutzer beim ersten Rendern anschreien.
-    expect(component.bezeichnungError()).toBeNull();
-    expect(component.betragError()).toBeNull();
-    expect(component.form.invalid).toBe(true);
-  });
+  it('zeigt die erfassten Fixkosten als Tabelle mit Monatsbetrag und Total', () => {
+    flushFixedCosts([MIETE, KRANKENKASSE]);
 
-  /**
-   * Der Submit-Button des Fixkosten-Formulars, über `#bezeichnung` gesucht statt über
-   * `button[type="submit"]`: die eingebettete Einkommens-Card bringt ihren eigenen
-   * Submit-Button mit, der sonst zuerst träfe.
-   */
-  function fixedCostSubmitButton(): HTMLButtonElement {
-    return (fixture.nativeElement as HTMLElement)
-      .querySelector('#bezeichnung')!
-      .closest('form')!
-      .querySelector('button[type="submit"]') as HTMLButtonElement;
-  }
-
-  // FE-FC-09 (#360): vorher liess sich der Button immer klicken (Fehler zeigten sich erst nach
-  // dem Klick), die eingebettete Einkommens-Card deaktiviert ihren Button dagegen bis zur
-  // Gültigkeit — dieselbe Inkonsistenz nebeneinander auf einer Seite. Angeglichen: beide Buttons
-  // verhalten sich jetzt gleich.
-  it('sperrt den Submit-Button, solange das Formular ungültig ist', () => {
-    expect(fixedCostSubmitButton().disabled).toBe(true);
-  });
-
-  it('gibt den Submit-Button frei, sobald alle Pflichtfelder gültig sind', () => {
-    component.form.setValue({ bezeichnung: 'Miete', betrag: 1200, intervall: 'monatlich' });
-    fixture.detectChanges();
-
-    expect(fixedCostSubmitButton().disabled).toBe(false);
-  });
-
-  it('lehnt eine Bezeichnung aus reinem Leerraum ab und sendet nicht', () => {
-    // `Validators.required` prueft nur die Laenge — '   ' waere damit gueltig, und der Trim in
-    // submit() schickte einen leeren String auf die Leitung: eine namenlose Position in einem
-    // NOT-NULL-Feld, dazu keine Erfolgs-Notice, weil der leere String falsy ist.
-    component.form.setValue({ bezeichnung: '   ', betrag: 100, intervall: 'monatlich' });
-
-    component.submit();
-    fixture.detectChanges();
-
-    httpMock.expectNone('/api/fixed-costs');
-    expect(component.form.valid).toBe(false);
-    expect(component.bezeichnungError()).toBe('Bezeichnung ist erforderlich.');
-  });
-
-  it('rendert die Fehlermeldung sichtbar unter dem Feld', () => {
-    component.submit();
-    fixture.detectChanges();
-
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('Bezeichnung ist erforderlich.');
-    expect(text).toContain('Betrag ist erforderlich.');
-  });
-
-  // --- AC2: Betrag nur positiv ---
-
-  it.each([0, -5, -0.01])('lehnt den Betrag %s ab und sendet nicht', (betrag) => {
-    component.form.setValue({ bezeichnung: 'Miete', betrag, intervall: 'monatlich' });
-
-    component.submit();
-
-    httpMock.expectNone('/api/fixed-costs');
-    expect(component.form.controls.betrag.hasError('min')).toBe(true);
-    expect(component.betragError()).toBe('Betrag muss grösser als 0 sein.');
-  });
-
-  it('akzeptiert den kleinsten rappengenauen Betrag', () => {
-    component.form.setValue({ bezeichnung: 'Kleinkram', betrag: 0.01, intervall: 'monatlich' });
-
-    expect(component.form.valid).toBe(true);
-    expect(component.form.controls.betrag.hasError('min')).toBe(false);
-  });
-
-  // Alle drei liegen ueber `min`, damit die Meldung eindeutig aus `maxDecimals` stammt.
-  it.each([10.999, 0.015, 1200.123])(
-    'lehnt den Betrag %s mit mehr als zwei Nachkommastellen ab',
-    (betrag) => {
-      // Ohne diese Pruefung liefe der Wert bis in DECIMAL(10,2) und wuerde still gerundet.
-      component.form.setValue({ bezeichnung: 'Miete', betrag, intervall: 'monatlich' });
-
-      component.submit();
-
-      httpMock.expectNone('/api/fixed-costs');
-      expect(component.form.controls.betrag.hasError('maxDecimals')).toBe(true);
-      expect(component.betragError()).toBe('Betrag darf höchstens zwei Nachkommastellen haben.');
-    },
-  );
-
-  it.each([1200, 1200.5, 1200.55])('akzeptiert den rappengenauen Betrag %s', (betrag) => {
-    component.form.setValue({ bezeichnung: 'Miete', betrag, intervall: 'monatlich' });
-
-    expect(component.form.controls.betrag.hasError('maxDecimals')).toBe(false);
-    expect(component.form.valid).toBe(true);
-  });
-
-  // --- AC3: Intervall-Dropdown ---
-
-  it('bietet genau die drei Intervalle des Backends an', () => {
-    expect(INTERVALL_OPTIONS.map((option) => option.value)).toEqual([
-      'monatlich',
-      'quartalsweise',
-      'jaehrlich',
-    ]);
-  });
-
-  it('rendert drei Optionen und zeigt «jährlich» mit Umlaut an', () => {
-    const options = Array.from(
-      (fixture.nativeElement as HTMLElement).querySelectorAll('#intervall option'),
+    expect(tableRows()).toEqual(['Miete', 'Krankenkasse']);
+    expect(root().querySelector('thead')?.textContent).toContain('Monatsbetrag');
+    const total = Array.from(root().querySelectorAll('tfoot tr > *')).map((cell) =>
+      cell.textContent?.replace(/\s+/g, ' ').trim(),
     );
-
-    expect(options).toHaveLength(3);
-    expect(options.map((option) => (option as HTMLOptionElement).value)).toEqual([
-      'monatlich',
-      'quartalsweise',
-      'jaehrlich',
-    ]);
-    // Der Umlaut gehoert ins Template, der ASCII-Wert auf die Leitung (Intervall.java).
-    expect(options.map((option) => option.textContent?.trim())).toEqual([
-      'monatlich',
-      'quartalsweise',
-      'jährlich',
-    ]);
+    expect(total).toEqual(['Total', 'CHF 1’600.00', '']);
   });
 
-  it('steht per Default auf monatlich', () => {
-    expect(component.form.controls.intervall.value).toBe('monatlich');
+  it('führt kein eigenes Erfassungsformular mehr auf der Seite', () => {
+    flushFixedCosts([MIETE]);
+
+    // Das einzige Formular ausserhalb eines Dialogs ist das der Einkommens-Card.
+    const forms = Array.from(root().querySelectorAll('form')).filter(
+      (form) => !form.closest('app-income-card'),
+    );
+    expect(forms).toHaveLength(0);
+    expect(root().querySelector('#bezeichnung')).toBeNull();
+    expect(root().textContent).not.toContain('Fixkosten speichern');
   });
 
-  it('schreibt die Auswahl aus dem select ins FormControl', () => {
-    // Die Bindung <select> <-> FormControl ist die Mechanik, die dieser PR neu einfuehrt: die
-    // uebrigen Tests setzen den Wert ueber form.setValue() und wuerden einen Bruch hier nicht
-    // bemerken.
-    const select = (fixture.nativeElement as HTMLElement).querySelector(
-      '#intervall',
-    ) as HTMLSelectElement;
-    expect(select.value).toBe('monatlich');
+  it('öffnet über «+ Neue Position» denselben Dialog wie auf /budget', () => {
+    flushFixedCosts([MIETE]);
+    expect(root().querySelector('app-fixed-cost-create-dialog')).toBeNull();
 
-    select.value = 'jaehrlich';
-    select.dispatchEvent(new Event('change'));
+    expect(newPositionButton().textContent?.trim()).toBe('+ Neue Position');
+    newPositionButton().click();
+    fixture.detectChanges();
 
-    expect(component.form.controls.intervall.value).toBe('jaehrlich');
+    expect(root().querySelector('app-fixed-cost-create-dialog')).not.toBeNull();
   });
 
-  // --- AC4: Submit + Erfolgs-Feedback ---
+  // AC «Test» aus #376: die über den Dialog angelegte Position erscheint ohne Seitenwechsel.
+  it('zeigt eine über den Dialog angelegte Position sofort in der Tabelle — ohne Reload', () => {
+    flushFixedCosts([MIETE]);
+    newPositionButton().click();
+    fixture.detectChanges();
 
-  it('sendet POST /api/fixed-costs und zeigt Erfolgs-Feedback', () => {
-    component.form.setValue({ bezeichnung: 'Miete', betrag: 1200, intervall: 'monatlich' });
-
-    component.submit();
-
-    const req = httpMock.expectOne('/api/fixed-costs');
-    expect(req.request.method).toBe('POST');
-    expect(req.request.body).toEqual({
-      bezeichnung: 'Miete',
+    fillDialogAndSave('Krankenkasse', '1200', 'quartalsweise');
+    const post = httpMock.expectOne({ method: 'POST', url: '/api/fixed-costs' });
+    expect(post.request.body).toEqual({
+      bezeichnung: 'Krankenkasse',
       betrag: 1200,
-      intervall: 'monatlich',
+      intervall: 'quartalsweise',
     });
-    req.flush(MIETE, { status: 201, statusText: 'Created' });
+    post.flush({ id: 2, bezeichnung: 'Krankenkasse', betrag: 1200, intervall: 'quartalsweise' });
     fixture.detectChanges();
 
-    expect(component.savedBezeichnung()).toBe('Miete');
-    expect(component.errorMessage()).toBeNull();
-    expect(component.submitting()).toBe(false);
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
-      '«Miete» wurde gespeichert.',
+    // Der Abschnitt lädt nach dem Anlegen selbst neu — kein Navigieren, keine neue Komponente.
+    flushFixedCosts([MIETE, KRANKENKASSE]);
+
+    expect(root().querySelector('app-fixed-cost-create-dialog')).toBeNull();
+    expect(tableRows()).toEqual(['Miete', 'Krankenkasse']);
+    expect(navigate).not.toHaveBeenCalled();
+    expect(finishButtonText()).toBe('Fertig — weiter zum Dashboard');
+  });
+
+  it('bietet Bearbeiten und Löschen für bereits erfasste Positionen an', () => {
+    flushFixedCosts([MIETE]);
+
+    const labels = Array.from(root().querySelectorAll('tbody > tr button')).map((btn) =>
+      btn.getAttribute('aria-label'),
     );
+    expect(labels).toEqual(['Bearbeiten: Miete', 'Löschen: Miete']);
   });
 
-  it('leert das Formular nach dem Speichern und setzt das Intervall zurueck', () => {
-    component.form.setValue({ bezeichnung: 'Serafe', betrag: 335, intervall: 'jaehrlich' });
+  it('lädt die Fixkosten neu, sobald die Einkommens-Card gespeichert hat', () => {
+    flushFixedCosts([MIETE]);
 
-    component.submit();
-    httpMock
-      .expectOne('/api/fixed-costs')
-      .flush({ id: 2, bezeichnung: 'Serafe', betrag: 335, intervall: 'jaehrlich' });
+    const income = fixture.debugElement.query(By.directive(IncomeCard))
+      .componentInstance as IncomeCard;
+    income.incomeForm.controls.betrag.setValue(3800);
+    income.submitIncome();
+    httpMock.expectOne('/api/users/me/income').flush({ ...LARA, monthlyIncome: 3800 });
 
-    // Mehrere Positionen am Stueck erfassbar: das Formular bleibt stehen, aber leer.
-    expect(component.form.controls.bezeichnung.value).toBe('');
-    expect(component.form.controls.betrag.value).toBeNull();
-    expect(component.form.controls.intervall.value).toBe('monatlich');
-  });
-
-  it('schneidet Leerraum aus der Bezeichnung', () => {
-    component.form.setValue({ bezeichnung: '  Miete  ', betrag: 1200, intervall: 'monatlich' });
-
-    component.submit();
-
-    const req = httpMock.expectOne('/api/fixed-costs');
-    expect(req.request.body.bezeichnung).toBe('Miete');
-    req.flush(MIETE);
-  });
-
-  it('meldet einen Serverfehler und zeigt kein Erfolgs-Feedback', () => {
-    component.form.setValue({ bezeichnung: 'Miete', betrag: 1200, intervall: 'monatlich' });
-
-    component.submit();
-    httpMock
-      .expectOne('/api/fixed-costs')
-      .flush('boom', { status: 500, statusText: 'Internal Server Error' });
-    fixture.detectChanges();
-
-    expect(component.savedBezeichnung()).toBeNull();
-    expect(component.errorMessage()).toBe(
-      'Speichern fehlgeschlagen. Bitte versuche es später erneut.',
-    );
-    expect(component.submitting()).toBe(false);
-    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('wurde gespeichert');
-  });
-
-  it('unterscheidet die Ablehnung durch den Server (400) vom generischen Fehler', () => {
-    component.form.setValue({ bezeichnung: 'Miete', betrag: 1200, intervall: 'monatlich' });
-
-    component.submit();
-    httpMock.expectOne('/api/fixed-costs').flush('bad', { status: 400, statusText: 'Bad Request' });
-
-    expect(component.errorMessage()).toContain('vom Server abgelehnt');
-  });
-
-  it('raeumt die alte Erfolgsmeldung weg, bevor der naechste Versuch laeuft', () => {
-    component.form.setValue({ bezeichnung: 'Miete', betrag: 1200, intervall: 'monatlich' });
-    component.submit();
-    httpMock.expectOne('/api/fixed-costs').flush(MIETE);
-    expect(component.savedBezeichnung()).toBe('Miete');
-
-    component.form.setValue({ bezeichnung: 'Handy', betrag: 40, intervall: 'monatlich' });
-    component.submit();
-
-    // Waehrend der zweite Request laeuft, darf die Meldung des ersten nicht stehen bleiben.
-    expect(component.savedBezeichnung()).toBeNull();
-    expect(component.submitting()).toBe(true);
-    httpMock
-      .expectOne('/api/fixed-costs')
-      .flush({ ...MIETE, id: 3, bezeichnung: 'Handy', betrag: 40 });
+    // Die Warnung «Fixkosten übersteigen Einkommen» hängt am Fixkosten-Request.
+    flushFixedCosts([MIETE]);
   });
 
   // --- FE-FC-02: Onboarding abschliessen ---
 
-  /** Speichert eine Position, damit `hasSaved()` steht. */
-  function saveMiete(): void {
-    component.form.setValue({ bezeichnung: 'Miete', betrag: 1200, intervall: 'monatlich' });
-    component.submit();
-    httpMock.expectOne('/api/fixed-costs').flush(MIETE, { status: 201, statusText: 'Created' });
-  }
+  it('beschriftet den Button mit «Später erfassen», solange die Tabelle leer ist', () => {
+    flushFixedCosts([]);
+
+    expect(finishButtonText()).toBe('Später erfassen — weiter zum Dashboard');
+    expect(component.hasEnteredData()).toBe(false);
+  });
+
+  it('beschriftet den Button mit «Fertig», sobald die Tabelle Positionen enthält', () => {
+    // Auch nach einem Reload mitten im Onboarding: die Positionen kommen vom Server, nicht aus
+    // einem Sitzungs-Flag.
+    flushFixedCosts([MIETE]);
+
+    expect(finishButtonText()).toBe('Fertig — weiter zum Dashboard');
+    expect(component.hasEnteredData()).toBe(true);
+  });
+
+  it('beschriftet den Button wieder mit «Später erfassen», wenn die letzte Position gelöscht ist', () => {
+    flushFixedCosts([MIETE]);
+    const deleteButton = root().querySelector<HTMLButtonElement>(
+      'tbody > tr button[aria-label="Löschen: Miete"]',
+    )!;
+    deleteButton.click();
+    fixture.detectChanges();
+    const confirm = Array.from(
+      root().querySelectorAll<HTMLButtonElement>('app-modal .modal__actions button'),
+    ).find((btn) => btn.textContent?.trim() === 'Löschen')!;
+    confirm.click();
+    httpMock
+      .expectOne({ method: 'DELETE', url: '/api/fixed-costs/1' })
+      .flush(null, { status: 204, statusText: 'No Content' });
+    flushFixedCosts([]);
+
+    expect(finishButtonText()).toBe('Später erfassen — weiter zum Dashboard');
+  });
+
+  // FE-FC-09 (#360): die Einkommens-Card zählt genauso wie eine Fixkosten-Position — wer nur
+  // sein Einkommen erfasst, hat nicht «nichts» getan, der alte Text «Keine Fixkosten» wäre hier
+  // irreführend gewesen.
+  it('beschriftet den Button um, sobald nur das Einkommen gespeichert wurde (ohne Fixkosten)', () => {
+    flushFixedCosts([]);
+
+    const income = fixture.debugElement.query(By.directive(IncomeCard))
+      .componentInstance as IncomeCard;
+    income.incomeForm.controls.betrag.setValue(3800);
+    income.submitIncome();
+    httpMock.expectOne('/api/users/me/income').flush({ ...LARA, monthlyIncome: 3800 });
+    flushFixedCosts([]);
+
+    expect(component.hasEnteredData()).toBe(true);
+    expect(finishButtonText()).toBe('Fertig — weiter zum Dashboard');
+  });
 
   it('schliesst das Onboarding ab und navigiert aufs Dashboard', () => {
+    flushFixedCosts([]);
     component.finishOnboarding();
 
     const req = httpMock.expectOne('/api/users/me/onboarding-complete');
@@ -355,6 +322,7 @@ describe('FixedCostWizard', () => {
   });
 
   it('loest den Abschluss ueber den Button aus', () => {
+    flushFixedCosts([]);
     // Die Bindung Button -> Methode ist die Mechanik, die dieser PR neu einfuehrt; die
     // uebrigen Tests rufen finishOnboarding() direkt und wuerden einen Bruch nicht bemerken.
     const button = Array.from(
@@ -368,46 +336,11 @@ describe('FixedCostWizard', () => {
     expect(navigate).toHaveBeenCalledWith(['/dashboard']);
   });
 
-  it('beschriftet den Button mit «Später erfassen», solange nichts gespeichert wurde', () => {
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('Später erfassen — weiter zum Dashboard');
-    expect(component.hasSaved()).toBe(false);
-    expect(component.hasEnteredData()).toBe(false);
-  });
-
-  it('beschriftet den Button nach der ersten gespeicherten Position um', () => {
-    saveMiete();
-    fixture.detectChanges();
-
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(component.hasSaved()).toBe(true);
-    expect(text).toContain('Fertig — weiter zum Dashboard');
-    expect(text).not.toContain('Später erfassen');
-  });
-
-  // FE-FC-09 (#360): die Einkommens-Card zählt genauso wie eine Fixkosten-Position — wer nur
-  // sein Einkommen erfasst, hat nicht «nichts» getan, der alte Text «Keine Fixkosten» wäre hier
-  // irreführend gewesen.
-  it('beschriftet den Button um, sobald nur das Einkommen gespeichert wurde (ohne Fixkosten)', () => {
-    const income = fixture.debugElement.query(By.directive(IncomeCard))
-      .componentInstance as IncomeCard;
-    income.incomeForm.controls.betrag.setValue(3800);
-    income.submitIncome();
-    httpMock.expectOne('/api/users/me/income').flush({ ...LARA, monthlyIncome: 3800 });
-    fixture.detectChanges();
-
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(component.hasSaved()).toBe(false);
-    expect(component.hasEnteredData()).toBe(true);
-    expect(text).toContain('Fertig — weiter zum Dashboard');
-    expect(text).not.toContain('Später erfassen');
-  });
-
   it('schliesst auch nach gespeicherter Position ueber denselben Request ab', () => {
     // US-03 laesst beide Wege aus dem Wizard heraus: ohne Eingabe bestaetigen ODER mindestens
     // etwas gespeichert (Fixkosten oder Einkommen, FE-FC-09). Ohne diesen Pfad sperrte der
     // onboardingGuard genau die Nutzer ein, die ihre Fixkosten korrekt erfasst haben.
-    saveMiete();
+    flushFixedCosts([MIETE]);
 
     component.finishOnboarding();
     httpMock.expectOne('/api/users/me/onboarding-complete').flush(LARA_ONBOARDED);
@@ -416,6 +349,7 @@ describe('FixedCostWizard', () => {
   });
 
   it('bleibt im Wizard und meldet den Fehler, wenn der Abschluss scheitert', () => {
+    flushFixedCosts([]);
     component.finishOnboarding();
     httpMock
       .expectOne('/api/users/me/onboarding-complete')
@@ -434,6 +368,7 @@ describe('FixedCostWizard', () => {
   });
 
   it('raeumt die alte Fehlermeldung weg, bevor der naechste Abschlussversuch laeuft', () => {
+    flushFixedCosts([]);
     component.finishOnboarding();
     httpMock
       .expectOne('/api/users/me/onboarding-complete')

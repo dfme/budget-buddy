@@ -4,8 +4,11 @@
   display: block;
 }
 
+// 40rem wie die Seite «Budget» (FE-FC-13): seit der Wizard dieselbe Fixkosten-Tabelle zeigt,
+// braucht er dieselbe Breite — die beschrifteten Aktions-Buttons ab 900px passen laut FE-FC-08
+// erst in die 40rem-Spalte. Bis dahin 28rem, bemessen für ein einzelnes Formular.
 .wizard {
-  max-width: 28rem;
+  max-width: 40rem;
   margin: 0 auto;
 }
 
@@ -18,20 +21,8 @@ h1 {
   color: $c-ink-2;
 }
 
-// Zwischenüberschrift «Fixkosten» (FE-FC-09), analog «Einkommen» in `income-card.scss` — beide
-// Abschnitte auf gleicher Ebene, keiner mehr der alleinige Seitentitel.
-h2 {
-  margin: 0 0 $sp-4;
-}
-
-form {
-  display: flex;
-  flex-direction: column;
-  gap: $sp-4;
-}
-
-// Abschluss-Aktion, abgesetzt unter der Karte: sie verlässt den Wizard und gehört damit
-// nicht in dieselbe Fläche wie das Erfassungsformular.
+// Abschluss-Aktion, abgesetzt unter dem Fixkosten-Abschnitt: sie verlässt den Wizard und gehört
+// damit nicht in dieselbe Fläche wie die Erfassung.
 .wizard__finish {
   display: flex;
   flex-direction: column;
