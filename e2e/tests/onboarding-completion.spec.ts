@@ -85,19 +85,22 @@ test.describe('Onboarding-Abschluss', () => {
   }) => {
     await erwarteWizardZwang(page);
 
-    // Über die Labels statt über IDs: `app-field` verknüpft `<label for>` mit der projizierten
-    // Eingabe, das ist derselbe Weg, den ein Screenreader-Nutzer nimmt.
-    await page.getByLabel('Bezeichnung').fill(POSITION.bezeichnung);
-    await page.getByLabel('Betrag (CHF)').fill(POSITION.betrag);
-    await page.getByLabel('Intervall').selectOption(POSITION.intervall);
-    await page.getByRole('button', { name: 'Fixkosten speichern' }).click();
+    // Seit FE-FC-13 (#376) über den Dialog «Neue Position» statt über ein Inline-Formular —
+    // dasselbe Muster wie auf /budget. Über die Labels statt über IDs: `app-field` verknüpft
+    // `<label for>` mit der projizierten Eingabe, das ist derselbe Weg, den ein
+    // Screenreader-Nutzer nimmt.
+    await page.getByRole('button', { name: '+ Neue Position' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Neue Position' });
+    await dialog.getByLabel('Bezeichnung').fill(POSITION.bezeichnung);
+    await dialog.getByLabel('Betrag (CHF)').fill(POSITION.betrag);
+    await dialog.getByLabel('Intervall').selectOption(POSITION.intervall);
+    await dialog.getByRole('button', { name: 'Speichern' }).click();
 
-    // Auf die Erfolgsmeldung warten, bevor die Beschriftung geprüft wird: `hasSaved` kippt im
-    // Success-Handler desselben Requests. Ohne dieses Warten prüfte der Test die Beschriftung,
-    // während der Request noch läuft — und läse verlässlich die falsche.
-    await expect(page.locator('app-notice.notice--info .notice__body')).toHaveText(
-      `«${POSITION.bezeichnung}» wurde gespeichert.`,
-    );
+    // Auf die Zeile in der Tabelle warten, bevor die Beschriftung geprüft wird: sie kippt erst,
+    // wenn der Fixkosten-Abschnitt nach dem Anlegen neu geladen hat (`hasPositions`). Ohne dieses
+    // Warten prüfte der Test die Beschriftung, während der Request noch läuft — und läse
+    // verlässlich die falsche.
+    await expect(page.getByRole('row').filter({ hasText: POSITION.bezeichnung })).toHaveCount(1);
 
     // Die Beschriftung ist der einzige sichtbare Unterschied zwischen den beiden Wegen aus US-03.
     // Sie hier festzunageln ist das, was diesen Test von Weg B unterscheidbar macht — ohne sie

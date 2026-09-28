@@ -164,6 +164,46 @@ describe('FixedCostCreateDialog', () => {
       httpMock.expectNone('/api/fixed-costs');
       expect(errors()).toEqual(['Betrag darf höchstens zwei Nachkommastellen haben.']);
     });
+
+    // Bis FE-FC-13 im Wizard-Spec belegt, der ein eigenes Formular führte — seither ist dieser
+    // Dialog der einzige Weg, eine Position anzulegen.
+    it.each(['-5', '-0.01'])('negativer Betrag %s', (betrag) => {
+      fill('Miete', betrag);
+      save();
+
+      httpMock.expectNone('/api/fixed-costs');
+      expect(errors()).toEqual(['Betrag muss grösser als 0 sein.']);
+    });
+  });
+
+  // Gegenstück zu `min` und `maxDecimals`: die Grenze liegt genau auf dem Rappen.
+  it.each([
+    ['0.01', 0.01],
+    ['1200.55', 1200.55],
+  ])('akzeptiert den rappengenauen Betrag %s', (eingabe, betrag) => {
+    fill('Kleinkram', eingabe);
+    save();
+
+    const req = httpMock.expectOne('/api/fixed-costs');
+    expect(req.request.body.betrag).toBe(betrag);
+    req.flush({});
+  });
+
+  it('bietet die drei Intervalle des Backends an und zeigt «jährlich» mit Umlaut', () => {
+    const options = Array.from(
+      field<HTMLSelectElement>('create-intervall').querySelectorAll('option'),
+    );
+    expect(options.map((option) => option.value)).toEqual([
+      'monatlich',
+      'quartalsweise',
+      'jaehrlich',
+    ]);
+    // Der Umlaut gehört ins Template, der ASCII-Wert auf die Leitung (Intervall.java).
+    expect(options.map((option) => option.textContent?.trim())).toEqual([
+      'monatlich',
+      'quartalsweise',
+      'jährlich',
+    ]);
   });
 
   it('sperrt «Speichern», solange der Request läuft, und sendet nur einmal', () => {

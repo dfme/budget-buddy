@@ -38,3 +38,16 @@ Abschluss des Onboardings (AC1 oben): der Abschluss-Button unterscheidet nur noc
 jede Eingabe» und «mindestens eine Fixkosten-Position oder ein Einkommen gespeichert» — die frühere
 Beschriftung «Keine Fixkosten» bezog sich ausschliesslich auf Fixkosten und wäre seit der
 Einkommens-Card irreführend gewesen.
+
+**Wizard und Budget-Seite erfassen seit FE-FC-13 (#376) auf dieselbe Weise:** Der Wizard führt
+kein eigenes Inline-Formular mehr, das sich nach jedem Speichern leerte. Er bettet denselben
+Fixkosten-Abschnitt ein wie `/budget`
+([`FixedCostSection`](../../frontend/src/app/onboarding/fixed-cost-section.ts), eingebettet in
+[fixed-cost-wizard.html](../../frontend/src/app/onboarding/fixed-cost-wizard.html) und
+[fixed-cost-list.html](../../frontend/src/app/onboarding/fixed-cost-list.html)): eine Tabelle der
+erfassten Positionen mit Monatsbetrag und Total, Bearbeiten und Löschen, und «+ Neue Position»
+öffnet den Dialog aus FE-FC-10. Wer Miete, Krankenkasse und Handy am Stück erfasst, sieht damit
+nach jedem Speichern, was schon erfasst ist. Die Beschriftung des Abschluss-Buttons hängt an der
+geladenen Tabelle (`hasPositions`) statt an einem Sitzungs-Flag: wer alle Positionen wieder
+löscht, sieht erneut «Später erfassen», und nach einem Reload mitten im Onboarding zählen die
+bereits erfassten Positionen weiter.

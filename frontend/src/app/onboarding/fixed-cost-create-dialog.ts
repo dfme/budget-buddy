@@ -25,15 +25,16 @@ import {
 } from './fixed-cost.validators';
 
 /**
- * Dialog «Neue Position» der Budget-Seite (FE-FC-10, US-03): legt eine Fixkosten-Position an,
- * ohne die Seite zu verlassen. Bis FE-FC-10 führten «+ Neue Position» und «Jetzt erfassen» per
- * `routerLink` in den Onboarding-Wizard; der bleibt fürs Erst-Onboarding unverändert bestehen.
+ * Dialog «Neue Position» (FE-FC-10, US-03): legt eine Fixkosten-Position an, ohne die Seite zu
+ * verlassen. Bis FE-FC-10 führten «+ Neue Position» und «Jetzt erfassen» auf der Budget-Seite per
+ * `routerLink` in den Onboarding-Wizard. Seit FE-FC-13 öffnet ihn der gemeinsame
+ * `FixedCostSection` auf `/budget` und im Wizard — der einzige Weg, eine Position anzulegen.
  *
  * <p>Wie {@link Modal} ohne eigenen Offen-Zustand: der Parent rendert den Dialog per `@if` und
  * entfernt ihn auf {@link saved} oder {@link cancelled}. Damit startet jedes Öffnen mit einem
  * frischen, leeren Formular — ohne Reset-Logik, die ein Feld vergessen könnte.
  *
- * <p>Dieselben Regeln wie Wizard und Inline-Edit: Validatoren und Fehlertexte kommen aus
+ * <p>Dieselben Regeln wie der Inline-Edit: Validatoren und Fehlertexte kommen aus
  * `fixed-cost.validators.ts`. Das Formular ist über `confirmForm` mit dem Speichern-Button des
  * Modals verknüpft — Klick und Enter laufen beide über {@link submit}.
  *

@@ -148,9 +148,11 @@ frontend/
   └── src/app/
         ├── auth/          (US-01: Login/Register)
         ├── onboarding/    (US-03: Fixkosten-Wizard und die Seite «Budget» unter /budget —
-        │                   Fixkosten-Liste, seit FE-FC-05 mit dem eingebetteten Abschnitt
-        │                   «Erkannte Abos» aus recurring/, seit FE-FC-07 mit dem Total beider,
-        │                   seit FE-FC-09 mit dem eingebetteten Abschnitt «Einkommen» aus income/)
+        │                   beide betten seit FE-FC-13 denselben Fixkosten-Abschnitt ein
+        │                   (Tabelle, Bearbeiten, Löschen, Dialog «Neue Position»); die
+        │                   Budget-Seite seit FE-FC-05 zusätzlich den Abschnitt «Erkannte Abos»
+        │                   aus recurring/, beide seit FE-FC-09 den Abschnitt «Einkommen» aus
+        │                   income/)
         ├── transactions/  (US-04: Upload, US-05: Kategorisierung, US-13: pro Kategorie)
         ├── dashboard/     (US-06: Safe-to-Spend, US-10: Monatsvergleich, US-12: Monatswechsel)
         ├── recurring/     (US-08: Abo-Übersicht — Komponente, Service, Model; keine eigene Route)

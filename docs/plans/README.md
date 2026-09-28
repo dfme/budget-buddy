@@ -120,6 +120,7 @@ Handarbeit im Index baut `scripts/plans-index.sh` ihn vollständig neu auf.
 | `FE-FC-09` | [Einkommen aus Einstellungen auf die Ausgaben-Seite verschieben, Seite zu «Budget» umbenennen](FE-FC-09-budget-seite.md) | [#360](https://github.com/dfme/budget-buddy/issues/360) | US-14, US-06 | Sprint 7 |
 | `FE-FC-10` | [Neue Fixkosten-Position im Overlay-Dialog statt Wizard-Navigation erfassen](FE-FC-10-neue-position-dialog.md) | [#372](https://github.com/dfme/budget-buddy/issues/372) | US-03 | Sprint 7 |
 | `FE-FC-12` | [/onboarding sollte nach abgeschlossenem Onboarding nicht mehr erreichbar sein](FE-FC-12-onboarding-route-guard.md) | [#375](https://github.com/dfme/budget-buddy/issues/375) | — | Sprint 7 |
+| `FE-FC-13` | [Onboarding-Wizard an das Tabelle+Dialog-Muster von /budget angleichen](FE-FC-13-wizard-tabelle-dialog.md) | [#376](https://github.com/dfme/budget-buddy/issues/376) | — | Sprint 7 |
 | `FE-NOTIF-01` | [Notification-Glocke in der App-Shell](FE-NOTIF-01-notification-bell.md) | [#247](https://github.com/dfme/budget-buddy/issues/247) | US-08 | Sprint 6 |
 | `FE-NOTIF-02` | [Glocke: Dropdown auf Desktop ausserhalb des Viewports, Icon passt nicht zum Design](FE-NOTIF-02-bell-dropdown-icon.md) | [#308](https://github.com/dfme/budget-buddy/issues/308) | US-08 | Sprint 7 |
 | `FE-NOTIF-03` | [Verneinte Abos bleiben auf /abos sichtbar — Abschnitt «Kein Abo»](FE-NOTIF-03-abo-hinweis-verneinter-eintrag.md) | [#333](https://github.com/dfme/budget-buddy/issues/333) | US-08 | Sprint 7 |
