@@ -14,7 +14,7 @@ import { routes } from '../../app.routes';
 import { AuthService } from '../../auth/auth.service';
 import { User } from '../../auth/user.model';
 import { authGuard } from './auth.guard';
-import { onboardingGuard } from './onboarding.guard';
+import { onboardingGuard, onboardingPendingGuard } from './onboarding.guard';
 
 /** Lara nach der Registrierung: eingeloggt, aber Onboarding offen. */
 const LARA: User = {
@@ -156,6 +156,76 @@ describe('onboardingGuard', () => {
   });
 });
 
+describe('onboardingPendingGuard', () => {
+  // FE-FC-12 (#375): die Umkehrung des onboardingGuard, an /onboarding selbst.
+  let httpMock: HttpTestingController;
+  let auth: AuthService;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+    });
+    httpMock = TestBed.inject(HttpTestingController);
+    auth = TestBed.inject(AuthService);
+  });
+
+  afterEach(() => httpMock.verify());
+
+  function runPendingGuard() {
+    return TestBed.runInInjectionContext(() =>
+      onboardingPendingGuard({} as ActivatedRouteSnapshot, {} as RouterStateSnapshot),
+    ) as Observable<boolean | UrlTree>;
+  }
+
+  function login(user: User): void {
+    auth.login(user.email, 'supersecret').subscribe();
+    httpMock.expectOne('/api/auth/login').flush(user);
+  }
+
+  it('leitet einen onboardeten User auf /budget um', () => {
+    login(LARA_ONBOARDED);
+
+    const resolved = resolve(runPendingGuard());
+
+    expect(resolved).toBeInstanceOf(UrlTree);
+    expect((resolved as UrlTree).toString()).toBe('/budget');
+  });
+
+  it('laesst einen nicht onboardeten User in den Wizard', () => {
+    login(LARA);
+
+    expect(resolve(runPendingGuard())).toBe(true);
+  });
+
+  it('ueberlaesst die Entscheidung ueber anonyme Nutzer dem authGuard', () => {
+    // Wie beim onboardingGuard: im Anonymfall keine eigene Meinung, sonst konkurrierte ein
+    // UrlTree auf /budget mit dem /login des authGuard.
+    const result = runPendingGuard();
+    let resolved: boolean | UrlTree | undefined;
+    result.subscribe((value) => (resolved = value));
+
+    httpMock.expectOne('/api/users/me').flush(null, { status: 401, statusText: 'Unauthorized' });
+
+    expect(resolved).toBe(true);
+  });
+
+  it('teilt sich den Profil-Request mit dem parallel laufenden authGuard', () => {
+    // Beide haengen am selben canActivate-Array von /onboarding und laufen nebenlaeufig.
+    const fromAuth = TestBed.runInInjectionContext(() =>
+      authGuard({} as ActivatedRouteSnapshot, {} as RouterStateSnapshot),
+    ) as Observable<boolean | UrlTree>;
+    let authResolved: boolean | UrlTree | undefined;
+    let pendingResolved: boolean | UrlTree | undefined;
+    fromAuth.subscribe((value) => (authResolved = value));
+    runPendingGuard().subscribe((value) => (pendingResolved = value));
+
+    httpMock.expectOne('/api/users/me').flush(LARA_ONBOARDED);
+
+    expect(authResolved).toBe(true);
+    expect((pendingResolved as UrlTree).toString()).toBe('/budget');
+  });
+});
+
 describe('onboardingGuard am echten Router', () => {
   // Die Tests oben pruefen den Rueckgabewert des Guards. Hier navigiert der echte Router
   // durch `app.routes`: das belegt AC1 als Verhalten statt als Zusicherung ueber einen
@@ -223,6 +293,26 @@ describe('onboardingGuard am echten Router', () => {
 
     expect(router.url).toBe('/onboarding');
   });
+
+  // --- FE-FC-12: der Wizard ist nach dem Onboarding gesperrt ---
+
+  it('leitet einen onboardeten User von /onboarding auf /budget um', async () => {
+    // Der Direkt-Link, den #375 schliesst: Fixkosten bearbeitet ein onboardeter User unter
+    // /budget, nicht mehr im Wizard.
+    const navigation = router.navigateByUrl('/onboarding');
+    await answerProfile(LARA_ONBOARDED);
+    await navigation;
+
+    expect(router.url).toBe('/budget');
+  });
+
+  it('schickt einen anonymen Aufruf von /onboarding auf /login', async () => {
+    const navigation = router.navigateByUrl('/onboarding');
+    await answerProfile(null);
+    await navigation;
+
+    expect(router.url).toBe('/login');
+  });
 });
 
 describe('Guard-Zuordnung in app.routes', () => {
@@ -241,8 +331,9 @@ describe('Guard-Zuordnung in app.routes', () => {
     },
   );
 
-  it('haengt den onboardingGuard nicht an /onboarding selbst', () => {
-    // Sonst leitete das Ziel der Umleitung wieder auf sich selbst um.
-    expect(guardsOf('onboarding')).toEqual([authGuard]);
+  it('haengt an /onboarding den onboardingPendingGuard statt des onboardingGuard', () => {
+    // Der onboardingGuard leitete das Ziel seiner eigenen Umleitung wieder auf sich selbst um;
+    // der onboardingPendingGuard sperrt den Wizard dagegen fuer bereits onboardete User (FE-FC-12).
+    expect(guardsOf('onboarding')).toEqual([authGuard, onboardingPendingGuard]);
   });
 });

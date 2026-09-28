@@ -1,4 +1,12 @@
+import type { Page } from '@playwright/test';
+
 import { expect, test } from '../fixtures/auth.fixture';
+
+/** Schliesst das Onboarding per API ab, damit `/budget` erreichbar wird (siehe Kopfkommentar). */
+async function completeOnboarding(page: Page): Promise<void> {
+  const response = await page.request.post('/api/users/me/onboarding-complete');
+  expect(response.status(), 'POST /api/users/me/onboarding-complete').toBe(200);
+}
 
 /**
  * E2E-Abdeckung der Must-Have-Story US-03 «Fixkosten erfassen» (E2E-FC-01).
@@ -6,11 +14,17 @@ import { expect, test } from '../fixtures/auth.fixture';
  * Ein Happy Path und ein Fehlerpfad — die in CLAUDE.md («Testing: Frameworks») vorgeschriebene
  * Menge, und zwar pro Story, nicht pro Issue.
  *
- * Einstieg über `authenticatedPage`. Die Fixture schliesst das Onboarding per API ab, der Wizard
- * wird deshalb per Direktnavigation erreicht statt über den erzwungenen Redirect des
- * `onboardingGuard`. Möglich ist das, weil `/onboarding` bewusst ohne diesen Guard registriert ist
- * (`app.routes.ts`: «das Ziel der Umleitung darf sich nicht selbst umleiten»). Der Redirect selbst
- * ist kein Verlust — er ist in `auth.spec.ts` für Registrierung und Login schon doppelt belegt.
+ * Einstieg über `freshUserPage`, nicht über `authenticatedPage`: seit FE-FC-12 (#375) sperrt der
+ * `onboardingPendingGuard` den Wizard für onboardete User und leitet sie auf `/budget` um. Der
+ * Wizard ist damit nur noch mit offenem Onboarding erreichbar — genau der Zustand, den
+ * `freshUserPage` liefert. Die Direktnavigation auf `/onboarding` ersetzt den erzwungenen
+ * Redirect des `onboardingGuard`; der ist in `auth.spec.ts` für Registrierung und Login schon
+ * doppelt belegt.
+ *
+ * Für die Gegenprobe in der Liste unter `/budget` schliesst {@link completeOnboarding} das
+ * Onboarding per API ab — mit offenem Onboarding würde der `onboardingGuard` die Navigation
+ * dorthin zurück in den Wizard werfen. Der Abschluss über den Wizard-Button selbst ist Sache von
+ * `onboarding-completion.spec.ts` (E2E-FC-02).
  */
 test.describe('Fixkosten-Wizard', () => {
   /**
@@ -42,7 +56,7 @@ test.describe('Fixkosten-Wizard', () => {
   const MONATSBETRAG = /^CHF\s400\.00$/;
 
   test('Happy Path: erfasste Position erscheint mit korrektem Betrag in der Liste', async ({
-    authenticatedPage: page,
+    freshUserPage: page,
   }) => {
     await page.goto('/onboarding');
     await expect(page.getByRole('heading', { name: 'Budget', exact: true })).toBeVisible();
@@ -67,6 +81,7 @@ test.describe('Fixkosten-Wizard', () => {
     // Gegenprobe zur Erfolgsmeldung: die trägt nur die Bezeichnung aus der HTTP-Response. Dass die
     // Position wirklich persistiert ist und über einen zweiten Endpoint wieder herauskommt, zeigt
     // erst die Liste.
+    await completeOnboarding(page);
     await page.goto('/budget');
 
     const row = page.getByRole('row').filter({ hasText: POSITION.bezeichnung });
@@ -81,7 +96,7 @@ test.describe('Fixkosten-Wizard', () => {
   });
 
   test('Fehlerpfad: ungültige Eingaben melden den Fehler, ohne zu speichern', async ({
-    authenticatedPage: page,
+    freshUserPage: page,
   }) => {
     await page.goto('/onboarding');
 
@@ -114,14 +129,14 @@ test.describe('Fixkosten-Wizard', () => {
     ]);
     await expect(submitButton).toBeDisabled();
 
-    // Kein Erfolgszustand daneben, und kein Wizard-Abschluss: die URL bleibt der Wizard. Das Flag
-    // `onboardingCompleted` steht durch die Fixture schon auf true, taugt hier also nicht als
-    // Beleg — die für den Nutzer sichtbare Bedeutung ist, dass ihn nichts aufs Dashboard trägt.
+    // Kein Erfolgszustand daneben, und kein Wizard-Abschluss: die URL bleibt der Wizard — die für
+    // den Nutzer sichtbare Bedeutung ist, dass ihn nichts aufs Dashboard trägt.
     await expect(page.locator('app-notice.notice--info')).toHaveCount(0);
     await expect(page).toHaveURL(/\/onboarding$/);
 
     // Und der eigentliche Beleg für «kein Speichern»: die Liste ist leer. Dass im Formular keine
     // Erfolgsmeldung steht, zeigt das nicht — ein Request könnte trotzdem rausgegangen sein.
+    await completeOnboarding(page);
     await page.goto('/budget');
     await expect(page.getByText('Noch keine Fixkosten erfasst.')).toBeVisible();
   });

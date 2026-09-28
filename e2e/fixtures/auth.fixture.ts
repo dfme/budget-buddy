@@ -126,8 +126,10 @@ export const test = base.extend<{
    *
    * Wer diese Fixture nimmt, bekommt deshalb genau das, was `authenticatedContext` bewusst
    * verhindert: Der `onboardingGuard` wirft jede Navigation auf `/dashboard`, `/categories`,
-   * `/import`, `/budget` und `/einstellungen` in den Wizard zurück. Für alles andere als den
-   * Onboarding-Abschluss ist `authenticatedPage` der richtige Einstieg.
+   * `/import`, `/budget` und `/einstellungen` in den Wizard zurück. Umgekehrt ist der Wizard selbst
+   * seit FE-FC-12 nur noch hierüber erreichbar — der `onboardingPendingGuard` leitet onboardete User
+   * von `/onboarding` auf `/budget` um. Für alles andere ist `authenticatedPage` der richtige
+   * Einstieg.
    *
    * **Nicht mit `authenticatedContext` im selben Test kombinieren.** Beide sitzen auf derselben
    * eingebauten `context`-Fixture (Begründung dort), teilen sich also einen Cookie-Jar — die
