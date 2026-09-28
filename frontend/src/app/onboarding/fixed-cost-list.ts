@@ -11,7 +11,6 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 
 import { IncomeCard } from '../income/income-card';
 import { RecurringExpenseList } from '../recurring/recurring-expense-list';
@@ -27,8 +26,15 @@ import {
   INTERVALL_OPTIONS,
   Intervall,
 } from './fixed-cost.model';
+import { FixedCostCreateDialog } from './fixed-cost-create-dialog';
 import { FixedCostService } from './fixed-cost.service';
-import { MIN_BETRAG_CHF, maxTwoDecimals, nonBlank } from './fixed-cost.validators';
+import {
+  MIN_BETRAG_CHF,
+  betragErrorMessage,
+  bezeichnungErrorMessage,
+  maxTwoDecimals,
+  nonBlank,
+} from './fixed-cost.validators';
 
 /**
  * Die Seite «Budget» (`/budget`, FE-FC-09): ganz oben der eingebettete {@link IncomeCard} (bis
@@ -47,7 +53,7 @@ import { MIN_BETRAG_CHF, maxTwoDecimals, nonBlank } from './fixed-cost.validator
  * <p>Lädt `GET /api/fixed-costs` beim Start in ein einziges {@link summary}-Signal — Positionen,
  * Monatssumme, Einkommen und `exceedsIncome` kommen serverseitig bereits berechnet zusammen
  * (`FixedCostSummaryResponse`), damit stimmen Tabelle und Warnung immer überein. Jede
- * schreibende Aktion (Bearbeiten, Löschen) lädt danach neu, statt den State lokal
+ * schreibende Aktion (Anlegen, Bearbeiten, Löschen) lädt danach neu, statt den State lokal
  * fortzuschreiben: `summeMonatlich` und `exceedsIncome` hängen von allen Positionen ab, ein
  * lokales Update müsste dieselbe Rechnung duplizieren, die das Backend schon macht.
  *
@@ -55,16 +61,20 @@ import { MIN_BETRAG_CHF, maxTwoDecimals, nonBlank } from './fixed-cost.validator
  * Validatoren wie im Onboarding-Wizard ({@link nonBlank}, {@link maxTwoDecimals}), aus
  * `fixed-cost.validators.ts` geteilt statt dupliziert. Löschen fragt über {@link Modal} nach,
  * bevor `DELETE /api/fixed-costs/{id}` läuft.
+ *
+ * <p>Anlegen läuft seit FE-FC-10 über den {@link FixedCostCreateDialog} auf dieser Seite — «+ Neue
+ * Position» und «Jetzt erfassen» führten bis dahin per `routerLink` in den Onboarding-Wizard, und
+ * die Nutzerin musste von dort zurücknavigieren. Der Wizard bleibt fürs Erst-Onboarding.
  */
 @Component({
   selector: 'app-fixed-cost-list',
   imports: [
     CurrencyPipe,
     ReactiveFormsModule,
-    RouterLink,
     Button,
     Card,
     Field,
+    FixedCostCreateDialog,
     IncomeCard,
     Input,
     Modal,
@@ -101,6 +111,9 @@ export class FixedCostList implements OnInit {
 
   /** Fehlermeldung des Bearbeiten-Formulars oder `null`. */
   readonly editError = signal<string | null>(null);
+
+  /** `true`, solange der Dialog «Neue Position» offen ist (FE-FC-10). */
+  readonly createOpen = signal(false);
 
   /** Position, für die die Löschen-Bestätigung offen steht — `null`, wenn keine. */
   readonly pendingDelete = signal<FixedCostDetail | null>(null);
@@ -147,29 +160,12 @@ export class FixedCostList implements OnInit {
 
   /** Fehlermeldung fürs Bezeichnungs-Feld der Bearbeiten-Form oder `null`. */
   bezeichnungError(): string | null {
-    const control = this.editForm.controls.bezeichnung;
-    if (!control.touched || control.valid) {
-      return null;
-    }
-    return control.hasError('required') ? 'Bezeichnung ist erforderlich.' : null;
+    return bezeichnungErrorMessage(this.editForm.controls.bezeichnung);
   }
 
   /** Fehlermeldung fürs Betrags-Feld der Bearbeiten-Form oder `null`. */
   betragError(): string | null {
-    const control = this.editForm.controls.betrag;
-    if (!control.touched || control.valid) {
-      return null;
-    }
-    if (control.hasError('required')) {
-      return 'Betrag ist erforderlich.';
-    }
-    if (control.hasError('min')) {
-      return 'Betrag muss grösser als 0 sein.';
-    }
-    if (control.hasError('maxDecimals')) {
-      return 'Betrag darf höchstens zwei Nachkommastellen haben.';
-    }
-    return null;
+    return betragErrorMessage(this.editForm.controls.betrag);
   }
 
   /** Öffnet die Bearbeiten-Form für `item`, vorausgefüllt mit den aktuellen Werten. */
@@ -217,6 +213,17 @@ export class FixedCostList implements OnInit {
           );
         },
       });
+  }
+
+  /** Öffnet den Dialog «Neue Position» — aus dem Abschnittskopf und aus dem Leerzustand. */
+  openCreate(): void {
+    this.createOpen.set(true);
+  }
+
+  /** Schliesst den Dialog nach dem Anlegen und lädt die Liste neu — wie nach Bearbeiten. */
+  onCreated(): void {
+    this.createOpen.set(false);
+    this.load();
   }
 
   /** Öffnet die Löschen-Bestätigung für `item`. */

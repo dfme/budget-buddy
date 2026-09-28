@@ -184,3 +184,14 @@ tr.editing form {
 .status.empty {
   color: $c-ink-2;
 }
+
+// «Jetzt erfassen» im Leerzustand (FE-FC-10): ein Button, der wie ein Inline-Link aussieht —
+// er öffnet den Dialog, statt zu navigieren. Schrift, Farbe und Cursor erbt jeder Button schon
+// aus `styles.scss`; hier fällt nur weg, was ihn als Button zeichnet, und kommt die Unterstreichung
+// dazu, die ein `<a>` von Haus aus hat.
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  text-decoration: underline;
+}

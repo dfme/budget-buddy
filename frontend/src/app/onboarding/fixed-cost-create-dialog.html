@@ -1,0 +1,52 @@
+<!--
+  FE-FC-10: `initialFocus="content"` setzt den Fokus beim Öffnen ins Feld «Bezeichnung» statt auf
+  «Abbrechen»; `confirmForm` macht «Speichern» zum Submit-Button dieses Formulars, damit Enter in
+  einem Feld speichert wie der Klick (siehe modal.ts).
+-->
+<app-modal
+  title="Neue Position"
+  [confirmLabel]="submitting() ? 'Wird gespeichert…' : 'Speichern'"
+  cancelLabel="Abbrechen"
+  initialFocus="content"
+  [confirmForm]="formId"
+  [confirmDisabled]="submitting()"
+  (cancel)="cancel()"
+>
+  <form [id]="formId" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    <app-field label="Bezeichnung" inputId="create-bezeichnung" [error]="bezeichnungError()">
+      <input
+        appInput
+        id="create-bezeichnung"
+        type="text"
+        formControlName="bezeichnung"
+        autocomplete="off"
+        required
+      />
+    </app-field>
+
+    <app-field label="Betrag (CHF)" inputId="create-betrag" [error]="betragError()">
+      <input
+        appInput
+        id="create-betrag"
+        type="number"
+        formControlName="betrag"
+        inputmode="decimal"
+        min="0.01"
+        step="0.01"
+        required
+      />
+    </app-field>
+
+    <app-field label="Intervall" inputId="create-intervall">
+      <select appInput id="create-intervall" formControlName="intervall" required>
+        @for (option of intervallOptions; track option.value) {
+          <option [value]="option.value">{{ option.label }}</option>
+        }
+      </select>
+    </app-field>
+
+    @if (errorMessage(); as message) {
+      <app-notice variant="error">{{ message }}</app-notice>
+    }
+  </form>
+</app-modal>

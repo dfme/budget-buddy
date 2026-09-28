@@ -20,11 +20,12 @@
   <!--
     Zwischenüberschrift «Erfasste Fixkosten» (FE-FC-07) als Gegenstück zu «Erkannte Abos» —
     erfasst von der Nutzerin, erkannt vom System. «+ Neue Position» steht hier und nicht mehr
-    beim h1: der Button legt eine Fixkosten-Position an, kein Abo.
+    beim h1: der Button legt eine Fixkosten-Position an, kein Abo. Seit FE-FC-10 öffnet er einen
+    Dialog auf dieser Seite, statt in den Onboarding-Wizard zu navigieren.
   -->
   <div class="section-header">
     <h3 id="fixed-costs-heading">Erfasste Fixkosten</h3>
-    <a appButton variant="ghost" routerLink="/onboarding">+ Neue Position</a>
+    <button appButton variant="ghost" type="button" (click)="openCreate()">+ Neue Position</button>
   </div>
 
   @if (loading()) {
@@ -46,8 +47,11 @@
 
     <app-card>
       @if (data.fixedCosts.length === 0) {
+        <!-- Ein Button im Link-Look (FE-FC-10): ein `<a>` ohne `href` wäre für Tastatur und
+             Screenreader kein Bedienelement. -->
         <p class="status empty">
-          Noch keine Fixkosten erfasst. <a routerLink="/onboarding">Jetzt erfassen</a>.
+          Noch keine Fixkosten erfasst.
+          <button class="link-button" type="button" (click)="openCreate()">Jetzt erfassen</button>.
         </p>
       } @else {
         <div class="table-scroll" role="region" aria-labelledby="fixed-costs-heading" tabindex="0">
@@ -225,6 +229,10 @@
     Fehler in der Abo-Liste lässt die Fixkosten-Tabelle stehen und umgekehrt.
   -->
   <app-recurring-expense-list />
+
+  @if (createOpen()) {
+    <app-fixed-cost-create-dialog (saved)="onCreated()" (cancelled)="createOpen.set(false)" />
+  }
 
   @if (pendingDelete(); as item) {
     <app-modal
