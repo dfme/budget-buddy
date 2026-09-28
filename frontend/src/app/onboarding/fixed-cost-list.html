@@ -25,7 +25,9 @@
   -->
   <div class="section-header">
     <h3 id="fixed-costs-heading">Erfasste Fixkosten</h3>
-    <button appButton variant="ghost" type="button" (click)="openCreate()">+ Neue Position</button>
+    <button #newPosition appButton variant="ghost" type="button" (click)="openCreate()">
+      + Neue Position
+    </button>
   </div>
 
   @if (loading()) {

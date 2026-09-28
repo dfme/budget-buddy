@@ -4,10 +4,14 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
+  Injector,
   LOCALE_ID,
   OnInit,
+  afterNextRender,
   inject,
   signal,
+  viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -90,6 +94,16 @@ export class FixedCostList implements OnInit {
   private readonly fixedCosts = inject(FixedCostService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly locale = inject(LOCALE_ID);
+  private readonly injector = inject(Injector);
+
+  /**
+   * «+ Neue Position» — Ziel des Fokus nach dem Anlegen (siehe {@link onCreated}). `read`, weil
+   * `appButton` eine Komponente ist: ohne liefert die Template-Referenz deren Instanz statt des
+   * Elements.
+   */
+  private readonly newPositionButton = viewChild.required('newPosition', {
+    read: ElementRef<HTMLButtonElement>,
+  });
 
   /** Auswahl des Intervall-Dropdowns in der Bearbeiten-Form. */
   readonly intervallOptions = INTERVALL_OPTIONS;
@@ -220,10 +234,23 @@ export class FixedCostList implements OnInit {
     this.createOpen.set(true);
   }
 
-  /** Schliesst den Dialog nach dem Anlegen und lädt die Liste neu — wie nach Bearbeiten. */
+  /**
+   * Schliesst den Dialog nach dem Anlegen und lädt die Liste neu — wie nach Bearbeiten.
+   *
+   * <p>Danach steht der Fokus ausdrücklich auf «+ Neue Position». Die Fokus-Falle des Modals gibt
+   * ihn beim Schliessen zwar selbst an den Auslöser zurück, aber «Jetzt erfassen» gibt es dann
+   * nicht mehr: `load()` räumt den Leerzustand im selben Rendern ab, in dem der Dialog
+   * verschwindet, und der Fokus fiele auf `body` — Tastatur- und Screenreader-Nutzer stünden am
+   * Anfang der Seite. «+ Neue Position» steht dagegen ausserhalb von Lade- und Leerzustand und
+   * überdauert das Neuladen. `afterNextRender`, weil die Falle erst beim Entfernen des Dialogs
+   * zurückgibt; ein früherer Fokus würde von ihr überschrieben.
+   */
   onCreated(): void {
     this.createOpen.set(false);
     this.load();
+    afterNextRender(() => this.newPositionButton().nativeElement.focus(), {
+      injector: this.injector,
+    });
   }
 
   /** Öffnet die Löschen-Bestätigung für `item`. */

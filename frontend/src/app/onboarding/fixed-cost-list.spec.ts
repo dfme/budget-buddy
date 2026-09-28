@@ -503,27 +503,55 @@ describe('FixedCostList', () => {
 
     afterEach(() => fixture.nativeElement.remove());
 
-    it('öffnet über «+ Neue Position» den Dialog auf der Seite, ohne zu navigieren', () => {
-      const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl');
+    it('öffnet über «+ Neue Position» den Dialog innerhalb der Seite', () => {
+      // Dass nicht navigiert wird, belegt das fehlende `href` (Test «stellt «+ Neue Position» …»
+      // oben) — ein Button ohne `routerLink` kann gar nicht navigieren. Hier zählt, dass der
+      // Dialog in dieser Komponente entsteht und die Seite darunter stehen bleibt.
       flushInitialLoad(summaryOf([MIETE], 3000, false));
       expect(dialog()).toBeNull();
 
       newPositionButton().click();
       fixture.detectChanges();
 
-      expect(dialog()).not.toBeNull();
-      expect(navigate).not.toHaveBeenCalled();
+      expect(root().querySelector('.fixed-cost-list app-fixed-cost-create-dialog')).not.toBeNull();
+      expect(rowFor('Miete')).toBeTruthy();
     });
 
-    it('öffnet über «Jetzt erfassen» im Leerzustand denselben Dialog', () => {
+    it('öffnet über «Jetzt erfassen» im Leerzustand denselben Dialog — ein Button, kein Link', () => {
       flushInitialLoad(summaryOf([], 3000, false));
 
-      const link = root().querySelector<HTMLButtonElement>('.status.empty button')!;
+      const link = root().querySelector<HTMLElement>('.status.empty .link-button')!;
+      expect(link.tagName).toBe('BUTTON');
+      expect(link.hasAttribute('href')).toBe(false);
       expect(link.textContent?.trim()).toBe('Jetzt erfassen');
       link.click();
       fixture.detectChanges();
 
       expect(dialog()).not.toBeNull();
+    });
+
+    it('setzt nach dem Speichern aus dem Leerzustand den Fokus auf «+ Neue Position»', async () => {
+      // «Jetzt erfassen» verschwindet mit der ersten Position — ohne gezielten Fokus fiele er
+      // auf `body` (Review-Befund #373).
+      flushInitialLoad(summaryOf([], 3000, false));
+      const link = root().querySelector<HTMLButtonElement>('.status.empty .link-button')!;
+      link.focus();
+      link.click();
+      fixture.detectChanges();
+
+      fillAndSave('Krankenkasse', '1200', 'quartalsweise');
+      httpMock.expectOne({ method: 'POST', url: '/api/fixed-costs' }).flush({});
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(newPositionButton());
+
+      httpMock
+        .expectOne({ method: 'GET', url: '/api/fixed-costs' })
+        .flush(summaryOf([KRANKENKASSE], 3000, false));
+      await fixture.whenStable();
+
+      // Überdauert das Neuladen: der Button steht ausserhalb von Lade- und Leerzustand.
+      expect(document.activeElement).toBe(newPositionButton());
     });
 
     it('schliesst nach dem Speichern und zeigt die neue Zeile samt Total aus dem Neuladen', () => {
