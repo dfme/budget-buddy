@@ -85,6 +85,21 @@ Begründung und verworfene Alternativen: [ADR-7](adr/ADR-7-jwt-authentication.md
 - **Volume-Mount ist `/var/lib/postgresql`**, nicht `.../data`: das Postgres-18-Image legt die
   Daten in einem versionsbenannten Unterverzeichnis ab.
 
+## Observability: BetterStack
+
+- **Prod-Logs laufen zusätzlich in BetterStack.** Render-eigene BetterStack-Integration, im
+  Render-Dashboard aktiviert — **nicht** im Code oder in `render.yaml` konfigurierbar, kein
+  Logtail-Agent im Repo. Wer nach „BetterStack" grept und nichts findet, hat trotzdem richtig
+  gesucht: Es gibt hier nichts zu finden, weil die Anbindung ausserhalb des Repos lebt.
+- Source **„Render Prod"**, ID `2691798`, Region `eu-central-1a`.
+  [Dashboard-Link](https://telemetry.betterstack.com/team/t585650/sources/2691798/data-ingestion)
+  (Zugang separat vom Repo-Zugriff, beim Team-Owner anfragen).
+- **Retention:** 3 Tage Hot-Storage, ältere Daten zusätzlich per S3-Historie — überlebt Renders
+  eigene, knapp bemessene Log-Ansicht.
+- Für AI-gestützte Log-Analyse (z. B. mit Claude Code) lässt sich die Source über den
+  `betterstack`-MCP-Server (`https://mcp.betterstack.com`, OAuth) abfragen — persönliche
+  Einrichtung je Account (`claude mcp add`/`/mcp`), nicht Teil der Repo-Konfiguration.
+
 ## What NOT to Use
 
 | Technology                 | Why Not                                                                         |
