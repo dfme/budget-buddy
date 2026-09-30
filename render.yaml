@@ -17,7 +17,7 @@ services:
     #
     # Ein Persistent Disk wäre auf Starter buchbar, wird aber nicht genutzt — die Daten
     # liegen ausserhalb von Render in PostgreSQL bei Neon (Frankfurt/EU, ADR-12).
-    plan: starter
+    plan: free
     dockerfilePath: ./Dockerfile
     # Health-Check über die Actuator-Liveness-Probe (in application.properties aktiviert, in
     # SecurityConfig.PUBLIC_PATHS freigegeben). Bewusst nicht /actuator/health: dort hängt der
